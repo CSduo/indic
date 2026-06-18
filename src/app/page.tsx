@@ -1,10 +1,11 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { ArrowRight, BookOpen, FileText, ScrollText, Archive, Search } from "lucide-react";
+import { ArrowRight, BookOpen } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { Emblem } from "@/components/brand/Emblem";
 import { NewsletterBlock } from "@/components/shared/NewsletterBlock";
 import { DomainGrid } from "@/components/shared/DomainGrid";
+import Image from "next/image";
 
 async function getHomeData() {
   try {
@@ -25,10 +26,9 @@ async function getHomeData() {
         orderBy: { sortOrder: "asc" },
       }),
     ]);
-
     return { featuredArticle, latestPapers, categories };
   } catch (error) {
-    console.error("Failed to fetch homepage data from database:", error);
+    console.error("Failed to fetch homepage data:", error);
     return { featuredArticle: null, latestPapers: [], categories: [] };
   }
 }
@@ -37,9 +37,9 @@ export default async function HomePage() {
   const { featuredArticle, latestPapers, categories } = await getHomeData();
 
   return (
-    <div className="min-h-[100dvh]" style={{ background: "var(--bg)" }}>
+    <div className="min-h-[100dvh] pb-24 md:pb-0" style={{ background: "var(--bg)" }}>
       {/* Hero Section */}
-      <section className="container-anv pt-4 pb-6">
+      <section className="container-anv pt-3 pb-5">
         {featuredArticle ? (
           <FeaturedHero article={featuredArticle} />
         ) : (
@@ -48,74 +48,59 @@ export default async function HomePage() {
       </section>
 
       {/* Browse by Domain */}
-      <section className="container-anv py-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-ui text-xs font-semibold tracking-[0.15em] uppercase" style={{ color: "var(--gold)" }}>
+      <section className="container-anv py-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-ui text-[11px] font-semibold tracking-[0.18em] uppercase" style={{ color: "var(--gold)" }}>
             Browse by Domain
           </h2>
-          <Link href="/search" className="font-ui text-xs font-medium flex items-center gap-1 transition-colors hover:opacity-80" style={{ color: "var(--gold)" }}>
-            View all <ArrowRight size={14} />
+          <Link href="/search" className="font-ui text-[11px] font-medium flex items-center gap-1 transition-colors hover:opacity-70" style={{ color: "var(--gold)" }}>
+            View all <ArrowRight size={12} />
           </Link>
         </div>
         <DomainGrid categories={categories} />
       </section>
 
       {/* Papers Archive Preview */}
-      <section className="container-anv py-6">
-        <div className="card-anv p-6 md:p-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <section className="container-anv py-4">
+        <div
+          className="rounded-[20px] overflow-hidden flex"
+          style={{ background: "var(--surface)", border: "1px solid var(--border)", minHeight: "140px" }}
+        >
+          {/* Left image */}
+          <div
+            className="hidden md:block w-40 shrink-0 bg-cover bg-center"
+            style={{ backgroundImage: "url('/admin_sidebar_bg.jpg')" }}
+          />
+          {/* Content */}
+          <div className="flex flex-1 items-center justify-between gap-4 p-5 md:p-6">
             <div>
-              <span className="font-ui text-xs font-semibold tracking-[0.15em] uppercase" style={{ color: "var(--gold)" }}>
+              <span className="font-ui text-[10px] font-semibold tracking-[0.18em] uppercase" style={{ color: "var(--gold)" }}>
                 Papers Archive
               </span>
-              <h3 className="font-display text-2xl md:text-3xl mt-2" style={{ color: "var(--ink)" }}>
-                {latestPapers.length > 0 ? "Explore peer-reviewed research" : "Explore peer-reviewed research"}
+              <h3 className="font-display text-xl md:text-2xl mt-1" style={{ color: "var(--ink)" }}>
+                Explore peer-reviewed research
               </h3>
-              <p className="font-body mt-2" style={{ color: "var(--muted)" }}>
+              <p className="font-body text-sm mt-1" style={{ color: "var(--muted)" }}>
                 {latestPapers.length > 0
                   ? "Curated papers across disciplines and time."
-                  : "No published papers yet. New research will be added to the archive soon."}
+                  : "New research will be added to the archive soon."}
               </p>
+              <Link href="/papers" className="inline-flex items-center gap-1.5 font-ui text-sm font-medium mt-3 transition-colors hover:opacity-70" style={{ color: "var(--gold)" }}>
+                Explore Archive <ArrowRight size={14} />
+              </Link>
             </div>
-            <Link href="/papers" className="btn-primary whitespace-nowrap">
-              Explore Archive <ArrowRight size={16} />
-            </Link>
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
+              style={{ background: "var(--surface-soft)", border: "1px solid var(--border)" }}
+            >
+              <BookOpen size={22} style={{ color: "var(--gold)" }} />
+            </div>
           </div>
-
-          {latestPapers.length > 0 && (
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
-              {latestPapers.map((paper: any) => (
-                <Link
-                  key={paper.id}
-                  href={`/papers/${paper.slug}`}
-                  className="group p-4 rounded-xl transition-all duration-300 hover:translate-y-[-2px]"
-                  style={{ background: "var(--surface-soft)", border: "1px solid var(--border)" }}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    {paper.peerReviewed && (
-                      <span className="status-badge status-published text-[10px]">Peer-Reviewed</span>
-                    )}
-                    <span className="font-ui text-[10px] uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-                      {paper.category?.name}
-                    </span>
-                  </div>
-                  <h4 className="font-display text-lg leading-tight group-hover:text-[var(--gold)] transition-colors" style={{ color: "var(--ink)" }}>
-                    {paper.title}
-                  </h4>
-                  {paper.year && (
-                    <span className="font-ui text-xs mt-2 block" style={{ color: "var(--muted)" }}>
-                      {paper.year}
-                    </span>
-                  )}
-                </Link>
-              ))}
-            </div>
-          )}
         </div>
       </section>
 
       {/* Newsletter */}
-      <section className="container-anv py-6 pb-24">
+      <section className="container-anv py-4 pb-8">
         <NewsletterBlock />
       </section>
     </div>
@@ -125,53 +110,36 @@ export default async function HomePage() {
 function FeaturedHero({ article }: { article: any }) {
   return (
     <div className="card-anv overflow-hidden">
-      <div className="relative min-h-[420px] md:min-h-[520px] flex flex-col justify-end p-6 md:p-10">
-        {/* Background image or gradient */}
+      <div className="relative min-h-[340px] md:min-h-[460px] flex flex-col justify-end p-6 md:p-10">
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
             backgroundImage: article.heroImageUrl
               ? `url(${article.heroImageUrl})`
-              : "none",
-            backgroundColor: article.heroImageUrl ? undefined : "var(--surface-soft)",
+              : "url('/homepage_hero.jpg')",
           }}
         />
         <div
           className="absolute inset-0"
           style={{
-            background: article.heroImageUrl
-              ? "linear-gradient(to top, rgba(7, 17, 21, 0.92) 0%, rgba(7, 17, 21, 0.4) 50%, rgba(7, 17, 21, 0.1) 100%)"
-              : "linear-gradient(to top, var(--surface) 0%, transparent 100%)",
+            background: "linear-gradient(to right, rgba(7,17,21,0.88) 0%, rgba(7,17,21,0.3) 60%, transparent 100%)",
           }}
         />
-
-        <div className="relative z-10">
-          <span
-            className="font-ui text-xs font-semibold tracking-[0.2em] uppercase mb-3 block"
-            style={{ color: "var(--gold)" }}
-          >
+        <div className="relative z-10 max-w-xl">
+          <span className="font-ui text-[10px] font-semibold tracking-[0.22em] uppercase mb-2 block" style={{ color: "var(--gold)" }}>
             Featured Essay
           </span>
-          <h1
-            className="font-display text-3xl md:text-5xl lg:text-6xl leading-[0.95] max-w-3xl"
-            style={{ color: article.heroImageUrl ? "#f8ead2" : "var(--ink)" }}
-          >
+          <h1 className="font-display text-3xl md:text-4xl lg:text-5xl leading-[1.0]" style={{ color: "#f8ead2" }}>
             {article.title}
           </h1>
           {article.subtitle && (
-            <p
-              className="font-body mt-3 text-base md:text-lg max-w-xl"
-              style={{ color: article.heroImageUrl ? "rgba(248, 234, 210, 0.8)" : "var(--muted)" }}
-            >
+            <p className="font-body mt-2 text-sm md:text-base" style={{ color: "rgba(248,234,210,0.75)" }}>
               {article.subtitle}
             </p>
           )}
-          <div className="flex flex-wrap items-center gap-4 mt-6">
-            <Link href={`/articles/${article.slug}`} className="btn-primary">
-              Read Essay <ArrowRight size={16} />
-            </Link>
-            <Link href="/search" className="btn-secondary">
-              <Search size={16} /> Explore
+          <div className="flex items-center gap-3 mt-5">
+            <Link href={`/articles/${article.slug}`} className="btn-primary text-sm py-2.5 px-5">
+              Read Essay <ArrowRight size={14} />
             </Link>
           </div>
         </div>
@@ -184,34 +152,43 @@ function EmptyHero() {
   return (
     <div className="card-anv overflow-hidden">
       <div
-        className="relative min-h-[420px] md:min-h-[520px] flex flex-col items-center justify-center p-8 text-center"
-        style={{
-          background: "linear-gradient(135deg, var(--surface-soft) 0%, var(--surface) 100%)",
-        }}
+        className="relative min-h-[340px] md:min-h-[420px] flex flex-col justify-center bg-cover bg-center"
+        style={{ backgroundImage: "url('/homepage_hero.jpg')" }}
       >
-        <Emblem size={64} className="mb-4 opacity-60" />
-        <span
-          className="font-ui text-xs font-semibold tracking-[0.2em] uppercase mb-3"
-          style={{ color: "var(--gold)" }}
-        >
-          Featured Essay
-        </span>
-        <h1
-          className="font-display text-3xl md:text-5xl leading-[0.95] mb-3"
-          style={{ color: "var(--ink)" }}
-        >
-          Your latest essay appears here
-        </h1>
-        <p className="font-body text-base italic mb-6" style={{ color: "var(--muted)" }}>
-          Awaiting publication
-        </p>
-        <div className="flex flex-wrap items-center justify-center gap-4">
-          <Link href="/submit" className="btn-primary">
-            Submit Your Work <ArrowRight size={16} />
+        {/* Gradient overlay — heavier on the left so text is legible */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: "linear-gradient(to right, color-mix(in srgb, var(--bg) 82%, transparent) 0%, color-mix(in srgb, var(--bg) 40%, transparent) 55%, transparent 100%)",
+          }}
+        />
+
+        <div className="relative z-10 p-6 md:p-10 max-w-sm">
+          <span className="font-ui text-[10px] font-semibold tracking-[0.22em] uppercase mb-2 block" style={{ color: "var(--gold)" }}>
+            Featured Essay
+          </span>
+          {/* Thin gold decorative line */}
+          <div className="flex items-center gap-2 mb-3">
+            <div className="h-[1px] w-10" style={{ background: "var(--gold)" }} />
+            <Emblem size={20} className="opacity-60" />
+            <div className="h-[1px] w-10" style={{ background: "var(--gold)" }} />
+          </div>
+          <h1 className="font-display text-3xl md:text-4xl leading-[1.05]" style={{ color: "var(--ink)" }}>
+            Your latest essay<br />appears here
+          </h1>
+          <p className="font-body text-sm italic mt-2" style={{ color: "var(--muted)" }}>
+            Awaiting publication
+          </p>
+          <Link href="/submit" className="btn-primary mt-5 inline-flex text-sm py-2.5 px-5">
+            Continue Draft <ArrowRight size={14} />
           </Link>
-          <Link href="/search" className="btn-secondary">
-            Explore Archive
-          </Link>
+        </div>
+
+        {/* Carousel dots */}
+        <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5 z-10">
+          <span className="w-2 h-2 rounded-full" style={{ background: "var(--gold)" }} />
+          <span className="w-2 h-2 rounded-full" style={{ background: "var(--border)" }} />
+          <span className="w-2 h-2 rounded-full" style={{ background: "var(--border)" }} />
         </div>
       </div>
     </div>

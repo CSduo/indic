@@ -50,7 +50,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      data-theme="dark"
+      data-theme="light"
       className={`${cormorant.variable} ${inter.variable} ${literata.variable}`}
     >
       <body>

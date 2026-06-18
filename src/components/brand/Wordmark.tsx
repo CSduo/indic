@@ -5,19 +5,36 @@ interface WordmarkProps {
 
 export function Wordmark({ compact = false, className = "" }: WordmarkProps) {
   return (
-    <div className={`text-center ${className}`}>
+    <div className={`flex flex-col items-start ${className}`}>
       <span
-        className="block font-display leading-[0.9] tracking-[-0.04em]"
-        style={{ fontSize: compact ? "clamp(20px, 5vw, 28px)" : "clamp(26px, 7vw, 38px)" }}
+        className="block font-display font-semibold leading-[1.0] tracking-[-0.02em]"
+        style={{
+          color: "var(--gold)",
+          fontSize: compact ? "clamp(16px, 4vw, 22px)" : "clamp(20px, 5vw, 28px)",
+        }}
       >
-        {"\u0906}\u0928}\u094D}\u0935}\u0940}\u0915}\u094D}\u0937}\u093F}\u0915}\u0940"}
+        आन्वीक्षिकी
+      </span>
+      <span
+        className="block font-ui font-semibold tracking-[0.22em] uppercase"
+        style={{
+          color: "var(--ink)",
+          fontSize: compact ? "clamp(7px, 1.5vw, 9px)" : "clamp(8px, 2vw, 10px)",
+          marginTop: "1px",
+        }}
+      >
+        Ānvīkṣikī
       </span>
       {!compact && (
         <span
-          className="block mt-1.5 font-ui text-[10px] sm:text-[11px] tracking-[0.35em] uppercase"
-          style={{ color: "var(--gold)" }}
+          className="block font-ui tracking-[0.06em]"
+          style={{
+            color: "var(--muted)",
+            fontSize: "clamp(7px, 1.5vw, 9px)",
+            marginTop: "2px",
+          }}
         >
-          Anvikshiki
+          Journal &amp; Research Platform
         </span>
       )}
     </div>

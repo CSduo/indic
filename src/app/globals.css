@@ -16,9 +16,9 @@
 /* ===== CSS VARIABLES ===== */
 :root {
   /* Light mode (day) */
-  --bg: #fbf3e4;
-  --surface: #fff8ec;
-  --surface-soft: #f7ecd9;
+  --bg: #FAF7F2;
+  --surface: #FCFAF6;
+  --surface-soft: #F3EDE2;
   --surface-elevated: #ffffff;
   --ink: #201912;
   --muted: #766b5c;
@@ -29,38 +29,38 @@
   --sage: #6f865b;
   --border: #dfcfb8;
   --border-subtle: rgba(223, 207, 184, 0.5);
-  --shadow: 0 18px 50px rgba(74, 50, 20, 0.12);
-  --shadow-lg: 0 22px 70px rgba(74, 50, 20, 0.18);
+  --shadow: 0 18px 50px rgba(74, 50, 20, 0.08);
+  --shadow-lg: 0 22px 70px rgba(74, 50, 20, 0.12);
   --radius-card: 24px;
   --radius-pill: 999px;
   --max-reader: 760px;
   --progress: 0%;
 }
 
-/* Dark mode (night) - DEFAULT */
+/* Dark mode (night) */
 [data-theme="dark"] {
-  --bg: #071115;
-  --surface: #0d171d;
-  --surface-soft: #111f27;
-  --surface-elevated: #152226;
-  --ink: #f8ead2;
-  --muted: #c9bda7;
+  --bg: #000000;
+  --surface: #0a0a0a;
+  --surface-soft: #121212;
+  --surface-elevated: #1a1a1a;
+  --ink: #f5f5f5;
+  --muted: #a0a0a0;
   --gold: #d5aa61;
-  --gold-soft: #f0d79a;
+  --gold-soft: #e2c28a;
   --rose: #dc587c;
-  --rose-soft: #a94662;
+  --rose-soft: #e8869f;
   --sage: #8aa071;
-  --border: #273238;
-  --border-subtle: rgba(39, 50, 56, 0.5);
-  --shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 22px 70px rgba(0, 0, 0, 0.55);
+  --border: #1f1f1f;
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.8);
+  --shadow-lg: 0 22px 70px rgba(0, 0, 0, 0.95);
 }
 
 /* If user explicitly chose light */
 [data-theme="light"] {
-  --bg: #fbf3e4;
-  --surface: #fff8ec;
-  --surface-soft: #f7ecd9;
+  --bg: #FAF7F2;
+  --surface: #FCFAF6;
+  --surface-soft: #F3EDE2;
   --surface-elevated: #ffffff;
   --ink: #201912;
   --muted: #766b5c;
@@ -71,8 +71,6 @@
   --sage: #6f865b;
   --border: #dfcfb8;
   --border-subtle: rgba(223, 207, 184, 0.5);
-  --shadow: 0 18px 50px rgba(74, 50, 20, 0.12);
-  --shadow-lg: 0 22px 70px rgba(74, 50, 20, 0.18);
 }
 
 /* ===== BASE STYLES ===== */

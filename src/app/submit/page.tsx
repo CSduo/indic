@@ -105,15 +105,38 @@ export default function SubmitPage() {
         </Link>
       </div>
 
-      <div className="container-anv pt-6 pb-12 max-w-2xl">
-        <h1 className="font-display text-3xl md:text-4xl" style={{ color: "var(--ink)" }}>
-          Submit Your Work
-        </h1>
-        <p className="font-body italic mt-2" style={{ color: "var(--muted)" }}>
-          Share your research. Contribute to knowledge.
-        </p>
+      {/* Hero Section */}
+      <div className="container-anv pt-4 pb-6">
+        <div className="card-anv overflow-hidden">
+          <div
+            className="relative min-h-[200px] md:min-h-[280px] flex flex-col justify-end p-6 md:p-10 bg-cover bg-center"
+            style={{
+              backgroundImage: "url('/submit_hero.jpg')",
+            }}
+          >
+            <div
+              className="absolute inset-0"
+              style={{
+                background: "linear-gradient(to top, color-mix(in srgb, var(--bg) 85%, transparent) 0%, transparent 100%)",
+              }}
+            />
+            <div className="relative z-10">
+              <span className="font-ui text-xs font-semibold tracking-[0.2em] uppercase mb-3 block" style={{ color: "var(--gold)" }}>
+                Submission Portal
+              </span>
+              <h1 className="font-display text-3xl md:text-5xl" style={{ color: "var(--ink)" }}>
+                Submit Your Work
+              </h1>
+              <p className="font-body mt-2 italic" style={{ color: "var(--muted)" }}>
+                Share your research. Contribute to knowledge.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+      <div className="container-anv max-w-2xl">
+        <form onSubmit={handleSubmit} className="mt-6 card-anv p-6 md:p-8 space-y-6">
           {/* Submission Type */}
           <div>
             <label className="font-ui text-xs font-semibold tracking-[0.1em] uppercase mb-3 block" style={{ color: "var(--gold)" }}>
