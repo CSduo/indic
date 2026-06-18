@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="day" data-density="editorial" data-motion="on" data-reader="classic" data-accent="rose">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="description" content="Ānvīkṣikī — आन्वीक्षिकी. A mobile-first intellectual journal for essays, papers, archives, history, philosophy, psychology, sociology, science, and geopolitics." />
+<meta property="og:title" content="Ānvīkṣikī — आन्वीक्षिकी" />
+<meta property="og:description" content="A civilizational intellectual journal for essays, papers, archives, and serious inquiry." />
+<meta name="theme-color" content="#fbf3e4" />
+<title>Ānvīkṣikī — आन्वीक्षिकी</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@400;500;600;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;1,7..72,400;1,7..72,500&family=Noto+Serif+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+  color-scheme: light;
+  --bg: #fbf3e4;
+  --bg-2: #f4e6cf;
+  --surface: #fffaf1;
+  --surface-2: #f8eedc;
+  --surface-3: #f2dfc0;
+  --glass: rgba(255,250,241,.82);
+  --ink: #20170f;
+  --ink-2: #3b2a1c;
+  --muted: #766551;
+  --muted-2: #a28c72;
+  --line: rgba(164,119,43,.23);
+  --line-2: rgba(164,119,43,.42);
+  --gold: #a87c2b;
+  --gold-2: #d5b66b;
+  --rose: #a93b5a;
+  --rose-2: #d1788c;
+  --sage: #6e7650;
+  --blue: #1d5060;
+  --shadow: 0 22px 60px rgba(82,55,22,.13), 0 2px 8px rgba(82,55,22,.06);
+  --shadow-2: 0 34px 90px rgba(82,55,22,.18);
+  --radius: 28px;
+  --radius-sm: 18px;
+  --pill: 999px;
+  --font-display: "Cormorant Garamond", "Noto Serif Devanagari", Georgia, serif;
+  --font-deva: "Noto Serif Devanagari", "Cormorant Garamond", serif;
+  --font-body: "Literata", Georgia, serif;
+  --font-ui: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --reader: 760px;
+  --motion: 1;
+  --accent: var(--rose);
+}
+[data-theme="night"] {
+  color-scheme: dark;
+  --bg: #071115;
+  --bg-2: #0b171d;
+  --surface: #101d23;
+  --surface-2: #14242c;
+  --surface-3: #1a3039;
+  --glass: rgba(16,29,35,.82);
+  --ink: #f4ead8;
+  --ink-2: #dac9ad;
+  --muted: #b7a78b;
+  --muted-2: #8f8068;
+  --line: rgba(211,168,93,.20);
+  --line-2: rgba(211,168,93,.42);
+  --gold: #d5aa61;
+  --gold-2: #f1d99c;
+  --rose: #dc587c;
+  --rose-2: #a94562;
+  --sage: #a0aa77;
+  --blue: #8eb5c0;
+  --shadow: 0 24px 70px rgba(0,0,0,.46), 0 2px 12px rgba(0,0,0,.30);
+  --shadow-2: 0 38px 96px rgba(0,0,0,.62);
+}
+[data-accent="gold"] { --accent: var(--gold); }
+[data-accent="rose"] { --accent: var(--rose); }
+[data-accent="sage"] { --accent: var(--sage); }
+[data-reader="wide"] { --reader: 920px; }
+[data-reader="narrow"] { --reader: 640px; }
+[data-density="compact"] { --radius: 20px; --radius-sm: 14px; }
+[data-motion="off"] { --motion: 0; }
+* { box-sizing: border-box; }
+*::before, *::after { box-sizing: border-box; }
+html { margin:0; min-height:100%; background:var(--bg); color:var(--ink); font-family:var(--font-body); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; scroll-behavior:smooth; }
+body { margin:0; min-height:100svh; overflow-x:hidden; background: var(--bg); }
+body::before {
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:-4;
+  background:
+    radial-gradient(circle at 10% 4%, color-mix(in srgb, var(--rose) 15%, transparent) 0, transparent 30rem),
+    radial-gradient(circle at 92% 2%, color-mix(in srgb, var(--gold) 16%, transparent) 0, transparent 28rem),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg) 95%, white), var(--bg));
+}
+body::after {
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:-3; opacity:.33; mix-blend-mode:multiply;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Cg fill='none' stroke='%23a87c2b' stroke-opacity='.18' stroke-width='1'%3E%3Cpath d='M90 15c17 28 39 36 75 34-25 16-34 39-32 75-18-27-39-36-75-34 26-17 35-39 32-75Z'/%3E%3Cpath d='M45 45c15 8 25 8 40 0-8 15-8 25 0 40-15-8-25-8-40 0 8-15 8-25 0-40Z'/%3E%3C/g%3E%3C/svg%3E");
+  background-size:180px 180px;
+}
+[data-theme="night"] body::after { opacity:.12; mix-blend-mode:screen; }
+a { color:inherit; text-decoration:none; }
+button, input, textarea, select { font:inherit; }
+button { cursor:pointer; }
+img { display:block; max-width:100%; }
+::selection { background:color-mix(in srgb, var(--accent) 34%, transparent); }
+.skip-link { position:absolute; left:14px; top:-80px; padding:10px 14px; background:var(--ink); color:var(--bg); z-index:999; border-radius:12px; font-family:var(--font-ui); }
+.skip-link:focus { top:14px; }
+@keyframes float { 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(calc(-7px * var(--motion))) } }
+@keyframes glow { 0%,100%{ filter:drop-shadow(0 0 0 rgba(211,168,93,0)); opacity:.92 } 50%{ filter:drop-shadow(0 0 calc(15px * var(--motion)) rgba(211,168,93,.42)); opacity:1 } }
+@keyframes rise { from{ opacity:0; transform:translateY(calc(18px * var(--motion))) } to{ opacity:1; transform:translateY(0) } }
+@keyframes shimmer { from{ background-position:-220% center } to{ background-position:220% center } }
+@keyframes orbit { from{ transform:rotate(0deg) } to{ transform:rotate(calc(360deg * var(--motion))) } }
+@media (prefers-reduced-motion: reduce) { * { animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; scroll-behavior:auto!important; } }
+.app { min-height:100svh; }
+.view { display:none; }
+.view.active { display:block; animation:rise .42s ease both; }
+.desktop-only { display:none; }
+@media (min-width: 880px) { .mobile-only { display:none!important; } .desktop-only { display:block; } }
+.svg-icon { width:1.35em; height:1.35em; fill:none; stroke:currentColor; stroke-width:1.65; stroke-linecap:round; stroke-linejoin:round; }
+.svg-icon.fill { fill:currentColor; stroke:none; }
+.emblem { color:var(--gold); width:58px; height:58px; flex:0 0 auto; }
+.emblem .lamp { animation:glow 5.2s ease-in-out infinite; }
+.emblem.float { animation:float 13s ease-in-out infinite; }
+.emblem.sm { width:34px; height:34px; }
+.emblem.lg { width:92px; height:92px; }
+.wordmark { display:grid; justify-items:center; line-height:1; }
+.wordmark .deva { font-family:var(--font-deva); font-weight:600; letter-spacing:-.045em; font-size:clamp(28px,7vw,48px); color:var(--ink); }
+.wordmark .roman { margin-top:5px; font-family:var(--font-ui); font-weight:600; font-size:10px; letter-spacing:.42em; color:var(--gold); text-transform:uppercase; }
+.wordmark.small .deva { font-size:21px; }
+.wordmark.small .roman { font-size:8px; letter-spacing:.33em; }
+.icon-button { border:1px solid var(--line); background:var(--glass); color:var(--ink); width:44px; height:44px; border-radius:50%; display:grid; place-items:center; backdrop-filter:blur(18px); box-shadow:0 3px 14px rgba(0,0,0,.04); transition:.2s ease; }
+.icon-button:hover { color:#fff; background:var(--accent); border-color:var(--accent); transform:translateY(calc(-1px * var(--motion))); }
+.pill-button, .primary-button, .ghost-button { min-height:44px; border-radius:var(--pill); padding:0 18px; display:inline-flex; align-items:center; justify-content:center; gap:9px; border:1px solid var(--line); font-family:var(--font-ui); font-weight:700; font-size:14px; transition:.22s ease; }
+.primary-button { background:var(--accent); color:white; border-color:var(--accent); box-shadow:0 10px 28px color-mix(in srgb, var(--accent) 28%, transparent); }
+.primary-button:hover { transform:translateY(calc(-2px * var(--motion))); box-shadow:0 16px 38px color-mix(in srgb, var(--accent) 36%, transparent); }
+.ghost-button { background:transparent; color:var(--ink); }
+.ghost-button:hover, .pill-button:hover { border-color:var(--gold); color:var(--gold); background:color-mix(in srgb, var(--gold) 9%, transparent); }
+.theme-toggle { height:38px; display:flex; align-items:center; gap:3px; padding:3px; border:1px solid var(--line); border-radius:var(--pill); background:var(--surface-2); }
+.theme-toggle button { width:31px; height:30px; border-radius:50%; border:0; background:transparent; color:var(--muted); display:grid; place-items:center; }
+.theme-toggle button.active { background:var(--gold); color:white; }
+.top-shell { position:sticky; top:0; z-index:50; display:flex; align-items:center; justify-content:space-between; gap:18px; padding:12px clamp(16px,4vw,58px); border-bottom:1px solid var(--line); background:var(--glass); backdrop-filter:blur(22px); }
+.top-brand { display:flex; align-items:center; gap:10px; cursor:pointer; min-width:0; }
+.top-nav { display:flex; align-items:center; gap:9px; }
+.top-nav a, .top-nav button { border:0; background:transparent; color:var(--muted); padding:10px 12px; border-radius:12px; font-family:var(--font-ui); font-size:14px; font-weight:700; display:flex; align-items:center; gap:8px; }
+.top-nav a:hover, .top-nav button:hover { background:color-mix(in srgb, var(--gold) 9%, transparent); color:var(--gold); }
+.mobile-home { min-height:100svh; padding: max(15px, env(safe-area-inset-top)) 14px calc(92px + env(safe-area-inset-bottom)); }
+.mobile-header { display:grid; grid-template-columns:46px 1fr 94px; align-items:center; gap:10px; margin-bottom:18px; }
+.mobile-brand { display:grid; justify-items:center; gap:6px; min-width:0; }
+.hero-card { position:relative; overflow:hidden; border-radius:var(--radius); background:var(--surface); border:1px solid var(--line); box-shadow:var(--shadow-2); }
+.hero-visual { min-height:420px; position:relative; background:var(--surface-3); overflow:hidden; }
+.hero-visual::before { content:""; position:absolute; inset:0; background:var(--hero-bg); background-size:cover; background-position:center; transform:scale(1.02); transition:transform 7s ease; }
+.hero-card:hover .hero-visual::before { transform:scale(1.065); }
+.hero-visual::after { content:""; position:absolute; inset:0; background:linear-gradient(to top, rgba(20,11,5,.90), rgba(20,11,5,.42) 48%, rgba(20,11,5,.05)); }
+.hero-copy { position:absolute; inset:auto 0 0; padding:22px; color:#fff8ec; z-index:2; }
+.badge { display:inline-flex; align-items:center; gap:7px; min-height:30px; padding:0 13px; border-radius:var(--pill); border:1px solid rgba(255,250,241,.28); background:rgba(255,250,241,.14); backdrop-filter:blur(14px); font-family:var(--font-ui); font-weight:800; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#fff8ec; }
+.hero-copy .date { margin:16px 0 7px; color:rgba(255,250,241,.75); font-family:var(--font-ui); font-size:12px; font-weight:600; letter-spacing:.05em; }
+.hero-title { margin:0; font-family:var(--font-display); font-weight:600; font-size:clamp(34px,10vw,54px); line-height:.94; letter-spacing:-.045em; text-wrap:balance; }
+.hero-excerpt { margin:12px 0 0; color:rgba(255,250,241,.82); font-size:14.5px; line-height:1.56; max-width:48ch; }
+.hero-actions { display:grid; grid-template-columns:1.2fr repeat(3,1fr); background:var(--surface); border-top:1px solid var(--line); }
+.hero-actions button { border:0; background:transparent; min-height:66px; color:var(--muted); border-right:1px solid var(--line); display:grid; place-items:center; gap:4px; font-family:var(--font-ui); font-size:12px; font-weight:700; }
+.hero-actions button:last-child { border-right:0; }
+.hero-actions button:first-child { color:var(--accent); font-size:14px; grid-template-columns:auto auto; display:flex; justify-content:center; }
+.hero-actions button.saved { color:var(--rose); }
+.hero-actions button:hover { background:color-mix(in srgb, var(--gold) 9%, transparent); color:var(--gold); }
+.category-grid { margin-top:18px; display:grid; grid-template-columns:repeat(4,1fr); border:1px solid var(--line); border-radius:24px; background:linear-gradient(180deg, color-mix(in srgb, var(--surface) 92%, transparent), color-mix(in srgb, var(--surface-2) 82%, transparent)); overflow:hidden; box-shadow:var(--shadow); }
+.category-tile { min-height:93px; border-right:1px solid var(--line); border-bottom:1px solid var(--line); display:grid; place-items:center; gap:7px; padding:9px 5px; color:var(--gold); cursor:pointer; transition:.22s ease; position:relative; isolation:isolate; }
+.category-tile:nth-child(4n) { border-right:0; }
+.category-tile:nth-last-child(-n+4) { border-bottom:0; }
+.category-tile::before { content:""; position:absolute; inset:9px; border:1px solid transparent; border-radius:18px; transition:.22s ease; z-index:-1; }
+.category-tile:hover { transform:translateY(calc(-1px * var(--motion))); }
+.category-tile:hover::before { border-color:color-mix(in srgb, var(--gold) 52%, transparent); background:color-mix(in srgb, var(--gold) 8%, transparent); }
+.category-icon { width:38px; height:38px; display:grid; place-items:center; color:var(--gold); }
+.category-icon svg { width:34px; height:34px; stroke-width:1.45; }
+.category-tile.philosophy .category-icon { color:var(--rose); }
+.category-tile.philosophy:hover::before { border-color:color-mix(in srgb, var(--rose) 42%, transparent); background:color-mix(in srgb, var(--rose) 8%, transparent); }
+.category-tile span { display:block; color:var(--ink-2); font-family:var(--font-ui); font-size:11px; font-weight:800; letter-spacing:.02em; }
+.mobile-search-strip { margin-top:16px; display:flex; gap:10px; align-items:center; }
+.mobile-search-strip button:first-child { flex:1; justify-content:flex-start; color:var(--muted); background:var(--surface); }
+.bottom-nav { position:fixed; left:13px; right:13px; bottom:max(12px, env(safe-area-inset-bottom)); z-index:80; min-height:68px; display:grid; grid-template-columns:repeat(5,1fr); background:var(--glass); border:1px solid var(--line); border-radius:25px; box-shadow:var(--shadow); backdrop-filter:blur(20px); }
+.bottom-nav button { border:0; background:transparent; color:var(--muted); display:grid; place-items:center; align-content:center; gap:4px; font-family:var(--font-ui); font-size:10px; font-weight:800; border-radius:20px; }
+.bottom-nav button.active { color:var(--accent); }
+.bottom-nav .center { justify-self:center; align-self:center; width:54px; height:54px; margin-top:-18px; border-radius:50%; color:white; background:var(--accent); box-shadow:0 12px 30px color-mix(in srgb, var(--accent) 38%, transparent); }
+.desktop-home { padding:30px clamp(24px,4vw,70px) 80px; }
+.desktop-hero { display:grid; grid-template-columns:minmax(380px,.9fr) minmax(480px,1.15fr); min-height:min(670px,72vh); border:1px solid var(--line); border-radius:34px; overflow:hidden; background:var(--surface); box-shadow:var(--shadow-2); }
+.desktop-hero-copy { padding:clamp(42px,5vw,82px); display:flex; flex-direction:column; justify-content:center; }
+.eyebrow { font-family:var(--font-ui); font-size:12px; font-weight:900; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); }
+.desktop-hero h1 { margin:18px 0 18px; font-family:var(--font-display); font-weight:600; font-size:clamp(52px,5.4vw,90px); line-height:.92; letter-spacing:-.055em; text-wrap:balance; }
+.desktop-hero p { color:var(--muted); font-size:clamp(17px,1.25vw,20px); line-height:1.7; max-width:46ch; }
+.desktop-hero-visual { position:relative; min-height:100%; overflow:hidden; background:var(--surface-3); }
+.desktop-hero-visual::before { content:""; position:absolute; inset:0; background:var(--hero-bg); background-size:cover; background-position:center; transition:transform 7s ease; }
+.desktop-hero:hover .desktop-hero-visual::before { transform:scale(1.045); }
+.desktop-hero-visual::after { content:""; position:absolute; inset:0; background:linear-gradient(100deg, rgba(255,250,241,.20), transparent 55%), radial-gradient(circle at 70% 10%, rgba(168,61,93,.26), transparent 20rem); }
+.desktop-categories { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin:24px 0 34px; }
+.desktop-categories .category-tile { min-height:132px; border:1px solid var(--line); border-radius:20px; background:var(--surface); box-shadow:0 10px 28px rgba(82,55,22,.05); }
+.section-row { margin:34px 0; }
+.section-title { display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:17px; }
+.section-title h2 { margin:0; font-family:var(--font-ui); font-size:13px; font-weight:900; letter-spacing:.17em; text-transform:uppercase; color:var(--muted); }
+.section-title h2::before { content:""; display:inline-block; width:16px; height:2px; background:var(--accent); vertical-align:middle; margin-right:10px; }
+.section-title a { color:var(--gold); font-family:var(--font-ui); font-weight:800; font-size:13px; }
+.card-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr)); gap:16px; }
+.paper-card, .article-card, .result-card, .archive-card { border:1px solid var(--line); border-radius:20px; background:var(--surface); overflow:hidden; box-shadow:0 12px 32px rgba(82,55,22,.06); cursor:pointer; transition:.22s ease; }
+.paper-card:hover, .article-card:hover, .result-card:hover, .archive-card:hover { border-color:var(--gold); box-shadow:var(--shadow); transform:translateY(calc(-2px * var(--motion))); }
+.paper-card { display:flex; gap:14px; padding:15px; }
+.thumb-mini { width:58px; height:58px; border-radius:14px; flex:0 0 auto; display:grid; place-items:center; background:linear-gradient(135deg, var(--surface-2), color-mix(in srgb, var(--gold) 15%, var(--surface))); color:var(--gold); overflow:hidden; }
+.paper-card h3, .article-card h3, .result-card h3 { margin:4px 0 4px; font-family:var(--font-display); font-size:20px; line-height:1.12; font-weight:600; letter-spacing:-.02em; }
+.tag { display:inline-flex; align-items:center; min-height:22px; padding:0 9px; border-radius:var(--pill); border:1px solid var(--line); color:var(--accent); background:color-mix(in srgb, var(--accent) 8%, transparent); font-family:var(--font-ui); font-size:10px; font-weight:900; letter-spacing:.1em; text-transform:uppercase; }
+.meta { color:var(--muted-2); font-family:var(--font-ui); font-size:12px; font-weight:650; }
+.page { min-height:100svh; padding-bottom:92px; }
+.page-head { padding:clamp(38px,7vw,86px) clamp(18px,5vw,76px) 32px; border-bottom:1px solid var(--line); background:linear-gradient(180deg, var(--surface), color-mix(in srgb, var(--surface) 75%, transparent)); }
+.page-head h1 { margin:10px 0 12px; font-family:var(--font-display); font-size:clamp(48px,7vw,92px); line-height:.9; font-weight:600; letter-spacing:-.055em; }
+.page-head p { max-width:64ch; color:var(--muted); font-size:18px; line-height:1.65; }
+.page-body { padding:28px clamp(18px,5vw,76px); }
+.article-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr)); gap:20px; }
+.article-card-img { height:196px; background:var(--card-bg); background-size:cover; background-position:center; position:relative; }
+.article-card-img::after { content:""; position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,.45), transparent); }
+.article-card-body { padding:18px; }
+.article-card p, .result-card p { color:var(--muted); font-size:14px; line-height:1.55; }
+.reader-bar { position:fixed; left:0; top:0; height:3px; width:var(--readProgress,0%); z-index:200; background:linear-gradient(90deg, var(--accent), var(--gold)); }
+.article-shell { min-height:100svh; }
+.reader-layout { width:min(100% - 32px, 1160px); margin:0 auto; padding:34px 0 90px; display:grid; grid-template-columns:minmax(0,1fr); gap:28px; }
+.reader-main { max-width:var(--reader); margin:0 auto; width:100%; }
+.reader-top { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 0 24px; }
+.reader-title { font-family:var(--font-display); font-size:clamp(42px,6vw,78px); line-height:.95; font-weight:600; letter-spacing:-.055em; text-wrap:balance; margin:10px 0 16px; }
+.reader-subtitle { margin:0 0 20px; color:var(--muted); font-family:var(--font-display); font-size:clamp(20px,2.1vw,28px); line-height:1.42; font-style:italic; }
+.reader-actions { display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:13px 0; margin:20px 0; }
+.reader-actions button.saved { color:var(--rose); border-color:var(--rose); }
+.reader-hero { border-radius:24px; overflow:hidden; min-height:250px; aspect-ratio:16/9; background:var(--hero-bg); background-size:cover; background-position:center; box-shadow:var(--shadow); border:1px solid var(--line); margin:22px 0 26px; }
+.takeaways { border:1px solid var(--line-2); border-radius:22px; background:var(--surface); box-shadow:var(--shadow); padding:22px; margin:24px 0; }
+.takeaways h3 { margin:0 0 14px; font-family:var(--font-ui); color:var(--gold); font-size:12px; text-transform:uppercase; letter-spacing:.16em; }
+.takeaways ul { margin:0; padding:0; list-style:none; display:grid; gap:12px; }
+.takeaways li { display:flex; gap:10px; color:var(--ink-2); line-height:1.56; }
+.takeaways li::before { content:""; width:18px; height:18px; flex:0 0 auto; border-radius:50%; background:var(--accent); margin-top:3px; box-shadow:inset 0 0 0 5px color-mix(in srgb, var(--surface) 78%, transparent); }
+.article-content { font-size:var(--article-font, 18px); line-height:1.82; color:var(--ink); }
+.article-content p { margin:0 0 1.45em; }
+.article-content h2 { margin:2.2em 0 .78em; font-family:var(--font-display); font-size:clamp(30px,3.5vw,48px); line-height:1.03; letter-spacing:-.035em; }
+.article-content blockquote { margin:1.8em 0; border-left:3px solid var(--gold); background:var(--surface); padding:1.1em 1.35em; border-radius:0 18px 18px 0; box-shadow:0 10px 32px rgba(0,0,0,.04); color:var(--ink-2); font-family:var(--font-display); font-size:1.2em; line-height:1.5; font-style:italic; }
+.references { margin-top:34px; padding-top:22px; border-top:1px solid var(--line); }
+.references h3 { font-family:var(--font-ui); font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); }
+.references ol { margin:16px 0 0; padding-left:22px; color:var(--muted); line-height:1.6; font-size:14px; }
+@media (min-width: 1100px) { .reader-layout.with-rail { grid-template-columns:minmax(0,1fr) 300px; } .reader-rail { display:block; position:sticky; top:86px; align-self:start; } }
+.reader-rail { display:none; }
+.rail-card { border:1px solid var(--line); border-radius:20px; background:var(--surface); padding:18px; margin-bottom:16px; box-shadow:0 10px 32px rgba(0,0,0,.05); }
+.rail-card h4 { margin:0 0 12px; font-family:var(--font-ui); font-size:11px; font-weight:900; text-transform:uppercase; letter-spacing:.15em; color:var(--gold); }
+.search-panel { max-width:820px; }
+.searchbox { display:flex; align-items:center; gap:12px; height:58px; padding:0 18px; border-radius:var(--pill); border:1.5px solid var(--line); background:var(--surface-2); }
+.searchbox input { border:0; background:transparent; outline:0; color:var(--ink); font-family:var(--font-body); font-size:18px; flex:1; min-width:0; }
+.filter-row { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+.filter-chip { border:1px solid var(--line); border-radius:var(--pill); min-height:34px; padding:0 14px; background:var(--surface); color:var(--muted); font-family:var(--font-ui); font-weight:800; font-size:12px; }
+.filter-chip.active { color:white; background:var(--accent); border-color:var(--accent); }
+.result-list { display:grid; gap:14px; max-width:900px; }
+.result-card { padding:18px; display:grid; grid-template-columns:72px minmax(0,1fr); gap:16px; }
+.saved-list { display:grid; gap:14px; max-width:920px; }
+.empty-state { min-height:280px; border:1px dashed var(--line-2); border-radius:24px; display:grid; place-items:center; text-align:center; padding:34px; color:var(--muted); background:color-mix(in srgb, var(--surface) 72%, transparent); }
+.settings-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr)); gap:16px; max-width:980px; }
+.setting-card { border:1px solid var(--line); border-radius:22px; background:var(--surface); padding:20px; box-shadow:var(--shadow); }
+.setting-card h3 { margin:0 0 7px; font-family:var(--font-display); font-size:24px; }
+.setting-card p { margin:0 0 16px; color:var(--muted); line-height:1.5; font-size:14px; }
+.segmented { display:flex; flex-wrap:wrap; gap:8px; }
+.segmented button { border:1px solid var(--line); border-radius:var(--pill); min-height:36px; padding:0 13px; background:var(--surface-2); color:var(--muted); font-family:var(--font-ui); font-weight:800; font-size:12px; }
+.segmented button.active { background:var(--accent); color:white; border-color:var(--accent); }
+.form-panel { max-width:640px; display:grid; gap:16px; }
+.form-row { display:grid; gap:8px; }
+.form-row label { font-family:var(--font-ui); font-weight:800; font-size:13px; color:var(--ink-2); }
+.form-row input, .form-row textarea, .form-row select { border:1.5px solid var(--line); border-radius:16px; padding:13px 15px; outline:0; background:var(--surface-2); color:var(--ink); font-family:var(--font-body); font-size:16px; }
+.form-row textarea { min-height:130px; resize:vertical; }
+.admin-shell { display:grid; gap:18px; }
+.admin-card { border:1px solid var(--line); border-radius:22px; background:var(--surface); padding:22px; box-shadow:var(--shadow); max-width:900px; }
+.admin-list { display:grid; gap:10px; }
+.admin-item { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:center; padding:12px; border:1px solid var(--line); border-radius:16px; background:var(--surface-2); }
+.toast-wrap { position:fixed; left:50%; bottom:max(95px, calc(env(safe-area-inset-bottom) + 92px)); transform:translateX(-50%); z-index:999; display:grid; gap:8px; justify-items:center; pointer-events:none; }
+.toast { pointer-events:auto; border-radius:var(--pill); background:var(--ink); color:var(--bg); padding:12px 18px; box-shadow:0 15px 40px rgba(0,0,0,.28); font-family:var(--font-ui); font-weight:800; font-size:13px; animation:rise .22s ease both; white-space:nowrap; }
+.floating-petals { position:fixed; inset:0; pointer-events:none; z-index:-2; overflow:hidden; }
+.petal { position:absolute; width:7px; height:12px; border-radius:80% 20% 80% 20%; background:color-mix(in srgb, var(--rose) 70%, transparent); opacity:.35; animation:petalFall linear infinite; }
+@keyframes petalFall { from { transform:translateY(-20vh) rotate(0deg); } to { transform:translateY(120vh) rotate(calc(260deg * var(--motion))); } }
+@media (max-width: 879px) { .top-shell { display:none; } .page-head { padding-top:34px; } .desktop-categories { grid-template-columns:repeat(2,1fr); } .hero-visual { min-height:405px; } .hero-title { font-size:clamp(32px,9vw,46px); } .article-content { font-size:var(--article-font-mobile, 17px); } .reader-actions .ghost-button { padding:0 12px; } .result-card { grid-template-columns:56px minmax(0,1fr); } }
+@media (max-width: 460px) { .mobile-header { grid-template-columns:44px 1fr 80px; } .wordmark .deva { font-size:30px; } .wordmark .roman { font-size:8px; letter-spacing:.32em; } .emblem { width:48px; height:48px; } .category-grid { grid-template-columns:repeat(4,1fr); } .category-tile { min-height:86px; } .category-icon { width:32px; height:32px; } .category-icon svg { width:29px; height:29px; } .category-tile span { font-size:10px; } .hero-actions button { min-height:62px; font-size:11px; } }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="floating-petals" id="petals" aria-hidden="true"></div>
+<div class="toast-wrap" id="toasts" aria-live="polite"></div>
+<div class="reader-bar" id="readerBar"></div>
+<div class="app" id="app">
+  <header class="top-shell desktop-only">
+    <div class="top-brand" onclick="route('home')" aria-label="Ānvīkṣikī home">
+      <div id="desktopEmblem"></div>
+      <div class="wordmark small"><span class="deva">आन्वीक्षिकी</span><span class="roman">ĀNVĪKṢIKĪ</span></div>
+    </div>
+    <nav class="top-nav" aria-label="Desktop navigation">
+      <a href="#" onclick="route('search');return false;" data-icon="search">Search</a>
+      <a href="#" onclick="route('papers');return false;" data-icon="papers">Papers</a>
+      <a href="#" onclick="route('archive');return false;" data-icon="archive">Archive</a>
+      <a href="#" onclick="route('submit');return false;" data-icon="quill">Submit</a>
+      <a href="#" onclick="route('settings');return false;" data-icon="settings">Settings</a>
+    </nav>
+    <div style="display:flex;align-items:center;gap:10px;justify-content:flex-end">
+      <div class="theme-toggle"><button id="dayTop" onclick="setTheme('day')" aria-label="Day mode"></button><button id="nightTop" onclick="setTheme('night')" aria-label="Night mode"></button></div>
+    </div>
+  </header>
+  <main id="main"></main>
+</div>
+<nav class="bottom-nav mobile-only" aria-label="Mobile navigation">
+  <button onclick="route('home')" data-nav="home"><span data-icon="home"></span><span>Home</span></button>
+  <button onclick="route('search')" data-nav="search"><span data-icon="search"></span><span>Explore</span></button>
+  <button class="center" onclick="route('home')" aria-label="Ānvīkṣikī"><span data-icon="emblem-mini"></span></button>
+  <button onclick="route('saved')" data-nav="saved"><span data-icon="saved"></span><span>Saved</span></button>
+  <button onclick="route('settings')" data-nav="settings"><span data-icon="settings"></span><span>Settings</span></button>
+</nav>
+<script>
+const state = {
+  view: 'home',
+  theme: localStorage.getItem('anv_theme') || 'day',
+  density: localStorage.getItem('anv_density') || 'editorial',
+  motion: localStorage.getItem('anv_motion') || 'on',
+  reader: localStorage.getItem('anv_reader') || 'classic',
+  accent: localStorage.getItem('anv_accent') || 'rose',
+  saved: JSON.parse(localStorage.getItem('anv_saved') || '[]'),
+  admin: localStorage.getItem('anv_admin') === 'true',
+  query: '',
+  filter: 'all'
+};
+const heroImage = "linear-gradient(135deg, rgba(55,30,13,.20), rgba(90,26,51,.22)), url('https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=1200&q=82')";
+const mapImage = "linear-gradient(135deg, rgba(9,16,25,.34), rgba(150,106,47,.17)), url('https://images.unsplash.com/photo-1524661135-423995f22d0b?w=1200&q=80')";
+const topics = [
+  {id:'history', label:'History', desc:'Civilizational memory, archives, figures, and historical arguments.', icon:'history'},
+  {id:'philosophy', label:'Philosophy', desc:'Darśana, epistemology, ethics, metaphysics, logic, and meaning.', icon:'philosophy'},
+  {id:'psychology', label:'Psychology', desc:'Mind, identity, consciousness, attention, and inner discipline.', icon:'psychology'},
+  {id:'sociology', label:'Sociology', desc:'Community, institutions, caste, class, modernity, and social form.', icon:'sociology'},
+  {id:'science', label:'Science', desc:'Modern science, Indian knowledge systems, systems thinking, and method.', icon:'science'},
+  {id:'geopolitics', label:'Geopolitics', desc:'Power, ports, trade routes, strategy, alliances, and civilizational geography.', icon:'geopolitics'},
+  {id:'papers', label:'Papers', desc:'Working papers, essays, citations, and long-form research notes.', icon:'papers'},
+  {id:'archive', label:'Archive', desc:'A searchable chronological repository of essays and notes.', icon:'archive'}
+];
+const articles = [
+  {id:'beyond-empires', category:'history', type:'Featured Article', date:'18 May 2025', read:'18 min read', title:'Beyond Empires: Civilizational Thought in Pre-Colonial India', subtitle:'Revisiting knowledge systems, statecraft, and cultural continuities that shaped a timeless civilizational vision.', image:heroImage, takeaways:['Civilizational continuity cannot be reduced to dynasties or territorial empires alone.','Pre-colonial knowledge systems such as Nyaya, Ayurveda, Arthashastra, and aesthetics were sophisticated intellectual disciplines.','Civilizational memory survives through institutions, texts, pedagogy, ritual, place, and community.','The real task is not nostalgia but the reconstruction of living intellectual capacity.'], body:`
+<p>The history of a civilization cannot be measured solely by the rise and fall of its empires. Empires conquer territory; civilizations transmit meaning. When we ask what endured through the many political transformations of the Indian subcontinent, we discover the persistence of intellectual and cultural forms that defied the logic of political succession.</p>
+<h2>The architecture of continuity</h2>
+<p>What makes Indian civilization unusual in the world-historical record is not only the grandeur of its political formations, but the durability of its intellectual and cultural institutions. Pedagogical lineages, temple economies, textual commentaries, oral memory, guilds, and community forms preserved knowledge even when states rose and collapsed.</p>
+<blockquote>A civilization is not a state. It is a pattern of feeling, thinking, remembering, and acting that outlasts any particular political arrangement.</blockquote>
+<p>The Sanskrit intellectual tradition did not require a single empire to function. When one patronage structure declined, another emerged. Commentaries, refutations, schools, debates, and pedagogical practices carried the tradition forward because its institutional basis was not merely administrative.</p>
+<h2>Statecraft as civilizational practice</h2>
+<p>The Arthashastra of Kauṭilya is often read as a manual of political realism. It is better understood as a serious inquiry into the relationship between artha, dharma, welfare, force, administration, and human flourishing. The ruler’s legitimacy is not self-justifying. It is tested through the security and prosperity of the people.</p>
+<blockquote>In the happiness of his subjects lies the king’s happiness; in their welfare his welfare.</blockquote>
+<h2>Knowledge beyond the modern academy</h2>
+<p>Pre-colonial India did not possess a single centralized university system in the modern sense. It possessed an ecology of knowledge communities. Brahminical scholasticism, medical traditions, astronomical and mathematical schools, craft lineages, poetic theory, temple architecture, and ritual science formed a distributed intellectual civilization.</p>
+<p>The task today is not to treat these as museum objects. It is to ask what it would mean to re-enter them as living disciplines, capable of dialogue with modern science, statecraft, sociology, psychology, and philosophy.</p>
+<h2>Colonial rupture and recovery</h2>
+<p>The colonial encounter did not merely change political sovereignty. It altered the conditions under which knowledge was recognized, transmitted, validated, and institutionalized. Civilizational recovery therefore requires more than emotion. It requires method, archives, scholarship, and the courage to think from inherited categories without becoming trapped by them.</p>`, refs:['Kauṭilya, Arthashastra, critical editions and translations.','Dharampal, The Beautiful Tree: Indigenous Indian Education in the Eighteenth Century.','Sheldon Pollock, The Language of the Gods in the World of Men.']},
+  {id:'maritime-chessboard', category:'geopolitics', type:'Analysis', date:'24 May 2025', read:'16 min read', title:'The New Maritime Chessboard: Power, Ports, and the Indo-Pacific Order', subtitle:'How infrastructure, technology, and alliances are reshaping maritime power in the 21st century.', image:mapImage, takeaways:['Maritime infrastructure is now a form of geopolitical leverage.','Ports, cables, shipping routes, and naval access shape national power.','Middle powers and minilateral coalitions are increasingly central to the Indo-Pacific order.','Data, logistics, and sea power are now part of the same strategic system.'], body:`
+<p>The strategic center of gravity of the 21st century has returned to the sea. Energy flows, data cables, container routes, naval access, island chains, and port infrastructure now define power as much as land borders do.</p>
+<h2>The maritime century returns</h2>
+<p>Maritime routes connect the economic lifelines of nations to distant markets. Control over sea lanes does not merely secure trade; it shapes diplomatic leverage, military reach, and technological resilience.</p>
+<blockquote>Control the seas, and you control the lifeblood of civilization.</blockquote>
+<h2>Ports as strategic assets</h2>
+<p>Ports are no longer merely commercial nodes. They are dual-use assets with logistical, intelligence, economic, and military implications. A port can become an entry point for investment, dependence, surveillance, and strategic alignment.</p>
+<h2>India and the Indo-Pacific frame</h2>
+<p>For India, the Indo-Pacific is not a borrowed slogan. It is a geographic reality. From the Arabian Sea to the Bay of Bengal, from island territories to shipping corridors, India’s civilizational geography has always been maritime as well as continental.</p>`, refs:['Alfred Thayer Mahan, The Influence of Sea Power upon History.','Ministry and strategic policy documents on the Indo-Pacific.']},
+  {id:'what-is-anvikshiki', category:'philosophy', type:'Philosophy Note', date:'2 June 2025', read:'10 min read', title:'What Ānvīkṣikī Means: Inquiry Before Ideology', subtitle:'A short philosophical note on investigation, reflective examination, and the discipline of reasoning.', image:'linear-gradient(135deg, rgba(168,61,93,.28), rgba(166,123,45,.18)), url(https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1200&q=80)', takeaways:['Ānvīkṣikī is not merely logic; it is disciplined investigation.','Inquiry requires patience before reaction.','A civilizational platform must examine before it refutes.'], body:`
+<p>Ānvīkṣikī names a discipline of inquiry: looking again, examining deeply, reasoning carefully, and testing claims before accepting them. For a modern intellectual platform, the word is not decorative. It is a method.</p>
+<h2>Inquiry before ideology</h2>
+<p>Most political platforms begin with conclusion. A serious platform begins with question. It asks what is being assumed, what is being hidden, what evidence is being used, and what category is shaping the debate.</p>
+<blockquote>To inquire is to refuse both blind reaction and inherited contempt.</blockquote>
+<h2>The philosophical posture</h2>
+<p>Philosophy here is not a vague aesthetic. It means method. It means concepts. It means the ability to distinguish truth from performance, evidence from slogan, tradition from sentiment, and civilizational continuity from mere nostalgia.</p>`, refs:['Traditional discussions of Ānvīkṣikī in Indian intellectual history.']},
+  {id:'mind-layers', category:'psychology', type:'Essay', date:'12 June 2025', read:'9 min read', title:'Consciousness and the Layers of Mind', subtitle:'Reading manas, buddhi, chitta, and ahamkara beside modern cognitive models.', image:'linear-gradient(135deg, rgba(29,80,96,.25), rgba(114,122,85,.18)), url(https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=1200&q=80)', takeaways:['Indian psychology often treats mind as layered, not flat.','Attention, memory, identity, and discernment can be analyzed separately.','Modern cognitive science can dialogue with older models without reducing them.'], body:`<p>The Indian psychological vocabulary does not describe the mind as one simple thing. It speaks through layers and functions: manas, buddhi, chitta, ahamkara. This offers a subtle grammar for experience, attention, and identity.</p><h2>The layered self</h2><p>A layered model allows us to ask better questions. Is this thought memory, habit, perception, judgement, or identity? That distinction matters for psychology, ethics, and self-discipline.</p>`, refs:['Classical Yoga and Sāṃkhya discussions of mind.']},
+  {id:'society-institutions', category:'sociology', type:'Sociology', date:'9 June 2025', read:'11 min read', title:'Institutions, Community, and the Social Memory of India', subtitle:'A sociological reading of how communities preserve meaning across generations.', image:'linear-gradient(135deg, rgba(114,122,85,.22), rgba(168,61,93,.14)), url(https://images.unsplash.com/photo-1518005020951-eccb494ad742?w=1200&q=80)', takeaways:['Social memory lives through institutions.','Communities can preserve knowledge outside formal state systems.','Modern sociology must study continuity as much as rupture.'], body:`<p>Society is not just population. It is a network of rituals, institutions, obligations, memories, disputes, and inherited forms. To understand India sociologically, we must study continuity without romanticizing it.</p><h2>Social forms as memory</h2><p>Every institution stores time. A temple, family practice, craft lineage, local festival, or association can preserve ways of seeing the world that are older than the modern state.</p>`, refs:['Sociological literature on institutions and memory.']},
+  {id:'science-method', category:'science', type:'Science', date:'7 June 2025', read:'8 min read', title:'Science, Method, and the Discipline of Doubt', subtitle:'A short essay on why real inquiry requires method, humility, and repeatability.', image:'linear-gradient(135deg, rgba(29,80,96,.28), rgba(211,168,93,.14)), url(https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=1200&q=80)', takeaways:['Science is not a tribe; it is disciplined method.','Civilizational inquiry must respect evidence and procedure.','Modern science and inherited knowledge require careful dialogue.'], body:`<p>Science is not merely a collection of facts. It is a discipline of doubt, measurement, falsification, replication, and correction. A civilizational platform must not use tradition as an excuse to abandon method.</p><h2>The method matters</h2><p>Real confidence comes from procedure, not loudness. Evidence, humility, and correction make inquiry stronger.</p>`, refs:['General philosophy of science and method.']}
+];
+const papers = [
+  {id:'indic-polity', tag:'Political Theory', title:'The Indic Polity: Beyond State and Sovereignty', abstract:'A working paper on layered authority, dharma, social order, and civilizational governance beyond a purely Westphalian frame.', read:'12 min read'},
+  {id:'aesthetic-rationality', tag:'Philosophy', title:'The Aesthetics of Indian Knowledge Systems', abstract:'Why rasa, alankara, dhvani, and intellectual beauty matter in the transmission of philosophical and scientific knowledge.', read:'10 min read'},
+  {id:'cartographies', tag:'Geopolitics', title:'Civilizational Cartographies: Reimagining the World', abstract:'Alternative geopolitical maps based on trade routes, civilizational memory, maritime reach, and cultural influence.', read:'14 min read'},
+  {id:'mind-layers-paper', tag:'Psychology', title:'Consciousness and the Layers of Mind', abstract:'A formal research note connecting manas, buddhi, chitta, and ahamkara with modern cognitive frameworks.', read:'9 min read'}
+];
+function svgIcon(name){
+ const s = {
+  search:'<svg class="svg-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>',
+  home:'<svg class="svg-icon" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path><path d="M9 21v-7h6v7"></path></svg>',
+  saved:'<svg class="svg-icon" viewBox="0 0 24 24"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"></path></svg>',
+  share:'<svg class="svg-icon" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="M8.6 13.5 15.4 17.5M15.4 6.5 8.6 10.5"></path></svg>',
+  listen:'<svg class="svg-icon" viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>',
+  read:'<svg class="svg-icon" viewBox="0 0 24 24"><path d="M2 4h7a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"></path><path d="M22 4h-7a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h8z"></path></svg>',
+  papers:'<svg class="svg-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M8 13h8M8 17h6"></path></svg>',
+  archive:'<svg class="svg-icon" viewBox="0 0 24 24"><path d="M3 7h18"></path><path d="M5 7v13h14V7"></path><path d="M8 3h8l2 4H6z"></path><path d="M9 12h6"></path></svg>',
+  quill:'<svg class="svg-icon" viewBox="0 0 24 24"><path d="M20 3c-6.5.5-11.5 5.4-13 12"></path><path d="M4 20c2-5 6-9 11-11"></path><path d="M14 4h6v6"></path></svg>',
+  settings:'<svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"></path><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8.92 4.6 1.65 1.65 0 0 0 10 3.09V3a2 2 0 1 1 4 0v.09c0 .66.39 1.26 1 1.51.61.25 1.31.11 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.25.61.85 1 1.51 1H21a2 2 0 1 1 0 4h-.09c-.66 0-1.26.39-1.51 1Z"></path></svg>',
+  history:'<svg class="svg-icon" viewBox="0 0 24 24"><path d="M4 21h16"></path><path d="M6 21V9l6-5 6 5v12"></path><path d="M9 21v-8h6v8"></path><path d="M9 9h6"></path></svg>',
+  philosophy:'<svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 3c-1.8 2-2.7 3.8-2.7 5.3 0 1.6 1.2 2.9 2.7 2.9s2.7-1.3 2.7-2.9C14.7 6.8 13.8 5 12 3Z"></path><path d="M5 15c2.8-1 5.2-1 7 1 1.8-2 4.2-2 7-1"></path><path d="M7 19c2.3-.8 3.9-.4 5 1 1.1-1.4 2.7-1.8 5-1"></path><path d="M12 11v9"></path><path d="M4 12a8 8 0 0 1 16 0"></path></svg>',
+  psychology:'<svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 4a6 6 0 0 0-6 6v2.5L4 16h4v4h5v-3.5a7 7 0 0 0 5-6.7A5.9 5.9 0 0 0 12 4Z"></path><path d="M10 9c.8-1.2 3.2-1.2 4 0"></path><path d="M9 13h5"></path></svg>',
+  sociology:'<svg class="svg-icon" viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"></circle><circle cx="17" cy="9" r="2.5"></circle><path d="M3 21v-2a5 5 0 0 1 10 0v2"></path><path d="M14 21v-1.5a4 4 0 0 1 7 0V21"></path></svg>',
+  science:'<svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"></circle><path d="M12 2v4M12 18v4M2 12h4M18 12h4"></path><ellipse cx="12" cy="12" rx="9" ry="4" transform="rotate(35 12 12)"></ellipse><ellipse cx="12" cy="12" rx="9" ry="4" transform="rotate(-35 12 12)"></ellipse></svg>',
+  geopolitics:'<svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20"></path><path d="M12 2c3 3.4 4.5 6.7 4.5 10S15 18.6 12 22c-3-3.4-4.5-6.7-4.5-10S9 5.4 12 2Z"></path><path d="M16 7l4-3M8 17l-4 3"></path></svg>',
+  emblemMini:'<svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 21c4-3 6-6 6-10V5l-6-3-6 3v6c0 4 2 7 6 10Z"></path><path d="M8 13c1.5-.8 3-.8 4 .3 1-1.1 2.5-1.1 4-.3"></path><path d="M12 6v9"></path></svg>'
+ };
+ return s[name] || s.search;
+}
+function emblem(cls='emblem'){
+ return `<svg class="${cls}" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="100" cy="100" r="93" fill="var(--surface)" stroke="var(--gold)" stroke-width="2"/><circle cx="100" cy="100" r="83" fill="none" stroke="var(--gold)" stroke-width="1" stroke-dasharray="1 6" stroke-linecap="round" opacity=".75"/><path d="M39 166V93C39 58 68 39 100 39s61 19 61 54v73" fill="none" stroke="var(--gold)" stroke-width="2.2" stroke-linecap="round"/><path d="M53 162c18-8 34-8 47-2 13-6 29-6 47 2v-18c-18-7-34-7-47-1-13-6-29-6-47 1v18Z" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M100 160V96M100 132c-12-14-25-14-35-24M100 126c14-14 28-14 38-24M100 114c-8-10-15-13-23-16M100 112c8-10 15-13 23-16" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round"/><path d="M100 88c-7 7-10 13-10 18 0 6 4 10 10 10s10-4 10-10c0-5-3-11-10-18Z" fill="var(--rose)" opacity=".83"/><circle cx="65" cy="108" r="6" fill="var(--rose)" opacity=".86"/><circle cx="138" cy="102" r="6" fill="var(--rose)" opacity=".86"/><circle cx="76" cy="97" r="4" fill="var(--rose-2)"/><circle cx="125" cy="95" r="4" fill="var(--rose-2)"/><path d="M82 112c-7-1-12 2-16 6M119 112c7-1 12 2 16 6M91 126c-5 1-8 4-11 8M110 126c5 1 8 4 11 8" stroke="var(--sage)" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M100 39v24" stroke="var(--gold)" stroke-width="1.5" stroke-dasharray="2 3"/><g class="lamp"><rect x="88" y="60" width="24" height="27" rx="8" fill="none" stroke="var(--gold)" stroke-width="2"/><path d="M91 62c5 5 13 5 18 0M91 85c5-4 13-4 18 0" fill="none" stroke="var(--gold)" stroke-width="1.3"/><circle cx="100" cy="74" r="3" fill="var(--gold-2)"/></g></svg>`;
+}
+function initIcons(){
+ document.querySelectorAll('[data-icon]').forEach(el=>{ const key = el.getAttribute('data-icon'); el.innerHTML = key === 'emblem-mini' ? svgIcon('emblemMini') : svgIcon(key); });
+ const d = document.getElementById('desktopEmblem'); if(d) d.innerHTML = emblem('emblem sm');
+ const dayTop = document.getElementById('dayTop'), nightTop = document.getElementById('nightTop'); if(dayTop) dayTop.innerHTML=svgIcon('science'); if(nightTop) nightTop.innerHTML='<svg class="svg-icon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"></path></svg>';
+}
+function applyPrefs(){
+ document.documentElement.dataset.theme = state.theme;
+ document.documentElement.dataset.density = state.density;
+ document.documentElement.dataset.motion = state.motion;
+ document.documentElement.dataset.reader = state.reader;
+ document.documentElement.dataset.accent = state.accent;
+ document.querySelector('meta[name="theme-color"]').setAttribute('content', state.theme === 'night' ? '#071115' : '#fbf3e4');
+ document.querySelectorAll('.theme-toggle button').forEach(b=>b.classList.remove('active'));
+ document.querySelectorAll(state.theme === 'day' ? '[aria-label*="Day"], #dayTop' : '[aria-label*="Night"], #nightTop').forEach(b=>b.classList.add('active'));
+}
+function persistPrefs(){ localStorage.setItem('anv_theme',state.theme); localStorage.setItem('anv_density',state.density); localStorage.setItem('anv_motion',state.motion); localStorage.setItem('anv_reader',state.reader); localStorage.setItem('anv_accent',state.accent); }
+function setTheme(v){ state.theme=v; persistPrefs(); applyPrefs(); renderSettingsButtons(); }
+function setPref(k,v){ state[k]=v; persistPrefs(); applyPrefs(); renderSettingsButtons(); toast('Updated'); }
+function route(view, opt={}){ state.view=view; if(opt.category) state.category = opt.category; if(opt.article) state.article = opt.article; window.scrollTo({top:0,behavior:'smooth'}); render(); }
+function activeNav(){ document.querySelectorAll('.bottom-nav button').forEach(b=>b.classList.toggle('active', b.dataset.nav === state.view || (state.view==='category' && b.dataset.nav==='search'))); }
+function isSaved(id){ return state.saved.some(x=>x.id===id); }
+function toggleSave(item){ const exists=isSaved(item.id); state.saved = exists ? state.saved.filter(x=>x.id!==item.id) : [{id:item.id,title:item.title,category:item.category,date:item.date,image:item.image}, ...state.saved]; localStorage.setItem('anv_saved',JSON.stringify(state.saved)); toast(exists?'Removed from saved':'Saved'); render(); }
+function toast(msg){ const wrap=document.getElementById('toasts'); const el=document.createElement('div'); el.className='toast'; el.textContent=msg; wrap.appendChild(el); setTimeout(()=>{el.remove()},2400); }
+function shareArticle(a){ const url=location.href.split('#')[0]+'#'+a.id; if(navigator.share){ navigator.share({title:a.title,text:a.subtitle,url}).catch(()=>{}); } else { navigator.clipboard.writeText(url).then(()=>toast('Link copied')); } }
+function copyCitation(a){ const c=`Ānvīkṣikī Editorial. "${a.title}." Ānvīkṣikī, ${a.date}.`; navigator.clipboard.writeText(c).then(()=>toast('Citation copied')); }
+function listenArticle(a){ if(!('speechSynthesis' in window)){ toast('Text-to-speech not supported'); return; } speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(`${a.title}. ${a.subtitle}`); u.rate=.92; u.pitch=.92; speechSynthesis.speak(u); toast('Reading started'); }
+function h(s){ return String(s||'').replace(/[&<>"]/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
+function categoryTile(t, desktop=false){ return `<a href="#" class="category-tile ${t.id}" onclick="route('${t.id==='papers'?'papers':t.id==='archive'?'archive':'category'}',{category:'${t.id}'});return false;" aria-label="${h(t.label)}"><div class="category-icon">${svgIcon(t.icon)}</div><span>${h(t.label)}</span></a>`; }
+function paperCard(p){ return `<article class="paper-card" onclick="route('papers')"><div class="thumb-mini">${svgIcon('papers')}</div><div><span class="tag">${h(p.tag)}</span><h3>${h(p.title)}</h3><div class="meta">${h(p.read)}</div></div></article>`; }
+function renderHome(){ const a=articles[0]; return `<section class="mobile-home mobile-only"><header class="mobile-header"><button class="icon-button" onclick="route('search')" aria-label="Search">${svgIcon('search')}</button><div class="mobile-brand">${emblem('emblem float')}<div class="wordmark"><span class="deva">आन्वीक्षिकी</span><span class="roman">ĀNVĪKṢIKĪ</span></div></div><div style="display:flex;justify-content:flex-end"><div class="theme-toggle"><button onclick="setTheme('day')" aria-label="Day mode">${svgIcon('science')}</button><button onclick="setTheme('night')" aria-label="Night mode"><svg class="svg-icon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"></path></svg></button></div></div></header>${heroCard(a)}<nav class="category-grid" aria-label="Knowledge sections">${topics.map(t=>categoryTile(t)).join('')}</nav><div class="mobile-search-strip"><button class="pill-button" onclick="route('search')">${svgIcon('search')} Search essays, papers, ideas...</button><button class="icon-button" onclick="route('settings')" aria-label="Settings">${svgIcon('settings')}</button></div></section><section class="desktop-home desktop-only"><div class="desktop-hero"><div class="desktop-hero-copy"><div class="eyebrow">Featured Article</div><h1>${h(a.title)}</h1><p>${h(a.subtitle)}</p><div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:32px"><button class="primary-button" onclick="route('article',{article:'${a.id}'})">${svgIcon('read')} Read Article</button><button class="ghost-button" onclick='toggleSave(${JSON.stringify({id:a.id,title:a.title,category:a.category,date:a.date,image:a.image})})'>${svgIcon('saved')} Save</button></div></div><div class="desktop-hero-visual" style="--hero-bg:${a.image}"></div></div><nav class="desktop-categories" aria-label="Knowledge sections">${topics.slice(0,6).map(t=>categoryTile(t,true)).join('')}</nav><div class="section-row"><div class="section-title"><h2>Latest Papers</h2><a href="#" onclick="route('papers');return false;">View all papers →</a></div><div class="card-grid">${papers.map(paperCard).join('')}</div></div></section>`; }
+function heroCard(a){ return `<article class="hero-card" onclick="route('article',{article:'${a.id}'})"><div class="hero-visual" style="--hero-bg:${a.image}"><div class="hero-copy"><span class="badge">${svgIcon('read')} Latest Article</span><div class="date">${h(a.date)} · ${h(a.read)}</div><h1 class="hero-title">${h(a.title)}</h1><p class="hero-excerpt">${h(a.subtitle)}</p></div></div><div class="hero-actions"><button onclick="event.stopPropagation();route('article',{article:'${a.id}'})">${svgIcon('read')} Read</button><button class="${isSaved(a.id)?'saved':''}" onclick='event.stopPropagation();toggleSave(${JSON.stringify({id:a.id,title:a.title,category:a.category,date:a.date,image:a.image})})'>${svgIcon('saved')} Save</button><button onclick="event.stopPropagation();shareArticle(articles.find(x=>x.id==='${a.id}'))">${svgIcon('share')} Share</button><button onclick="event.stopPropagation();listenArticle(articles.find(x=>x.id==='${a.id}'))">${svgIcon('listen')} Listen</button></div></article>`; }
+function renderArticle(id){ const a = articles.find(x=>x.id===id) || articles[0]; const related = articles.filter(x=>x.id!==a.id).slice(0,3); return `<article class="article-shell" data-section="${a.category}"><div class="reader-layout with-rail"><div class="reader-main"><div class="reader-top"><button class="ghost-button" onclick="route('home')">← Home</button><span class="meta">${h(a.category)} · ${h(a.read)}</span></div><div class="eyebrow">${h(a.type)} · ${h(a.category)}</div><h1 class="reader-title">${h(a.title)}</h1><p class="reader-subtitle">${h(a.subtitle)}</p><div class="meta">Ānvīkṣikī Editorial · ${h(a.date)}</div><div class="reader-actions"><button class="ghost-button ${isSaved(a.id)?'saved':''}" onclick='toggleSave(${JSON.stringify({id:a.id,title:a.title,category:a.category,date:a.date,image:a.image})})'>${svgIcon('saved')} ${isSaved(a.id)?'Saved':'Save'}</button><button class="ghost-button" onclick="shareArticle(articles.find(x=>x.id==='${a.id}'))">${svgIcon('share')} Share</button><button class="ghost-button" onclick="listenArticle(articles.find(x=>x.id==='${a.id}'))">${svgIcon('listen')} Listen</button><button class="ghost-button" onclick="copyCitation(articles.find(x=>x.id==='${a.id}'))">${svgIcon('papers')} Cite</button></div><div class="reader-hero" style="--hero-bg:${a.image}"></div><section class="takeaways"><h3>Key Takeaways</h3><ul>${a.takeaways.map(t=>`<li>${h(t)}</li>`).join('')}</ul></section><section class="article-content">${a.body}</section><section class="references"><h3>References</h3><ol>${(a.refs||[]).map(r=>`<li>${h(r)}</li>`).join('')}</ol></section></div><aside class="reader-rail"><div class="rail-card"><h4>Reading Tools</h4><div style="display:grid;gap:8px"><button class="ghost-button" onclick="setPref('reader','narrow')">Narrow reader</button><button class="ghost-button" onclick="setPref('reader','wide')">Wide reader</button></div></div><div class="rail-card"><h4>Related Reading</h4>${related.map(r=>`<div class="result-card" style="grid-template-columns:44px 1fr;padding:10px;margin-bottom:8px" onclick="route('article',{article:'${r.id}'})"><div class="thumb-mini" style="width:44px;height:44px">${svgIcon(topics.find(t=>t.id===r.category)?.icon||'papers')}</div><div><h3 style="font-size:15px">${h(r.title)}</h3><div class="meta">${h(r.category)} · ${h(r.read)}</div></div></div>`).join('')}</div></aside></div></article>`; }
+function renderCategory(id){ const topic = topics.find(t=>t.id===id) || topics[0]; const list = articles.filter(a=>a.category===id); return `<section class="page"><div class="page-head"><div class="eyebrow">Section</div><h1>${h(topic.label)}</h1><p>${h(topic.desc)}</p></div><div class="page-body"><div class="article-list">${list.map(articleCard).join('') || `<div class="empty-state"><div><h3>No articles yet</h3><p>This section is ready for future publishing.</p></div></div>`}</div></div></section>`; }
+function articleCard(a){ return `<article class="article-card" onclick="route('article',{article:'${a.id}'})"><div class="article-card-img" style="--card-bg:${a.image}"></div><div class="article-card-body"><span class="tag">${h(a.category)}</span><h3>${h(a.title)}</h3><p>${h(a.subtitle)}</p><div class="meta" style="margin-top:12px">${h(a.date)} · ${h(a.read)}</div></div></article>`; }
+function renderPapers(){ return `<section class="page"><div class="page-head"><div class="eyebrow">Research & Papers</div><h1>Papers</h1><p>Formal research notes, working papers, citation-ready essays, and long-form arguments. This page is prepared for PDF uploads and admin-controlled publishing in the next backend stage.</p></div><div class="page-body"><div class="filter-row" style="margin-bottom:24px">${['All','Political Theory','Philosophy','Psychology','Geopolitics'].map((x,i)=>`<button class="filter-chip ${i===0?'active':''}" onclick="chipOnly(this)">${x}</button>`).join('')}</div><div class="article-list">${papers.map(p=>`<article class="article-card"><div class="article-card-body"><span class="tag">${h(p.tag)}</span><h3>${h(p.title)}</h3><p>${h(p.abstract)}</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px"><button class="ghost-button" onclick="toast('PDF upload ready in backend stage')">${svgIcon('papers')} PDF</button><button class="ghost-button" onclick="navigator.clipboard.writeText('${h(p.title)}').then(()=>toast('Citation copied'))">Cite</button></div></div></article>`).join('')}</div></div></section>`; }
+function renderArchive(){ const months = [...articles].sort((a,b)=>new Date(b.date)-new Date(a.date)); return `<section class="page"><div class="page-head"><div class="eyebrow">Chronological Repository</div><h1>Archive</h1><p>A cleaner archive for every article, essay, paper, and note. It is intentionally simple so the content stays discoverable.</p></div><div class="page-body"><div class="saved-list">${months.map(a=>`<article class="archive-card" style="padding:18px" onclick="route('article',{article:'${a.id}'})"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><div><span class="tag">${h(a.category)}</span><h3 style="font-family:var(--font-display);font-size:25px;margin:9px 0 5px">${h(a.title)}</h3><p style="color:var(--muted);margin:0;line-height:1.55">${h(a.subtitle)}</p></div><div class="meta" style="white-space:nowrap">${h(a.date)}</div></div></article>`).join('')}</div></div></section>`; }
+function renderSearch(){ const q=state.query.toLowerCase(); const pool=[...articles.map(a=>({...a,kind:'Article'})), ...papers.map(p=>({id:p.id,title:p.title,subtitle:p.abstract,category:p.tag,date:'2025',read:p.read,kind:'Paper'}))]; const results=pool.filter(x=>!q || `${x.title} ${x.subtitle} ${x.category} ${x.kind}`.toLowerCase().includes(q)); return `<section class="page"><div class="page-head"><div class="eyebrow">Discover</div><h1>Search</h1><div class="search-panel"><div class="searchbox">${svgIcon('search')}<input id="searchInput" value="${h(state.query)}" placeholder="Search Savarkar, philosophy, geopolitics, papers..." oninput="state.query=this.value;renderSearchResults()" autofocus /></div><div class="filter-row">${['all','history','philosophy','psychology','sociology','science','geopolitics','papers'].map(f=>`<button class="filter-chip ${state.filter===f?'active':''}" onclick="state.filter='${f}';renderSearchResults()">${f}</button>`).join('')}</div></div></div><div class="page-body"><div id="searchResults">${searchResultsHTML(results)}</div></div></section>`; }
+function searchResultsHTML(results){ const filtered=results.filter(r=>state.filter==='all' || r.category.toLowerCase()===state.filter || (state.filter==='papers' && r.kind==='Paper')); return `<div class="result-list">${filtered.length?filtered.map(r=>`<article class="result-card" onclick="${r.kind==='Article'?`route('article',{article:'${r.id}'})`:`route('papers')`}"><div class="thumb-mini">${svgIcon(topics.find(t=>t.id===String(r.category).toLowerCase())?.icon || (r.kind==='Paper'?'papers':'search'))}</div><div><div class="meta">${h(r.kind)} · ${h(r.category)}</div><h3>${h(r.title)}</h3><p>${h(r.subtitle)}</p></div></article>`).join(''):`<div class="empty-state"><div><h3>No result found</h3><p>Try a broader term or browse the archive.</p></div></div>`}</div>`; }
+function renderSearchResults(){ const box=document.getElementById('searchResults'); if(!box) return; const q=state.query.toLowerCase(); const pool=[...articles.map(a=>({...a,kind:'Article'})), ...papers.map(p=>({id:p.id,title:p.title,subtitle:p.abstract,category:p.tag,date:'2025',read:p.read,kind:'Paper'}))]; box.innerHTML=searchResultsHTML(pool.filter(x=>!q || `${x.title} ${x.subtitle} ${x.category} ${x.kind}`.toLowerCase().includes(q))); document.querySelectorAll('.filter-chip').forEach(b=>b.classList.toggle('active', b.textContent.trim().toLowerCase()===state.filter)); }
+function renderSaved(){ return `<section class="page"><div class="page-head"><div class="eyebrow">Personal Library</div><h1>Saved</h1><p>Your saved articles are stored privately in this browser through localStorage.</p></div><div class="page-body"><div class="saved-list">${state.saved.length?state.saved.map(s=>`<article class="result-card" onclick="route('article',{article:'${s.id}'})"><div class="thumb-mini">${svgIcon(topics.find(t=>t.id===s.category)?.icon||'saved')}</div><div><div class="meta">${h(s.category)} · ${h(s.date)}</div><h3>${h(s.title)}</h3><button class="ghost-button" onclick="event.stopPropagation();toggleSave(${JSON.stringify(s)})">Remove</button></div></article>`).join(''):`<div class="empty-state"><div>${svgIcon('saved')}<h3>No saved articles yet</h3><p>Save something from the homepage or article reader.</p></div></div>`}</div></div></section>`; }
+function renderSettingsButtons(){ document.querySelectorAll('[data-setting]').forEach(btn=>{ btn.classList.toggle('active', state[btn.dataset.setting]===btn.dataset.value); }); }
+function renderSettings(){ return `<section class="page"><div class="page-head"><div class="eyebrow">Reader and Interface</div><h1>Settings</h1><p>Day/night mode is kept, but the interface now also has reader controls for aesthetic density, motion, article width, and accent color.</p></div><div class="page-body"><div class="settings-grid"><div class="setting-card"><h3>Theme</h3><p>Switch between warm day mode and midnight reading mode.</p><div class="segmented"><button data-setting="theme" data-value="day" onclick="setTheme('day')">Day</button><button data-setting="theme" data-value="night" onclick="setTheme('night')">Night</button></div></div><div class="setting-card"><h3>Density</h3><p>Choose between richer editorial spacing and a tighter compact layout.</p><div class="segmented"><button data-setting="density" data-value="editorial" onclick="setPref('density','editorial')">Editorial</button><button data-setting="density" data-value="compact" onclick="setPref('density','compact')">Compact</button></div></div><div class="setting-card"><h3>Motion</h3><p>Keep micro-animations or reduce motion for calmer reading.</p><div class="segmented"><button data-setting="motion" data-value="on" onclick="setPref('motion','on')">On</button><button data-setting="motion" data-value="off" onclick="setPref('motion','off')">Off</button></div></div><div class="setting-card"><h3>Reader Width</h3><p>Control how wide long-form articles feel.</p><div class="segmented"><button data-setting="reader" data-value="narrow" onclick="setPref('reader','narrow')">Narrow</button><button data-setting="reader" data-value="classic" onclick="setPref('reader','classic')">Classic</button><button data-setting="reader" data-value="wide" onclick="setPref('reader','wide')">Wide</button></div></div><div class="setting-card"><h3>Accent</h3><p>Subtle color identity for buttons, active states, and highlights.</p><div class="segmented"><button data-setting="accent" data-value="rose" onclick="setPref('accent','rose')">Rose</button><button data-setting="accent" data-value="gold" onclick="setPref('accent','gold')">Gold</button><button data-setting="accent" data-value="sage" onclick="setPref('accent','sage')">Sage</button></div></div><div class="setting-card"><h3>Local Data</h3><p>Clear saved articles and prototype preferences.</p><button class="ghost-button" onclick="localStorage.clear();location.reload()">Reset local data</button></div></div></div></section>`; }
+function renderAbout(){ return `<section class="page"><div class="page-head"><div class="eyebrow">About</div><h1>Ānvīkṣikī</h1><p>Ānvīkṣikī means disciplined inquiry, reflective examination, and reasoned investigation. This site is designed as a serious journal for civilization, history, philosophy, psychology, sociology, science, and geopolitics.</p></div><div class="page-body"><div class="reader-main"><div style="text-align:center;margin:10px 0 28px">${emblem('emblem lg')}</div><section class="article-content"><p>This is not meant to look like a normal political blog. It is intended to feel like a revived intellectual institution: aesthetic, serious, mobile-first, readable, and capable of growing into a research archive.</p><h2>What the platform should do</h2><p>Publish essays, papers, refutations, long-form analysis, archives, citations, and modern strategic writing while preserving a rooted visual language.</p></section></div></div></section>`; }
+function renderSubmit(){ return `<section class="page"><div class="page-head"><div class="eyebrow">Submissions</div><h1>Submit Writing</h1><p>A front-end submission flow ready to connect to a secure Replit backend later. For now, submissions are stored in this browser for prototype testing.</p></div><div class="page-body"><form class="form-panel" onsubmit="submitDraft(event)"><div class="form-row"><label>Name</label><input id="submitName" required placeholder="Your name" /></div><div class="form-row"><label>Email</label><input id="submitEmail" type="email" required placeholder="you@example.com" /></div><div class="form-row"><label>Type</label><select id="submitType"><option>Essay</option><option>Paper</option><option>Article pitch</option><option>Archive suggestion</option></select></div><div class="form-row"><label>Proposal</label><textarea id="submitMessage" required placeholder="Tell us the argument, sources, and why it belongs on Ānvīkṣikī."></textarea></div><button class="primary-button" type="submit">Submit Prototype Draft</button></form></div></section>`; }
+function submitDraft(e){ e.preventDefault(); const drafts=JSON.parse(localStorage.getItem('anv_submissions')||'[]'); drafts.unshift({name:submitName.value,email:submitEmail.value,type:submitType.value,message:submitMessage.value,date:new Date().toISOString()}); localStorage.setItem('anv_submissions',JSON.stringify(drafts)); e.target.reset(); toast('Submission saved locally'); }
+function renderAdmin(){ const submissions=JSON.parse(localStorage.getItem('anv_submissions')||'[]'); if(!state.admin){ return `<section class="page"><div class="page-head"><div class="eyebrow">Prototype Admin</div><h1>Admin</h1><p>This is a local prototype admin screen. For real security, connect it to a server-side Replit backend with secure sessions, CSRF protection, rate limiting, and a database.</p></div><div class="page-body"><form class="form-panel" onsubmit="adminLogin(event)"><div class="form-row"><label>Prototype password</label><input id="adminPass" type="password" placeholder="Enter prototype password" /></div><button class="primary-button">Enter Admin</button><p class="meta">Prototype password: anvikshiki</p></form></div></section>`; } return `<section class="page"><div class="page-head"><div class="eyebrow">Prototype Admin</div><h1>Dashboard</h1><p>Local CMS preview for content planning and Replit handoff.</p></div><div class="page-body"><div class="settings-grid"><div class="setting-card"><h3>${articles.length}</h3><p>Articles in prototype</p></div><div class="setting-card"><h3>${papers.length}</h3><p>Papers in prototype</p></div><div class="setting-card"><h3>${submissions.length}</h3><p>Local submissions</p></div></div><div class="admin-card"><h2 style="font-family:var(--font-display);margin-top:0">Submissions</h2><div class="admin-list">${submissions.length?submissions.map(s=>`<div class="admin-item"><div><strong>${h(s.type)}</strong><br><span class="meta">${h(s.name)} · ${h(s.email)}</span><p style="margin:8px 0 0;color:var(--muted)">${h(s.message)}</p></div></div>`).join(''):'<p class="meta">No local submissions yet.</p>'}</div></div></div></section>`; }
+function adminLogin(e){ e.preventDefault(); if(adminPass.value==='anvikshiki'){ state.admin=true; localStorage.setItem('anv_admin','true'); render(); } else toast('Wrong prototype password'); }
+function chipOnly(el){ el.parentElement.querySelectorAll('.filter-chip').forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
+function render(){ applyPrefs(); activeNav(); let html=''; if(state.view==='home') html=renderHome(); else if(state.view==='article') html=renderArticle(state.article||articles[0].id); else if(state.view==='category') html=renderCategory(state.category||'history'); else if(state.view==='papers') html=renderPapers(); else if(state.view==='archive') html=renderArchive(); else if(state.view==='search') html=renderSearch(); else if(state.view==='saved') html=renderSaved(); else if(state.view==='settings') html=renderSettings(); else if(state.view==='about') html=renderAbout(); else if(state.view==='submit') html=renderSubmit(); else if(state.view==='admin') html=renderAdmin(); else html=renderHome(); document.getElementById('main').innerHTML=html; initIcons(); applyPrefs(); activeNav(); renderSettingsButtons(); }
+window.addEventListener('scroll',()=>{ const doc=document.documentElement; const max=doc.scrollHeight-doc.clientHeight; const p=max>0?(doc.scrollTop/max)*100:0; document.getElementById('readerBar').style.setProperty('--readProgress',p+'%'); });
+function makePetals(){ const wrap=document.getElementById('petals'); if(!wrap) return; wrap.innerHTML=''; for(let i=0;i<16;i++){ const p=document.createElement('span'); p.className='petal'; p.style.left=(Math.random()*100)+'%'; p.style.animationDuration=(14+Math.random()*18)+'s'; p.style.animationDelay=(-Math.random()*20)+'s'; p.style.opacity=(.08+Math.random()*.18).toFixed(2); wrap.appendChild(p); } }
+window.addEventListener('hashchange',()=>{ const id=location.hash.replace('#',''); if(id){ const a=articles.find(x=>x.id===id); if(a) route('article',{article:id}); } });
+applyPrefs(); makePetals(); render(); const initialHash=location.hash.replace('#',''); if(initialHash && articles.some(a=>a.id===initialHash)) route('article',{article:initialHash});
+</script>
+</body>
+</html>

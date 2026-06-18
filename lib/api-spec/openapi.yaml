@@ -3,20 +3,40 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Ānvīkṣikī publication platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: articles
+    description: Article operations
+  - name: papers
+    description: Paper operations
+  - name: categories
+    description: Category operations
+  - name: tags
+    description: Tag operations
+  - name: authors
+    description: Author operations
+  - name: search
+    description: Search operations
+  - name: submissions
+    description: Submission operations
+  - name: newsletter
+    description: Newsletter operations
+  - name: admin
+    description: Admin authentication and settings
+  - name: stats
+    description: Site statistics
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +44,630 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── ARTICLES ─────────────────────────────────────────────────────────────
+  /articles:
+    get:
+      operationId: listArticles
+      tags: [articles]
+      summary: List articles with filters and pagination
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [draft, published, archived] }
+        - name: category
+          in: query
+          schema: { type: string }
+        - name: tag
+          in: query
+          schema: { type: string }
+        - name: featured
+          in: query
+          schema: { type: boolean }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Articles list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArticleListResponse"
+    post:
+      operationId: createArticle
+      tags: [articles]
+      summary: Create article (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArticleInput"
+      responses:
+        "201":
+          description: Created article
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Article"
+
+  /articles/featured:
+    get:
+      operationId: getFeaturedArticle
+      tags: [articles]
+      summary: Get the currently featured article
+      responses:
+        "200":
+          description: Featured article
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Article"
+        "404":
+          description: No featured article set
+
+  /articles/latest:
+    get:
+      operationId: getLatestArticles
+      tags: [articles]
+      summary: Get latest published articles
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10 }
+        - name: category
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Latest articles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Article"
+
+  /articles/{slug}:
+    get:
+      operationId: getArticle
+      tags: [articles]
+      summary: Get article by slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Article
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Article"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateArticle
+      tags: [articles]
+      summary: Update article (admin)
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArticleUpdate"
+      responses:
+        "200":
+          description: Updated article
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Article"
+    delete:
+      operationId: deleteArticle
+      tags: [articles]
+      summary: Delete article (admin)
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
+
+  /articles/{slug}/feature:
+    patch:
+      operationId: featureArticle
+      tags: [articles]
+      summary: Set article as featured (admin)
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Updated article
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Article"
+
+  /articles/{slug}/publish:
+    patch:
+      operationId: publishArticle
+      tags: [articles]
+      summary: Publish or unpublish an article (admin)
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublishToggle"
+      responses:
+        "200":
+          description: Updated article
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Article"
+
+  # ─── PAPERS ───────────────────────────────────────────────────────────────
+  /papers:
+    get:
+      operationId: listPapers
+      tags: [papers]
+      summary: List papers with filters
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [draft, published] }
+        - name: category
+          in: query
+          schema: { type: string }
+        - name: peerReviewed
+          in: query
+          schema: { type: boolean }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Papers list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaperListResponse"
+    post:
+      operationId: createPaper
+      tags: [papers]
+      summary: Create paper (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaperInput"
+      responses:
+        "201":
+          description: Created paper
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Paper"
+
+  /papers/latest:
+    get:
+      operationId: getLatestPapers
+      tags: [papers]
+      summary: Get latest published papers
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 6 }
+      responses:
+        "200":
+          description: Latest papers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Paper"
+
+  /papers/{slug}:
+    get:
+      operationId: getPaper
+      tags: [papers]
+      summary: Get paper by slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Paper
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Paper"
+        "404":
+          description: Not found
+    patch:
+      operationId: updatePaper
+      tags: [papers]
+      summary: Update paper (admin)
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaperUpdate"
+      responses:
+        "200":
+          description: Updated paper
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Paper"
+    delete:
+      operationId: deletePaper
+      tags: [papers]
+      summary: Delete paper (admin)
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
+
+  /papers/{slug}/download:
+    post:
+      operationId: incrementPaperDownload
+      tags: [papers]
+      summary: Increment paper download count
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Updated download count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  downloadCount:
+                    type: integer
+                required: [downloadCount]
+
+  # ─── CATEGORIES ───────────────────────────────────────────────────────────
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [categories]
+      summary: List all categories
+      responses:
+        "200":
+          description: Categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+
+  # ─── TAGS ─────────────────────────────────────────────────────────────────
+  /tags:
+    get:
+      operationId: listTags
+      tags: [tags]
+      summary: List all tags
+      responses:
+        "200":
+          description: Tags
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tag"
+
+  # ─── AUTHORS ──────────────────────────────────────────────────────────────
+  /authors:
+    get:
+      operationId: listAuthors
+      tags: [authors]
+      summary: List all authors
+      responses:
+        "200":
+          description: Authors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Author"
+    post:
+      operationId: createAuthor
+      tags: [authors]
+      summary: Create author (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthorInput"
+      responses:
+        "201":
+          description: Created author
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Author"
+
+  /authors/{id}:
+    get:
+      operationId: getAuthor
+      tags: [authors]
+      summary: Get author by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Author
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Author"
+
+  # ─── SEARCH ───────────────────────────────────────────────────────────────
+  /search:
+    get:
+      operationId: search
+      tags: [search]
+      summary: Full-text search across articles, papers, categories
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string }
+        - name: type
+          in: query
+          schema: { type: string, enum: [article, paper, category, all] }
+        - name: category
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResults"
+
+  # ─── SUBMISSIONS ──────────────────────────────────────────────────────────
+  /submissions:
+    post:
+      operationId: createSubmission
+      tags: [submissions]
+      summary: Submit article or paper proposal (public, rate-limited)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmissionInput"
+      responses:
+        "201":
+          description: Submission received
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Submission"
+        "429":
+          description: Rate limited
+    get:
+      operationId: listSubmissions
+      tags: [submissions]
+      summary: List all submissions (admin)
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, accepted, rejected] }
+      responses:
+        "200":
+          description: Submissions list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Submission"
+
+  /submissions/{id}:
+    patch:
+      operationId: updateSubmission
+      tags: [submissions]
+      summary: Update submission status (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmissionUpdate"
+      responses:
+        "200":
+          description: Updated submission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Submission"
+
+  # ─── NEWSLETTER ───────────────────────────────────────────────────────────
+  /newsletter:
+    post:
+      operationId: subscribeNewsletter
+      tags: [newsletter]
+      summary: Subscribe to newsletter (public, rate-limited)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewsletterInput"
+      responses:
+        "201":
+          description: Subscribed
+        "409":
+          description: Already subscribed
+        "429":
+          description: Rate limited
+    get:
+      operationId: listNewsletterSubscribers
+      tags: [newsletter]
+      summary: List newsletter subscribers (admin)
+      responses:
+        "200":
+          description: Subscribers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NewsletterSubscriber"
+
+  # ─── ADMIN AUTH ───────────────────────────────────────────────────────────
+  /admin/login:
+    post:
+      operationId: adminLogin
+      tags: [admin]
+      summary: Admin login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLoginInput"
+      responses:
+        "200":
+          description: Login success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+        "401":
+          description: Invalid credentials
+        "429":
+          description: Rate limited
+
+  /admin/logout:
+    post:
+      operationId: adminLogout
+      tags: [admin]
+      summary: Admin logout
+      responses:
+        "204":
+          description: Logged out
+
+  /admin/me:
+    get:
+      operationId: getAdminMe
+      tags: [admin]
+      summary: Get current authenticated admin
+      responses:
+        "200":
+          description: Current admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+        "401":
+          description: Not authenticated
+
+  # ─── SITE SETTINGS ────────────────────────────────────────────────────────
+  /admin/settings:
+    get:
+      operationId: getSiteSettings
+      tags: [admin]
+      summary: Get site settings (admin)
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteSettings"
+    patch:
+      operationId: updateSiteSettings
+      tags: [admin]
+      summary: Update site settings (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SiteSettingsUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteSettings"
+
+  # ─── STATS ────────────────────────────────────────────────────────────────
+  /stats:
+    get:
+      operationId: getStats
+      tags: [stats]
+      summary: Get site statistics
+      responses:
+        "200":
+          description: Statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteStats"
+
+# ─────────────────────────────────────────────────────────────────────────────
 components:
   schemas:
     HealthStatus:
@@ -31,6 +675,304 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    # ─── Article ─────────────────────────────────────────────────────────
+    Article:
+      type: object
+      properties:
+        id:          { type: integer }
+        slug:        { type: string }
+        title:       { type: string }
+        subtitle:    { type: ["string", "null"] }
+        excerpt:     { type: ["string", "null"] }
+        content:     { type: string }
+        coverImage:  { type: ["string", "null"] }
+        categoryId:  { type: integer }
+        categorySlug: { type: string }
+        categoryName: { type: string }
+        authorId:    { type: integer }
+        authorName:  { type: string }
+        status:      { type: string, enum: [draft, published, archived] }
+        featured:    { type: boolean }
+        publishedAt: { type: ["string", "null"] }
+        updatedAt:   { type: string }
+        readingTime: { type: integer }
+        audioUrl:    { type: ["string", "null"] }
+        keyTakeaways: { type: ["array", "null"], items: { type: string } }
+        references:  { type: ["array", "null"], items: { type: string } }
+        tags:        { type: array, items: { type: string } }
+        views:       { type: integer }
+      required: [id, slug, title, content, categoryId, categorySlug, categoryName, authorId, authorName, status, featured, updatedAt, readingTime, tags, views]
+
+    ArticleInput:
+      type: object
+      properties:
+        slug:         { type: string }
+        title:        { type: string }
+        subtitle:     { type: string }
+        excerpt:      { type: string }
+        content:      { type: string }
+        coverImage:   { type: string }
+        categoryId:   { type: integer }
+        authorId:     { type: integer }
+        status:       { type: string, enum: [draft, published, archived] }
+        featured:     { type: boolean }
+        readingTime:  { type: integer }
+        audioUrl:     { type: string }
+        keyTakeaways: { type: array, items: { type: string } }
+        references:   { type: array, items: { type: string } }
+        tags:         { type: array, items: { type: string } }
+      required: [title, content, categoryId, authorId]
+
+    ArticleUpdate:
+      type: object
+      properties:
+        title:        { type: string }
+        subtitle:     { type: string }
+        excerpt:      { type: string }
+        content:      { type: string }
+        coverImage:   { type: string }
+        categoryId:   { type: integer }
+        authorId:     { type: integer }
+        status:       { type: string, enum: [draft, published, archived] }
+        featured:     { type: boolean }
+        readingTime:  { type: integer }
+        audioUrl:     { type: string }
+        keyTakeaways: { type: array, items: { type: string } }
+        references:   { type: array, items: { type: string } }
+        tags:         { type: array, items: { type: string } }
+
+    ArticleListResponse:
+      type: object
+      properties:
+        articles: { type: array, items: { $ref: "#/components/schemas/Article" } }
+        total:    { type: integer }
+        page:     { type: integer }
+        limit:    { type: integer }
+        hasMore:  { type: boolean }
+      required: [articles, total, page, limit, hasMore]
+
+    PublishToggle:
+      type: object
+      properties:
+        publish: { type: boolean }
+      required: [publish]
+
+    # ─── Paper ───────────────────────────────────────────────────────────
+    Paper:
+      type: object
+      properties:
+        id:              { type: integer }
+        slug:            { type: string }
+        title:           { type: string }
+        abstract:        { type: string }
+        pdfUrl:          { type: ["string", "null"] }
+        categoryId:      { type: integer }
+        categorySlug:    { type: string }
+        categoryName:    { type: string }
+        authorId:        { type: integer }
+        authorName:      { type: string }
+        status:          { type: string, enum: [draft, published] }
+        peerReviewed:    { type: boolean }
+        citationText:    { type: ["string", "null"] }
+        publicationType: { type: ["string", "null"] }
+        publishedAt:     { type: ["string", "null"] }
+        downloadCount:   { type: integer }
+        tags:            { type: array, items: { type: string } }
+      required: [id, slug, title, abstract, categoryId, categorySlug, categoryName, authorId, authorName, status, peerReviewed, downloadCount, tags]
+
+    PaperInput:
+      type: object
+      properties:
+        slug:            { type: string }
+        title:           { type: string }
+        abstract:        { type: string }
+        pdfUrl:          { type: string }
+        categoryId:      { type: integer }
+        authorId:        { type: integer }
+        status:          { type: string, enum: [draft, published] }
+        peerReviewed:    { type: boolean }
+        citationText:    { type: string }
+        publicationType: { type: string }
+        tags:            { type: array, items: { type: string } }
+      required: [title, abstract, categoryId, authorId]
+
+    PaperUpdate:
+      type: object
+      properties:
+        title:           { type: string }
+        abstract:        { type: string }
+        pdfUrl:          { type: string }
+        categoryId:      { type: integer }
+        authorId:        { type: integer }
+        status:          { type: string, enum: [draft, published] }
+        peerReviewed:    { type: boolean }
+        citationText:    { type: string }
+        publicationType: { type: string }
+        tags:            { type: array, items: { type: string } }
+
+    PaperListResponse:
+      type: object
+      properties:
+        papers:  { type: array, items: { $ref: "#/components/schemas/Paper" } }
+        total:   { type: integer }
+        page:    { type: integer }
+        limit:   { type: integer }
+        hasMore: { type: boolean }
+      required: [papers, total, page, limit, hasMore]
+
+    # ─── Category ────────────────────────────────────────────────────────
+    Category:
+      type: object
+      properties:
+        id:          { type: integer }
+        slug:        { type: string }
+        name:        { type: string }
+        description: { type: ["string", "null"] }
+        icon:        { type: string }
+        colorAccent: { type: ["string", "null"] }
+        ordering:    { type: integer }
+        articleCount: { type: integer }
+      required: [id, slug, name, icon, ordering, articleCount]
+
+    # ─── Tag ─────────────────────────────────────────────────────────────
+    Tag:
+      type: object
+      properties:
+        id:   { type: integer }
+        slug: { type: string }
+        name: { type: string }
+      required: [id, slug, name]
+
+    # ─── Author ──────────────────────────────────────────────────────────
+    Author:
+      type: object
+      properties:
+        id:        { type: integer }
+        slug:      { type: string }
+        name:      { type: string }
+        bio:       { type: ["string", "null"] }
+        avatarUrl: { type: ["string", "null"] }
+        title:     { type: ["string", "null"] }
+      required: [id, slug, name]
+
+    AuthorInput:
+      type: object
+      properties:
+        slug:      { type: string }
+        name:      { type: string }
+        bio:       { type: string }
+        avatarUrl: { type: string }
+        title:     { type: string }
+      required: [name]
+
+    # ─── Search ──────────────────────────────────────────────────────────
+    SearchResults:
+      type: object
+      properties:
+        query:      { type: string }
+        articles:   { type: array, items: { $ref: "#/components/schemas/Article" } }
+        papers:     { type: array, items: { $ref: "#/components/schemas/Paper" } }
+        categories: { type: array, items: { $ref: "#/components/schemas/Category" } }
+        total:      { type: integer }
+      required: [query, articles, papers, categories, total]
+
+    # ─── Submission ──────────────────────────────────────────────────────
+    Submission:
+      type: object
+      properties:
+        id:        { type: integer }
+        name:      { type: string }
+        email:     { type: string }
+        type:      { type: string, enum: [article, paper] }
+        title:     { type: string }
+        abstract:  { type: ["string", "null"] }
+        notes:     { type: ["string", "null"] }
+        status:    { type: string, enum: [pending, accepted, rejected] }
+        createdAt: { type: string }
+      required: [id, name, email, type, title, status, createdAt]
+
+    SubmissionInput:
+      type: object
+      properties:
+        name:     { type: string }
+        email:    { type: string }
+        type:     { type: string, enum: [article, paper] }
+        title:    { type: string }
+        abstract: { type: string }
+        notes:    { type: string }
+      required: [name, email, type, title]
+
+    SubmissionUpdate:
+      type: object
+      properties:
+        status: { type: string, enum: [pending, accepted, rejected] }
+      required: [status]
+
+    # ─── Newsletter ──────────────────────────────────────────────────────
+    NewsletterInput:
+      type: object
+      properties:
+        email: { type: string, format: email }
+      required: [email]
+
+    NewsletterSubscriber:
+      type: object
+      properties:
+        id:        { type: integer }
+        email:     { type: string }
+        createdAt: { type: string }
+        active:    { type: boolean }
+      required: [id, email, createdAt, active]
+
+    # ─── Admin ───────────────────────────────────────────────────────────
+    AdminLoginInput:
+      type: object
+      properties:
+        email:    { type: string }
+        password: { type: string }
+      required: [email, password]
+
+    AdminUser:
+      type: object
+      properties:
+        id:    { type: integer }
+        email: { type: string }
+        role:  { type: string, enum: [owner, editor, contributor] }
+      required: [id, email, role]
+
+    # ─── Settings ────────────────────────────────────────────────────────
+    SiteSettings:
+      type: object
+      properties:
+        featuredArticleId: { type: ["integer", "null"] }
+        siteTitle:         { type: string }
+        siteDescription:   { type: string }
+      required: [siteTitle, siteDescription]
+
+    SiteSettingsUpdate:
+      type: object
+      properties:
+        featuredArticleId: { type: ["integer", "null"] }
+        siteTitle:         { type: string }
+        siteDescription:   { type: string }
+
+    # ─── Stats ───────────────────────────────────────────────────────────
+    SiteStats:
+      type: object
+      properties:
+        totalArticles:     { type: integer }
+        totalPapers:       { type: integer }
+        totalSubscribers:  { type: integer }
+        totalSubmissions:  { type: integer }
+        categoryCounts:
+          type: array
+          items:
+            type: object
+            properties:
+              categorySlug: { type: string }
+              categoryName: { type: string }
+              count:        { type: integer }
+            required: [categorySlug, categoryName, count]
+      required: [totalArticles, totalPapers, totalSubscribers, totalSubmissions, categoryCounts]

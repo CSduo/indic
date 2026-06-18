@@ -1,0 +1,2 @@
+- [Anvikshiki orval mutations](anvikshiki-orval-mutations.md) — generated mutations use `{ data: ... }` not named input objects; queries in v5 need `as any` for `enabled`-only options.
+- [bcryptjs in Replit](bcryptjs-replit.md) — native bcrypt bindings fail; always use bcryptjs (pure JS) in api-server and scripts.
