@@ -12,7 +12,7 @@ export default function AdminNewPaperPage() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     title: "", slug: "", authorName: "", authorEmail: "", abstract: "", body: "",
-    disciplineSlug: "", year: new Date().getFullYear().toString(),
+    categorySlug: "", year: new Date().getFullYear().toString(),
     keywords: "", peerReviewed: false, status: "DRAFT",
   });
 
@@ -72,7 +72,7 @@ export default function AdminNewPaperPage() {
             </div>
             <div>
               <label className="form-label" htmlFor="paper-discipline">Discipline Slug</label>
-              <input id="paper-discipline" className="input-sacred" placeholder="philosophy, history, etc." value={form.disciplineSlug} onChange={e => set("disciplineSlug", e.target.value)} />
+              <input id="paper-discipline" className="input-sacred" placeholder="philosophy, history, etc." value={form.categorySlug} onChange={e => set("categorySlug", e.target.value)} />
             </div>
             <div>
               <label className="form-label" htmlFor="paper-status">Status</label>

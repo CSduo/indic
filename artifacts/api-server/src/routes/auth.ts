@@ -84,6 +84,29 @@ router.get("/auth/me", async (req, res) => {
   }
 });
 
+// POST /api/auth/register — alias for /auth/signup (frontend compatibility)
+router.post("/auth/register", async (req, res) => {
+  try {
+    const parsed = signupSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid input" });
+    }
+    const { name, email, password } = parsed.data;
+    const [existing] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
+    if (existing) {
+      return res.status(409).json({ error: "Email already registered" });
+    }
+    const hashedPassword = await hashPassword(password);
+    const [user] = await db.insert(usersTable).values({ name, email, password: hashedPassword }).returning();
+    const token = await createUserToken(user.id, user.email);
+    setUserCookie(res, token);
+    return res.json({ success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed to create account" });
+  }
+});
+
 // POST /api/auth/logout
 router.post("/auth/logout", (req, res) => {
   clearUserCookie(res);

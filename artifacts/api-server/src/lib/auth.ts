@@ -2,13 +2,19 @@ import bcryptjs from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
 import type { Request, Response } from "express";
 
-const AUTH_SECRET = new TextEncoder().encode(
-  process.env.AUTH_SECRET || "fallback-secret-change-in-production"
-);
+function makeSecret(envVar: string | undefined, name: string): Uint8Array {
+  if (envVar) return new TextEncoder().encode(envVar);
+  console.warn(
+    `[auth] WARNING: ${name} env var is not set. Using a random per-process secret — ` +
+    "all sessions will be invalidated on server restart. Set this variable for production."
+  );
+  const arr = new Uint8Array(32);
+  for (let i = 0; i < 32; i++) arr[i] = Math.floor(Math.random() * 256);
+  return arr;
+}
 
-const ADMIN_SECRET = new TextEncoder().encode(
-  process.env.ADMIN_SECRET || "admin-secret-change-in-production"
-);
+const AUTH_SECRET = makeSecret(process.env.AUTH_SECRET, "AUTH_SECRET");
+const ADMIN_SECRET = makeSecret(process.env.ADMIN_SECRET, "ADMIN_SECRET");
 
 export async function hashPassword(password: string): Promise<string> {
   return bcryptjs.hash(password, 12);
