@@ -116,7 +116,7 @@ body {
   transform: translateY(-2px);
 }
 
-/* ─── Domain card (arched) ─── */
+/* ─── Domain card (arched — legacy) ─── */
 .domain-card {
   position: relative;
   border-radius: 120px 120px 16px 16px;
@@ -134,6 +134,78 @@ body {
   transform: translateY(-8px) scale(1.02);
   box-shadow: 0 24px 60px rgba(0,0,0,0.7), var(--shadow-gold);
   border-color: var(--gold-bright);
+}
+
+/* ─── Photo card (rectangular atmospheric) ─── */
+.photo-card {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface-2);
+  border: 1px solid rgba(201,152,58,0.28);
+  cursor: pointer;
+  transition: transform 0.32s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s, border-color 0.3s;
+}
+.photo-card:hover {
+  transform: translateY(-7px) scale(1.015);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.75), 0 0 0 1px rgba(201,152,58,0.42), 0 0 28px rgba(201,152,58,0.18);
+  border-color: rgba(201,152,58,0.52);
+}
+
+/* ─── Feature panel (full-bleed landscape) ─── */
+.feature-panel {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  min-height: 200px;
+  cursor: pointer;
+  transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s;
+}
+.feature-panel:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 48px rgba(0,0,0,0.8), 0 0 32px rgba(201,152,58,0.15);
+}
+@media (min-width: 640px) { .feature-panel { min-height: 220px; } }
+@media (min-width: 1024px) { .feature-panel { min-height: 240px; } }
+
+/* ─── Parchment form card ─── */
+.parchment-card {
+  background: linear-gradient(160deg, #f5e8c8 0%, #ecd9a8 50%, #e8d09c 100%);
+  border-radius: 16px;
+  padding: 2rem 1.5rem;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.35);
+  border: 1px solid rgba(180,130,50,0.3);
+}
+@media (min-width: 640px) { .parchment-card { padding: 2.5rem 2rem; } }
+
+/* ─── Upload zone (dark theme) ─── */
+.upload-zone {
+  border: 1.5px dashed rgba(201,152,58,0.38);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.02);
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  transition: border-color 0.2s, background 0.2s;
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.upload-zone:hover, .upload-zone.active {
+  border-color: rgba(201,152,58,0.6);
+  background: rgba(201,152,58,0.04);
+}
+
+/* ─── Upload section label ─── */
+.upload-section-label {
+  font-family: var(--font-ui);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--gold);
+  opacity: 0.75;
+  margin-bottom: 0.75rem;
 }
 
 /* ─── Buttons ─── */

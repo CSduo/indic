@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Search, X, Menu, Moon, Globe } from "lucide-react";
+import { Search, X, Menu } from "lucide-react";
 import { Emblem } from "@/components/brand/Emblem";
 import { LotusIcon } from "./LotusIcon";
 
@@ -15,43 +15,51 @@ const NAV_LINKS = [
 export function SacredHeader() {
   const [loc] = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
-  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   return (
     <>
       <header
         className="relative z-50"
         style={{
-          background: "linear-gradient(180deg, rgba(7,4,10,0.97) 0%, rgba(7,4,10,0.92) 100%)",
-          borderBottom: "1px solid var(--border)",
-          backdropFilter: "blur(12px)",
+          background: "linear-gradient(180deg, rgba(7,4,10,0.98) 0%, rgba(7,4,10,0.94) 100%)",
+          borderBottom: "1px solid rgba(201,152,58,0.18)",
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
         }}
       >
-        {/* Gold line top */}
-        <div style={{ height: 1, background: "linear-gradient(90deg, transparent, var(--gold), transparent)" }} aria-hidden="true" />
+        {/* Gold accent line top */}
+        <div style={{ height: 1, background: "linear-gradient(90deg, transparent 0%, var(--gold) 40%, var(--gold-bright) 60%, transparent 100%)", opacity: 0.55 }} aria-hidden="true" />
 
         <div className="container-anv">
-          <div className="flex items-center justify-between py-3">
+          <div className="flex items-center justify-between" style={{ paddingTop: "0.6rem", paddingBottom: "0.6rem" }}>
+
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-2.5 shrink-0 group" aria-label="Ānvīkṣikī Home">
-              <Emblem size={44} />
+            <Link href="/" className="flex items-center gap-3 shrink-0 group" aria-label="Ānvīkṣikī Home">
+              <div className="group-hover:opacity-90 transition-opacity">
+                <Emblem size={46} />
+              </div>
               <div>
-                <div className="font-display text-xl leading-none tracking-[0.12em]" style={{ color: "var(--gold-bright)" }}>ĀNVĪKṢIKĪ</div>
-                <div className="font-ui text-[8px] tracking-[0.3em] uppercase" style={{ color: "var(--muted)" }}>Journal & Research Platform</div>
+                <div className="font-display leading-none tracking-[0.14em]"
+                  style={{ fontSize: "1.125rem", color: "var(--gold-bright)" }}>
+                  ĀNVĪKṢIKĪ
+                </div>
+                <div className="font-ui tracking-[0.28em] uppercase"
+                  style={{ fontSize: "0.5rem", color: "var(--ink-faint)", marginTop: 2 }}>
+                  Journal &amp; Research Platform
+                </div>
               </div>
             </Link>
 
-            {/* Desktop nav */}
-            <nav className="hidden md:flex items-center gap-1" role="navigation" aria-label="Main navigation">
+            {/* Desktop nav — center */}
+            <nav className="hidden md:flex items-center gap-0.5" role="navigation" aria-label="Main navigation">
               {NAV_LINKS.map(l => (
                 <Link
-                  key={l.href}
-                  href={l.href}
-                  className="px-3 py-1.5 rounded-lg font-ui text-sm transition-all"
+                  key={l.href} href={l.href}
+                  className="px-3.5 py-1.5 rounded-md font-ui text-xs transition-all"
                   style={{
                     color: loc === l.href ? "var(--gold-bright)" : "var(--ink-faint)",
                     background: loc === l.href ? "rgba(201,152,58,0.1)" : "transparent",
-                    letterSpacing: "0.06em",
+                    letterSpacing: "0.08em",
                   }}
                 >
                   {l.label}
@@ -61,91 +69,96 @@ export function SacredHeader() {
 
             {/* Right actions */}
             <div className="flex items-center gap-1">
-              {/* Search */}
               <Link
                 href="/search"
-                className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:bg-[rgba(201,152,58,0.1)]"
+                className="w-9 h-9 rounded-lg flex items-center justify-center transition-all"
+                style={{ color: "var(--gold)", opacity: 0.7 }}
                 aria-label="Search"
               >
-                <Search size={16} style={{ color: "var(--ink-faint)" }} />
+                <Search size={17} />
               </Link>
 
-              {/* Google login placeholder */}
-              <button
-                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-ui text-xs transition-all hover:bg-[rgba(201,152,58,0.08)]"
-                style={{ color: "var(--muted)", border: "1px solid var(--border)", letterSpacing: "0.06em" }}
-                title="Google login coming soon"
-                onClick={() => alert("Google login will be available soon.")}
-                type="button"
+              {/* Account link (desktop) */}
+              <Link
+                href="/login"
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-md font-ui text-xs transition-all"
+                style={{ color: "var(--ink-faint)", border: "1px solid rgba(201,152,58,0.22)", letterSpacing: "0.06em" }}
               >
-                <Globe size={13} />
                 Sign in
-              </button>
-
-              {/* Language placeholder */}
-              <button
-                className="hidden lg:flex w-9 h-9 rounded-lg items-center justify-center transition-all hover:bg-[rgba(201,152,58,0.08)]"
-                style={{ color: "var(--ink-faint)" }}
-                title="Language toggle coming soon"
-                type="button"
-              >
-                <span className="font-ui text-[9px] font-bold">EN</span>
-              </button>
+              </Link>
 
               {/* Mobile hamburger */}
               <button
                 className="md:hidden w-9 h-9 rounded-lg flex items-center justify-center"
-                style={{ color: "var(--ink-faint)" }}
+                style={{ color: "var(--gold)", opacity: 0.75 }}
                 onClick={() => setMenuOpen(v => !v)}
                 aria-expanded={menuOpen}
                 aria-label="Toggle menu"
                 type="button"
               >
-                {menuOpen ? <X size={18} /> : <Menu size={18} />}
+                {menuOpen ? <X size={18} /> : <Menu size={19} />}
               </button>
             </div>
           </div>
         </div>
 
-        {/* Gold line bottom */}
-        <div style={{ height: 1, background: "linear-gradient(90deg, transparent, var(--border-gold), transparent)" }} aria-hidden="true" />
+        {/* Bottom hairline */}
+        <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(201,152,58,0.12), transparent)" }} aria-hidden="true" />
       </header>
 
-      {/* Mobile menu drawer */}
+      {/* Mobile drawer */}
       {menuOpen && (
         <div
           className="fixed inset-0 z-40 md:hidden"
-          style={{ background: "rgba(4,2,6,0.92)", backdropFilter: "blur(8px)" }}
+          style={{ background: "rgba(4,2,8,0.93)", backdropFilter: "blur(10px)" }}
           onClick={() => setMenuOpen(false)}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Mobile navigation"
+          role="dialog" aria-modal="true" aria-label="Mobile navigation"
         >
           <div
-            className="absolute top-0 left-0 bottom-0 w-72 flex flex-col"
-            style={{ background: "var(--surface)", borderRight: "1px solid var(--border-gold)", padding: "5rem 1.5rem 2rem" }}
+            className="absolute top-0 right-0 bottom-0 w-72 flex flex-col"
+            style={{ background: "#080412", borderLeft: "1px solid rgba(201,152,58,0.2)", padding: "4.5rem 1.75rem 2rem" }}
             onClick={e => e.stopPropagation()}
           >
-            <LotusIcon size={32} className="mb-6 text-gold" style={{ color: "var(--gold)" }} />
-            {NAV_LINKS.map(l => (
-              <Link
-                key={l.href}
-                href={l.href}
-                className="py-3 font-display text-xl border-b"
-                style={{ color: loc === l.href ? "var(--gold-bright)" : "var(--ink-soft)", borderColor: "var(--border)" }}
-                onClick={() => setMenuOpen(false)}
-              >
-                {l.label}
+            {/* Drawer logo */}
+            <div className="flex items-center gap-2.5 mb-8">
+              <Emblem size={36} />
+              <span className="font-display text-base tracking-[0.14em]" style={{ color: "var(--gold-bright)" }}>ĀNVĪKṢIKĪ</span>
+            </div>
+
+            <div className="space-y-1 flex-1">
+              {NAV_LINKS.map(l => (
+                <Link
+                  key={l.href} href={l.href}
+                  className="flex items-center py-3 px-2 rounded-lg font-ui text-sm transition-all"
+                  style={{
+                    color: loc === l.href ? "var(--gold-bright)" : "var(--ink-soft)",
+                    background: loc === l.href ? "rgba(201,152,58,0.08)" : "transparent",
+                    borderBottom: "1px solid rgba(201,152,58,0.07)",
+                    letterSpacing: "0.06em",
+                  }}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+
+            <div className="mt-6 space-y-2">
+              <Link href="/search" className="flex items-center gap-2 w-full py-2.5 px-3 rounded-lg font-ui text-xs"
+                style={{ background: "rgba(201,152,58,0.08)", color: "var(--gold)", border: "1px solid rgba(201,152,58,0.2)" }}
+                onClick={() => setMenuOpen(false)}>
+                <Search size={14} /> Search
               </Link>
-            ))}
-            <button
-              className="mt-6 py-2 rounded-lg font-ui text-sm"
-              style={{ background: "var(--surface-2)", color: "var(--muted)", border: "1px solid var(--border)" }}
-              onClick={() => { alert("Google login will be available soon."); setMenuOpen(false); }}
-              type="button"
-            >
-              Sign in (coming soon)
-            </button>
+              <Link href="/login" className="flex w-full items-center justify-center py-2.5 rounded-lg font-ui text-xs"
+                style={{ background: "transparent", color: "var(--ink-faint)", border: "1px solid rgba(201,152,58,0.15)" }}
+                onClick={() => setMenuOpen(false)}>
+                Sign in
+              </Link>
+            </div>
+
+            <div className="mt-6 flex justify-center">
+              <LotusIcon size={20} style={{ color: "var(--gold)", opacity: 0.25 }} />
+            </div>
           </div>
         </div>
       )}

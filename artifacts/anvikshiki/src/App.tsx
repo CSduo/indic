@@ -103,12 +103,12 @@ function Router() {
 }
 
 function App() {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !sessionStorage.getItem("anv_loaded"));
 
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        {loading && <LoadingScreen onDone={() => setLoading(false)} />}
+        {loading && <LoadingScreen onDone={() => { sessionStorage.setItem("anv_loaded","1"); setLoading(false); }} />}
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <Router />
         </WouterRouter>
