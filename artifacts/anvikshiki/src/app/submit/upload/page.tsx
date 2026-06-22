@@ -225,7 +225,7 @@ function UploadZone({ file, dragging, onDragOver, onDragLeave, onDrop, onClick, 
   file: File | null; dragging: boolean;
   onDragOver: (e: React.DragEvent) => void; onDragLeave: () => void; onDrop: (e: React.DragEvent) => void;
   onClick: () => void; icon: React.ReactNode; accept: string; formatHint: string; browseLabel: string;
-  onRemove: () => void; inputRef: React.RefObject<HTMLInputElement>; onFileChange: (f: File) => void;
+  onRemove: () => void; inputRef: React.RefObject<HTMLInputElement | null>; onFileChange: (f: File) => void;
 }) {
   return (
     <div

@@ -27,8 +27,8 @@ export default function AdminNewArticlePage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.title.trim()) return toast.error("Title is required");
-    if (!form.slug.trim()) return toast.error("Slug is required");
+    if (!form.title.trim()) { toast.error("Title is required"); return; }
+    if (!form.slug.trim()) { toast.error("Slug is required"); return; }
     setSaving(true);
     try {
       const r = await fetch(`${base()}/api/admin/articles`, {

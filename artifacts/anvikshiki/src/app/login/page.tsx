@@ -63,7 +63,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => { setTab(t); setError(""); }}
                   className="flex-1 py-2 font-ui text-sm font-semibold transition-colors"
-                  style={{ color: tab === t ? "var(--gold-bright)" : "var(--muted)", borderBottom: `2px solid ${tab === t ? "var(--gold)" : "transparent"}`, background: "none", border: "none", cursor: "pointer", borderBottom: `2px solid ${tab === t ? "var(--gold)" : "transparent"}` }}
+                  style={{ color: tab === t ? "var(--gold-bright)" : "var(--muted)", background: "none", border: "none", cursor: "pointer", borderBottom: `2px solid ${tab === t ? "var(--gold)" : "transparent"}` }}
                 >
                   {t === "login" ? "Sign In" : "Create Account"}
                 </button>
