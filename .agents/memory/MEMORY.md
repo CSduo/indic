@@ -1,0 +1,1 @@
+- [Anvikshiki migration](anvikshiki-migration.md) — Next.js→Vite migration quirks: broken template literals, dead server files, router dep arrays
