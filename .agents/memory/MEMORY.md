@@ -1,0 +1,2 @@
+- [Auth architecture](auth-architecture.md) — JWT in HttpOnly cookies; AuthContext is the global state layer; useAuth.ts re-exports useAuthContext
+- [Admin routes pattern](admin-routes.md) — Admin auth uses separate requireAdmin middleware; siteSettingsTable and usersTable now imported in admin.ts

@@ -3,17 +3,23 @@ import { Link } from "wouter";
 import { ArrowRight, Users, MessageCircle, Heart } from "lucide-react";
 import { LotusDivider, LotusIcon } from "@/components/sacred/LotusIcon";
 import { EmptyState } from "@/components/sacred/EmptyState";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export default function CommunityPage() {
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
+  const { user } = useAuthContext();
+  const [email, setEmail] = useState(user?.email || "");
+  const [name, setName] = useState(user?.name || "");
   const [status, setStatus] = useState<"idle"|"loading"|"ok"|"err">("idle");
 
   const joinNewsletter = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
+    if (!email.trim() || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
     setStatus("loading");
     try {
       const r = await fetch(`${base()}/api/newsletter`, {
@@ -21,8 +27,19 @@ export default function CommunityPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, name }),
       });
-      setStatus(r.ok ? "ok" : "err");
-    } catch { setStatus("err"); }
+      const d = await r.json();
+      if (r.status === 409) {
+        toast.info("You're already part of the community!");
+        setStatus("ok");
+        return;
+      }
+      if (!r.ok) throw new Error(d.error || "Failed");
+      setStatus("ok");
+      toast.success("Welcome to the community! You're now subscribed.");
+    } catch {
+      setStatus("err");
+      toast.error("Something went wrong. Please try again.");
+    }
   };
 
   return (
@@ -105,28 +122,35 @@ export default function CommunityPage() {
             <p className="font-body text-sm mb-2" style={{ color: "var(--ink-faint)" }}>
               Receive reflections, resources, and community updates. No noise — only wisdom.
             </p>
+            {user && (
+              <p className="font-ui text-xs mt-3 px-3 py-2 rounded-lg" style={{ background: "rgba(201,152,58,0.08)", color: "var(--gold)", border: "1px solid rgba(201,152,58,0.2)" }}>
+                Signed in as {user.email}
+              </p>
+            )}
           </div>
           <div className="card-sacred p-6">
             {status === "ok" ? (
               <div className="flex flex-col items-center gap-3 py-6 text-center">
                 <LotusIcon size={32} style={{ color: "var(--gold)" }} />
                 <p className="font-display text-xl" style={{ color: "var(--gold-bright)" }}>Welcome to the community</p>
-                <p className="font-body text-sm" style={{ color: "var(--ink-faint)" }}>Your subscription has been received.</p>
+                <p className="font-body text-sm" style={{ color: "var(--ink-faint)" }}>Your subscription has been saved to our community list.</p>
               </div>
             ) : (
-              <form onSubmit={joinNewsletter} className="flex flex-col gap-3">
+              <form onSubmit={joinNewsletter} className="flex flex-col gap-3" noValidate>
                 <div>
                   <label className="form-label" htmlFor="comm-name">Your name</label>
                   <input id="comm-name" className="input-sacred" type="text" placeholder="Arjun Sharma" value={name} onChange={e => setName(e.target.value)} aria-label="Your name" />
                 </div>
                 <div>
-                  <label className="form-label" htmlFor="comm-email">Email address</label>
+                  <label className="form-label" htmlFor="comm-email">Email address *</label>
                   <input id="comm-email" className="input-sacred" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} required aria-label="Email address" />
                 </div>
                 <button type="submit" className="btn-sacred btn-gold w-full justify-center" disabled={status === "loading"}>
                   {status === "loading" ? "Joining…" : "Join the Community"}
                 </button>
-                {status === "err" && <p className="font-ui text-xs text-center" style={{ color: "var(--lotus)" }}>Something went wrong. Please try again.</p>}
+                <p className="font-ui text-xs text-center" style={{ color: "var(--ink-faint)" }}>
+                  Your email is saved to our newsletter subscribers list.
+                </p>
               </form>
             )}
           </div>

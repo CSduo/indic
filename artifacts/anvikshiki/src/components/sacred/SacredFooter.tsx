@@ -1,6 +1,65 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import { Emblem } from "@/components/brand/Emblem";
 import { LotusIcon, LotusDivider } from "./LotusIcon";
+import { toast } from "sonner";
+
+const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function FooterNewsletter() {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "ok">("idle");
+
+  const join = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    setStatus("loading");
+    try {
+      const r = await fetch(`${base()}/api/newsletter`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const d = await r.json();
+      if (r.status === 409) {
+        toast.info("You're already subscribed!");
+        setStatus("ok");
+        return;
+      }
+      if (!r.ok) throw new Error(d.error || "Failed");
+      setStatus("ok");
+      toast.success("You've joined the community!");
+    } catch {
+      setStatus("idle");
+      toast.error("Something went wrong. Please try again.");
+    }
+  };
+
+  if (status === "ok") {
+    return <p className="font-ui text-xs" style={{ color: "var(--gold)" }}>✓ You're connected</p>;
+  }
+
+  return (
+    <form onSubmit={join} className="flex gap-2">
+      <input
+        type="email"
+        placeholder="Your email"
+        className="input-sacred text-xs py-2"
+        style={{ fontSize: "0.8125rem" }}
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        required
+        aria-label="Email for newsletter"
+      />
+      <button className="btn-sacred btn-gold px-3 py-2 text-xs shrink-0" type="submit" disabled={status === "loading"}>
+        {status === "loading" ? "…" : "Join"}
+      </button>
+    </form>
+  );
+}
 
 export function SacredFooter() {
   return (
@@ -37,7 +96,7 @@ export function SacredFooter() {
           <div>
             <div className="section-label mb-3">Community</div>
             <ul className="space-y-2">
-              {[["Community", "/community"], ["Submit Work", "/submit"], ["Login", "/login"], ["About", "/about"]].map(([l, h]) => (
+              {[["Community", "/community"], ["Submit Work", "/submit"], ["My Account", "/account"], ["About", "/about"]].map(([l, h]) => (
                 <li key={h}><Link href={h} className="font-ui text-sm transition-colors hover:text-[var(--gold)]" style={{ color: "var(--ink-faint)" }}>{l}</Link></li>
               ))}
             </ul>
@@ -47,15 +106,7 @@ export function SacredFooter() {
           <div>
             <div className="section-label mb-3">Stay Connected</div>
             <p className="font-body text-xs mb-3" style={{ color: "var(--ink-faint)" }}>Receive reflections and resources from the archive.</p>
-            <div className="flex gap-2">
-              <input
-                type="email"
-                placeholder="Your email"
-                className="input-sacred text-xs py-2"
-                style={{ fontSize: "0.8125rem" }}
-              />
-              <button className="btn-sacred btn-gold px-3 py-2 text-xs shrink-0" type="button">Join</button>
-            </div>
+            <FooterNewsletter />
           </div>
         </div>
 
