@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { ArrowRight } from "lucide-react";
-import { LotusDivider, LotusIcon, MandalaRing } from "@/components/sacred/LotusIcon";
-import { Emblem } from "@/components/brand/Emblem";
+import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
+import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
+import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
+import { SubmissionStepper } from "@/components/manuscript/SubmissionStepper";
 
 export default function SubmitSuccessPage() {
   const [subId, setSubId] = useState("");
@@ -13,69 +15,45 @@ export default function SubmitSuccessPage() {
   }, []);
 
   return (
-    <div style={{ background: "var(--bg)", minHeight: "80vh", display: "flex", alignItems: "center" }}>
-      {/* Cosmic bg */}
-      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 40%, rgba(74,40,120,0.20) 0%, transparent 60%)" }} />
-        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 20% 60%, rgba(139,26,74,0.15) 0%, transparent 50%)" }} />
-      </div>
-
-      <div className="container-anv relative z-10 flex flex-col items-center text-center py-20 max-w-xl mx-auto">
-        {/* Spinning mandala ring */}
-        <div className="relative mb-6" aria-hidden="true">
-          <MandalaRing size={120} className="animate-spin-slow" style={{ color: "var(--gold)", opacity: 0.25, position: "absolute", top: -12, left: -12 }} />
-          <div style={{ position: "relative", width: 96, height: 96, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Emblem size={72} />
-          </div>
+    <div className="grid min-h-[80vh] place-items-center bg-[var(--bg)] px-4 py-16">
+      <ParchmentCard className="w-full max-w-3xl p-7 text-center md:p-10">
+        <SubmissionStepper active={2} className="mx-auto mb-8 max-w-xl" />
+        <div className="mx-auto mb-5 grid h-24 w-24 place-items-center rounded-full border border-[var(--border-gold)] bg-[var(--surface)] text-[var(--gold)]">
+          <AnimalGlyph domain="community" size={62} />
         </div>
-
-        <LotusIcon size={24} className="mb-4 animate-float" style={{ color: "var(--gold)", opacity: 0.8 }} />
-
-        <div className="section-label mb-3" style={{ color: "var(--gold-bright)" }}>Submission Received</div>
-
-        <h1 className="font-display mb-4" style={{ fontSize: "clamp(2rem, 5vw, 3.5rem)", color: "var(--gold-bright)", letterSpacing: "0.1em" }}>
-          Your Work Has Been<br />Received
-        </h1>
-
-        <LotusDivider className="w-48 my-4" />
-
-        <p className="font-body text-base mb-2" style={{ color: "var(--ink-soft)" }}>
-          Thank you for your submission to Ānvīkṣikī.
-        </p>
-        <p className="font-body text-sm mb-6" style={{ color: "var(--ink-faint)" }}>
-          Our editorial team will review your manuscript carefully. You will receive a response at the email address you provided.
+        <p className="type-section-label mb-3">Submission Received</p>
+        <h1 className="font-display text-[clamp(2.5rem,6vw,4.8rem)] leading-none text-[var(--ink)]">Received</h1>
+        <OrnamentDivider className="my-7" />
+        <p className="mx-auto max-w-xl font-body text-lg leading-8 text-[var(--ink-soft)]">
+          Your manuscript has been received. Our editorial team will review it carefully and respond at the email address you provided.
         </p>
 
-        {subId && (
-          <div className="mb-6 px-5 py-3 rounded-lg" style={{ background: "var(--surface-2)", border: "1px solid var(--border-gold)" }}>
-            <div className="font-ui text-[10px] tracking-[0.15em] uppercase mb-1" style={{ color: "var(--muted)" }}>Reference ID</div>
-            <div className="font-ui text-sm font-semibold" style={{ color: "var(--gold-bright)" }}>{subId}</div>
+        {subId ? (
+          <div className="mx-auto mt-6 w-fit rounded-[8px] border border-[var(--border-gold)] bg-[var(--surface)] px-5 py-3">
+            <div className="font-ui text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]">Reference ID</div>
+            <div className="mt-1 font-ui text-sm font-bold text-[var(--gold)]">{subId}</div>
           </div>
-        )}
+        ) : null}
 
-        {/* Steps */}
-        <div className="card-sacred p-5 w-full max-w-sm mb-8">
-          <div className="section-label mb-3">What Happens Next</div>
+        <div className="mx-auto mt-8 grid max-w-lg gap-3 text-left sm:grid-cols-3">
           {[
-            { n: "1", t: "Editorial Review", d: "Our team carefully reads your submission" },
-            { n: "2", t: "Decision", d: "You'll receive acceptance, revision, or feedback" },
-            { n: "3", t: "Publication", d: "Accepted works are prepared and published" },
-          ].map(s => (
-            <div key={s.n} className="flex gap-3 mb-3 last:mb-0">
-              <div style={{ width: 24, height: 24, borderRadius: "50%", border: "1px solid var(--border-gold)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--gold)", fontSize: "0.75rem", flexShrink: 0 }}>{s.n}</div>
-              <div>
-                <div className="font-ui text-xs font-semibold" style={{ color: "var(--gold-bright)" }}>{s.t}</div>
-                <div className="font-body text-xs" style={{ color: "var(--ink-faint)" }}>{s.d}</div>
-              </div>
+            ["1", "Editorial Review"],
+            ["2", "Decision"],
+            ["3", "Publication"],
+          ].map(([number, label]) => (
+            <div key={number} className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-3 text-center">
+              <div className="mx-auto mb-2 grid h-7 w-7 place-items-center rounded-full border border-[var(--border-gold)] font-ui text-xs font-bold text-[var(--gold)]">{number}</div>
+              <div className="font-ui text-xs font-bold uppercase tracking-[0.1em] text-[var(--ink)]">{label}</div>
             </div>
           ))}
         </div>
 
-        <div className="flex gap-3 flex-wrap justify-center">
-          <Link href="/" className="btn-sacred btn-gold">Return Home <ArrowRight size={14} /></Link>
-          <Link href="/submit" className="btn-sacred btn-ghost">Submit Another</Link>
+        <div className="mt-8 flex flex-wrap justify-center gap-3">
+          <Link href="/" className="btn-terracotta">Return Home <ArrowRight size={14} /></Link>
+          <Link href="/submit" className="btn-ink">Submit Another</Link>
+          <Link href="/account" className="btn-ink">View Account</Link>
         </div>
-      </div>
+      </ParchmentCard>
     </div>
   );
 }

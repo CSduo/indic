@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { Emblem } from "@/components/brand/Emblem";
-import { LotusIcon, LotusDivider } from "./LotusIcon";
+import { ArrowRight } from "lucide-react";
 import { toast } from "sonner";
+import { Emblem } from "@/components/brand/Emblem";
+import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
+import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -10,28 +12,28 @@ function FooterNewsletter() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "ok">("idle");
 
-  const join = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const join = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!email.trim() || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
       toast.error("Please enter a valid email address");
       return;
     }
     setStatus("loading");
     try {
-      const r = await fetch(`${base()}/api/newsletter`, {
+      const response = await fetch(`${base()}/api/newsletter`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      const d = await r.json();
-      if (r.status === 409) {
-        toast.info("You're already subscribed!");
+      const data = await response.json();
+      if (response.status === 409) {
         setStatus("ok");
+        toast.info("You are already subscribed");
         return;
       }
-      if (!r.ok) throw new Error(d.error || "Failed");
+      if (!response.ok) throw new Error(data.error || "Failed");
       setStatus("ok");
-      toast.success("You've joined the community!");
+      toast.success("You have joined the conversation");
     } catch {
       setStatus("idle");
       toast.error("Something went wrong. Please try again.");
@@ -39,97 +41,93 @@ function FooterNewsletter() {
   };
 
   if (status === "ok") {
-    return <p className="font-ui text-xs" style={{ color: "var(--gold)" }}>✓ You're connected</p>;
+    return (
+      <div className="flex items-center gap-2 rounded-[8px] border border-[var(--border-gold)] bg-[var(--surface)] px-3 py-2 text-[var(--gold)]">
+        <AnimalGlyph domain="community" size={18} />
+        <span className="font-ui text-xs font-bold uppercase tracking-[0.12em]">Connected</span>
+      </div>
+    );
   }
 
   return (
     <form onSubmit={join} className="flex gap-2">
       <input
         type="email"
-        placeholder="Your email"
-        className="input-sacred text-xs py-2"
-        style={{ fontSize: "0.8125rem" }}
+        placeholder="Email address"
+        className="input-sacred"
         value={email}
-        onChange={e => setEmail(e.target.value)}
+        onChange={(event) => setEmail(event.target.value)}
         required
         aria-label="Email for newsletter"
       />
-      <button className="btn-sacred btn-gold px-3 py-2 text-xs shrink-0" type="submit" disabled={status === "loading"}>
-        {status === "loading" ? "…" : "Join"}
+      <button className="btn-terracotta shrink-0 px-3" type="submit" disabled={status === "loading"}>
+        {status === "loading" ? "..." : <ArrowRight size={15} />}
       </button>
     </form>
   );
 }
 
 export function SacredFooter() {
+  const year = new Date().getFullYear();
+
   return (
-    <footer style={{ background: "var(--bg-deep)", borderTop: "1px solid var(--border)" }} role="contentinfo">
-      {/* Gold line */}
-      <div style={{ height: 1, background: "linear-gradient(90deg, transparent, var(--gold), transparent)" }} aria-hidden="true" />
+    <footer className="border-t border-[var(--border-gold)] bg-[var(--bg-deep)]" role="contentinfo">
+      <div className="h-px bg-gradient-to-r from-transparent via-[var(--gold)] to-transparent" aria-hidden="true" />
+      <div className="container-anv py-12">
+        <OrnamentDivider className="mb-10" />
 
-      <div className="container-anv py-10">
-        <LotusDivider className="mb-8" />
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
-          {/* Brand */}
-          <div className="col-span-2 md:col-span-1">
-            <div className="flex items-center gap-2 mb-3">
-              <Emblem size={36} />
-              <div className="font-display text-lg tracking-[0.1em]" style={{ color: "var(--gold-bright)" }}>ĀNVĪKṢIKĪ</div>
+        <div className="grid gap-8 md:grid-cols-[1.25fr_.8fr_.8fr_1fr]">
+          <section>
+            <div className="mb-4 flex items-center gap-3">
+              <span className="grid h-11 w-11 place-items-center rounded-[8px] border border-[var(--border-ink)] bg-[var(--surface)] text-[var(--gold)]">
+                <Emblem size={34} />
+              </span>
+              <div>
+                <div className="font-display text-xl tracking-[0.18em] text-[var(--ink)]">ANVIKSIKI</div>
+                <div className="font-ui text-[0.58rem] font-bold uppercase tracking-[0.24em] text-[var(--ink-faint)]">Journal & Research Platform</div>
+              </div>
             </div>
-            <p className="font-body text-sm leading-relaxed" style={{ color: "var(--ink-faint)" }}>
-              A journal of inquiry and civilizational wisdom. Illuminating ideas across philosophy, history, science, and dharmic thought.
+            <p className="max-w-sm font-body text-sm leading-7 text-[var(--ink-soft)]">
+              A living archive of inquiry across philosophy, history, science, and civilizational thought.
             </p>
-          </div>
+          </section>
 
-          {/* Explore */}
-          <div>
-            <div className="section-label mb-3">Explore</div>
-            <ul className="space-y-2">
-              {[["Browse", "/browse"], ["Archive", "/archive"], ["Papers", "/papers"], ["Search", "/search"]].map(([l, h]) => (
-                <li key={h}><Link href={h} className="font-ui text-sm transition-colors hover:text-[var(--gold)]" style={{ color: "var(--ink-faint)" }}>{l}</Link></li>
+          <section>
+            <h2 className="type-section-label mb-4">Explore</h2>
+            <ul className="space-y-2 font-ui text-sm text-[var(--ink-faint)]">
+              {[["Browse", "/browse"], ["Archive", "/archive"], ["Papers", "/papers"], ["Search", "/search"]].map(([label, href]) => (
+                <li key={href}><Link href={href} className="hover:text-[var(--terracotta)]">{label}</Link></li>
               ))}
             </ul>
-          </div>
+          </section>
 
-          {/* Community */}
-          <div>
-            <div className="section-label mb-3">Community</div>
-            <ul className="space-y-2">
-              {[["Community", "/community"], ["Submit Work", "/submit"], ["My Account", "/account"], ["About", "/about"]].map(([l, h]) => (
-                <li key={h}><Link href={h} className="font-ui text-sm transition-colors hover:text-[var(--gold)]" style={{ color: "var(--ink-faint)" }}>{l}</Link></li>
+          <section>
+            <h2 className="type-section-label mb-4">Community</h2>
+            <ul className="space-y-2 font-ui text-sm text-[var(--ink-faint)]">
+              {[["Submit Work", "/submit"], ["Community", "/community"], ["Account", "/account"], ["About", "/about"]].map(([label, href]) => (
+                <li key={href}><Link href={href} className="hover:text-[var(--terracotta)]">{label}</Link></li>
               ))}
             </ul>
-          </div>
+          </section>
 
-          {/* Newsletter */}
-          <div>
-            <div className="section-label mb-3">Stay Connected</div>
-            <p className="font-body text-xs mb-3" style={{ color: "var(--ink-faint)" }}>Receive reflections and resources from the archive.</p>
+          <section>
+            <h2 className="type-section-label mb-4">Stay Connected</h2>
+            <p className="mb-3 font-body text-sm leading-6 text-[var(--ink-soft)]">No noise. Only inquiry, new essays, and notes from the archive.</p>
             <FooterNewsletter />
-          </div>
+          </section>
         </div>
 
-        <LotusDivider className="mb-6" />
+        <OrnamentDivider variant="minimal" className="my-10" />
 
-        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-          <p className="font-ui text-[11px]" style={{ color: "var(--ink-faint)" }}>
-            © {new Date().getFullYear()} Ānvīkṣikī · All rights reserved
-          </p>
-          <div className="flex items-center gap-4">
-            {[["Privacy", "/privacy"], ["Terms", "/terms"]].map(([l, h]) => (
-              <Link key={h} href={h} className="font-ui text-[11px] hover:text-[var(--gold)]" style={{ color: "var(--ink-faint)" }}>{l}</Link>
-            ))}
-            <div className="flex items-center gap-1.5" style={{ color: "var(--ink-faint)" }}>
-              <LotusIcon size={12} className="text-gold" style={{ color: "var(--gold)" }} />
-              <span className="font-ui text-[10px] tracking-[0.15em] uppercase">Inquiry · Wisdom · Truth</span>
-            </div>
+        <div className="flex flex-col items-center justify-between gap-3 font-ui text-[0.72rem] uppercase tracking-[0.12em] text-[var(--ink-faint)] md:flex-row">
+          <p>Copyright {year} Anvikshiki</p>
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <Link href="/privacy" className="hover:text-[var(--terracotta)]">Privacy</Link>
+            <Link href="/terms" className="hover:text-[var(--terracotta)]">Terms</Link>
+            <span className="text-[var(--gold)]">Inquiry · Wisdom · Truth</span>
           </div>
         </div>
       </div>
-
-      {/* Bottom gold line */}
-      <div style={{ height: 1, background: "linear-gradient(90deg, transparent, var(--border-gold), transparent)" }} aria-hidden="true" />
     </footer>
   );
 }

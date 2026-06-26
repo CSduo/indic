@@ -34,11 +34,11 @@ export function LoadingScreen({ onDone }: { onDone?: () => void }) {
     >
       {/* Atmospheric radial layers */}
       <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(160deg, #080318 0%, #050215 40%, #0a0408 100%)" }} />
-        <div style={{ position: "absolute", top: "10%", left: "50%", transform: "translateX(-50%)", width: 600, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(139,26,74,0.16) 0%, transparent 65%)" }} />
-        <div style={{ position: "absolute", bottom: "5%", left: "30%", width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(201,152,58,0.10) 0%, transparent 70%)" }} />
-        <div style={{ position: "absolute", top: "5%", right: "20%", width: 300, height: 300, borderRadius: "50%", background: "radial-gradient(circle, rgba(74,40,120,0.12) 0%, transparent 70%)" }} />
-        {/* Star field */}
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(160deg, var(--bg-deep) 0%, var(--bg) 55%, var(--bg-alt) 100%)" }} />
+        <div style={{ position: "absolute", top: "10%", left: "50%", transform: "translateX(-50%)", width: 600, height: 600, borderRadius: "50%", background: "radial-gradient(circle, var(--terracotta-pale) 0%, transparent 65%)" }} />
+        <div style={{ position: "absolute", bottom: "5%", left: "30%", width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, var(--gold-pale) 0%, transparent 70%)" }} />
+        <div style={{ position: "absolute", top: "5%", right: "20%", width: 300, height: 300, borderRadius: "50%", background: "radial-gradient(circle, var(--sage-pale) 0%, transparent 70%)" }} />
+        {/* Manuscript specks */}
         {Array.from({ length: 28 }).map((_, i) => (
           <div key={i} style={{
             position: "absolute",

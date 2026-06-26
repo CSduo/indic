@@ -1,41 +1,45 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { ArrowRight, Users, MessageCircle, Heart } from "lucide-react";
-import { LotusDivider, LotusIcon } from "@/components/sacred/LotusIcon";
+import { ArrowRight, Heart, MessageCircle, Users } from "lucide-react";
+import { toast } from "sonner";
+import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
+import { HeroPanel } from "@/components/manuscript/HeroPanel";
+import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
+import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { EmptyState } from "@/components/sacred/EmptyState";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { toast } from "sonner";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
+const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
 
 export default function CommunityPage() {
   const { user } = useAuthContext();
   const [email, setEmail] = useState(user?.email || "");
   const [name, setName] = useState(user?.name || "");
-  const [status, setStatus] = useState<"idle"|"loading"|"ok"|"err">("idle");
+  const [status, setStatus] = useState<"idle" | "loading" | "ok" | "err">("idle");
 
-  const joinNewsletter = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const joinNewsletter = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!email.trim() || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
       toast.error("Please enter a valid email address");
       return;
     }
     setStatus("loading");
     try {
-      const r = await fetch(`${base()}/api/newsletter`, {
+      const response = await fetch(`${base()}/api/newsletter`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, name }),
       });
-      const d = await r.json();
-      if (r.status === 409) {
-        toast.info("You're already part of the community!");
+      const data = await response.json();
+      if (response.status === 409) {
+        toast.info("You are already part of the community");
         setStatus("ok");
         return;
       }
-      if (!r.ok) throw new Error(d.error || "Failed");
+      if (!response.ok) throw new Error(data.error || "Failed");
       setStatus("ok");
-      toast.success("Welcome to the community! You're now subscribed.");
+      toast.success("Welcome to the community");
     } catch {
       setStatus("err");
       toast.error("Something went wrong. Please try again.");
@@ -43,131 +47,94 @@ export default function CommunityPage() {
   };
 
   return (
-    <div style={{ background: "var(--bg)" }}>
-      {/* Hero */}
-      <div className="relative overflow-hidden" style={{ minHeight: 360 }}>
-        <div className="absolute inset-0" aria-hidden="true">
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, #0f0820 0%, #120518 50%, #08050f 100%)" }} />
-          <div style={{ position: "absolute", top: 0, left: 0, right: "50%", bottom: 0, background: "radial-gradient(ellipse at 15% 50%, rgba(139,26,74,0.32) 0%, transparent 55%)" }} />
-          <div style={{ position: "absolute", top: 0, right: 0, width: "55%", height: "100%", background: "radial-gradient(ellipse at 85% 30%, rgba(74,40,120,0.20) 0%, transparent 55%)" }} />
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 80, background: "linear-gradient(180deg, transparent, var(--bg))" }} />
-        </div>
-        <div className="container-anv relative z-10 flex flex-col items-center text-center py-20">
-          <div className="section-label mb-3">Join the Conversation</div>
-          <h1 className="font-display mb-4" style={{ fontSize: "clamp(2.5rem, 6vw, 4.5rem)", color: "var(--gold-bright)", letterSpacing: "0.12em" }}>Community</h1>
-          <LotusIcon size={20} className="mb-4 animate-float" style={{ color: "var(--lotus)", opacity: 0.8 }} />
-          <p className="font-body text-base max-w-lg" style={{ color: "var(--ink-faint)" }}>
-            A space for seekers, thinkers, and dreamers to connect, share, and grow together across timeless disciplines.
-          </p>
-        </div>
-      </div>
+    <div className="bg-[var(--bg)]">
+      <section className="container-anv py-6 md:py-10">
+        <HeroPanel
+          image={asset("/images/heroes/submit-hero.jpg")}
+          imageAlt="Illustrated community journey through the archive"
+          eyebrow="Join the Conversation"
+          title="A Living Community of Seekers"
+          description="Gather around essays, manuscripts, and questions that deserve patient attention."
+          glyph="community"
+          focal="center"
+          ctaPrimary={user ? { label: "Go to Account", href: "/account" } : { label: "Sign In", href: "/login" }}
+          ctaSecondary={{ label: "Submit Work", href: "/submit" }}
+        />
+      </section>
 
-      {/* Three pillars */}
-      <div className="container-anv py-12">
-        <LotusDivider className="mb-10" />
-        <div className="grid md:grid-cols-3 gap-6 mb-12">
-          {/* Events */}
-          <div className="card-sacred p-6">
-            <div style={{ width: 44, height: 44, borderRadius: 10, background: "rgba(201,152,58,0.1)", border: "1px solid var(--border-gold)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--gold)", marginBottom: "1rem" }}>
-              <Users size={22} />
-            </div>
-            <div className="section-label mb-2">Events</div>
-            <h2 className="font-display text-2xl mb-3" style={{ color: "var(--parchment)" }}>Gatherings</h2>
-            <EmptyState
-              compact
-              title="No events yet"
-              description="Community gatherings, reading circles, and symposia will be announced here."
-            />
-            <button className="btn-sacred btn-ghost w-full mt-4 text-xs" type="button">Explore Events (Coming Soon)</button>
-          </div>
-
-          {/* Discuss */}
-          <div className="card-sacred p-6">
-            <div style={{ width: 44, height: 44, borderRadius: 10, background: "rgba(212,103,154,0.1)", border: "1px solid var(--border-rose)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--lotus)", marginBottom: "1rem" }}>
-              <MessageCircle size={22} />
-            </div>
-            <div className="section-label mb-2">Discuss</div>
-            <h2 className="font-display text-2xl mb-3" style={{ color: "var(--parchment)" }}>Dialogue</h2>
-            <p className="font-body text-sm mb-4" style={{ color: "var(--ink-faint)" }}>
-              Engage in meaningful conversations across timeless topics — philosophy, history, science, and civilizational thought.
-            </p>
-            <EmptyState
-              compact
-              title="Discussion forum coming soon"
-              description="Join the newsletter to be notified when the discussion boards open."
-            />
-            <button className="btn-sacred btn-ghost w-full mt-4 text-xs" type="button">Join the Discussion (Coming Soon)</button>
-          </div>
-
-          {/* Support */}
-          <div className="card-sacred p-6">
-            <div style={{ width: 44, height: 44, borderRadius: 10, background: "rgba(139,26,74,0.12)", border: "1px solid var(--border-rose)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--rose-bright)", marginBottom: "1rem" }}>
-              <Heart size={22} />
-            </div>
-            <div className="section-label mb-2">Support</div>
-            <h2 className="font-display text-2xl mb-3" style={{ color: "var(--parchment)" }}>The Journey</h2>
-            <p className="font-body text-sm mb-4" style={{ color: "var(--ink-faint)" }}>
-              Help sustain this space for learning, sharing, and collective wisdom. Every contribution matters.
-            </p>
-            <button className="btn-sacred btn-rose w-full mt-auto text-xs" type="button">Support the Journey (Coming Soon)</button>
-          </div>
+      <section className="container-anv pb-14">
+        <div className="grid gap-4 md:grid-cols-3">
+          {[
+            { title: "Gatherings", label: "Events", desc: "Reading circles, symposia, and community sessions will appear here.", icon: Users, domain: "community" },
+            { title: "Dialogue", label: "Discuss", desc: "A space for meaningful conversations across timeless topics.", icon: MessageCircle, domain: "sociology" },
+            { title: "Support", label: "The Journey", desc: "Help sustain a careful place for learning, sharing, and collective wisdom.", icon: Heart, domain: "geopolitics" },
+          ].map((item) => {
+            const Icon = item.icon;
+            return (
+              <ParchmentCard key={item.title} className="p-6">
+                <div className="mb-5 flex items-center justify-between">
+                  <span className="grid h-12 w-12 place-items-center rounded-[8px] border border-[var(--border-gold)] bg-[var(--surface)] text-[var(--gold)]">
+                    <Icon size={24} />
+                  </span>
+                  <AnimalGlyph domain={item.domain} size={38} className="text-[var(--gold)]" />
+                </div>
+                <p className="type-section-label mb-2">{item.label}</p>
+                <h2 className="font-display text-3xl text-[var(--ink)]">{item.title}</h2>
+                <p className="mt-3 font-body text-sm leading-6 text-[var(--ink-soft)]">{item.desc}</p>
+                <button type="button" className="btn-ink mt-5 w-full">Coming Soon</button>
+              </ParchmentCard>
+            );
+          })}
         </div>
 
-        {/* Join / Newsletter */}
-        <LotusDivider className="mb-10" />
-        <div className="grid md:grid-cols-2 gap-8 items-center">
+        <OrnamentDivider className="my-10" />
+
+        <div className="grid gap-6 md:grid-cols-[.9fr_1fr] md:items-center">
           <div>
-            <div className="section-label mb-3">Join</div>
-            <h2 className="font-display text-3xl mb-3" style={{ color: "var(--gold-bright)" }}>Stay Connected</h2>
-            <p className="font-body text-sm mb-2" style={{ color: "var(--ink-faint)" }}>
-              Receive reflections, resources, and community updates. No noise — only wisdom.
+            <p className="type-section-label mb-3">Stay Connected</p>
+            <h2 className="font-display text-4xl text-[var(--ink)]">Receive the conversation.</h2>
+            <p className="mt-3 max-w-lg font-body text-base leading-7 text-[var(--ink-soft)]">
+              Reflections, resources, and community updates. No noise, only inquiry.
             </p>
-            {user && (
-              <p className="font-ui text-xs mt-3 px-3 py-2 rounded-lg" style={{ background: "rgba(201,152,58,0.08)", color: "var(--gold)", border: "1px solid rgba(201,152,58,0.2)" }}>
+            {user ? (
+              <p className="mt-4 rounded-[8px] border border-[var(--border-gold)] bg-[var(--surface)] px-3 py-2 font-ui text-xs text-[var(--gold)]">
                 Signed in as {user.email}
               </p>
-            )}
+            ) : null}
           </div>
-          <div className="card-sacred p-6">
+
+          <ParchmentCard className="p-6">
             {status === "ok" ? (
-              <div className="flex flex-col items-center gap-3 py-6 text-center">
-                <LotusIcon size={32} style={{ color: "var(--gold)" }} />
-                <p className="font-display text-xl" style={{ color: "var(--gold-bright)" }}>Welcome to the community</p>
-                <p className="font-body text-sm" style={{ color: "var(--ink-faint)" }}>Your subscription has been saved to our community list.</p>
+              <div className="py-6 text-center">
+                <AnimalGlyph domain="community" size={54} className="mx-auto mb-4 text-[var(--gold)]" />
+                <h3 className="font-display text-3xl text-[var(--ink)]">Welcome to the community</h3>
+                <p className="mt-2 font-body text-sm leading-6 text-[var(--ink-soft)]">Your subscription has been saved to our community list.</p>
               </div>
             ) : (
-              <form onSubmit={joinNewsletter} className="flex flex-col gap-3" noValidate>
+              <form onSubmit={joinNewsletter} className="grid gap-3" noValidate>
                 <div>
                   <label className="form-label" htmlFor="comm-name">Your name</label>
-                  <input id="comm-name" className="input-sacred" type="text" placeholder="Arjun Sharma" value={name} onChange={e => setName(e.target.value)} aria-label="Your name" />
+                  <input id="comm-name" className="input-sacred" type="text" placeholder="Your name" value={name} onChange={(event) => setName(event.target.value)} />
                 </div>
                 <div>
                   <label className="form-label" htmlFor="comm-email">Email address *</label>
-                  <input id="comm-email" className="input-sacred" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} required aria-label="Email address" />
+                  <input id="comm-email" className="input-sacred" type="email" placeholder="you@example.com" value={email} onChange={(event) => setEmail(event.target.value)} required />
                 </div>
-                <button type="submit" className="btn-sacred btn-gold w-full justify-center" disabled={status === "loading"}>
-                  {status === "loading" ? "Joining…" : "Join the Community"}
+                <button type="submit" className="btn-terracotta w-full justify-center" disabled={status === "loading"}>
+                  {status === "loading" ? "Joining..." : <>Join Community <ArrowRight size={14} /></>}
                 </button>
-                <p className="font-ui text-xs text-center" style={{ color: "var(--ink-faint)" }}>
-                  Your email is saved to our newsletter subscribers list.
-                </p>
               </form>
             )}
-          </div>
+          </ParchmentCard>
         </div>
 
-        {/* Testimonials placeholder */}
-        <LotusDivider className="mt-12 mb-8" />
-        <div className="text-center mb-8">
-          <div className="section-label mb-2">Our Community</div>
-          <h2 className="font-display text-2xl" style={{ color: "var(--parchment)" }}>Voices from Fellow Seekers</h2>
-        </div>
+        <OrnamentDivider className="my-10" />
         <EmptyState
           title="Voices will appear here"
-          description="Community testimonials and letters will be shared once the community grows. Join to be among the first."
-          action={<Link href="/submit" className="btn-sacred btn-ghost">Submit Your Work <ArrowRight size={14} /></Link>}
+          description="Community testimonials and letters will be shared once the community grows."
+          action={<Link href="/submit" className="btn-ink">Submit Your Work <ArrowRight size={14} /></Link>}
         />
-      </div>
+      </section>
     </div>
   );
 }

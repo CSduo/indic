@@ -1,8 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Search, ArrowRight, X } from "lucide-react";
-import { LotusDivider, LotusIcon } from "@/components/sacred/LotusIcon";
+import { ArrowRight, Search, X } from "lucide-react";
+import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
+import { GlyphTag } from "@/components/manuscript/GlyphTag";
+import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
+import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { EmptyState } from "@/components/sacred/EmptyState";
+import { DOMAIN_ORDER } from "@/lib/domainMeta";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -14,103 +18,124 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
 
-  const doSearch = useCallback(async (q: string) => {
-    if (!q.trim()) { setResults([]); setSearched(false); return; }
+  const doSearch = useCallback(async (value: string) => {
+    if (!value.trim()) {
+      setResults([]);
+      setSearched(false);
+      return;
+    }
     setLoading(true);
     setSearched(true);
     try {
-      const r = await fetch(`${base()}/api/search?q=${encodeURIComponent(q)}&limit=20`);
-      const d = await r.json();
-      setResults([...(d.articles || []).map((a: any) => ({ ...a, kind: "essay" })), ...(d.papers || []).map((p: any) => ({ ...p, kind: "paper" }))]);
-    } catch { setResults([]); }
+      const response = await fetch(`${base()}/api/search?q=${encodeURIComponent(value)}&limit=20`);
+      const data = await response.json();
+      setResults([
+        ...(data.articles || []).map((article: any) => ({ ...article, kind: "essay" })),
+        ...(data.papers || []).map((paper: any) => ({ ...paper, kind: "paper" })),
+      ]);
+    } catch {
+      setResults([]);
+    }
     setLoading(false);
   }, []);
 
-  useEffect(() => { if (initQ) doSearch(initQ); }, [initQ, doSearch]);
+  useEffect(() => {
+    if (initQ) doSearch(initQ);
+  }, [initQ, doSearch, loc]);
 
-  const onSubmit = (e: React.FormEvent) => { e.preventDefault(); doSearch(query); };
+  const onSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    doSearch(query);
+  };
 
   return (
-    <div style={{ background: "var(--bg)", minHeight: "80vh" }}>
-      {/* Hero */}
-      <div className="relative overflow-hidden" style={{ minHeight: 260 }}>
-        <div className="absolute inset-0" aria-hidden="true">
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, #0a0810 0%, #10081a 100%)" }} />
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 80, background: "linear-gradient(180deg, transparent, var(--bg))" }} />
-        </div>
-        <div className="container-anv relative z-10 flex flex-col items-center text-center py-14">
-          <LotusIcon size={24} className="mb-4" style={{ color: "var(--gold)", opacity: 0.6 }} />
-          <h1 className="font-display mb-6" style={{ fontSize: "clamp(2rem, 5vw, 3.5rem)", color: "var(--gold-bright)", letterSpacing: "0.1em" }}>Search</h1>
-          <form onSubmit={onSubmit} className="w-full max-w-lg" role="search">
+    <div className="min-h-[80vh] bg-[var(--bg)]">
+      <section className="border-b border-[var(--border-gold)] bg-[var(--bg-alt)] py-12">
+        <div className="container-anv text-center">
+          <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-full border border-[var(--border-gold)] bg-[var(--surface)] text-[var(--gold)]">
+            <Search size={30} />
+          </div>
+          <h1 className="font-display text-[clamp(2.5rem,6vw,5rem)] leading-none text-[var(--ink)]">Search</h1>
+          <p className="mx-auto mt-3 max-w-xl font-display text-2xl text-[var(--terracotta)]">Discover ideas across the archive.</p>
+          <OrnamentDivider variant="minimal" className="my-7" />
+          <form onSubmit={onSubmit} className="mx-auto w-full max-w-2xl" role="search">
             <div className="relative">
-              <Search size={18} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} aria-hidden="true" />
+              <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--gold)]" aria-hidden="true" />
               <input
                 type="search"
-                className="input-sacred"
-                style={{ paddingLeft: "2.75rem", paddingRight: "3rem", fontSize: "1rem", height: 52 }}
-                placeholder="Search essays, papers, authors…"
+                className="input-sacred h-14 pl-12 pr-12 text-lg"
+                placeholder="Search essays, papers, authors..."
                 value={query}
-                onChange={e => setQuery(e.target.value)}
+                onChange={(event) => setQuery(event.target.value)}
                 autoFocus
                 aria-label="Search the journal"
               />
-              {query && (
-                <button type="button" onClick={() => { setQuery(""); setResults([]); setSearched(false); }} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} aria-label="Clear search">
-                  <X size={16} />
+              {query ? (
+                <button type="button" onClick={() => { setQuery(""); setResults([]); setSearched(false); }} className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)]" aria-label="Clear search">
+                  <X size={18} />
                 </button>
-              )}
+              ) : null}
             </div>
-            <button type="submit" className="btn-sacred btn-gold mt-3 w-full justify-center">Search</button>
+            <button type="submit" className="btn-terracotta mt-3 w-full justify-center">Search</button>
           </form>
         </div>
-      </div>
+      </section>
 
-      {/* Results */}
-      <div className="container-anv pb-16 max-w-3xl mx-auto">
-        <LotusDivider className="mb-6" />
+      <section className="container-anv max-w-4xl pb-16 pt-10">
         {loading ? (
           <div className="flex justify-center py-12">
-            <div style={{ width: 36, height: 36, border: "2px solid var(--border-gold)", borderTop: "2px solid var(--gold)", borderRadius: "50%", animation: "rotateSlow 0.8s linear infinite" }} role="status" aria-label="Searching" />
+            <div className="h-9 w-9 rounded-full border-2 border-[var(--border-gold)] border-t-[var(--gold)]" style={{ animation: "rotateSlow .8s linear infinite" }} role="status" aria-label="Searching" />
           </div>
         ) : searched && results.length === 0 ? (
           <EmptyState
             title={`No results for "${query}"`}
             description="Try different keywords or browse all domains."
-            action={<Link href="/browse" className="btn-sacred btn-ghost">Browse Domains</Link>}
+            action={<Link href="/browse" className="btn-ink">Browse Domains</Link>}
           />
         ) : results.length > 0 ? (
           <div>
-            <div className="font-ui text-xs mb-4" style={{ color: "var(--muted)" }}>{results.length} result{results.length !== 1 ? "s" : ""} for "{query}"</div>
+            <div className="mb-5 font-ui text-xs font-bold uppercase tracking-[0.14em] text-[var(--muted)]">
+              {results.length} result{results.length !== 1 ? "s" : ""} for "{query}"
+            </div>
             <div className="space-y-3">
-              {results.map(r => (
-                <Link key={`${r.kind}-${r.id}`} href={r.kind === "paper" ? `/papers/${r.slug || r.id}` : `/articles/${r.slug || r.id}`}>
-                  <div className="card-sacred p-5 cursor-pointer flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className={`badge ${r.kind === "paper" ? "badge-published" : "badge-approved"}`}>{r.kind}</span>
-                        {(r.categorySlug || r.categoryId) && <span className="font-ui text-[10px]" style={{ color: "var(--muted)" }}>{r.categorySlug || r.categoryId}</span>}
+              {results.map((result) => {
+                const href = result.kind === "paper" ? `/papers/${result.slug || result.id}` : `/articles/${result.slug || result.id}`;
+                return (
+                  <Link key={`${result.kind}-${result.id}`} href={href}>
+                    <ParchmentCard className="flex items-start gap-4 p-5">
+                      <div className="hidden text-[var(--gold)] sm:block">
+                        <AnimalGlyph domain={result.kind === "paper" ? "papers" : result.categorySlug || result.categoryId || "philosophy"} size={42} />
                       </div>
-                      <h3 className="font-display text-xl leading-tight" style={{ color: "var(--parchment)" }}>{r.title}</h3>
-                      {r.excerpt && <p className="font-body text-sm mt-1 line-clamp-2" style={{ color: "var(--ink-faint)" }}>{r.excerpt}</p>}
-                      {r.authorName && <p className="font-ui text-xs mt-2" style={{ color: "var(--muted)" }}>{r.authorName}</p>}
-                    </div>
-                    <ArrowRight size={16} style={{ color: "var(--gold)", flexShrink: 0, marginTop: 4 }} />
-                  </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-2 flex flex-wrap gap-2">
+                          <span className={result.kind === "paper" ? "badge badge-published" : "badge badge-received"}>{result.kind}</span>
+                          <GlyphTag domain={result.categorySlug || result.categoryId || result.discipline || result.kind} />
+                        </div>
+                        <h2 className="font-display text-2xl leading-tight text-[var(--ink)]">{result.title}</h2>
+                        {result.excerpt || result.abstract ? <p className="mt-2 line-clamp-2 font-body text-sm leading-6 text-[var(--ink-soft)]">{result.excerpt || result.abstract}</p> : null}
+                        {result.authorName ? <p className="mt-2 font-ui text-xs text-[var(--muted)]">{result.authorName}</p> : null}
+                      </div>
+                      <ArrowRight size={16} className="mt-1 shrink-0 text-[var(--gold)]" />
+                    </ParchmentCard>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="text-center">
+            <p className="type-section-label mb-5">Popular Discoveries</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {DOMAIN_ORDER.slice(0, 9).map((domain) => (
+                <Link key={domain} href={`/domains/${domain}`} className="glyph-tag">
+                  <AnimalGlyph domain={domain} size={16} />
+                  <span>{domain.replace(/-/g, " ")}</span>
                 </Link>
               ))}
             </div>
           </div>
-        ) : !searched ? (
-          <div className="text-center py-10">
-            <div className="section-label mb-6">Browse by Domain</div>
-            <div className="flex flex-wrap gap-2 justify-center">
-              {["Philosophy","History","Psychology","Sociology","Science","Geopolitics","Civilizational Thought","Aesthetics","Sanskrit Studies"].map(d => (
-                <Link key={d} href={`/domains/${d.toLowerCase().replace(/\s+/g, "-")}`} className="btn-sacred btn-ghost text-xs py-1.5 px-4">{d}</Link>
-              ))}
-            </div>
-          </div>
-        ) : null}
-      </div>
+        )}
+      </section>
     </div>
   );
 }

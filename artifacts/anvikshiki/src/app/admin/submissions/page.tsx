@@ -134,7 +134,7 @@ export default function AdminSubmissionsPage() {
               <div className="card-sacred p-6" style={{ background: "var(--surface-2)", maxHeight: "75vh", overflowY: "auto" }}>
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1 mr-3">
-                    <h2 className="font-display text-xl mb-2 leading-tight" style={{ color: "var(--parchment)" }}>{selected.title}</h2>
+                    <h2 className="font-display text-xl mb-2 leading-tight" style={{ color: "var(--ink)" }}>{selected.title}</h2>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`badge badge-${statusBadge(selected.status)}`}>{selected.status || "received"}</span>
                       <span className="badge badge-draft text-[0.6rem]">{selected.type}</span>

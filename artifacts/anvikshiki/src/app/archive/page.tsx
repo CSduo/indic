@@ -1,10 +1,15 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { ArrowRight, FileText, BookOpen, Search } from "lucide-react";
-import { LotusDivider, LotusIcon } from "@/components/sacred/LotusIcon";
+import { ArrowRight, Search, SlidersHorizontal } from "lucide-react";
+import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
+import { GlyphTag } from "@/components/manuscript/GlyphTag";
+import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
+import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { EmptyState } from "@/components/sacred/EmptyState";
+import { DOMAIN_ORDER } from "@/lib/domainMeta";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
+const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
 
 export default function ArchivePage() {
   const [items, setItems] = useState<any[]>([]);
@@ -12,126 +17,188 @@ export default function ArchivePage() {
   const [query, setQuery] = useState("");
 
   useEffect(() => {
-    const b = base();
     Promise.all([
-      fetch(`${b}/api/articles?limit=50`).then(r => r.json()).catch(() => ({ articles: [] })),
-      fetch(`${b}/api/papers?limit=50`).then(r => r.json()).catch(() => ({ papers: [] })),
-    ]).then(([arts, papers]) => {
+      fetch(`${base()}/api/articles?limit=50`).then((response) => response.json()).catch(() => ({ articles: [] })),
+      fetch(`${base()}/api/papers?limit=50`).then((response) => response.json()).catch(() => ({ papers: [] })),
+    ]).then(([articles, papers]) => {
       const all = [
-        ...(arts.articles || []).map((a: any) => ({ ...a, kind: "essay" })),
-        ...(papers.papers || []).map((p: any) => ({ ...p, kind: "paper" })),
-      ].sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        ...(articles.articles || []).map((article: any) => ({ ...article, kind: "essay" })),
+        ...(papers.papers || []).map((paper: any) => ({ ...paper, kind: "paper" })),
+      ].sort((a, b) => new Date(b.createdAt || b.publishedAt || 0).getTime() - new Date(a.createdAt || a.publishedAt || 0).getTime());
       setItems(all);
       setLoading(false);
     });
   }, []);
 
-  const filtered = query ? items.filter(i => i.title?.toLowerCase().includes(query.toLowerCase()) || i.authorName?.toLowerCase().includes(query.toLowerCase())) : items;
+  const filtered = query
+    ? items.filter((item) => item.title?.toLowerCase().includes(query.toLowerCase()) || item.authorName?.toLowerCase().includes(query.toLowerCase()))
+    : items;
 
-  // Group by year
   const byYear: Record<string, any[]> = {};
   for (const item of filtered) {
-    const y = item.createdAt ? new Date(item.createdAt).getFullYear().toString() : "Unknown";
-    if (!byYear[y]) byYear[y] = [];
-    byYear[y].push(item);
+    const year = item.createdAt || item.publishedAt ? new Date(item.createdAt || item.publishedAt).getFullYear().toString() : "Undated";
+    if (!byYear[year]) byYear[year] = [];
+    byYear[year].push(item);
   }
   const years = Object.keys(byYear).sort((a, b) => b.localeCompare(a));
 
   return (
-    <div style={{ background: "var(--bg)" }}>
-      {/* Hero */}
-      <div className="relative overflow-hidden" style={{ minHeight: 300 }}>
-        <div className="absolute inset-0" aria-hidden="true">
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, #0a0810 0%, #0f0a18 50%, #0a0810 100%)" }} />
-          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 30% 50%, rgba(139,26,74,0.18) 0%, transparent 50%)" }} />
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 80, background: "linear-gradient(180deg, transparent, var(--bg))" }} />
-          {/* Manuscript texture dots */}
-          {Array.from({ length: 25 }).map((_, i) => (
-            <div key={i} style={{ position: "absolute", left: `${(i * 43) % 100}%`, top: `${(i * 67) % 100}%`, width: 1, height: 1, background: "var(--gold)", opacity: 0.12, borderRadius: "50%" }} aria-hidden="true" />
-          ))}
-        </div>
-        <div className="container-anv relative z-10 flex flex-col items-center text-center py-16">
-          <div className="section-label mb-3">Living Library</div>
-          <h1 className="font-display mb-4" style={{ fontSize: "clamp(2.5rem, 6vw, 4.5rem)", color: "var(--gold-bright)", letterSpacing: "0.12em" }}>Archive</h1>
-          <LotusIcon size={20} className="mb-4 animate-float" style={{ color: "var(--gold)", opacity: 0.6 }} />
-          <p className="font-body text-sm max-w-md" style={{ color: "var(--ink-faint)" }}>All published essays and research papers, arranged chronologically.</p>
-        </div>
-      </div>
+    <div className="bg-[var(--bg)]">
+      <section className="container-anv py-6 md:py-10">
+        <nav className="mb-4 flex items-center gap-2 font-ui text-xs font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]" aria-label="Breadcrumb">
+          <Link href="/" className="hover:text-[var(--terracotta)]">Home</Link>
+          <span>/</span>
+          <span className="text-[var(--terracotta)]">Archive</span>
+        </nav>
 
-      {/* Search / Filter bar */}
-      <div className="container-anv py-6" style={{ maxWidth: 680, marginLeft: "auto", marginRight: "auto" }}>
-        <div className="relative">
-          <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} aria-hidden="true" />
-          <input
-            type="search"
-            className="input-sacred"
-            style={{ paddingLeft: "2.5rem" }}
-            placeholder="Search titles, authors…"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            aria-label="Search archive"
-          />
-        </div>
-      </div>
+        <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)_240px]">
+          <ParchmentCard className="hidden p-5 lg:block">
+            <p className="type-section-label mb-4">Timeline</p>
+            <ol className="space-y-4 font-ui text-xs text-[var(--ink-faint)]">
+              {["Before 3000 BCE", "3000-1000 BCE", "1000-500 BCE", "500 BCE-500 CE", "500-1500 CE", "1500-Present"].map((period, index) => (
+                <li key={period} className="flex gap-3">
+                  <span className="mt-1 h-3 w-3 rounded-full border border-[var(--gold)] bg-[var(--surface)]" />
+                  <span><strong className="block text-[var(--ink)]">{period}</strong>{index === 0 ? "Origins & Cosmos" : index === 5 ? "Modern inquiry" : "Archive layer"}</span>
+                </li>
+              ))}
+            </ol>
+          </ParchmentCard>
 
-      {/* Content */}
-      <div className="container-anv pb-20">
-        <LotusDivider className="mb-8" />
-
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <div style={{ width: 40, height: 40, border: "2px solid var(--border-gold)", borderTop: "2px solid var(--gold)", borderRadius: "50%", animation: "rotateSlow 0.8s linear infinite" }} role="status" aria-label="Loading archive" />
-          </div>
-        ) : filtered.length === 0 ? (
-          <EmptyState
-            title={query ? "No results found" : "Archive is empty"}
-            description={query ? `No works match "${query}". Try a different search.` : "Published essays and papers will appear here once the editorial team approves and publishes them."}
-            action={
-              <div className="flex gap-3 flex-wrap justify-center">
-                {query && <button className="btn-sacred btn-ghost" onClick={() => setQuery("")} type="button">Clear Search</button>}
-                <Link href="/submit" className="btn-sacred btn-gold">Submit Work <ArrowRight size={14} /></Link>
+          <ParchmentCard className="overflow-hidden" corners={false}>
+            <div className="relative min-h-[420px]">
+              <img src={asset("/images/heroes/archive-scribe.jpg")} alt="Illustrated scribe working in an archive" className="absolute inset-0 h-full w-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg)] via-[var(--bg)]/15 to-transparent" aria-hidden="true" />
+              <div className="absolute inset-x-0 bottom-0 p-7 text-center">
+                <h1 className="font-display text-[clamp(2.5rem,6vw,4.8rem)] leading-none text-[var(--ink)]">Archive / Knowledge Map</h1>
+                <p className="mx-auto mt-3 max-w-xl font-body text-lg leading-8 text-[var(--ink-soft)]">
+                  Navigate time, place, and idea through the living archive of inquiry.
+                </p>
               </div>
-            }
-          />
-        ) : (
-          <div>
-            {years.map(year => (
-              <div key={year} className="mb-10">
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="font-display text-2xl" style={{ color: "var(--gold)" }}>{year}</div>
-                  <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, var(--border-gold), transparent)" }} aria-hidden="true" />
-                  <div className="font-ui text-xs" style={{ color: "var(--muted)" }}>{byYear[year].length} {byYear[year].length === 1 ? "work" : "works"}</div>
-                </div>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {byYear[year].map(item => (
-                    <Link key={item.id} href={item.kind === "paper" ? `/papers/${item.slug || item.id}` : `/articles/${item.slug || item.id}`}>
-                      <article className="card-sacred p-5 h-full flex flex-col cursor-pointer">
-                        <div className="flex items-center gap-2 mb-2">
-                          {item.kind === "paper" ? (
-                            <span className="badge badge-published">Paper</span>
-                          ) : (
-                            <span className="badge badge-approved">Essay</span>
-                          )}
-                          {item.createdAt && (
-                            <span className="font-ui text-[10px]" style={{ color: "var(--muted)" }}>
-                              {new Date(item.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                            </span>
-                          )}
-                        </div>
-                        <h3 className="font-display text-lg mb-1 leading-tight flex-1" style={{ color: "var(--parchment)" }}>{item.title}</h3>
-                        <div className="flex items-center justify-between mt-3 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
-                          <span className="font-ui text-xs" style={{ color: "var(--muted)" }}>{item.authorName || "Editorial"}</span>
-                          <ArrowRight size={13} style={{ color: "var(--gold)" }} />
-                        </div>
-                      </article>
-                    </Link>
-                  ))}
+            </div>
+          </ParchmentCard>
+
+          <ParchmentCard className="hidden p-5 lg:block">
+            <p className="type-section-label mb-4">Symbolic Taxonomy</p>
+            <div className="grid grid-cols-3 gap-2">
+              {DOMAIN_ORDER.slice(0, 12).map((domain) => (
+                <Link key={domain} href={`/domains/${domain}`}>
+                  <span className="grid aspect-square place-items-center rounded-[8px] border border-[var(--border)] bg-[var(--surface)] text-[var(--gold)] hover:border-[var(--terracotta)]">
+                    <AnimalGlyph domain={domain} size={28} />
+                  </span>
+                </Link>
+              ))}
+            </div>
+            <Link href="/browse" className="btn-ink mt-4 w-full">View Glyphs <ArrowRight size={14} /></Link>
+          </ParchmentCard>
+        </div>
+      </section>
+
+      <section className="container-anv pb-14">
+        <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)_240px]">
+          <aside className="hidden space-y-4 lg:block">
+            <ParchmentCard className="p-5">
+              <p className="type-section-label mb-4">Regions</p>
+              <div className="rounded-[8px] border border-[var(--border)] bg-[var(--ink-wash)] p-4 text-center font-ui text-xs text-[var(--ink-faint)]">
+                Cultural and geographic filters
+              </div>
+            </ParchmentCard>
+            <ParchmentCard className="p-5">
+              <p className="type-section-label mb-4">Civilizations</p>
+              <div className="space-y-2">
+                {["Indus Valley", "Ancient Egypt", "Vedic Bharat", "Classical Greece", "Han China"].map((item, index) => (
+                  <div key={item} className="flex items-center gap-2 font-ui text-xs text-[var(--ink-faint)]">
+                    <AnimalGlyph domain={DOMAIN_ORDER[index]} size={18} /> {item}
+                  </div>
+                ))}
+              </div>
+            </ParchmentCard>
+          </aside>
+
+          <main>
+            <ParchmentCard className="mb-6 grid gap-3 p-4 md:grid-cols-[1fr_auto]">
+              <div className="relative">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" aria-hidden="true" />
+                <input
+                  type="search"
+                  className="input-sacred pl-10"
+                  placeholder="Search archive titles and authors..."
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  aria-label="Search archive"
+                />
+              </div>
+              <button type="button" className="btn-ink"><SlidersHorizontal size={14} /> Filters</button>
+            </ParchmentCard>
+
+            <OrnamentDivider className="mb-8" />
+
+            {loading ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                {[0, 1, 2, 3].map((item) => <div key={item} className="h-44 animate-pulse rounded-[8px] bg-[var(--ink-wash-strong)]" />)}
+              </div>
+            ) : filtered.length === 0 ? (
+              <EmptyState
+                title={query ? "No results found" : "Archive is empty"}
+                description={query ? `No works match "${query}". Try a different search.` : "Published essays and papers will appear here once the editorial team approves and publishes them."}
+                action={<Link href="/submit" className="btn-terracotta">Submit Work <ArrowRight size={14} /></Link>}
+              />
+            ) : (
+              <div>
+                {years.map((year) => (
+                  <section key={year} className="mb-10">
+                    <div className="mb-5 flex items-center gap-3">
+                      <h2 className="font-display text-3xl text-[var(--gold)]">{year}</h2>
+                      <div className="h-px flex-1 bg-gradient-to-r from-[var(--border-gold)] to-transparent" aria-hidden="true" />
+                      <span className="font-ui text-xs text-[var(--muted)]">{byYear[year].length} works</span>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {byYear[year].map((item) => {
+                        const href = item.kind === "paper" ? `/papers/${item.slug || item.id}` : `/articles/${item.slug || item.id}`;
+                        return (
+                          <Link key={`${item.kind}-${item.id}`} href={href}>
+                            <ParchmentCard className="flex h-full min-h-44 flex-col p-5">
+                              <div className="mb-3 flex flex-wrap gap-2">
+                                <span className={item.kind === "paper" ? "badge badge-published" : "badge badge-received"}>{item.kind}</span>
+                                <GlyphTag domain={item.categorySlug || item.categoryId || item.discipline || item.kind} />
+                              </div>
+                              <h3 className="font-display text-2xl leading-tight text-[var(--ink)]">{item.title}</h3>
+                              <div className="mt-auto flex items-center justify-between border-t border-[var(--border)] pt-3">
+                                <span className="font-ui text-xs text-[var(--ink-faint)]">{item.authorName || "Editorial"}</span>
+                                <ArrowRight size={14} className="text-[var(--gold)]" />
+                              </div>
+                            </ParchmentCard>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            )}
+          </main>
+
+          <aside className="hidden lg:block">
+            <ParchmentCard className="sticky top-28 p-5">
+              <p className="type-section-label mb-4">Knowledge Map</p>
+              <svg viewBox="0 0 220 220" className="h-56 w-full" aria-hidden="true">
+                {[
+                  [110, 36, 50, 92],
+                  [110, 36, 170, 88],
+                  [50, 92, 92, 158],
+                  [170, 88, 92, 158],
+                  [92, 158, 166, 174],
+                ].map(([x1, y1, x2, y2], index) => <line key={index} x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--border-gold)" />)}
+                {[[110, 36], [50, 92], [170, 88], [92, 158], [166, 174]].map(([x, y], index) => <circle key={index} cx={x} cy={y} r="20" fill="var(--surface)" stroke="var(--border-gold)" />)}
+              </svg>
+              <div className="-mt-56 grid h-56 place-items-center text-[var(--gold)]">
+                <div className="grid grid-cols-2 gap-7">
+                  {["philosophy", "history", "science", "sociology"].map((domain) => <AnimalGlyph key={domain} domain={domain} size={28} />)}
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            </ParchmentCard>
+          </aside>
+        </div>
+      </section>
     </div>
   );
 }

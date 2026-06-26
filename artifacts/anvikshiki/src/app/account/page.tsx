@@ -1,21 +1,23 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { LogOut, FileText, Edit3, Check, X, User, Mail, BookMarked } from "lucide-react";
-import { LotusDivider, LotusIcon } from "@/components/sacred/LotusIcon";
+import { BookMarked, Check, Edit3, FileText, LogOut, Mail, User, X } from "lucide-react";
+import { toast } from "sonner";
+import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
+import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
+import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { EmptyState } from "@/components/sacred/EmptyState";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { toast } from "sonner";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  RECEIVED:           { label: "Received",           color: "var(--gold)" },
-  UNDER_REVIEW:       { label: "Under Review",       color: "var(--moon)" },
-  REVISION_REQUESTED: { label: "Revision Requested", color: "#f59e0b" },
-  ACCEPTED:           { label: "Accepted",           color: "#4ade80" },
-  REJECTED:           { label: "Rejected",           color: "var(--lotus)" },
-  PUBLISHED:          { label: "Published",          color: "#4ade80" },
-  ARCHIVED:           { label: "Archived",           color: "var(--muted)" },
+const STATUS_LABELS: Record<string, { label: string; className: string }> = {
+  RECEIVED: { label: "Received", className: "badge-received" },
+  UNDER_REVIEW: { label: "Under Review", className: "badge-reviewing" },
+  REVISION_REQUESTED: { label: "Revision Requested", className: "badge-received" },
+  ACCEPTED: { label: "Accepted", className: "badge-approved" },
+  REJECTED: { label: "Rejected", className: "badge-rejected" },
+  PUBLISHED: { label: "Published", className: "badge-published" },
+  ARCHIVED: { label: "Archived", className: "badge-draft" },
 };
 
 export default function AccountPage() {
@@ -35,8 +37,8 @@ export default function AccountPage() {
     if (user) {
       setEditName(user.name || "");
       fetch(`${base()}/api/submissions`, { credentials: "include" })
-        .then(r => r.json())
-        .then(d => setSubmissions(d.submissions || []))
+        .then((response) => response.json())
+        .then((data) => setSubmissions(data.submissions || []))
         .catch(() => {})
         .finally(() => setLoadingPage(false));
     }
@@ -44,13 +46,12 @@ export default function AccountPage() {
 
   useEffect(() => {
     if (!user) {
-      const t = setTimeout(() => {
+      const timeout = window.setTimeout(() => {
         if (!user) navigate("/login");
       }, 1500);
-      return () => clearTimeout(t);
-    } else {
-      setLoadingPage(false);
+      return () => window.clearTimeout(timeout);
     }
+    setLoadingPage(false);
   }, [user, navigate]);
 
   const handleLogout = async () => {
@@ -60,16 +61,19 @@ export default function AccountPage() {
   };
 
   const saveProfile = async () => {
-    if (!editName.trim()) { toast.error("Name cannot be empty"); return; }
+    if (!editName.trim()) {
+      toast.error("Name cannot be empty");
+      return;
+    }
     setSaving(true);
     try {
-      const r = await fetch(`${base()}/api/auth/profile`, {
+      const response = await fetch(`${base()}/api/auth/profile`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ name: editName.trim() }),
       });
-      if (!r.ok) throw new Error("Failed to update profile");
+      if (!response.ok) throw new Error("Failed to update profile");
       await refresh();
       setEditing(false);
       toast.success("Profile updated");
@@ -81,122 +85,113 @@ export default function AccountPage() {
 
   if (!user) {
     return (
-      <div style={{ background: "var(--bg)", minHeight: "60vh" }} className="flex items-center justify-center">
-        <div style={{ width: 36, height: 36, border: "2px solid var(--border-gold)", borderTop: "2px solid var(--gold)", borderRadius: "50%", animation: "rotateSlow 0.8s linear infinite" }} role="status" aria-label="Loading" />
+      <div className="grid min-h-[60vh] place-items-center bg-[var(--bg)]">
+        <div className="h-9 w-9 rounded-full border-2 border-[var(--border-gold)] border-t-[var(--gold)]" style={{ animation: "rotateSlow .8s linear infinite" }} role="status" aria-label="Loading" />
       </div>
     );
   }
 
   return (
-    <div style={{ background: "var(--bg)", minHeight: "80vh" }}>
-      <div className="container-anv py-12 max-w-2xl mx-auto">
-
-        {/* Header */}
-        <div className="flex items-start justify-between mb-8 gap-4 flex-wrap">
-          <div className="flex items-center gap-4">
-            <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(201,152,58,0.12)", border: "1px solid rgba(201,152,58,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <User size={26} style={{ color: "var(--gold)" }} />
-            </div>
-            <div>
+    <div className="bg-[var(--bg)]">
+      <section className="container-anv py-10">
+        <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+          <aside className="space-y-4">
+            <ParchmentCard className="p-6 text-center">
+              <div className="mx-auto mb-4 grid h-20 w-20 place-items-center rounded-full border border-[var(--border-gold)] bg-[var(--terracotta-pale)] text-[var(--terracotta)]">
+                <User size={34} />
+              </div>
               {editing ? (
                 <div className="flex items-center gap-2">
-                  <input
-                    autoFocus
-                    className="input-sacred py-1 text-base font-display"
-                    value={editName}
-                    onChange={e => setEditName(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && saveProfile()}
-                    style={{ color: "var(--gold-bright)", width: 200 }}
-                  />
-                  <button type="button" onClick={saveProfile} disabled={saving} className="p-1.5 rounded" style={{ color: "#4ade80" }}><Check size={16} /></button>
-                  <button type="button" onClick={() => { setEditing(false); setEditName(user.name || ""); }} className="p-1.5 rounded" style={{ color: "var(--lotus)" }}><X size={16} /></button>
+                  <input autoFocus className="input-sacred py-1 text-center" value={editName} onChange={(event) => setEditName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && saveProfile()} />
+                  <button type="button" onClick={saveProfile} disabled={saving} className="text-[var(--sage)]"><Check size={18} /></button>
+                  <button type="button" onClick={() => { setEditing(false); setEditName(user.name || ""); }} className="text-[var(--terracotta)]"><X size={18} /></button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
-                  <h1 className="font-display text-2xl" style={{ color: "var(--gold-bright)" }}>{user.name || "My Account"}</h1>
-                  <button type="button" onClick={() => setEditing(true)} className="opacity-40 hover:opacity-70 transition-opacity" style={{ color: "var(--gold)" }}>
-                    <Edit3 size={14} />
+                <div className="flex items-center justify-center gap-2">
+                  <h1 className="font-display text-3xl text-[var(--ink)]">{user.name || "My Account"}</h1>
+                  <button type="button" onClick={() => setEditing(true)} className="text-[var(--gold)]" aria-label="Edit profile name">
+                    <Edit3 size={15} />
                   </button>
                 </div>
               )}
-              <div className="flex items-center gap-1.5 mt-1">
-                <Mail size={12} style={{ color: "var(--muted)" }} />
-                <p className="font-ui text-sm" style={{ color: "var(--muted)" }}>{user.email}</p>
+              <div className="mt-2 flex items-center justify-center gap-2 font-ui text-sm text-[var(--muted)]">
+                <Mail size={14} /> {user.email}
               </div>
-              <div className="mt-1">
-                <span className="font-ui text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(201,152,58,0.12)", color: "var(--gold)", border: "1px solid rgba(201,152,58,0.25)" }}>
-                  {user.role === "ADMIN" ? "Admin" : "Member"}
-                </span>
+              <span className="badge badge-received mt-4">{user.role === "ADMIN" ? "Admin" : "Member"}</span>
+              <OrnamentDivider variant="minimal" className="my-5" />
+              <button type="button" onClick={handleLogout} className="btn-ink w-full justify-center">
+                <LogOut size={14} /> Sign Out
+              </button>
+            </ParchmentCard>
+
+            <ParchmentCard className="p-5">
+              <p className="type-section-label mb-4">Desk Links</p>
+              <div className="grid gap-2">
+                <Link href="/saved" className="btn-ink justify-start"><BookMarked size={15} /> Saved Items</Link>
+                <Link href="/submit" className="btn-ink justify-start"><FileText size={15} /> Submit Work</Link>
+                {user.role === "ADMIN" ? <Link href="/admin" className="btn-ink justify-start"><AnimalGlyph domain="archive" size={15} /> Admin</Link> : null}
               </div>
-            </div>
-          </div>
-          <button type="button" onClick={handleLogout} className="btn-sacred btn-ghost text-xs inline-flex items-center gap-1.5">
-            <LogOut size={14} /> Sign Out
-          </button>
-        </div>
+            </ParchmentCard>
+          </aside>
 
-        <LotusDivider className="mb-8" />
-
-        {/* Quick links */}
-        <div className="grid grid-cols-2 gap-3 mb-8">
-          <Link href="/saved" className="card-sacred p-4 flex items-center gap-3 cursor-pointer">
-            <BookMarked size={18} style={{ color: "var(--gold)" }} />
-            <div>
-              <div className="font-ui text-sm font-semibold" style={{ color: "var(--ink-soft)" }}>Saved Items</div>
-              <div className="font-ui text-xs" style={{ color: "var(--muted)" }}>Essays &amp; papers</div>
-            </div>
-          </Link>
-          <Link href="/submit" className="card-sacred p-4 flex items-center gap-3 cursor-pointer">
-            <FileText size={18} style={{ color: "var(--gold)" }} />
-            <div>
-              <div className="font-ui text-sm font-semibold" style={{ color: "var(--ink-soft)" }}>Submit Work</div>
-              <div className="font-ui text-xs" style={{ color: "var(--muted)" }}>New submission</div>
-            </div>
-          </Link>
-        </div>
-
-        {/* Submissions */}
-        <div className="section-label mb-4">My Submissions</div>
-        {submissions.length === 0 ? (
-          <EmptyState
-            title="No submissions yet"
-            description="Submit your work to the journal and track its progress here."
-            action={<Link href="/submit" className="btn-sacred btn-gold">Submit Work</Link>}
-          />
-        ) : (
-          <div className="space-y-3">
-            {submissions.map(s => {
-              const st = STATUS_LABELS[s.status] || { label: s.status || "Received", color: "var(--gold)" };
-              return (
-                <div key={s.id} className="card-sacred p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <FileText size={16} style={{ color: "var(--gold)", flexShrink: 0, marginTop: 2 }} />
-                      <div>
-                        <div className="font-ui text-sm font-semibold" style={{ color: "var(--ink-soft)" }}>{s.title}</div>
-                        <div className="font-ui text-xs mt-0.5" style={{ color: "var(--muted)" }}>
-                          {s.type} · {s.createdAt ? new Date(s.createdAt).toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" }) : "—"}
-                        </div>
-                        {s.abstract && <p className="font-body text-xs mt-1 line-clamp-2" style={{ color: "var(--ink-faint)" }}>{s.abstract}</p>}
-                      </div>
-                    </div>
-                    <span className="font-ui text-[10px] px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap" style={{ background: `${st.color}18`, color: st.color, border: `1px solid ${st.color}40` }}>
-                      {st.label}
-                    </span>
+          <main className="space-y-6">
+            <ParchmentCard className="p-6">
+              <p className="type-section-label mb-2">Scholar's Desk</p>
+              <h2 className="font-display text-4xl text-[var(--ink)]">Your Profile</h2>
+              <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+                {[
+                  ["Submissions", submissions.length],
+                  ["Published", submissions.filter((s) => s.status === "PUBLISHED").length],
+                  ["Bookmarks", 0],
+                  ["Profile Views", 0],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-4 text-center">
+                    <div className="font-display text-3xl text-[var(--gold)]">{value}</div>
+                    <div className="font-ui text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">{label}</div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                ))}
+              </div>
+            </ParchmentCard>
 
-        <div className="mt-8 pt-6" style={{ borderTop: "1px solid var(--border)" }}>
-          <div className="flex items-center gap-2 mb-3">
-            <LotusIcon size={14} style={{ color: "var(--gold)", opacity: 0.5 }} />
-            <span className="font-ui text-xs" style={{ color: "var(--ink-faint)" }}>Account details are stored securely. Submissions are saved to the journal database.</span>
-          </div>
+            <ParchmentCard className="p-6">
+              <div className="mb-5 flex items-center justify-between gap-4">
+                <div>
+                  <p className="type-section-label mb-2">My Submissions</p>
+                  <h2 className="font-display text-3xl text-[var(--ink)]">Editorial Status</h2>
+                </div>
+                <Link href="/submit" className="btn-terracotta">New Submission</Link>
+              </div>
+
+              {submissions.length === 0 ? (
+                <EmptyState title="No submissions yet" description="Submit your work to the journal and track its progress here." action={<Link href="/submit" className="btn-terracotta">Submit Work</Link>} />
+              ) : (
+                <div className="space-y-3">
+                  {submissions.map((submission) => {
+                    const status = STATUS_LABELS[submission.status] || { label: submission.status || "Received", className: "badge-received" };
+                    return (
+                      <div key={submission.id} className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-3">
+                            <AnimalGlyph domain={submission.domain || "papers"} size={28} className="mt-1 shrink-0 text-[var(--gold)]" />
+                            <div>
+                              <h3 className="font-display text-2xl leading-tight text-[var(--ink)]">{submission.title}</h3>
+                              <p className="mt-1 font-ui text-xs text-[var(--muted)]">
+                                {submission.type} · {submission.createdAt ? new Date(submission.createdAt).toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" }) : "Undated"}
+                              </p>
+                              {submission.abstract ? <p className="mt-2 line-clamp-2 font-body text-sm leading-6 text-[var(--ink-soft)]">{submission.abstract}</p> : null}
+                            </div>
+                          </div>
+                          <span className={`badge ${status.className} shrink-0`}>{status.label}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </ParchmentCard>
+          </main>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

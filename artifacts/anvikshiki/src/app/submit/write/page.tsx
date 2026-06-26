@@ -179,8 +179,8 @@ export default function SubmitWritePage() {
       {/* ══ Header ══ */}
       <div className="relative overflow-hidden" style={{ minHeight: 180 }}>
         <div className="absolute inset-0" aria-hidden="true">
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, #0f0820 0%, #12081a 100%)" }} />
-          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 30% 50%, rgba(74,40,120,0.25) 0%, transparent 55%)" }} />
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, var(--bg-deep) 0%, var(--bg-alt) 100%)" }} />
+          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 30% 50%, var(--ink-wash-strong) 0%, transparent 55%)" }} />
           <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 80, background: "linear-gradient(180deg, transparent, var(--bg))" }} />
         </div>
         <div className="container-anv relative z-10 flex flex-col items-center text-center py-12">
@@ -257,7 +257,7 @@ export default function SubmitWritePage() {
                     type="button"
                     onClick={() => { setImgFile(null); setImgPreview(""); }}
                     className="absolute top-2 right-2 p-1 rounded-full"
-                    style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}
+                    style={{ background: "var(--ink)", color: "var(--surface)" }}
                   >
                     <X size={14} />
                   </button>
@@ -368,7 +368,7 @@ export default function SubmitWritePage() {
                     transition: "all 0.2s", cursor: "pointer",
                   }}
                 >
-                  {declared && <CheckCircle size={12} style={{ color: "#06020f" }} />}
+                  {declared && <CheckCircle size={12} style={{ color: "var(--surface)" }} />}
                 </button>
                 <span className="font-body text-sm leading-relaxed" style={{ color: "var(--ink-soft)" }}>
                   I confirm this work is my own (or I have permission to submit it) and has not been published elsewhere in this form.

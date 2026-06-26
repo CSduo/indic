@@ -5,7 +5,6 @@ import { useState } from "react";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { SacredHeader } from "@/components/sacred/SacredHeader";
 import { SacredFooter } from "@/components/sacred/SacredFooter";
-import { ParchmentHeader } from "@/components/sacred/ParchmentHeader";
 import { LoadingScreen } from "@/components/sacred/LoadingScreen";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -54,20 +53,14 @@ function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex flex-col min-h-[100dvh] cosmic-bg">
       <SacredHeader />
-      <main className="flex-1 animate-fade-in">{children}</main>
+      <main id="main-content" className="flex-1 animate-fade-in">{children}</main>
       <SacredFooter />
     </div>
   );
 }
 
 function HomeShell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col min-h-[100dvh]">
-      <ParchmentHeader />
-      <main className="flex-1 animate-fade-in">{children}</main>
-      <SacredFooter />
-    </div>
-  );
+  return <AppShell>{children}</AppShell>;
 }
 
 function AdminShell({ children }: { children: React.ReactNode }) {

@@ -1,33 +1,24 @@
-import { useState, useEffect } from "react";
-import { Link, useRoute, useLocation } from "wouter";
+import { useEffect, useState } from "react";
+import { Link, useRoute } from "wouter";
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { LotusDivider, LotusIcon } from "@/components/sacred/LotusIcon";
+import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
+import { GlyphTag } from "@/components/manuscript/GlyphTag";
+import { HeroPanel } from "@/components/manuscript/HeroPanel";
+import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
+import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { EmptyState } from "@/components/sacred/EmptyState";
+import { DOMAIN_META, getDomainMeta, normalizeDomainKey } from "@/lib/domainMeta";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
-
-const DOMAIN_META: Record<string, { label: string; icon: string; color: string; accent: string; desc: string }> = {
-  "philosophy":             { label: "Philosophy",             icon: "🕉️",  color: "#1a0f3a", accent: "#7c5cbf", desc: "Logic, metaphysics, consciousness, and the examined life." },
-  "history":                { label: "History",                icon: "📜",  color: "#1a0d0e", accent: "#8b4513", desc: "Civilizations, events, patterns, and the arc of human story." },
-  "psychology":             { label: "Psychology",             icon: "🌙",  color: "#0f1a2e", accent: "#4682b4", desc: "Mind, behavior, consciousness, and the inner life." },
-  "sociology":              { label: "Sociology",              icon: "🪔",  color: "#0d1f15", accent: "#2d6b50", desc: "Society, culture, community, and collective identity." },
-  "science":                { label: "Science",                icon: "✨",  color: "#1a1a0f", accent: "#8b7355", desc: "Cosmos, nature, discovery, and empirical inquiry." },
-  "geopolitics":            { label: "Geopolitics",            icon: "🌏",  color: "#1f0d0d", accent: "#8b1a1a", desc: "Power, territory, nations, and civilizational orders." },
-  "civilizational-thought": { label: "Civilizational Thought", icon: "🏛️",  color: "#1a0f1a", accent: "#8b1a74", desc: "Long-arc thinking about culture, tradition, and civilizational destiny." },
-  "aesthetics":             { label: "Aesthetics",             icon: "🪷",  color: "#1a1018", accent: "#9a4080", desc: "Art, beauty, literature, music, and creative expression." },
-  "sanskrit-studies":       { label: "Sanskrit Studies",       icon: "ॐ",  color: "#1a1208", accent: "#b8860b", desc: "Sacred texts, grammar, language, and classical learning." },
-  "political-theory":       { label: "Political Theory",       icon: "⚖️",  color: "#0a1a1a", accent: "#2e8b57", desc: "Governance, justice, sovereignty, and statecraft." },
-  "papers":                 { label: "Research Papers",        icon: "📖",  color: "#120a16", accent: "#6a0dad", desc: "Peer-reviewed academic research across all disciplines." },
-  "translations":           { label: "Translations",           icon: "🖋️",  color: "#0f0f0f", accent: "#696969", desc: "Classical texts brought into living language." },
-  "archive":                { label: "Archive",                icon: "🗄️",  color: "#0a0a0a", accent: "#555555", desc: "All published works in the complete archive." },
-};
+const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
 
 export default function DomainPage() {
   const [, params] = useRoute("/domains/:slug");
-  const [, params2] = useRoute("/categories/:slug");
-  const slug = (params?.slug || params2?.slug || "").toLowerCase();
-
-  const meta = DOMAIN_META[slug];
+  const [, legacyParams] = useRoute("/categories/:slug");
+  const slug = (params?.slug || legacyParams?.slug || "").toLowerCase();
+  const key = normalizeDomainKey(slug);
+  const meta = getDomainMeta(key);
+  const known = Boolean(slug && (slug in DOMAIN_META || slug === "civilizations" || slug === "civilisation"));
   const [articles, setArticles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -36,93 +27,111 @@ export default function DomainPage() {
     if (!slug) return;
     setLoading(true);
     setError(false);
-    const b = base();
-    // Try fetching articles by category/domain slug
-    fetch(`${b}/api/articles?category=${encodeURIComponent(slug)}&limit=20`)
-      .then(r => r.json())
-      .then(d => { setArticles(d.articles || []); setLoading(false); })
-      .catch(() => { setError(true); setLoading(false); });
+    fetch(`${base()}/api/articles?category=${encodeURIComponent(slug)}&limit=24`)
+      .then((response) => response.json())
+      .then((data) => {
+        setArticles(data.articles || []);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError(true);
+        setLoading(false);
+      });
   }, [slug]);
 
-  if (!meta && !loading) {
+  if (!known && !loading) {
     return (
-      <div style={{ background: "var(--bg)", minHeight: "60vh" }} className="flex flex-col items-center justify-center">
+      <div className="flex min-h-[60vh] items-center justify-center bg-[var(--bg)] px-4">
         <EmptyState
           title="Domain not found"
-          description={`"${slug}" is not a known domain. Return to browse all available domains.`}
-          action={<Link href="/browse" className="btn-sacred btn-gold">Back to Browse</Link>}
+          description={`"${slug}" is not a known domain. Return to the atlas to continue browsing.`}
+          action={<Link href="/browse" className="btn-terracotta">Back to Explore</Link>}
         />
       </div>
     );
   }
 
-  const m = meta || { label: slug, icon: "📄", color: "#0a0a0a", accent: "#c9983a", desc: "" };
-
   return (
-    <div style={{ background: "var(--bg)" }}>
-      {/* Hero */}
-      <div className="relative overflow-hidden" style={{ minHeight: 300 }}>
-        <div className="absolute inset-0" aria-hidden="true">
-          <div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, ${m.color} 0%, #07040a 100%)` }} />
-          <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 20% 50%, ${m.accent}30 0%, transparent 55%)` }} />
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 80, background: "linear-gradient(180deg, transparent, var(--bg))" }} />
-        </div>
-        <div className="container-anv relative z-10 py-14 flex flex-col items-center text-center">
-          <Link href="/browse" className="flex items-center gap-1.5 mb-6 font-ui text-xs hover:opacity-70 transition-opacity" style={{ color: "var(--ink-faint)" }}>
-            <ArrowLeft size={12} /> Browse
-          </Link>
-          <div style={{ fontSize: "3rem", marginBottom: "1rem", filter: `drop-shadow(0 0 16px ${m.accent}80)` }}>{m.icon}</div>
-          <div className="section-label mb-2">Domain</div>
-          <h1 className="font-display mb-3" style={{ fontSize: "clamp(2rem, 5vw, 3.5rem)", color: "var(--gold-bright)", letterSpacing: "0.1em" }}>{m.label}</h1>
-          {m.desc && <p className="font-body text-sm max-w-md" style={{ color: "var(--ink-faint)" }}>{m.desc}</p>}
-          <LotusIcon size={16} className="mt-4 animate-float" style={{ color: "var(--gold)", opacity: 0.5 }} />
-        </div>
-      </div>
+    <div className="bg-[var(--bg)]">
+      <section className="container-anv py-6 md:py-10">
+        <nav className="mb-4 flex items-center gap-2 font-ui text-xs font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]" aria-label="Breadcrumb">
+          <Link href="/browse" className="inline-flex items-center gap-1 hover:text-[var(--terracotta)]"><ArrowLeft size={13} /> Explore</Link>
+          <span>/</span>
+          <span className="text-[var(--terracotta)]">{meta.label}</span>
+        </nav>
 
-      {/* Content */}
-      <div className="container-anv py-10">
-        <LotusDivider className="mb-8" />
+        <HeroPanel
+          image={asset("/images/heroes/explore-domain.jpg")}
+          imageAlt={`${meta.label} domain illustration`}
+          eyebrow="Domain"
+          title={meta.label}
+          subtitle={meta.animal}
+          description={meta.description}
+          glyph={key}
+          focal="center"
+          ctaPrimary={{ label: "Submit in this Domain", href: "/submit" }}
+          ctaSecondary={{ label: "Search Archive", href: `/search?q=${encodeURIComponent(meta.label)}` }}
+        />
+      </section>
+
+      <section className="container-anv pb-14">
+        <div className="mb-8 grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
+          <div>
+            <GlyphTag domain={key} className="mb-3" />
+            <h2 className="font-display text-4xl text-[var(--ink)]">Published Work</h2>
+            <p className="mt-2 max-w-xl font-body text-base leading-7 text-[var(--ink-soft)]">
+              Essays and papers in this field will collect here as the archive grows.
+            </p>
+          </div>
+          <Link href="/browse" className="btn-ink w-fit">
+            All Domains
+          </Link>
+        </div>
+
+        <OrnamentDivider className="mb-8" />
 
         {loading ? (
-          <div className="flex justify-center py-16">
-            <div style={{ width: 40, height: 40, border: "2px solid var(--border-gold)", borderTop: "2px solid var(--gold)", borderRadius: "50%", animation: "rotateSlow 0.8s linear infinite" }} role="status" aria-label="Loading" />
+          <div className="grid gap-4 md:grid-cols-3">
+            {[0, 1, 2].map((item) => <div key={item} className="h-48 animate-pulse rounded-[8px] bg-[var(--ink-wash-strong)]" />)}
           </div>
         ) : error ? (
           <EmptyState
             title="Could not load content"
             description="There was an error loading articles for this domain. Please try again."
-            action={<button className="btn-sacred btn-ghost" onClick={() => window.location.reload()} type="button">Retry</button>}
+            action={<button className="btn-ink" onClick={() => window.location.reload()} type="button">Retry</button>}
           />
         ) : articles.length === 0 ? (
-          <EmptyState
-            title={`No published work in ${m.label} yet`}
-            description="This domain is being prepared. The first works will appear here once published by our editorial team."
-            action={
-              <div className="flex gap-3 flex-wrap justify-center">
-                <Link href="/submit" className="btn-sacred btn-gold">Submit Your Work <ArrowRight size={14} /></Link>
-                <Link href="/browse" className="btn-sacred btn-ghost">Browse Domains</Link>
-              </div>
-            }
-          />
+          <ParchmentCard className="mx-auto max-w-2xl p-8 text-center">
+            <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full border border-[var(--border-gold)]" style={{ color: meta.color }}>
+              <AnimalGlyph domain={key} size={42} />
+            </div>
+            <h3 className="font-display text-3xl text-[var(--ink)]">No published work in {meta.label} yet.</h3>
+            <p className="mx-auto mt-3 max-w-md font-body text-base leading-7 text-[var(--ink-soft)]">
+              The first folio for this domain has not been opened. Submit a work or explore another path.
+            </p>
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
+              <Link href="/submit" className="btn-terracotta">Submit Your Work <ArrowRight size={14} /></Link>
+              <Link href="/browse" className="btn-ink">Browse Domains</Link>
+            </div>
+          </ParchmentCard>
         ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {articles.map(a => (
-              <Link key={a.id} href={`/articles/${a.slug}`}>
-                <article className="card-sacred p-5 h-full flex flex-col cursor-pointer">
-                  <div className="flex-1">
-                    <h3 className="font-display text-xl mb-2 leading-tight" style={{ color: "var(--parchment)" }}>{a.title}</h3>
-                    {a.excerpt && <p className="font-body text-sm leading-relaxed line-clamp-3" style={{ color: "var(--ink-faint)" }}>{a.excerpt}</p>}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {articles.map((article) => (
+              <Link key={article.id} href={`/articles/${article.slug || article.id}`}>
+                <ParchmentCard className="flex h-full min-h-56 flex-col p-5">
+                  <GlyphTag domain={key} className="mb-4 w-fit" />
+                  <h3 className="font-display text-2xl leading-tight text-[var(--ink)]">{article.title}</h3>
+                  {article.excerpt ? <p className="mt-3 line-clamp-3 font-body text-sm leading-6 text-[var(--ink-soft)]">{article.excerpt}</p> : null}
+                  <div className="mt-auto flex items-center justify-between border-t border-[var(--border)] pt-4">
+                    <span className="font-ui text-xs text-[var(--ink-faint)]">{article.authorName || "Editorial"}</span>
+                    <ArrowRight size={14} className="text-[var(--gold)]" />
                   </div>
-                  <div className="flex items-center justify-between mt-4 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
-                    <span className="font-ui text-xs" style={{ color: "var(--muted)" }}>{a.authorName || "Editorial"}</span>
-                    <ArrowRight size={14} style={{ color: "var(--gold)" }} />
-                  </div>
-                </article>
+                </ParchmentCard>
               </Link>
             ))}
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }
