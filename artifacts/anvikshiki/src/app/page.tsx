@@ -37,22 +37,32 @@ export default function HomePage() {
       {/* ═══ HERO ═══ */}
       <section style={{ background: "#f5f0e8", margin: 0, padding: 0 }}>
 
-        {/* Illustration — background-image approach avoids all click-through and sizing bugs.
-            aspectRatio clips to illustration area only (no fake header, no button area). */}
+        {/* Illustration — <img> with negative marginTop clips the fake phone-header.
+            marginTop: "-10.5%" clips 10.5% × 941 ≈ 99px of original, identical at every
+            screen width because CSS % margins are always relative to container width.
+            The outer div's aspectRatio matches the illustration area (941:700) so no
+            parchment text / CTA buttons from the mockup ever show. */}
         <div
-          role="img"
-          aria-label="A scholar walks through ancient temple ruins carrying lantern and books, accompanied by a leopard and serpent"
+          aria-hidden="false"
           style={{
             width: "100%",
-            aspectRatio: "4/3",
-            maxHeight: 400,
-            backgroundImage: `url(${heroImg})`,
-            backgroundSize: "120% auto",
-            backgroundPosition: "70% 8%",
-            backgroundRepeat: "no-repeat",
-            backgroundColor: "#f5f0e8",
+            aspectRatio: "941/700",
+            maxHeight: 700,
+            overflow: "hidden",
+            lineHeight: 0,
+            background: "#f5f0e8",
           }}
-        />
+        >
+          <img
+            src={heroImg}
+            alt="A scholar walks through ancient temple ruins carrying lantern and books, accompanied by a leopard and serpent"
+            style={{
+              width: "100%",
+              display: "block",
+              marginTop: "-13%",
+            }}
+          />
+        </div>
 
         {/* Parchment content — completely separate from the image, no overlap possible */}
         <div style={{ background: "#f5f0e8", textAlign: "center", padding: "2.5rem 1.5rem 2.5rem" }}>

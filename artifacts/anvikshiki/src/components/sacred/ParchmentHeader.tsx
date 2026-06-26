@@ -16,20 +16,41 @@ const NAV_LINKS = [
 ];
 
 function LeafEmblem({ size = 44 }: { size?: number }) {
+  const s = size;
   return (
     <div style={{
-      width: size, height: size,
+      width: s, height: s,
       border: "1.5px solid #3a2a1a",
       display: "flex", alignItems: "center", justifyContent: "center",
       background: "transparent",
       flexShrink: 0,
+      position: "relative",
     }}>
-      <svg width={size * 0.62} height={size * 0.62} viewBox="0 0 28 28" fill="none" aria-hidden="true">
-        <path d="M14 4C14 4 8 8 8 14C8 18.4 10.8 21.6 14 23C17.2 21.6 20 18.4 20 14C20 8 14 4 14 4Z"
-          stroke="#3a2a1a" strokeWidth="1.2" fill="#3a2a1a" fillOpacity="0.12"/>
-        <line x1="14" y1="4" x2="14" y2="23" stroke="#3a2a1a" strokeWidth="0.8" strokeDasharray="1.5 1.5" opacity="0.5"/>
-        <path d="M14 10C14 10 10 11 9 14" stroke="#3a2a1a" strokeWidth="0.9" strokeLinecap="round" fill="none" opacity="0.55"/>
-        <path d="M14 14C14 14 18 13 19 10" stroke="#3a2a1a" strokeWidth="0.9" strokeLinecap="round" fill="none" opacity="0.55"/>
+      {/* Corner dots */}
+      {[[-1,-1],[1,-1],[-1,1],[1,1]].map(([dx,dy],i) => (
+        <div key={i} style={{
+          position: "absolute",
+          width: 3, height: 3, borderRadius: "50%",
+          background: "#3a2a1a", opacity: 0.45,
+          left: dx < 0 ? 4 : undefined, right: dx > 0 ? 4 : undefined,
+          top: dy < 0 ? 4 : undefined, bottom: dy > 0 ? 4 : undefined,
+        }} />
+      ))}
+      <svg width={s * 0.58} height={s * 0.58} viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        {/* Stem */}
+        <line x1="16" y1="27" x2="16" y2="11" stroke="#3a2a1a" strokeWidth="1" strokeLinecap="round"/>
+        {/* Main central petal / bud */}
+        <path d="M16 11 C13 8 13 4 16 3 C19 4 19 8 16 11Z" fill="#3a2a1a" fillOpacity="0.75"/>
+        {/* Left petal */}
+        <path d="M16 16 C13 14 10 11 10 8 C12 9 15 13 16 16Z" fill="#3a2a1a" fillOpacity="0.4"/>
+        {/* Right petal */}
+        <path d="M16 16 C19 14 22 11 22 8 C20 9 17 13 16 16Z" fill="#3a2a1a" fillOpacity="0.4"/>
+        {/* Lower left leaf */}
+        <path d="M16 20 C13 19 11 17 10 14 C12 15 15 18 16 20Z" fill="#3a2a1a" fillOpacity="0.25"/>
+        {/* Lower right leaf */}
+        <path d="M16 20 C19 19 21 17 22 14 C20 15 17 18 16 20Z" fill="#3a2a1a" fillOpacity="0.25"/>
+        {/* Base curve */}
+        <path d="M13 27 Q16 29 19 27" stroke="#3a2a1a" strokeWidth="0.9" fill="none" opacity="0.5"/>
       </svg>
     </div>
   );
@@ -60,8 +81,8 @@ export function ParchmentHeader() {
         {/* Top thin accent line */}
         <div style={{ height: "1.5px", background: "#3a2a1a" }} aria-hidden="true" />
 
-        <div style={{ maxWidth: 900, margin: "0 auto", padding: "0 1.25rem" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
+        <div style={{ maxWidth: 900, margin: "0 auto", padding: "0 1.25rem", overflow: "hidden" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 64, overflow: "hidden" }}>
 
             {/* Left: Logo */}
             <Link href="/" aria-label="Ānvīkṣikī Home"
@@ -80,11 +101,12 @@ export function ParchmentHeader() {
                 </div>
                 <div style={{
                   fontFamily: "var(--font-ui, 'Inter', sans-serif)",
-                  fontSize: "0.45rem",
-                  letterSpacing: "0.28em",
+                  fontSize: "0.48rem",
+                  letterSpacing: "0.14em",
                   color: "#6b4c30",
                   textTransform: "uppercase",
                   marginTop: 2,
+                  whiteSpace: "nowrap",
                 }}>
                   Journal &amp; Research Platform
                 </div>

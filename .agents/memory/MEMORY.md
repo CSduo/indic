@@ -1,1 +1,1 @@
-- [Anvikshiki migration](anvikshiki-migration.md) — App was already Vite+React in backup (not Next.js); schema at lib/db/src/schema/index.ts is the full DB schema for this journal platform.
+- [Hero image clipping technique](hero-image-clip.md) — CSS margin % = container WIDTH, use marginTop "-X%" on img to clip portrait mockup headers at any screen size
