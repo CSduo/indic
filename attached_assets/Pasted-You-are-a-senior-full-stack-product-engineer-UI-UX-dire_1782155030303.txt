@@ -1,0 +1,527 @@
+You are a senior full-stack product engineer, UI/UX director, and front-end art director. You are working on the Ānvīkṣikī / Anvikshiki website, a journal and research platform. Your job is not only to make the website beautiful, but to make it fully functional, stable, navigable, and controllable from admin.
+
+The current website has these problems:
+
+1. The frontend looks too empty, plain, and under-designed.
+2. The current visual language is not maximalist, not deeply Indic, and not emotionally powerful enough.
+3. Subpages such as Philosophy, Psychology, Archive, Papers, etc. do not properly open. They should open even when there is no data.
+4. Submission type buttons are not properly clickable or do not lead into a complete working flow.
+5. File upload does not work properly.
+6. Uploaded submissions/files are not visible in admin or frontend workflow.
+7. Admin panel is not properly functional. The admin must be able to view, approve, edit, delete, publish, unpublish, and manage submissions/content.
+8. The website must later support Google login and WhatsApp/SMS notification, but those can remain prepared placeholders for now.
+9. There must be no fake hardcoded content pretending to be real database content. If there is no content, show beautiful empty states.
+
+Your mission: rebuild the website into a fully working, deeply aesthetic, high-resolution, mystical Indic maximalist journal platform.
+
+CORE PRINCIPLE:
+Do not create a decorative website that breaks functionality. Every page, button, route, upload, form, admin action, and content state must work. The final result must be both visually extraordinary and technically reliable.
+
+VISUAL DIRECTION:
+Transform the website into a dark, sacred, maximalist Indic visual experience inspired by:
+
+* Midnight indigo, deep wine red, cosmic black, dusty rose, magenta, muted jade, antique copper, luminous gold, parchment beige.
+* Hindu / Indic / Dharmic motifs used respectfully and artistically.
+* Lotus flowers, moving lotus patterns, drifting petals, mandalas, yantras, temple arches, carved borders, crescent moons, sacred eyes, elephants, trishul, veena, manuscripts, lamps, bougainvillea, mural textures, cosmic smoke, fresco-like backgrounds.
+* 2D illustrated anime + Indian miniature + mural + collage aesthetic.
+* Dark mystical Shiva/Kali-inspired cosmic atmosphere, but elegant and scholarly, not horror-like.
+* Every “empty” area should still feel designed through ornament, pattern, movement, texture, and sacred visual rhythm.
+
+IMPORTANT VISUAL IMPLEMENTATION RULE:
+Do not simply place one giant image as the entire website. Build the visual system using reusable components, CSS/SVG/pattern layers, optimized images, gradients, textures, and cards. The design should be responsive, functional, readable, and maintainable.
+
+Use the generated visual references as inspiration for:
+
+* Color palette.
+* Borders.
+* Card shapes.
+* Hero banners.
+* Side icon rails.
+* Lotus/petal animations.
+* Cosmic backgrounds.
+* Sacred UI panels.
+* Empty-state illustrations.
+* Page-specific banners.
+
+Do not copy reference images literally. Use them as inspiration for a coherent original website design.
+
+GLOBAL LAYOUT:
+Create a consistent site shell used across all public pages:
+
+* Top header with ANVIKSHIKI logo/title.
+* Main navigation: Home, Browse, Archive, Submit, Community.
+* Search bar.
+* Theme toggle placeholder.
+* Language toggle placeholder.
+* Google Login button placeholder.
+* Left vertical icon rail on desktop.
+* Right symbolic icon rail on large screens only.
+* Decorative footer with lotus/mandala/crescent/temple motifs.
+* Mobile responsive navigation with hamburger menu.
+
+The website must remain usable on:
+
+* Desktop.
+* Tablet.
+* Mobile.
+* Low-width screens.
+* Dark mode first, with future light mode possible.
+
+REUSABLE UI COMPONENTS TO CREATE:
+Create reusable components such as:
+
+* SiteShell
+* SacredHeader
+* MobileNav
+* LeftIconRail
+* RightSymbolRail
+* CosmicHero
+* OrnateFrame
+* LotusCard
+* DomainCard
+* EmptyState
+* AnimatedLotusLayer
+* PetalDriftLayer
+* SacredButton
+* OrnateInput
+* UploadDropzone
+* AdminTable
+* AdminActionButtons
+* StatusBadge
+* PageBanner
+* SectionDivider
+* PlaceholderContentPanel
+
+ANIMATION RULES:
+Add subtle animations only where they improve beauty:
+
+* Floating lotus flowers.
+* Slow drifting petals.
+* Soft cosmic smoke.
+* Gentle glow around buttons.
+* Hover shimmer on cards.
+* Slow parallax for hero layers.
+* Animated border highlights.
+
+But:
+
+* Respect prefers-reduced-motion.
+* Do not make the site slow.
+* Do not animate form fields in a distracting way.
+* Keep upload/admin pages calmer than the homepage.
+
+PAGE-BY-PAGE DESIGN AND FUNCTIONAL REQUIREMENTS:
+
+1. HOME PAGE `/`
+   Purpose: the emotional front door of Anvikshiki.
+   Design:
+
+* Grand maximalist hero banner.
+* Use Shiva-inspired calm on one side, cosmic divine feminine energy in the center/background, lotus/crescent/temple architecture, elephant/floral collage on the other side.
+* Central CTA: Explore Journal / Submit Work.
+* Below hero: visual modules for Browse, Archive, Submit, Community.
+* Use placeholder cards if there is no real data.
+* Do not hardcode fake article titles, fake authors, fake statistics, or fake numbers.
+* If no content exists, show beautiful empty states like “No essays published yet” or “Awaiting first submission.”
+
+Functionality:
+
+* CTA buttons must navigate correctly.
+* Browse cards must link to real routes.
+* Search input can be present; if search backend is not complete, show a graceful placeholder state, not broken behavior.
+
+2. BROWSE PAGE `/browse`
+   Purpose: domain discovery.
+   Design:
+
+* Dark mystical domain grid.
+* Domain cards for Philosophy, History, Psychology, Sociology, Science, Geopolitics, Papers, Archive, Sanskrit Studies, Aesthetics, Civilizational Thought, Political Theory.
+* Each card has ornamental icon, animated hover, lotus/cosmic pattern.
+* Cards must not contain fake counts unless pulled from database.
+* If count unavailable, hide count or show “0”.
+
+Functionality:
+
+* Every domain card must be clickable.
+* Clicking Philosophy opens `/domains/philosophy`.
+* Clicking Psychology opens `/domains/psychology`.
+* All domain routes must exist.
+
+3. DOMAIN PAGES `/domains/[slug]`
+   Purpose: show content for each domain.
+   Design:
+
+* Each domain has its own banner using the same visual system.
+* Philosophy: dark blue/gold, Shiva/meditation/scroll motifs.
+* Psychology: moon/lotus/mind/mandala motifs.
+* History: mural/fresco/temple archive motifs.
+* Sociology: community/sabha/gathering motifs.
+* Science: cosmic astronomy/yantra/observatory motifs.
+* Geopolitics: map/mandala/territory motifs.
+* Papers: manuscript/archive motifs.
+* Archive: deep library/timeless vault motifs.
+
+Functionality:
+
+* Route must load even if no content exists.
+* If no essays/papers exist, show a polished empty state: “No published work in this domain yet.”
+* Do not redirect back to homepage.
+* Do not show broken 404 unless the slug is truly invalid.
+* If slug is invalid, show a beautiful “Domain not found” page with navigation back to Browse.
+
+4. ARCHIVE PAGE `/archive`
+   Purpose: show all published/approved papers and essays.
+   Design:
+
+* Living archive visual: manuscripts, temple library, cosmic parchment, lotus border.
+* Filter/search placeholder.
+* Archive cards are empty if there is no content.
+
+Functionality:
+
+* Fetch approved/published content from database.
+* Show empty state if no content.
+* Each published item should have a route like `/papers/[id]` or `/essays/[id]`.
+* No fake archive items.
+
+5. SUBMIT LANDING PAGE `/submit`
+   Purpose: let user choose submission type.
+   Design:
+
+* Sacred submission portal banner.
+* Submission type cards with icons:
+
+  * Essay / Paper
+  * Review / Commentary
+  * Translation
+  * Book Review
+* Cards should be beautiful, clickable, and visibly selected on click.
+
+Functionality:
+
+* Clicking a submission type must navigate to `/submit/details?type=essay` or equivalent.
+* The selected submission type must persist into the next step.
+* Do not make cards decorative only. They must work.
+
+6. SUBMISSION DETAILS PAGE `/submit/details`
+   Purpose: collect metadata.
+   Design:
+
+* Ornate but clear form.
+* Dark maroon form panel.
+* Gold outlines.
+* Lotus dividers.
+* Guidance sidebar.
+* Empty fields only.
+
+Fields:
+
+* Submission Type
+* Full Name
+* Email
+* Institution / Affiliation
+* Title
+* Domain
+* Abstract
+* Keywords
+* Additional Notes
+
+Functionality:
+
+* Validate required fields.
+* Show clear errors.
+* Store draft state locally or in database depending on current architecture.
+* Continue button goes to `/submit/upload`.
+* Preserve form state between steps.
+* No dummy prefilled data.
+
+7. SUBMISSION UPLOAD PAGE `/submit/upload`
+   Purpose: upload paper and optional images.
+   Design:
+
+* Beautiful upload dropzone.
+* Supporting image area.
+* Declaration checkbox.
+* Review button.
+* Right panels: Help, Privacy, Accepted Formats, What Happens Next — but keep text short and non-fake.
+
+Upload requirements:
+
+* Paper upload required.
+* Accept PDF, DOC, DOCX.
+* Max size should be enforced.
+* Optional cover/supporting images.
+* Accept JPG, PNG, WEBP.
+* Show upload progress.
+* Show uploaded file preview/chip after successful upload.
+* Allow removal before final submit.
+* Handle errors visibly.
+
+Functionality:
+
+* File upload must actually work.
+* Use the existing storage solution if present, or configure one properly.
+* If Supabase Storage exists, use Supabase Storage.
+* If local development mode is being used, provide a safe local fallback only if needed.
+* Store file metadata in database:
+
+  * original filename
+  * storage path/url
+  * file type
+  * size
+  * submission ID
+  * upload timestamp
+* Final submit creates a submission record with status `pending`.
+* After submit, redirect to confirmation page `/submit/success`.
+
+8. SUBMISSION SUCCESS PAGE `/submit/success`
+   Purpose: confirmation.
+   Design:
+
+* Calm sacred confirmation screen.
+* Lotus / lamp / manuscript visual.
+* Clear message that submission was received.
+
+Functionality:
+
+* Show submission ID if available.
+* Do not expose private file URLs publicly.
+* Provide return to Home / Submit another.
+
+9. ADMIN LOGIN / ADMIN ROUTE `/admin`
+   Purpose: admin control.
+   For now, if full authentication is not set up, protect admin using the existing auth mechanism or a temporary admin guard from environment variable. Do not leave admin fully open in production.
+
+Design:
+
+* Admin should use same visual language but calmer and more utilitarian.
+* Dark premium admin dashboard.
+* Less heavy animation.
+* Clear tables and controls.
+
+Admin must include:
+
+* Dashboard overview.
+* Submissions list.
+* View submission details.
+* Download/view uploaded files.
+* Approve submission.
+* Reject submission.
+* Publish submission.
+* Unpublish submission.
+* Delete submission.
+* Delete uploaded files from storage when deleting submission.
+* Edit metadata.
+* Manage domains if applicable.
+* Manage published essays/papers if applicable.
+* Manage featured homepage content if applicable.
+
+Functionality:
+
+* All admin actions must work with real database records.
+* Delete must actually delete or soft-delete consistently.
+* If using soft delete, UI should clearly hide deleted items and allow restore only if implemented.
+* No admin button should be decorative.
+* Show success/error toast messages.
+* Confirm before destructive delete.
+* Do not break frontend if admin deletes all content.
+
+10. PUBLIC VISIBILITY RULE:
+    Submitted work should not automatically become public unless explicitly approved/published by admin.
+    Flow:
+
+* User submits → status `pending`.
+* Admin sees it in `/admin/submissions`.
+* Admin can approve/publish.
+* Only published content appears on public pages.
+* If no published content exists, public pages show empty states.
+
+11. DATABASE / DATA RULES:
+    Audit current database/schema first.
+    Do not hardcode content into components.
+    Use database-driven data wherever content is dynamic.
+    Create or fix models/entities for:
+
+* Submission
+* UploadedFile
+* Domain
+* PublishedWork or Article/Paper
+* AdminUser if needed
+* Status field: draft/pending/approved/rejected/published/unpublished/deleted
+* Timestamps: createdAt, updatedAt
+* Optional slug fields
+
+If Prisma is present:
+
+* Update Prisma schema.
+* Create migrations.
+* Ensure generated client works.
+  If Supabase is present:
+* Use Supabase correctly for storage and/or database.
+  If both exist:
+* Use the current architecture consistently instead of mixing randomly.
+
+12. ROUTING REQUIREMENTS:
+    All these routes must work:
+
+* `/`
+* `/browse`
+* `/domains/[slug]`
+* `/archive`
+* `/papers`
+* `/papers/[id]`
+* `/essays`
+* `/essays/[id]`
+* `/submit`
+* `/submit/details`
+* `/submit/upload`
+* `/submit/success`
+* `/community`
+* `/admin`
+* `/admin/submissions`
+* `/admin/submissions/[id]`
+* `/admin/content`
+* `/admin/domains`
+
+If content does not exist, show empty states. Do not keep users stuck on the homepage.
+
+13. GOOGLE LOGIN PLACEHOLDER:
+    Add a visible Google Login button in the header or login modal, but do not force it to work now unless credentials are available.
+    Prepare code structure so Google Auth can be added later:
+
+* environment variables placeholder
+* auth provider adapter
+* clear TODO comments
+* no broken button behavior
+  If clicked while not configured, show “Google login will be available soon” or a graceful disabled state.
+
+14. WHATSAPP/SMS NOTIFICATION FUTURE HOOK:
+    Do not implement real WhatsApp/SMS unless credentials are provided.
+    But prepare architecture:
+
+* Create a notification utility/service.
+* Add placeholder env vars for future provider.
+* On new submission, call a safe notification function that currently logs in development or no-ops in production.
+* Keep TODO for later provider such as Twilio/WhatsApp Business API.
+* Do not hardcode phone numbers.
+* Do not expose secrets.
+
+15. ACCESSIBILITY:
+
+* Maintain readable contrast.
+* All buttons and cards must be keyboard accessible.
+* Every clickable card must be a real button/link.
+* Inputs must have labels.
+* Upload zones must work with click and keyboard, not only drag-drop.
+* Add alt text for decorative/meaningful images.
+* Use aria-hidden for purely decorative layers.
+
+16. PERFORMANCE:
+
+* Optimize images.
+* Do not use huge uncompressed full-screen assets everywhere.
+* Use CSS/SVG patterns where possible.
+* Lazy-load heavy artwork.
+* Avoid layout shift.
+* Keep animations lightweight.
+* Do not let decorative layers block clicks.
+* Ensure form fields remain responsive.
+
+17. RESPONSIVE BEHAVIOR:
+    Desktop:
+
+* Full maximalist layout with side rails and rich hero.
+  Tablet:
+* Reduce side rails, keep main panels.
+  Mobile:
+* Collapse side rails.
+* Use hamburger nav.
+* Stack cards.
+* Keep forms usable.
+* Reduce animation.
+* Maintain sacred visual style without overcrowding.
+
+18. ERROR HANDLING:
+    Every important operation must show clear state:
+
+* Loading
+* Empty
+* Error
+* Success
+* Validation error
+* Upload progress
+* Upload failed
+* Submission saved
+* Admin action completed
+* Admin action failed
+
+19. CLEANUP EXISTING CODE:
+    Before implementation:
+
+* Inspect current project structure.
+* Identify framework and routing system.
+* Identify current upload logic.
+* Identify admin logic.
+* Identify database/storage config.
+* Identify broken links/routes.
+* Identify hardcoded fake data.
+* Identify unused/dead components.
+
+Then:
+
+* Refactor without destroying working pieces.
+* Remove or isolate fake/static content.
+* Convert decorative-only components into functional links/buttons.
+* Keep code modular.
+* Do not create duplicate route systems.
+
+20. ACCEPTANCE CRITERIA:
+    The task is complete only when:
+
+* Website visually matches the new dark mystical Indic maximalist art direction.
+* Homepage looks full, beautiful, premium, and high-resolution.
+* Browse page works.
+* Every domain page opens.
+* Empty domain pages show zero/empty state properly.
+* Submit type cards are clickable.
+* Submission details form works.
+* Upload works.
+* Uploaded files show on frontend after upload and in admin submission detail.
+* Final submission creates pending record.
+* Admin can view submitted data.
+* Admin can approve/reject/publish/unpublish/delete.
+* Public pages only show published content.
+* Admin delete works.
+* No fake hardcoded content is shown as real data.
+* Google login placeholder exists but does not break anything.
+* Notification architecture placeholder exists but does not require credentials.
+* All routes build successfully.
+* No TypeScript errors.
+* No console-breaking runtime errors.
+* Responsive layout works.
+* Run lint/build/test and fix errors.
+
+IMPLEMENTATION ORDER:
+
+1. Audit current codebase and write a short internal plan.
+2. Fix routing first.
+3. Fix data model and backend APIs.
+4. Fix submission flow.
+5. Fix file upload.
+6. Fix admin CRUD.
+7. Add empty states.
+8. Apply new visual design system.
+9. Add animations and decorative layers.
+10. Add Google login placeholder.
+11. Add notification placeholder.
+12. Test everything end-to-end.
+13. Run final build and fix all errors.
+
+Final output expected:
+
+* Working code changes.
+* Summary of what was changed.
+* List of routes fixed/added.
+* List of environment variables needed.
+* Any remaining TODOs clearly separated from completed work.
+* Confirmation that build/lint passes.
