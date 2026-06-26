@@ -3,11 +3,14 @@ import { useLocation, Link } from "wouter";
 import { Globe } from "lucide-react";
 import { LotusDivider, LotusIcon } from "@/components/sacred/LotusIcon";
 import { Emblem } from "@/components/brand/Emblem";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export default function LoginPage() {
   const [, navigate] = useLocation();
+  const { login } = useAuthContext();
   const [tab, setTab] = useState<"login"|"signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -15,9 +18,23 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const validate = () => {
+    if (!email.trim() || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
+      setError("Please enter a valid email address"); return false;
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters"); return false;
+    }
+    if (tab === "signup" && !name.trim()) {
+      setError("Please enter your full name"); return false;
+    }
+    return true;
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    if (!validate()) return;
     setLoading(true);
     try {
       const endpoint = tab === "login" ? "/api/auth/login" : "/api/auth/register";
@@ -30,6 +47,8 @@ export default function LoginPage() {
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Authentication failed");
+      login(d.user);
+      toast.success(tab === "login" ? "Welcome back!" : "Account created — welcome to Ānvīkṣikī!");
       navigate("/account");
     } catch (err: any) {
       setError(err.message || "Something went wrong");
@@ -75,7 +94,7 @@ export default function LoginPage() {
               type="button"
               className="w-full flex items-center justify-center gap-2 py-2.5 mb-4 rounded-lg font-ui text-sm transition-all"
               style={{ border: "1px solid var(--border-gold)", background: "var(--surface-3)", color: "var(--ink-soft)" }}
-              onClick={() => alert("Google login will be available soon.")}
+              onClick={() => toast.info("Google login will be available soon.")}
             >
               <Globe size={16} style={{ color: "var(--gold)" }} />
               Continue with Google (Coming Soon)
@@ -83,23 +102,23 @@ export default function LoginPage() {
 
             <LotusDivider className="mb-4" />
 
-            <form onSubmit={submit} className="space-y-4">
+            <form onSubmit={submit} className="space-y-4" noValidate>
               {tab === "signup" && (
                 <div>
-                  <label className="form-label" htmlFor="name">Full Name</label>
+                  <label className="form-label" htmlFor="name">Full Name *</label>
                   <input id="name" type="text" className="input-sacred" placeholder="Arjun Sharma" value={name} onChange={e => setName(e.target.value)} required />
                 </div>
               )}
               <div>
-                <label className="form-label" htmlFor="email">Email</label>
+                <label className="form-label" htmlFor="email">Email *</label>
                 <input id="email" type="email" className="input-sacred" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} required />
               </div>
               <div>
-                <label className="form-label" htmlFor="password">Password</label>
+                <label className="form-label" htmlFor="password">Password * <span style={{ color: "var(--ink-faint)", fontWeight: 400 }}>(min. 8 characters)</span></label>
                 <input id="password" type="password" className="input-sacred" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} />
               </div>
 
-              {error && <p className="font-ui text-xs" style={{ color: "var(--lotus)" }} role="alert">{error}</p>}
+              {error && <p className="font-ui text-xs p-3 rounded-lg" style={{ color: "var(--lotus)", background: "rgba(139,26,74,0.1)", border: "1px solid rgba(139,26,74,0.2)" }} role="alert">{error}</p>}
 
               <button type="submit" className="btn-sacred btn-gold w-full justify-center mt-2" disabled={loading}>
                 {loading ? "…" : tab === "login" ? "Sign In" : "Create Account"}

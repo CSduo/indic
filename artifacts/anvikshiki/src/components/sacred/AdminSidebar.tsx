@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, FileText, ScrollText, Inbox, Mail, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, FileText, ScrollText, Inbox, Mail, Settings, LogOut, Users } from "lucide-react";
 import { Emblem } from "@/components/brand/Emblem";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -10,6 +10,7 @@ const links = [
   { href: "/admin/articles",    icon: <FileText size={16} />,        label: "Articles" },
   { href: "/admin/papers",      icon: <ScrollText size={16} />,      label: "Papers" },
   { href: "/admin/newsletter",  icon: <Mail size={16} />,            label: "Newsletter" },
+  { href: "/admin/users",       icon: <Users size={16} />,           label: "Users" },
   { href: "/admin/settings",    icon: <Settings size={16} />,        label: "Settings" },
 ];
 

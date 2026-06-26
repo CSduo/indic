@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import {
   adminsTable, articlesTable, papersTable, submissionsTable,
-  newsletterSubscribersTable, categoriesTable
+  newsletterSubscribersTable, categoriesTable, usersTable, siteSettingsTable
 } from "@workspace/db";
 import { eq, desc, sql, and } from "drizzle-orm";
 import {
@@ -431,6 +431,61 @@ router.get("/admin/newsletter", requireAdmin, async (req, res) => {
       .where(eq(newsletterSubscribersTable.isActive, true))
       .orderBy(desc(newsletterSubscribersTable.createdAt));
     return res.json({ subscribers, total: subscribers.length });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
+// GET /api/admin/users
+router.get("/admin/users", requireAdmin, async (req, res) => {
+  try {
+    const users = await db.select({
+      id: usersTable.id,
+      email: usersTable.email,
+      name: usersTable.name,
+      role: usersTable.role,
+      createdAt: usersTable.createdAt,
+    }).from(usersTable).orderBy(desc(usersTable.createdAt));
+    return res.json({ users, total: users.length });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
+// GET /api/admin/site-settings
+router.get("/admin/site-settings", requireAdmin, async (req, res) => {
+  try {
+    const settings = await db.select().from(siteSettingsTable).orderBy(siteSettingsTable.key);
+    return res.json({ settings });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
+// PUT /api/admin/site-settings/:key
+router.put("/admin/site-settings/:key", requireAdmin, async (req, res) => {
+  try {
+    const schema = z.object({ value: z.string(), description: z.string().optional() });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
+
+    const key = req.params.key;
+    const existing = await db.select().from(siteSettingsTable).where(eq(siteSettingsTable.key, key)).limit(1);
+
+    if (existing.length > 0) {
+      const [setting] = await db.update(siteSettingsTable)
+        .set({ value: parsed.data.value, description: parsed.data.description, updatedAt: new Date() })
+        .where(eq(siteSettingsTable.key, key)).returning();
+      return res.json({ success: true, setting });
+    } else {
+      const [setting] = await db.insert(siteSettingsTable)
+        .values({ key, value: parsed.data.value, description: parsed.data.description || "" })
+        .returning();
+      return res.json({ success: true, setting });
+    }
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed" });

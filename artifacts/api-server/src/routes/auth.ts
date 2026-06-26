@@ -113,4 +113,29 @@ router.post("/auth/logout", (req, res) => {
   return res.json({ success: true });
 });
 
+// PUT /api/auth/profile
+router.put("/auth/profile", async (req, res) => {
+  try {
+    const auth = await getUserAuth(req);
+    if (!auth) return res.status(401).json({ error: "Not authenticated" });
+
+    const schema = z.object({
+      name: z.string().min(1).max(100).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
+
+    const [user] = await db.update(usersTable)
+      .set({ name: parsed.data.name })
+      .where(eq(usersTable.id, auth.userId))
+      .returning({ id: usersTable.id, email: usersTable.email, name: usersTable.name, role: usersTable.role });
+
+    if (!user) return res.status(404).json({ error: "User not found" });
+    return res.json({ success: true, user });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
 export default router;
