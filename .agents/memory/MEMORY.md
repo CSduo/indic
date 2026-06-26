@@ -1,0 +1,1 @@
+- [Anvikshiki migration](anvikshiki-migration.md) — App was already Vite+React in backup (not Next.js); schema at lib/db/src/schema/index.ts is the full DB schema for this journal platform.
