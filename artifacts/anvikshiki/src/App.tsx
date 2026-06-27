@@ -60,7 +60,11 @@ function AppShell({ children }: { children: React.ReactNode }) {
 }
 
 function HomeShell({ children }: { children: React.ReactNode }) {
-  return <AppShell>{children}</AppShell>;
+  return (
+    <div className="home-reference-stage">
+      <main id="main-content">{children}</main>
+    </div>
+  );
 }
 
 function AdminShell({ children }: { children: React.ReactNode }) {
