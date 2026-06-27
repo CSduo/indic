@@ -1320,6 +1320,314 @@ button {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   Sacred Header — Editorial redesign
+   ═══════════════════════════════════════════════════════════ */
+
+.sacred-header-row {
+  display: flex;
+  align-items: center;
+  min-height: 88px;
+  gap: 0;
+}
+
+/* Brand section */
+.sacred-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-shrink: 0;
+  min-width: 0;
+  text-decoration: none;
+  padding-right: 1.5rem;
+}
+
+.sacred-emblem-img {
+  width: 92px;
+  height: 92px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.sacred-brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sacred-brand-name {
+  display: block;
+  font-family: var(--font-display);
+  font-size: clamp(1.2rem, 2vw, 1.65rem);
+  font-weight: 400;
+  letter-spacing: 0.24em;
+  line-height: 1;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.sacred-brand-sub {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+/* Vertical rule dividers */
+.sacred-vr {
+  display: none;
+  width: 1px;
+  height: 36px;
+  background: var(--border-gold);
+  flex-shrink: 0;
+  margin-inline: 0.25rem;
+}
+
+.sacred-vr-sm {
+  display: none;
+  width: 1px;
+  height: 24px;
+  background: var(--border-gold);
+  flex-shrink: 0;
+  margin-inline: 0.15rem;
+}
+
+@media (min-width: 1024px) {
+  .sacred-vr { display: block; }
+  .sacred-vr-sm { display: block; }
+}
+
+/* Main nav */
+.sacred-nav {
+  display: none;
+  align-items: center;
+  flex: 1;
+  padding-inline: 1.25rem;
+  gap: 0;
+}
+
+@media (min-width: 1024px) {
+  .sacred-nav { display: flex; }
+}
+
+.sacred-nav-item-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+}
+
+.sacred-nav-dot {
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--border-gold);
+  padding-inline: 0.35rem;
+  user-select: none;
+}
+
+.sacred-nav-link {
+  position: relative;
+  display: inline-block;
+  padding: 0.45rem 0.6rem;
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.sacred-nav-link:hover {
+  color: var(--ink);
+}
+
+.sacred-nav-link[data-active="true"] {
+  color: var(--terracotta);
+}
+
+.sacred-nav-link[data-active="true"]::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0.6rem;
+  right: 0.6rem;
+  height: 1.5px;
+  background: var(--terracotta);
+  border-radius: 1px;
+}
+
+/* Right actions */
+.sacred-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.sacred-icon-btn {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--ink-faint);
+  transition: background 0.15s, color 0.15s;
+  cursor: pointer;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.sacred-icon-btn:hover {
+  color: var(--ink);
+  background: rgba(139, 96, 32, 0.08);
+}
+
+.sacred-signin-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding-inline: 1.1rem;
+  border: 1px solid var(--border-gold);
+  border-radius: 4px;
+  font-family: var(--font-ui);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+  margin-inline: 0.35rem;
+}
+
+.sacred-signin-btn:hover {
+  background: rgba(139, 96, 32, 0.08);
+  color: var(--ink);
+}
+
+/* Account button */
+.sacred-account-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 34px;
+  padding-inline: 0.85rem;
+  border: 1px solid var(--border-gold);
+  border-radius: 4px;
+  font-family: var(--font-ui);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  cursor: pointer;
+  background: transparent;
+  transition: background 0.15s;
+  margin-inline: 0.35rem;
+}
+
+.sacred-account-btn:hover { background: rgba(139,96,32,0.08); }
+
+.sacred-account-avatar {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--terracotta-pale);
+  color: var(--terracotta);
+}
+
+/* Dropdown */
+.sacred-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 50;
+  width: 200px;
+  border: 1px solid var(--border-gold);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 0.25rem;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+}
+
+.sacred-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 5px;
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  color: var(--ink);
+  text-decoration: none;
+  cursor: pointer;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  transition: background 0.12s;
+}
+
+.sacred-dropdown-item:hover { background: var(--ink-wash); }
+.sacred-dropdown-danger { color: var(--terracotta); }
+.sacred-dropdown-danger:hover { background: var(--terracotta-pale); }
+.sacred-dropdown-divider { height: 1px; background: var(--border); margin: 0.25rem 0; }
+
+/* Mobile drawer */
+.sacred-drawer {
+  position: absolute;
+  right: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  width: min(88vw, 340px);
+  height: 100%;
+  background: var(--surface);
+  border-left: 1px solid var(--border-gold);
+  box-shadow: -12px 0 40px rgba(0,0,0,0.14);
+}
+
+.sacred-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.25rem 1rem;
+  border-bottom: 1px solid var(--border-gold);
+}
+
+.sacred-drawer-link {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background 0.12s;
+}
+
+.sacred-drawer-link:hover { background: var(--ink-wash); }
+
+.sacred-drawer-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1.25rem;
+  border-top: 1px solid var(--border-gold);
+}
+
+/* ═══════════════════════════════════════════════════════════
    Homepage v2 — Full-width desktop layout
    ═══════════════════════════════════════════════════════════ */
 
