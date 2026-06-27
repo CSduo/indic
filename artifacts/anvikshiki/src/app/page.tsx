@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { ArrowRight, BookOpen, Clock3, Send, Users } from "lucide-react";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
@@ -5,23 +6,44 @@ import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (p: string) => `${base}${p.startsWith("/") ? p : `/${p}`}`;
 
-const FEATURED_ESSAYS = [
-  { category: "History", title: "The Caravan of Ideas: Trade Routes and Knowledge", author: "Meera Vaidyanathan", minutes: 8, domain: "geopolitics", href: "/browse", color: "#76546d" },
-  { category: "Philosophy", title: "Inquiry in Ancient Traditions: Then and Now", author: "Arjun Dev", minutes: 6, domain: "philosophy", href: "/domains/philosophy", color: "#aa7135" },
-  { category: "Civilizations", title: "Writing, Memory, and the Making of Civilizations", author: "K. R. Iyer", minutes: 9, domain: "civilizational-thought", href: "/domains/civilizational-thought", color: "#6f7547" },
-  { category: "Arts & Literature", title: "Caravans, Omens, and the Premodern Imagination", author: "Moon Sen", minutes: 9, domain: "aesthetics", href: "/domains/aesthetics", color: "#a35e3d" },
+const HOME_DOMAINS = [
+  { label: "History",        domain: "history",              href: "/domains/history",              color: "#8b5b39" },
+  { label: "Philosophy",     domain: "philosophy",           href: "/domains/philosophy",           color: "#a66735" },
+  { label: "Civilizations",  domain: "civilizational-thought", href: "/domains/civilizational-thought", color: "#536849" },
+  { label: "Religion",       domain: "aesthetics",           href: "/archive",                      color: "#62526f" },
+  { label: "Society",        domain: "sociology",            href: "/domains/sociology",            color: "#9a7a42" },
+  { label: "Arts & Lit",     domain: "multimedia",           href: "/domains/aesthetics",           color: "#667252" },
 ] as const;
 
-const HOME_DOMAINS = [
-  { label: "History", domain: "history", href: "/domains/history", color: "#8b5b39" },
-  { label: "Philosophy", domain: "philosophy", href: "/domains/philosophy", color: "#a66735" },
-  { label: "Civilizations", domain: "civilizational-thought", href: "/domains/civilizational-thought", color: "#536849" },
-  { label: "Religion", domain: "aesthetics", href: "/archive", color: "#62526f" },
-  { label: "Society", domain: "sociology", href: "/domains/sociology", color: "#9a7a42" },
-  { label: "Arts & Literature", domain: "multimedia", href: "/domains/aesthetics", color: "#667252" },
-] as const;
+const FALLBACK_ESSAYS = [
+  { category: "History",          title: "The Caravan of Ideas: Trade Routes and Knowledge", author: "Meera Vaidyanathan", minutes: 8,  domain: "geopolitics",          href: "/browse",                     color: "#76546d" },
+  { category: "Philosophy",       title: "Inquiry in Ancient Traditions: Then and Now",      author: "Arjun Dev",           minutes: 6,  domain: "philosophy",           href: "/domains/philosophy",         color: "#aa7135" },
+  { category: "Civilizations",    title: "Writing, Memory, and the Making of Civilizations", author: "K. R. Iyer",          minutes: 9,  domain: "civilizational-thought", href: "/domains/civilizational-thought", color: "#6f7547" },
+  { category: "Arts & Literature",title: "Caravans, Omens, and the Premodern Imagination",  author: "Moon Sen",            minutes: 9,  domain: "aesthetics",           href: "/domains/aesthetics",         color: "#a35e3d" },
+];
 
 export default function HomePage() {
+  const [featuredEssays, setFeaturedEssays] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch(`${base}/api/articles?featured=true&limit=4`, { credentials: "include" })
+      .then(r => r.json())
+      .then(d => { if (d.articles?.length) setFeaturedEssays(d.articles); })
+      .catch(() => {});
+  }, []);
+
+  const essays = featuredEssays.length > 0
+    ? featuredEssays.map((a: any) => ({
+        category: a.category?.name || a.categorySlug || "Essay",
+        title: a.title,
+        author: a.authorName || "Editorial",
+        minutes: a.readingMinutes || 6,
+        domain: a.categorySlug || "philosophy",
+        href: `/articles/${a.slug}`,
+        color: "#aa7135",
+      }))
+    : FALLBACK_ESSAYS;
+
   return (
     <div className="home-v2">
 
@@ -66,7 +88,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Right: scholar illustration — full portrait, no crop */}
+            {/* Right: scholar illustration */}
             <div className="home-v2-hero-image-col">
               <img
                 src={asset("/homepage_hero_scholar.png")}
@@ -89,7 +111,7 @@ export default function HomePage() {
             </Link>
           </div>
           <div className="home-v2-essay-grid">
-            {FEATURED_ESSAYS.map(essay => (
+            {essays.map(essay => (
               <Link key={essay.title} href={essay.href} className="home-v2-essay-card">
                 <div className="home-v2-essay-meta">
                   <AnimalGlyph domain={essay.domain} size={36} />
@@ -133,9 +155,9 @@ export default function HomePage() {
         <div className="container-anv">
           <div style={{ display: "grid", gap: "0.5rem" }}>
             {[
-              { label: "Submit Your Work", href: "/submit", icon: Send,     bg: "var(--terracotta)", text: "var(--surface)" },
-              { label: "Explore Journal",  href: "/browse",  icon: BookOpen, bg: "var(--ink-soft)",   text: "var(--bg-deep)" },
-              { label: "Join Community",   href: "/community", icon: Users,  bg: "var(--gold-pale)",  text: "var(--ink)" },
+              { label: "Submit Your Work", href: "/submit",    icon: Send,     bg: "var(--terracotta)", text: "var(--surface)" },
+              { label: "Explore Journal",  href: "/browse",    icon: BookOpen, bg: "var(--ink-soft)",   text: "var(--bg-deep)" },
+              { label: "Join Community",   href: "/community", icon: Users,    bg: "var(--gold-pale)",  text: "var(--ink)" },
             ].map(({ label, href, icon: Icon, bg, text }) => (
               <Link
                 key={href}
@@ -151,11 +173,7 @@ export default function HomePage() {
           </div>
 
           <div className="home-v2-ornament">
-            <span />
-            <i>✧</i>
-            <b>♧</b>
-            <i>✧</i>
-            <span />
+            <span /><i>✧</i><b>♧</b><i>✧</i><span />
           </div>
         </div>
       </section>

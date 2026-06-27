@@ -12,15 +12,15 @@ export default function SavedPage() {
   const [loading, setLoading] = useState(true);
 
   const load = () => {
-    fetch(`${base()}/api/user/saved`, { credentials: "include" })
+    fetch(`${base()}/api/saved-items`, { credentials: "include" })
       .then(r => { if (r.status === 401) { navigate("/login"); return null; } return r.json(); })
-      .then(d => d && (setItems(d.items || []), setLoading(false)))
+      .then(d => d && (setItems(d.savedItems || []), setLoading(false)))
       .catch(() => setLoading(false));
   };
   useEffect(() => { load(); }, []);
 
   const remove = async (id: string) => {
-    await fetch(`${base()}/api/user/saved/${id}`, { method: "DELETE", credentials: "include" });
+    await fetch(`${base()}/api/saved-items/${id}`, { method: "DELETE", credentials: "include" });
     load();
   };
 
@@ -52,15 +52,17 @@ export default function SavedPage() {
                     : <BookOpen size={18} style={{ color: "var(--gold)", flexShrink: 0 }} />}
                   <div>
                     <Link
-                      href={item.itemType === "PAPER" ? `/papers/${item.slug || item.itemId}` : `/articles/${item.slug || item.itemId}`}
+                      href={item.itemType === "PAPER"
+                        ? `/papers/${item.item?.slug || item.itemId}`
+                        : `/articles/${item.item?.slug || item.itemId}`}
                       className="font-ui text-sm font-semibold hover:opacity-80 transition-opacity"
                       style={{ color: "var(--ink-soft)" }}
                     >
-                      {item.title || item.itemId}
+                      {item.item?.title || item.itemId}
                     </Link>
                     <div className="font-ui text-xs mt-0.5" style={{ color: "var(--muted)" }}>
                       <span className="badge badge-draft" style={{ fontSize: "0.6rem" }}>{item.itemType}</span>
-                      {" "}{item.savedAt ? new Date(item.savedAt).toLocaleDateString("en-IN") : ""}
+                      {" "}{item.createdAt ? new Date(item.createdAt).toLocaleDateString("en-IN") : ""}
                     </div>
                   </div>
                 </div>
