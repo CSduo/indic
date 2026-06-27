@@ -2,10 +2,11 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { BookMarked, LogOut, Menu, Search, User, X } from "lucide-react";
 import { toast } from "sonner";
-import newEmblemSrc from "@assets/ChatGPT_Image_Jun_27,_2026,_11_44_33_AM_1782541070157.png";
 import { ThemeToggle } from "@/components/brand/ThemeToggle";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
 import { useAuthContext } from "@/contexts/AuthContext";
+
+const newEmblemSrc = `${import.meta.env.BASE_URL}brand-emblem.png`;
 
 const NAV_LINKS = [
   { label: "Home", href: "/", glyph: "archive" },
@@ -38,30 +39,30 @@ export function SacredHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-[var(--border-gold)] bg-[var(--bg-deep)]/95 shadow-[var(--shadow-sm)] backdrop-blur-md">
+      <header className="sticky top-0 z-50 border-b border-[var(--border-gold)] backdrop-blur-md" style={{ background: "var(--bg-deep)", boxShadow: "0 1px 0 var(--border-gold)" }}>
         <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded focus:bg-[var(--surface)] focus:px-3 focus:py-2 focus:text-[var(--ink)]">
           Skip to main content
         </a>
         <div className="container-anv">
-          <div className="flex min-h-[72px] items-center justify-between gap-4">
+          <div className="flex min-h-[80px] items-center justify-between gap-4">
             <Link href="/" className="flex min-w-0 items-center gap-3" aria-label="Anvikshiki home">
               <img
                 src={newEmblemSrc}
                 alt="Ānvīkṣikī emblem"
-                className="h-14 w-14 shrink-0 object-contain"
-                style={{ borderRadius: "6px" }}
+                className="shrink-0 object-contain"
+                style={{ width: "72px", height: "72px" }}
               />
               <span className="min-w-0">
-                <span className="block truncate font-display text-xl leading-none tracking-[0.2em] text-[var(--ink)] md:text-2xl">
+                <span className="block truncate font-display leading-none tracking-[0.22em] text-[var(--ink)]" style={{ fontSize: "clamp(1.15rem, 2vw, 1.55rem)" }}>
                   ĀNVĪKṢIKĪ
                 </span>
-                <span className="mt-1 block truncate font-ui text-[0.56rem] font-bold uppercase tracking-[0.24em] text-[var(--ink-faint)]">
+                <span className="mt-[5px] block truncate font-ui font-bold uppercase text-[var(--ink-faint)]" style={{ fontSize: "0.54rem", letterSpacing: "0.26em" }}>
                   Journal &amp; Research Platform
                 </span>
               </span>
             </Link>
 
-            <nav className="hidden items-center gap-1 lg:flex" aria-label="Main navigation">
+            <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Main navigation">
               {NAV_LINKS.map((item) => {
                 const active = isActive(loc, item.href);
                 return (
@@ -69,11 +70,11 @@ export function SacredHeader() {
                     key={item.href}
                     href={item.href}
                     aria-current={active ? "page" : undefined}
-                    className="relative rounded-sm px-3 py-2 font-ui text-xs font-bold uppercase tracking-[0.13em] text-[var(--ink-faint)] transition-colors hover:text-[var(--terracotta)]"
+                    className="relative rounded-sm px-3 py-2 font-ui text-[0.7rem] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)] transition-colors hover:text-[var(--ink)]"
                     style={{ color: active ? "var(--terracotta)" : undefined }}
                   >
                     {item.label}
-                    {active ? <span className="absolute inset-x-3 -bottom-[1px] h-0.5 bg-[var(--terracotta)]" aria-hidden="true" /> : null}
+                    {active ? <span className="absolute inset-x-3 -bottom-[1px] h-[1.5px] bg-[var(--terracotta)]" aria-hidden="true" /> : null}
                   </Link>
                 );
               })}
