@@ -1171,6 +1171,111 @@ button {
   color: var(--ink);
 }
 
+/* ── Admin horizontal top nav ── */
+.admin-topnav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 52px;
+  padding: 0 1.25rem;
+  background: var(--surface-card);
+  border-bottom: 1px solid var(--border-gold);
+  box-shadow: 0 1px 8px rgba(0,0,0,0.06);
+}
+
+.admin-topnav-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-right: 1.5rem;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.admin-topnav-links {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.admin-topnav-links::-webkit-scrollbar { display: none; }
+
+.admin-topnav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.admin-topnav-item:hover {
+  background: var(--ink-wash);
+  color: var(--ink);
+}
+.admin-topnav-item.active {
+  background: var(--gold-pale, rgba(201,152,58,0.12));
+  color: var(--gold-bright);
+}
+
+.admin-topnav-logout {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: auto;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.admin-topnav-logout:hover {
+  background: rgba(var(--terracotta-rgb, 180,80,60),0.08);
+  color: var(--terracotta, #b44040);
+  border-color: var(--border-terracotta, rgba(180,80,60,0.25));
+}
+
+/* ── Admin page layout ── */
+.admin-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--bg-deep);
+}
+
+.admin-main {
+  flex: 1;
+  padding: 2rem 2.5rem;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  .admin-main { padding: 1.25rem 1rem; }
+  .admin-topnav-item span { display: none; }
+  .admin-topnav-logout span { display: none; }
+}
+
+/* keep old sidebar class for backwards compat */
 .admin-sidebar {
   background: var(--surface-card);
   border-right: 1px solid var(--border-gold);

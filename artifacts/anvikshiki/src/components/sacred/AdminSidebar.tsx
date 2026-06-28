@@ -5,13 +5,13 @@ import { Emblem } from "@/components/brand/Emblem";
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const links = [
-  { href: "/admin",             icon: <LayoutDashboard size={16} />, label: "Dashboard" },
-  { href: "/admin/submissions", icon: <Inbox size={16} />,           label: "Submissions" },
-  { href: "/admin/articles",    icon: <FileText size={16} />,        label: "Articles" },
-  { href: "/admin/papers",      icon: <ScrollText size={16} />,      label: "Papers" },
-  { href: "/admin/newsletter",  icon: <Mail size={16} />,            label: "Newsletter" },
-  { href: "/admin/users",       icon: <Users size={16} />,           label: "Users" },
-  { href: "/admin/settings",    icon: <Settings size={16} />,        label: "Settings" },
+  { href: "/admin",             icon: <LayoutDashboard size={15} />, label: "Dashboard" },
+  { href: "/admin/submissions", icon: <Inbox size={15} />,           label: "Submissions" },
+  { href: "/admin/articles",    icon: <FileText size={15} />,        label: "Articles" },
+  { href: "/admin/papers",      icon: <ScrollText size={15} />,      label: "Papers" },
+  { href: "/admin/newsletter",  icon: <Mail size={15} />,            label: "Newsletter" },
+  { href: "/admin/users",       icon: <Users size={15} />,           label: "Users" },
+  { href: "/admin/settings",    icon: <Settings size={15} />,        label: "Settings" },
 ];
 
 export function AdminSidebar({ active }: { active: string }) {
@@ -23,26 +23,40 @@ export function AdminSidebar({ active }: { active: string }) {
   };
 
   return (
-    <div className="admin-sidebar">
-      <Link href="/" className="flex items-center gap-2 mb-6 pb-4" style={{ borderBottom: "1px solid var(--border)" }}>
-        <Emblem size={32} />
-        <div>
-          <div className="font-display text-sm tracking-[0.12em]" style={{ color: "var(--gold-bright)" }}>ĀNVĪKṢIKĪ</div>
-          <div className="font-ui text-[9px] tracking-[0.15em] uppercase" style={{ color: "var(--muted)" }}>Admin Panel</div>
+    <header className="admin-topnav">
+      {/* Logo */}
+      <Link href="/" className="admin-topnav-logo">
+        <Emblem size={28} />
+        <div className="leading-none">
+          <div className="font-display text-xs tracking-[0.14em]" style={{ color: "var(--gold-bright)" }}>ĀNVĪKṢIKĪ</div>
+          <div className="font-ui text-[8px] tracking-[0.18em] uppercase" style={{ color: "var(--muted)" }}>Admin</div>
         </div>
       </Link>
-      <nav className="flex-1 space-y-0.5" role="navigation" aria-label="Admin navigation">
+
+      {/* Nav links — centered */}
+      <nav className="admin-topnav-links" role="navigation" aria-label="Admin navigation">
         {links.map(l => (
-          <Link key={l.href} href={l.href} className={`admin-nav-item ${active === l.href ? "active" : ""}`}>
+          <Link
+            key={l.href}
+            href={l.href}
+            className={`admin-topnav-item${active === l.href ? " active" : ""}`}
+          >
             {l.icon}
-            {l.label}
+            <span>{l.label}</span>
           </Link>
         ))}
       </nav>
-      <button type="button" onClick={logout} className="admin-nav-item w-full mt-4" style={{ color: "var(--lotus)" }}>
-        <LogOut size={16} />
-        Sign Out
+
+      {/* Logout — far right */}
+      <button
+        type="button"
+        onClick={logout}
+        className="admin-topnav-logout"
+        title="Sign out"
+      >
+        <LogOut size={15} />
+        <span>Sign Out</span>
       </button>
-    </div>
+    </header>
   );
 }
