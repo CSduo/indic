@@ -12,6 +12,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 /* ── Public pages ── */
 import HomePage         from "@/app/page";
 import BrowsePage       from "@/app/browse/page";
+import DomainsPage      from "@/app/domains/page";
 import DomainPage       from "@/app/domains/[slug]/page";
 import ArticlePage      from "@/app/articles/[slug]/page";
 import PapersPage       from "@/app/papers/page";
@@ -19,13 +20,22 @@ import PaperDetailPage  from "@/app/papers/[slug]/page";
 import SearchPage       from "@/app/search/page";
 import ArchivePage      from "@/app/archive/page";
 import AboutPage        from "@/app/about/page";
+import ContactPage      from "@/app/contact/page";
 import CommunityPage    from "@/app/community/page";
+import CommunityFeedPage     from "@/app/community/feed/page";
+import CommunityDiscussPage  from "@/app/community/discussions/page";
+import CommunityEventsPage   from "@/app/community/events/page";
 import LoginPage        from "@/app/login/page";
 import AccountPage      from "@/app/account/page";
+import ProfilePage      from "@/app/account/profile/page";
+import CollectionsPage  from "@/app/account/collections/page";
+import NotificationsPage from "@/app/account/notifications/page";
+import SettingsPage     from "@/app/account/settings/page";
 import SubmitLandingPage  from "@/app/submit/page";
 import SubmitDetailsPage  from "@/app/submit/details/page";
 import SubmitUploadPage   from "@/app/submit/upload/page";
 import SubmitWritePage    from "@/app/submit/write/page";
+import SubmitPreviewPage  from "@/app/submit/preview/page";
 import SubmitSuccessPage  from "@/app/submit/success/page";
 import SavedPage        from "@/app/saved/page";
 import PrivacyPage      from "@/app/privacy/page";
@@ -77,29 +87,39 @@ function Router() {
       <ScrollToTop />
       <Switch>
         {/* Public */}
-        <Route path="/"                  component={() => <AppShell><HomePage /></AppShell>} />
-        <Route path="/browse"            component={() => <AppShell><BrowsePage /></AppShell>} />
-        <Route path="/domains/:slug"     component={() => <AppShell><DomainPage /></AppShell>} />
-        <Route path="/articles/:slug"    component={() => <AppShell><ArticlePage /></AppShell>} />
-        <Route path="/essays/:slug"      component={() => <AppShell><ArticlePage /></AppShell>} />
-        <Route path="/papers"            component={() => <AppShell><PapersPage /></AppShell>} />
-        <Route path="/papers/:slug"      component={() => <AppShell><PaperDetailPage /></AppShell>} />
-        <Route path="/search"            component={() => <AppShell><SearchPage /></AppShell>} />
-        <Route path="/archive"           component={() => <AppShell><ArchivePage /></AppShell>} />
-        <Route path="/about"             component={() => <AppShell><AboutPage /></AppShell>} />
-        <Route path="/community"         component={() => <AppShell><CommunityPage /></AppShell>} />
-        <Route path="/login"             component={() => <AppShell><LoginPage /></AppShell>} />
-        <Route path="/account"           component={() => <AppShell><AccountPage /></AppShell>} />
-        <Route path="/submit"            component={() => <AppShell><SubmitLandingPage /></AppShell>} />
-        <Route path="/submit/details"    component={() => <AppShell><SubmitDetailsPage /></AppShell>} />
-        <Route path="/submit/upload"     component={() => <AppShell><SubmitUploadPage /></AppShell>} />
-        <Route path="/submit/write"      component={() => <AppShell><SubmitWritePage /></AppShell>} />
-        <Route path="/submit/success"    component={() => <AppShell><SubmitSuccessPage /></AppShell>} />
-        <Route path="/saved"             component={() => <AppShell><SavedPage /></AppShell>} />
-        <Route path="/privacy"           component={() => <AppShell><PrivacyPage /></AppShell>} />
-        <Route path="/terms"             component={() => <AppShell><TermsPage /></AppShell>} />
+        <Route path="/"                        component={() => <AppShell><HomePage /></AppShell>} />
+        <Route path="/browse"                  component={() => <AppShell><BrowsePage /></AppShell>} />
+        <Route path="/domains"                 component={() => <AppShell><DomainsPage /></AppShell>} />
+        <Route path="/domains/:slug"           component={() => <AppShell><DomainPage /></AppShell>} />
+        <Route path="/articles/:slug"          component={() => <AppShell><ArticlePage /></AppShell>} />
+        <Route path="/essays/:slug"            component={() => <AppShell><ArticlePage /></AppShell>} />
+        <Route path="/papers"                  component={() => <AppShell><PapersPage /></AppShell>} />
+        <Route path="/papers/:slug"            component={() => <AppShell><PaperDetailPage /></AppShell>} />
+        <Route path="/search"                  component={() => <AppShell><SearchPage /></AppShell>} />
+        <Route path="/archive"                 component={() => <AppShell><ArchivePage /></AppShell>} />
+        <Route path="/about"                   component={() => <AppShell><AboutPage /></AppShell>} />
+        <Route path="/contact"                 component={() => <AppShell><ContactPage /></AppShell>} />
+        <Route path="/community"               component={() => <AppShell><CommunityPage /></AppShell>} />
+        <Route path="/community/feed"          component={() => <AppShell><CommunityFeedPage /></AppShell>} />
+        <Route path="/community/discussions"   component={() => <AppShell><CommunityDiscussPage /></AppShell>} />
+        <Route path="/community/events"        component={() => <AppShell><CommunityEventsPage /></AppShell>} />
+        <Route path="/login"                   component={() => <AppShell><LoginPage /></AppShell>} />
+        <Route path="/account"                 component={() => <AppShell><AccountPage /></AppShell>} />
+        <Route path="/account/profile"         component={() => <AppShell><ProfilePage /></AppShell>} />
+        <Route path="/account/collections"     component={() => <AppShell><CollectionsPage /></AppShell>} />
+        <Route path="/account/notifications"   component={() => <AppShell><NotificationsPage /></AppShell>} />
+        <Route path="/account/settings"        component={() => <AppShell><SettingsPage /></AppShell>} />
+        <Route path="/submit"                  component={() => <AppShell><SubmitLandingPage /></AppShell>} />
+        <Route path="/submit/details"          component={() => <AppShell><SubmitDetailsPage /></AppShell>} />
+        <Route path="/submit/upload"           component={() => <AppShell><SubmitUploadPage /></AppShell>} />
+        <Route path="/submit/write"            component={() => <AppShell><SubmitWritePage /></AppShell>} />
+        <Route path="/submit/preview"          component={() => <AppShell><SubmitPreviewPage /></AppShell>} />
+        <Route path="/submit/success"          component={() => <AppShell><SubmitSuccessPage /></AppShell>} />
+        <Route path="/saved"                   component={() => <AppShell><SavedPage /></AppShell>} />
+        <Route path="/privacy"                 component={() => <AppShell><PrivacyPage /></AppShell>} />
+        <Route path="/terms"                   component={() => <AppShell><TermsPage /></AppShell>} />
         {/* Legacy category routes */}
-        <Route path="/categories/:slug"  component={() => <AppShell><DomainPage /></AppShell>} />
+        <Route path="/categories/:slug"        component={() => <AppShell><DomainPage /></AppShell>} />
 
         {/* Admin */}
         <Route path="/admin/login"           component={() => <AdminShell><AdminLoginPage /></AdminShell>} />

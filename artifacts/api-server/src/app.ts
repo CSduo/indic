@@ -10,6 +10,9 @@ import path from "path";
 
 const app: Express = express();
 
+// Trust the Replit reverse proxy so express-rate-limit reads the correct client IP
+app.set("trust proxy", 1);
+
 app.use(
   pinoHttp({
     logger,

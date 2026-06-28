@@ -128,8 +128,18 @@ export default function AccountPage() {
               <p className="type-section-label mb-4">Desk Links</p>
               <div className="grid gap-2">
                 <Link href="/saved" className="btn-ink justify-start"><BookMarked size={15} /> Saved Items</Link>
+                <Link href="/account/collections" className="btn-ink justify-start"><FileText size={15} /> Collections</Link>
                 <Link href="/submit" className="btn-ink justify-start"><FileText size={15} /> Submit Work</Link>
                 {user.role === "ADMIN" ? <Link href="/admin" className="btn-ink justify-start"><AnimalGlyph domain="archive" size={15} /> Admin</Link> : null}
+              </div>
+            </ParchmentCard>
+
+            <ParchmentCard className="p-5">
+              <p className="type-section-label mb-4">Account</p>
+              <div className="grid gap-2">
+                <Link href="/account/profile" className="btn-ink justify-start"><User size={15} /> Edit Profile</Link>
+                <Link href="/account/notifications" className="btn-ink justify-start"><Mail size={15} /> Notifications</Link>
+                <Link href="/account/settings" className="btn-ink justify-start"><FileText size={15} /> Settings</Link>
               </div>
             </ParchmentCard>
           </aside>
