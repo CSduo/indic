@@ -2493,6 +2493,10 @@ body:has(.sacred-drawer) {
 
 .home-v3-text {
   max-width: 500px;
+  background: rgba(20, 12, 4, 0.52);
+  backdrop-filter: blur(2px);
+  border-radius: 10px;
+  padding: 2rem 2rem 1.5rem;
 }
 
 .home-v3-eyebrow {

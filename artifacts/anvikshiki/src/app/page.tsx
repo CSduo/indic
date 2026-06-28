@@ -102,11 +102,10 @@ export default function HomePage() {
                   className="home-v3-chip"
                   style={{
                     color: d.color,
-                    borderColor: `${d.color}55`,
-                    background: `${d.color}18`,
+                    borderColor: `${d.color}88`,
+                    background: `rgba(245,237,216,0.82)`,
                   }}
                 >
-                  <AnimalGlyph domain={d.domain} size={13} />
                   {d.label}
                 </Link>
               ))}
