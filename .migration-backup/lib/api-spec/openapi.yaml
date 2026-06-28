@@ -1,0 +1,1447 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.2.0
+  description: Ānvīkṣikī API specification — all endpoints
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: auth
+    description: User authentication
+  - name: articles
+    description: Published essays and long-form content
+  - name: papers
+    description: Research papers
+  - name: categories
+    description: Knowledge domains / categories
+  - name: search
+    description: Cross-content search
+  - name: newsletter
+    description: Newsletter subscription
+  - name: submissions
+    description: Reader submissions
+  - name: archive
+    description: Full content archive
+  - name: saved-items
+    description: User bookmarks
+  - name: admin
+    description: Admin operations (require admin_session cookie)
+
+paths:
+  # ── Health ──────────────────────────────────────────────────────────
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  # ── Auth ─────────────────────────────────────────────────────────────
+  /auth/login:
+    post:
+      operationId: authLogin
+      tags: [auth]
+      summary: User login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/signup:
+    post:
+      operationId: authSignup
+      tags: [auth]
+      summary: User registration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupInput"
+      responses:
+        "200":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /auth/register:
+    post:
+      operationId: authRegister
+      tags: [auth]
+      summary: User registration (alias for /auth/signup)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupInput"
+      responses:
+        "200":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /auth/me:
+    get:
+      operationId: authMe
+      tags: [auth]
+      summary: Get current user
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/logout:
+    post:
+      operationId: authLogout
+      tags: [auth]
+      summary: Logout current user
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /auth/profile:
+    put:
+      operationId: authUpdateProfile
+      tags: [auth]
+      summary: Update user profile
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 100
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  # ── Articles ─────────────────────────────────────────────────────────
+  /articles:
+    get:
+      operationId: listArticles
+      tags: [articles]
+      summary: List published articles
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: featured
+          in: query
+          schema:
+            type: string
+            enum: ["true", "false"]
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of articles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  articles:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Article"
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                required: [articles, total, limit, offset]
+
+  /articles/{slug}:
+    get:
+      operationId: getArticle
+      tags: [articles]
+      summary: Article detail
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Article
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  article:
+                    $ref: "#/components/schemas/Article"
+                required: [article]
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Papers ───────────────────────────────────────────────────────────
+  /papers:
+    get:
+      operationId: listPapers
+      tags: [papers]
+      summary: List published papers
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: peerReviewed
+          in: query
+          schema:
+            type: string
+            enum: ["true", "false"]
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of papers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  papers:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Paper"
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                required: [papers, total, limit, offset]
+
+  /papers/{slug}:
+    get:
+      operationId: getPaper
+      tags: [papers]
+      summary: Paper detail
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paper
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  paper:
+                    $ref: "#/components/schemas/Paper"
+                required: [paper]
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Categories ───────────────────────────────────────────────────────
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [categories]
+      summary: All visible categories with content counts
+      responses:
+        "200":
+          description: Categories
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  categories:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CategoryWithCounts"
+                required: [categories]
+
+  /categories/{slug}:
+    get:
+      operationId: getCategory
+      tags: [categories]
+      summary: Category detail with articles and papers
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Category with content
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  category:
+                    $ref: "#/components/schemas/Category"
+                  articles:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Article"
+                  papers:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Paper"
+                required: [category, articles, papers]
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Search ───────────────────────────────────────────────────────────
+  /search:
+    get:
+      operationId: search
+      tags: [search]
+      summary: Cross-content search
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  query:
+                    type: string
+                  articles:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Article"
+                  papers:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Paper"
+                  categories:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Category"
+                  totalCount:
+                    type: integer
+                required: [query, articles, papers, categories]
+
+  # ── Archive ──────────────────────────────────────────────────────────
+  /archive:
+    get:
+      operationId: getArchive
+      tags: [archive]
+      summary: Full archive of published content
+      responses:
+        "200":
+          description: Archive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  articles:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Article"
+                  papers:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Paper"
+                required: [articles, papers]
+
+  # ── Newsletter ───────────────────────────────────────────────────────
+  /newsletter:
+    post:
+      operationId: subscribeNewsletter
+      tags: [newsletter]
+      summary: Subscribe to newsletter
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                name:
+                  type: string
+              required: [email]
+      responses:
+        "200":
+          description: Subscribed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  # ── Submissions ──────────────────────────────────────────────────────
+  /submissions:
+    post:
+      operationId: createSubmission
+      tags: [submissions]
+      summary: Submit work (JSON body)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmissionInput"
+      responses:
+        "201":
+          description: Submission created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  submission:
+                    $ref: "#/components/schemas/Submission"
+    get:
+      operationId: listMySubmissions
+      tags: [submissions]
+      summary: List current user's submissions
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: User's submissions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  submissions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Submission"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /submissions/upload:
+    post:
+      operationId: uploadSubmission
+      tags: [submissions]
+      summary: Submit with file attachment (multipart)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                manuscript:
+                  type: string
+                  format: binary
+                coverImage:
+                  type: string
+                  format: binary
+                submitterName:
+                  type: string
+                submitterEmail:
+                  type: string
+                title:
+                  type: string
+                abstract:
+                  type: string
+                type:
+                  type: string
+                  enum: [ESSAY, PAPER, REVIEW, COMMENTARY]
+      responses:
+        "201":
+          description: Submission created
+
+  /submissions/write:
+    post:
+      operationId: writeSubmission
+      tags: [submissions]
+      summary: Submit essay written in browser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/SubmissionInput"
+                - type: object
+                  properties:
+                    body:
+                      type: string
+      responses:
+        "201":
+          description: Submission created
+
+  # ── Saved Items ──────────────────────────────────────────────────────
+  /saved-items:
+    get:
+      operationId: listSavedItems
+      tags: [saved-items]
+      summary: User's saved items
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Saved items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  savedItems:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SavedItem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: saveItem
+      tags: [saved-items]
+      summary: Save an article or paper
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                itemType:
+                  type: string
+                  enum: [ARTICLE, PAPER]
+                itemId:
+                  type: string
+              required: [itemType, itemId]
+      responses:
+        "201":
+          description: Item saved
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /saved-items/{id}:
+    delete:
+      operationId: removeSavedItem
+      tags: [saved-items]
+      summary: Remove a saved item
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Item removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Admin ─────────────────────────────────────────────────────────────
+  /admin/login:
+    post:
+      operationId: adminLogin
+      tags: [admin]
+      summary: Admin login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Admin login successful
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /admin/logout:
+    post:
+      operationId: adminLogout
+      tags: [admin]
+      summary: Admin logout
+      responses:
+        "200":
+          description: Logged out
+
+  /admin/me:
+    get:
+      operationId: adminMe
+      tags: [admin]
+      summary: Admin profile
+      security:
+        - adminCookieAuth: []
+      responses:
+        "200":
+          description: Admin profile
+
+  /admin/stats:
+    get:
+      operationId: adminStats
+      tags: [admin]
+      summary: Dashboard statistics
+      security:
+        - adminCookieAuth: []
+      responses:
+        "200":
+          description: Stats
+
+  /admin/articles:
+    get:
+      operationId: adminListArticles
+      tags: [admin]
+      summary: All articles (any status)
+      security:
+        - adminCookieAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [DRAFT, PUBLISHED, ARCHIVED]
+      responses:
+        "200":
+          description: Articles
+    post:
+      operationId: adminCreateArticle
+      tags: [admin]
+      summary: Create article
+      security:
+        - adminCookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArticleInput"
+      responses:
+        "201":
+          description: Article created
+
+  /admin/articles/{id}:
+    patch:
+      operationId: adminUpdateArticle
+      tags: [admin]
+      summary: Update article
+      security:
+        - adminCookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArticleInput"
+      responses:
+        "200":
+          description: Updated
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: adminDeleteArticle
+      tags: [admin]
+      summary: Delete article
+      security:
+        - adminCookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+
+  /admin/papers:
+    get:
+      operationId: adminListPapers
+      tags: [admin]
+      summary: All papers
+      security:
+        - adminCookieAuth: []
+      responses:
+        "200":
+          description: Papers
+    post:
+      operationId: adminCreatePaper
+      tags: [admin]
+      summary: Create paper
+      security:
+        - adminCookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaperInput"
+      responses:
+        "201":
+          description: Paper created
+
+  /admin/papers/{id}:
+    patch:
+      operationId: adminUpdatePaper
+      tags: [admin]
+      summary: Update paper
+      security:
+        - adminCookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaperInput"
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: adminDeletePaper
+      tags: [admin]
+      summary: Delete paper
+      security:
+        - adminCookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+
+  /admin/submissions:
+    get:
+      operationId: adminListSubmissions
+      tags: [admin]
+      summary: All submissions
+      security:
+        - adminCookieAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Submissions
+
+  /admin/submissions/{id}:
+    patch:
+      operationId: adminUpdateSubmission
+      tags: [admin]
+      summary: Update submission status/notes
+      security:
+        - adminCookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                editorNotes:
+                  type: string
+                priority:
+                  type: string
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: adminDeleteSubmission
+      tags: [admin]
+      summary: Delete submission
+      security:
+        - adminCookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+
+  /admin/categories:
+    get:
+      operationId: adminListCategories
+      tags: [admin]
+      summary: All categories
+      security:
+        - adminCookieAuth: []
+      responses:
+        "200":
+          description: Categories
+    post:
+      operationId: adminCreateCategory
+      tags: [admin]
+      summary: Create category
+      security:
+        - adminCookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryInput"
+      responses:
+        "201":
+          description: Category created
+
+  /admin/newsletter:
+    get:
+      operationId: adminListNewsletterSubscribers
+      tags: [admin]
+      summary: Newsletter subscribers
+      security:
+        - adminCookieAuth: []
+      responses:
+        "200":
+          description: Subscribers
+
+  /admin/users:
+    get:
+      operationId: adminListUsers
+      tags: [admin]
+      summary: All users
+      security:
+        - adminCookieAuth: []
+      responses:
+        "200":
+          description: Users
+
+  /admin/site-settings:
+    get:
+      operationId: adminGetSiteSettings
+      tags: [admin]
+      summary: Site settings key-value pairs
+      security:
+        - adminCookieAuth: []
+      responses:
+        "200":
+          description: Settings
+
+  /admin/site-settings/{key}:
+    put:
+      operationId: adminUpsertSiteSetting
+      tags: [admin]
+      summary: Upsert a setting
+      security:
+        - adminCookieAuth: []
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                value:
+                  type: string
+                description:
+                  type: string
+              required: [value]
+      responses:
+        "200":
+          description: Setting updated
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: user_session
+    adminCookieAuth:
+      type: apiKey
+      in: cookie
+      name: admin_session
+
+  responses:
+    Unauthorized:
+      description: Not authenticated
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: Resource already exists
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required: [success]
+
+    LoginInput:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+      required: [email, password]
+
+    SignupInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+      required: [name, email, password]
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [USER, ADMIN]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, email, role]
+
+    AuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        user:
+          $ref: "#/components/schemas/User"
+      required: [success, user]
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        icon:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+        visible:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, slug, name, sortOrder, visible]
+
+    CategoryWithCounts:
+      allOf:
+        - $ref: "#/components/schemas/Category"
+        - type: object
+          properties:
+            articleCount:
+              type: integer
+            paperCount:
+              type: integer
+            totalCount:
+              type: integer
+          required: [articleCount, paperCount, totalCount]
+
+    CategoryInput:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        sortOrder:
+          type: integer
+          default: 0
+        visible:
+          type: boolean
+          default: true
+      required: [slug, name]
+
+    Article:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        title:
+          type: string
+        subtitle:
+          type: string
+          nullable: true
+        excerpt:
+          type: string
+          nullable: true
+        body:
+          type: string
+        categorySlug:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        authorName:
+          type: string
+          nullable: true
+        readingMinutes:
+          type: integer
+          nullable: true
+        heroImageUrl:
+          type: string
+          nullable: true
+        heroImageAlt:
+          type: string
+          nullable: true
+        keyTakeaways:
+          type: array
+          items:
+            type: string
+        seoTitle:
+          type: string
+          nullable: true
+        seoDescription:
+          type: string
+          nullable: true
+        audioUrl:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, ARCHIVED]
+        featured:
+          type: boolean
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        category:
+          $ref: "#/components/schemas/Category"
+          nullable: true
+      required: [id, slug, title, body, categorySlug, status, featured]
+
+    ArticleInput:
+      type: object
+      properties:
+        slug:
+          type: string
+        title:
+          type: string
+        subtitle:
+          type: string
+        excerpt:
+          type: string
+        body:
+          type: string
+        categorySlug:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        authorName:
+          type: string
+        heroImageUrl:
+          type: string
+        heroImageAlt:
+          type: string
+        keyTakeaways:
+          type: array
+          items:
+            type: string
+        seoTitle:
+          type: string
+        seoDescription:
+          type: string
+        audioUrl:
+          type: string
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, ARCHIVED]
+          default: DRAFT
+        featured:
+          type: boolean
+          default: false
+        publishedAt:
+          type: string
+      required: [title, categorySlug]
+
+    Paper:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        title:
+          type: string
+        abstract:
+          type: string
+          nullable: true
+        body:
+          type: string
+        categorySlug:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        authorName:
+          type: string
+          nullable: true
+        readingMinutes:
+          type: integer
+          nullable: true
+        pdfUrl:
+          type: string
+          nullable: true
+        coverImageUrl:
+          type: string
+          nullable: true
+        citationText:
+          type: string
+          nullable: true
+        peerReviewed:
+          type: boolean
+        paperType:
+          type: string
+          enum: [RESEARCH_PAPER, WORKING_PAPER, REVIEW_ESSAY, MONOGRAPH, TRANSLATION, ARCHIVAL_NOTE]
+        year:
+          type: integer
+          nullable: true
+        doi:
+          type: string
+          nullable: true
+        seoTitle:
+          type: string
+          nullable: true
+        seoDescription:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, ARCHIVED]
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        category:
+          $ref: "#/components/schemas/Category"
+          nullable: true
+      required: [id, slug, title, body, categorySlug, peerReviewed, paperType, status]
+
+    PaperInput:
+      type: object
+      properties:
+        slug:
+          type: string
+        title:
+          type: string
+        abstract:
+          type: string
+        body:
+          type: string
+        categorySlug:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        authorName:
+          type: string
+        pdfUrl:
+          type: string
+        coverImageUrl:
+          type: string
+        citationText:
+          type: string
+        peerReviewed:
+          type: boolean
+          default: false
+        paperType:
+          type: string
+          enum: [RESEARCH_PAPER, WORKING_PAPER, REVIEW_ESSAY, MONOGRAPH, TRANSLATION, ARCHIVAL_NOTE]
+          default: RESEARCH_PAPER
+        year:
+          type: integer
+        doi:
+          type: string
+        seoTitle:
+          type: string
+        seoDescription:
+          type: string
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, ARCHIVED]
+          default: DRAFT
+        publishedAt:
+          type: string
+      required: [title, categorySlug]
+
+    Submission:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+          nullable: true
+        submitterName:
+          type: string
+        submitterEmail:
+          type: string
+        type:
+          type: string
+          enum: [ESSAY, PAPER, REVIEW, COMMENTARY]
+        title:
+          type: string
+        abstract:
+          type: string
+        body:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        consent:
+          type: boolean
+        status:
+          type: string
+          enum: [RECEIVED, UNDER_REVIEW, REVISION_REQUESTED, ACCEPTED, REJECTED, PUBLISHED, ARCHIVED]
+        priority:
+          type: string
+          enum: [LOW, NORMAL, HIGH, URGENT]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, submitterName, submitterEmail, type, title, abstract, consent, status, priority]
+
+    SubmissionInput:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [ESSAY, PAPER, REVIEW, COMMENTARY]
+        submitterName:
+          type: string
+        submitterEmail:
+          type: string
+          format: email
+        title:
+          type: string
+        abstract:
+          type: string
+        notes:
+          type: string
+        consent:
+          type: boolean
+      required: [type, submitterName, submitterEmail, title, abstract, consent]
+
+    SavedItem:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        itemType:
+          type: string
+          enum: [ARTICLE, PAPER]
+        itemId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        item:
+          nullable: true
+          oneOf:
+            - $ref: "#/components/schemas/Article"
+            - $ref: "#/components/schemas/Paper"
+      required: [id, userId, itemType, itemId, createdAt]
