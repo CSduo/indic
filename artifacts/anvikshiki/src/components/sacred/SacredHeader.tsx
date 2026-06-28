@@ -76,30 +76,7 @@ export function SacredHeader() {
               </span>
             </Link>
 
-            {/* Divider */}
-            <span className="sacred-vr" aria-hidden="true" />
-
-            {/* Navigation */}
-            <nav className="sacred-nav" aria-label="Main navigation">
-              {NAV_LINKS.map((item, i) => {
-                const active = isActive(loc, item.href);
-                return (
-                  <span key={item.href} className="sacred-nav-item-wrap">
-                    {i > 0 && <span className="sacred-nav-dot" aria-hidden="true">·</span>}
-                    <Link
-                      href={item.href}
-                      aria-current={active ? "page" : undefined}
-                      className="sacred-nav-link"
-                      data-active={active ? "true" : undefined}
-                    >
-                      {item.label}
-                    </Link>
-                  </span>
-                );
-              })}
-            </nav>
-
-            {/* Right actions */}
+            {/* Right actions — Search, Sign In, Theme toggle only */}
             <div className="sacred-actions">
               <Link
                 href="/search"
@@ -109,10 +86,8 @@ export function SacredHeader() {
                 <Search size={19} strokeWidth={1.6} />
               </Link>
 
-              <span className="sacred-vr-sm" aria-hidden="true" />
-
               {user ? (
-                <div className="relative hidden md:block">
+                <div className="relative">
                   <button
                     type="button"
                     onClick={() => setAccountOpen((v) => !v)}
@@ -149,25 +124,12 @@ export function SacredHeader() {
                   ) : null}
                 </div>
               ) : (
-                <Link href="/login" className="sacred-signin-btn hidden md:inline-flex">
+                <Link href="/login" className="sacred-signin-btn">
                   Sign In
                 </Link>
               )}
 
-              <div className="hidden md:block">
-                <ThemeToggle />
-              </div>
-
-              {/* Hamburger — mobile & tablet */}
-              <button
-                type="button"
-                className="sacred-icon-btn lg:hidden"
-                onClick={() => setMenuOpen(true)}
-                aria-expanded={menuOpen}
-                aria-label="Open menu"
-              >
-                <Menu size={20} strokeWidth={1.6} />
-              </button>
+              <ThemeToggle />
             </div>
 
           </div>

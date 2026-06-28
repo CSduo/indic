@@ -1446,7 +1446,7 @@ button {
   padding-right: 1.5rem;
 }
 
-/* Square emblem box — holds the rotated image */
+/* Emblem box — no border/background, image fills the square */
 .sacred-emblem-box {
   display: flex;
   align-items: center;
@@ -1454,15 +1454,11 @@ button {
   width: 78px;
   height: 78px;
   flex-shrink: 0;
-  border: 1.5px solid var(--border-gold);
-  border-radius: 6px;
-  background: rgba(139,96,32,0.06);
-  overflow: hidden;
 }
 
 .sacred-emblem-img {
-  width: 110%;
-  height: 110%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   transform: rotate(90deg);
 }
