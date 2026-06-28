@@ -21,3 +21,10 @@ timeoutMs = 20000
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+AUTH_SECRET = "73aa6e6e0b7964e39c16d544b061b3e72280cb65cf15adf2344158895b8abf47"
+ADMIN_SECRET = "984b120d09d2a448edebd2e7691619a9a7fc5272d9bf95ca79c975e0213a868a"
+ADMIN_EMAIL = "admin@anvikshiki.in"
