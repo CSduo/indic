@@ -11,6 +11,8 @@ import adminRouter from "./admin";
 import archiveRouter from "./archive";
 import savedItemsRouter from "./saved-items";
 import uploadsRouter from "./uploads";
+import collectionsRouter from "./collections";
+import notificationsRouter from "./notifications";
 
 const router: IRouter = Router();
 
@@ -26,5 +28,7 @@ router.use(adminRouter);
 router.use(archiveRouter);
 router.use(savedItemsRouter);
 router.use(uploadsRouter);
+router.use(collectionsRouter);
+router.use(notificationsRouter);
 
 export default router;
