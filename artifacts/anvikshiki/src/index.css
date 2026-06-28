@@ -1446,12 +1446,25 @@ button {
   padding-right: 1.5rem;
 }
 
-.sacred-emblem-img {
-  width: 92px;
-  height: 92px;
-  object-fit: contain;
+/* Square emblem box — holds the rotated image */
+.sacred-emblem-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 78px;
+  height: 78px;
   flex-shrink: 0;
-  transform: rotate(45deg);
+  border: 1.5px solid var(--border-gold);
+  border-radius: 6px;
+  background: rgba(139,96,32,0.06);
+  overflow: hidden;
+}
+
+.sacred-emblem-img {
+  width: 110%;
+  height: 110%;
+  object-fit: contain;
+  transform: rotate(90deg);
 }
 
 .sacred-brand-text {
@@ -1623,17 +1636,6 @@ button {
   }
 }
 
-/* Shift header content right so it clears the hero emblem */
-.sacred-header-container {
-  position: relative;
-  z-index: 1;
-}
-
-@media (min-width: 1024px) {
-  .sacred-header-container .sacred-header-row {
-    padding-left: 230px;
-  }
-}
 
 /* ── Celestial theme toggle ──────────────────────────────────── */
 .anv-theme-toggle {
@@ -2263,7 +2265,7 @@ body {
 /* SM (480px – 639px) */
 @media (min-width: 480px) {
   .sacred-header-row  { min-height: 70px; }
-  .sacred-emblem-img  { width: 88px; height: 88px; }
+  .sacred-emblem-box  { width: 60px; height: 60px; }
   .sacred-brand       { gap: 0.65rem; padding-right: 0.65rem; }
   .sacred-brand-name  { font-size: 1.05rem; letter-spacing: 0.2em; }
 }
@@ -2271,17 +2273,17 @@ body {
 /* MD (640px – 1023px — large phones & small tablets) */
 @media (min-width: 640px) {
   .sacred-header-row  { min-height: 76px; }
-  .sacred-emblem-img  { width: 108px; height: 108px; }
+  .sacred-emblem-box  { width: 68px; height: 68px; }
   .sacred-brand       { gap: 0.75rem; padding-right: 1rem; }
   .sacred-brand-name  { font-size: 1.2rem; letter-spacing: 0.22em; }
   .sacred-brand-sub   { display: block; }
   .sacred-actions     { gap: 0.15rem; }
 }
 
-/* LG (1024px+ — desktop, restores original sizes) */
+/* LG (1024px+ — desktop) */
 @media (min-width: 1024px) {
-  .sacred-header-row  { min-height: 88px; overflow: visible; }
-  .sacred-emblem-img  { width: 140px; height: 140px; }
+  .sacred-header-row  { min-height: 88px; }
+  .sacred-emblem-box  { width: 78px; height: 78px; }
   .sacred-brand       { gap: 0.85rem; padding-right: 1.5rem; overflow: visible; }
   .sacred-brand-name  {
     font-size: clamp(1.2rem, 2vw, 1.65rem);
@@ -2676,8 +2678,9 @@ body:has(.sacred-drawer) {
 
 .home-v3-chips {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
+  flex-wrap: nowrap;
+  gap: 0.4rem;
+  overflow: visible;
 }
 
 .home-v3-chip {
@@ -2693,6 +2696,7 @@ body:has(.sacred-drawer) {
   letter-spacing: 0.07em;
   text-transform: uppercase;
   text-decoration: none;
+  white-space: nowrap;
   backdrop-filter: blur(6px);
   transition: opacity var(--motion-fast);
 }

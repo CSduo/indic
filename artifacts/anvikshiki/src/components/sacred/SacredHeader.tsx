@@ -51,14 +51,6 @@ export function SacredHeader() {
           boxShadow: "var(--shadow-sm)",
         }}
       >
-        {/* Large emblem anchored to far-left edge */}
-        <img
-          src={EMBLEM_SRC}
-          alt=""
-          aria-hidden="true"
-          className="sacred-emblem-hero"
-        />
-
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded focus:bg-[var(--surface)] focus:px-3 focus:py-2 focus:text-[var(--ink)]"
@@ -66,11 +58,18 @@ export function SacredHeader() {
           Skip to main content
         </a>
 
-        <div className="container-anv sacred-header-container">
+        <div className="container-anv">
           <div className="sacred-header-row">
 
-            {/* Brand identity — text only, emblem is the hero above */}
+            {/* Brand identity */}
             <Link href="/" className="sacred-brand" aria-label="Ānvīkṣikī home">
+              <span className="sacred-emblem-box">
+                <img
+                  src={EMBLEM_SRC}
+                  alt="Ānvīkṣikī emblem"
+                  className="sacred-emblem-img"
+                />
+              </span>
               <span className="sacred-brand-text">
                 <span className="sacred-brand-name">ĀNVĪKṢIKĪ</span>
                 <span className="sacred-brand-sub">Journal &amp; Research Platform</span>
