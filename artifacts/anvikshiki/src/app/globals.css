@@ -1,0 +1,2 @@
+/* Legacy Next-style entry kept for compatibility; the Vite app imports ../index.css. */
+@import "../index.css";
