@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { ArrowRight, BookOpen, Clock3, Send, Users } from "lucide-react";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
@@ -7,23 +7,25 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (p: string) => `${base}${p.startsWith("/") ? p : `/${p}`}`;
 
 const HOME_DOMAINS = [
-  { label: "History",        domain: "history",              href: "/domains/history",              color: "#8b5b39" },
-  { label: "Philosophy",     domain: "philosophy",           href: "/domains/philosophy",           color: "#a66735" },
-  { label: "Civilizations",  domain: "civilizational-thought", href: "/domains/civilizational-thought", color: "#536849" },
-  { label: "Religion",       domain: "aesthetics",           href: "/archive",                      color: "#62526f" },
-  { label: "Society",        domain: "sociology",            href: "/domains/sociology",            color: "#9a7a42" },
-  { label: "Arts & Lit",     domain: "multimedia",           href: "/domains/aesthetics",           color: "#667252" },
+  { label: "History",       domain: "history",              href: "/domains/history",              color: "#8b5b39", desc: "Uncover civilizations, events, and the threads of time." },
+  { label: "Philosophy",    domain: "philosophy",           href: "/domains/philosophy",           color: "#a66735", desc: "Explore ideas, ethics, and the nature of existence." },
+  { label: "Civilizations", domain: "civilizational-thought", href: "/domains/civilizational-thought", color: "#536849", desc: "Journey through cultures and the rise of human achievement." },
+  { label: "Religion",      domain: "aesthetics",           href: "/archive",                      color: "#62526f", desc: "Discover beliefs, texts, and spiritual traditions." },
+  { label: "Society",       domain: "sociology",            href: "/domains/sociology",            color: "#9a7a42", desc: "Understand communities, structures, and human connections." },
+  { label: "Arts & Lit",    domain: "multimedia",           href: "/domains/aesthetics",           color: "#667252", desc: "Celebrate creativity through literature, art, and expression." },
 ] as const;
 
-const FALLBACK_ESSAYS = [
-  { category: "History",          title: "The Caravan of Ideas: Trade Routes and Knowledge", author: "Meera Vaidyanathan", minutes: 8,  domain: "geopolitics",          href: "/browse",                     color: "#76546d" },
-  { category: "Philosophy",       title: "Inquiry in Ancient Traditions: Then and Now",      author: "Arjun Dev",           minutes: 6,  domain: "philosophy",           href: "/domains/philosophy",         color: "#aa7135" },
-  { category: "Civilizations",    title: "Writing, Memory, and the Making of Civilizations", author: "K. R. Iyer",          minutes: 9,  domain: "civilizational-thought", href: "/domains/civilizational-thought", color: "#6f7547" },
-  { category: "Arts & Literature",title: "Caravans, Omens, and the Premodern Imagination",  author: "Moon Sen",            minutes: 9,  domain: "aesthetics",           href: "/domains/aesthetics",         color: "#a35e3d" },
-];
+const ACTION_ROWS = [
+  { label: "Submit Your Work", sub: "Share your original essays and research with a global audience.", href: "/submit",    Icon: Send,     bg: "var(--terracotta)", text: "var(--surface)" },
+  { label: "Explore Journal",  sub: "Dive into essays, papers, and ideas from thinkers worldwide.",   href: "/browse",    Icon: BookOpen, bg: "var(--ink-soft)",   text: "var(--bg-deep)" },
+  { label: "Join Community",   sub: "Connect with scholars, readers, and creators of knowledge.",     href: "/community", Icon: Users,    bg: "var(--gold-pale)",  text: "var(--ink)" },
+] as const;
+
+const FRIEZE_SYMBOLS = ["♦", "🐂", "♦", "🐆", "♦", "🪷", "♦", "🐘", "♦", "🦢", "♦", "🐍", "♦"];
 
 export default function HomePage() {
   const [featuredEssays, setFeaturedEssays] = useState<any[]>([]);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     fetch(`${base}/api/articles?featured=true&limit=4`, { credentials: "include" })
@@ -32,7 +34,7 @@ export default function HomePage() {
       .catch(() => {});
   }, []);
 
-  const essays = featuredEssays.length > 0
+  const realEssays = featuredEssays.length > 0
     ? featuredEssays.map((a: any) => ({
         category: a.category?.name || a.categorySlug || "Essay",
         title: a.title,
@@ -42,108 +44,139 @@ export default function HomePage() {
         href: `/articles/${a.slug}`,
         color: "#aa7135",
       }))
-    : FALLBACK_ESSAYS;
+    : null;
 
   return (
-    <div className="home-v2">
+    <div className="home-v3">
 
       {/* ─── HERO ─── */}
-      <section className="home-v2-hero">
-        <div className="container-anv">
-          <div className="home-v2-hero-inner">
+      <section className="home-v3-hero">
 
-            {/* Left: editorial text */}
-            <div className="home-v2-hero-text">
-              <p className="home-v2-platform-label">Journal &amp; Research Platform</p>
-
-              <h1 className="home-v2-headline">
-                Where Inquiry<br />Becomes Insight
-              </h1>
-
-              <p className="home-v2-tagline">
-                A home for essays, research papers, and long-form ideas at the intersection of history, philosophy, civilizational thought, and the arts.
-              </p>
-
-              <div className="home-v2-cta-row">
-                <Link href="/browse" className="home-v2-btn-primary">
-                  <BookOpen size={16} /> Explore Journal
-                </Link>
-                <Link href="/submit" className="home-v2-btn-outline">
-                  <Send size={16} /> Submit Work
-                </Link>
-              </div>
-
-              <div className="home-v2-domain-pills">
-                {HOME_DOMAINS.map(d => (
-                  <Link
-                    key={d.label}
-                    href={d.href}
-                    className="home-v2-pill"
-                    style={{ color: d.color, borderColor: `${d.color}55`, background: `${d.color}11` }}
-                  >
-                    <AnimalGlyph domain={d.domain} size={14} />
-                    {d.label}
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            {/* Right: scholar illustration */}
-            <div className="home-v2-hero-image-col">
-              <img
-                src={asset("/homepage_hero_scholar.png")}
-                alt="Scholar carrying ancient texts through a fantastical library"
-                className="home-v2-hero-image"
-              />
-            </div>
-
-          </div>
+        {/* Full-bleed video */}
+        <div className="home-v3-video-wrap" aria-hidden="true">
+          <video
+            ref={videoRef}
+            className="home-v3-video"
+            src={asset("/hero-world.mp4")}
+            autoPlay
+            muted
+            loop
+            playsInline
+            poster={asset("/homepage_hero_scholar.png")}
+          />
         </div>
-      </section>
 
-      {/* ─── FEATURED ESSAYS ─── */}
-      <section className="home-v2-section home-v2-section-border">
-        <div className="container-anv">
-          <div className="home-v2-section-head">
-            <h2 className="home-v2-section-title">Featured Essays</h2>
-            <Link href="/browse" className="home-v2-view-all">
-              View All <ArrowRight size={15} />
-            </Link>
-          </div>
-          <div className="home-v2-essay-grid">
-            {essays.map(essay => (
-              <Link key={essay.title} href={essay.href} className="home-v2-essay-card">
-                <div className="home-v2-essay-meta">
-                  <AnimalGlyph domain={essay.domain} size={36} />
-                  <span className="home-v2-essay-cat" style={{ color: essay.color }}>{essay.category}</span>
-                </div>
-                <h3 className="home-v2-essay-title">{essay.title}</h3>
-                <div className="home-v2-essay-footer">
-                  <p className="home-v2-essay-author">{essay.author}</p>
-                  <span className="home-v2-read-time">
-                    <Clock3 size={13} /> {essay.minutes} min
-                  </span>
-                </div>
+        {/* Editorial content — left text zone */}
+        <div className="container-anv home-v3-hero-inner">
+          <div className="home-v3-text">
+
+            <p className="home-v3-eyebrow">
+              <span className="home-v3-eyebrow-diamond">✦</span>
+              Journal &amp; Research Platform
+              <span className="home-v3-eyebrow-diamond">✦</span>
+            </p>
+
+            <h1 className="home-v3-headline">
+              Where Inquiry<br />Becomes Insight.
+            </h1>
+
+            <p className="home-v3-subhead">
+              A home for essays, research papers, and long-form ideas at the
+              intersection of history, philosophy, civilization, and the arts.
+            </p>
+
+            <div className="home-v3-cta-row">
+              <Link href="/browse" className="home-v3-btn-primary">
+                <BookOpen size={15} /> Explore Journal
               </Link>
-            ))}
+              <Link href="/submit" className="home-v3-btn-outline">
+                <Send size={15} /> Submit Work
+              </Link>
+            </div>
+
+            <div className="home-v3-chips">
+              {HOME_DOMAINS.map(d => (
+                <Link
+                  key={d.label}
+                  href={d.href}
+                  className="home-v3-chip"
+                  style={{
+                    color: d.color,
+                    borderColor: `${d.color}88`,
+                    background: `rgba(245,237,216,0.82)`,
+                  }}
+                >
+                  {d.label}
+                </Link>
+              ))}
+            </div>
+
           </div>
         </div>
+
+        {/* Bottom animal-glyph frieze */}
+        <div className="home-v3-frieze" aria-hidden="true">
+          {FRIEZE_SYMBOLS.map((s, i) => (
+            <span key={i} className={s === "♦" ? "home-v3-frieze-diamond" : "home-v3-frieze-animal"}>
+              {s}
+            </span>
+          ))}
+        </div>
+
       </section>
+
+      {/* ─── FEATURED ESSAYS (only when real API data present) ─── */}
+      {realEssays && (
+        <section className="home-v3-section">
+          <div className="container-anv">
+            <div className="home-v3-section-head">
+              <span className="home-v3-lotus-mark">✦</span>
+              <h2 className="home-v3-section-title">Featured Essays</h2>
+              <Link href="/browse" className="home-v3-view-all">
+                View All <ArrowRight size={14} />
+              </Link>
+            </div>
+            <div className="home-v3-essay-grid">
+              {realEssays.map(essay => (
+                <Link key={essay.title} href={essay.href} className="home-v3-essay-card">
+                  <div className="home-v3-essay-meta">
+                    <AnimalGlyph domain={essay.domain} size={34} />
+                    <span className="home-v3-essay-cat" style={{ color: essay.color }}>{essay.category}</span>
+                  </div>
+                  <h3 className="home-v3-essay-title">{essay.title}</h3>
+                  <div className="home-v3-essay-foot">
+                    <p className="home-v3-essay-author">{essay.author}</p>
+                    <span className="home-v3-read-time"><Clock3 size={12} /> {essay.minutes} min</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ─── BROWSE BY DOMAIN ─── */}
-      <section className="home-v2-section home-v2-section-border">
+      <section className="home-v3-section">
         <div className="container-anv">
-          <h2 className="home-v2-section-title" style={{ marginBottom: "1.25rem" }}>Browse by Domain</h2>
-          <div className="home-v2-domain-grid">
-            {HOME_DOMAINS.map(item => (
+          <div className="home-v3-section-head centered">
+            <span className="home-v3-lotus-mark">✦</span>
+            <h2 className="home-v3-section-title">Browse by Domain</h2>
+            <span className="home-v3-lotus-mark">✦</span>
+          </div>
+          <div className="home-v3-domains">
+            {HOME_DOMAINS.map(d => (
               <Link
-                key={item.label}
-                href={item.href}
-                className="home-v2-domain-card"
-                style={{ borderColor: `${item.color}44`, background: `${item.color}0b`, color: item.color }}
+                key={d.label}
+                href={d.href}
+                className="home-v3-domain-card"
+                style={{ "--card-color": d.color } as React.CSSProperties}
               >
-                <AnimalGlyph domain={item.domain} size={48} />
-                <span className="home-v2-domain-label">{item.label}</span>
+                <div className="home-v3-domain-icon">
+                  <AnimalGlyph domain={d.domain} size={56} />
+                </div>
+                <div className="home-v3-domain-name">{d.label}</div>
+                <p className="home-v3-domain-desc">{d.desc}</p>
+                <div className="home-v3-domain-ornament">✦</div>
               </Link>
             ))}
           </div>
@@ -151,28 +184,27 @@ export default function HomePage() {
       </section>
 
       {/* ─── ACTION ROWS ─── */}
-      <section className="home-v2-section">
+      <section className="home-v3-section home-v3-actions-section">
         <div className="container-anv">
-          <div style={{ display: "grid", gap: "0.5rem" }}>
-            {[
-              { label: "Submit Your Work", href: "/submit",    icon: Send,     bg: "var(--terracotta)", text: "var(--surface)" },
-              { label: "Explore Journal",  href: "/browse",    icon: BookOpen, bg: "var(--ink-soft)",   text: "var(--bg-deep)" },
-              { label: "Join Community",   href: "/community", icon: Users,    bg: "var(--gold-pale)",  text: "var(--ink)" },
-            ].map(({ label, href, icon: Icon, bg, text }) => (
+          <div className="home-v3-actions">
+            {ACTION_ROWS.map(({ label, sub, href, Icon, bg, text }) => (
               <Link
                 key={href}
                 href={href}
-                className="home-v2-action"
-                style={{ background: bg, color: text }}
+                className="home-v3-action"
+                style={{ "--action-bg": bg, "--action-text": text } as React.CSSProperties}
               >
-                <Icon size={26} strokeWidth={1.4} />
-                <span className="home-v2-action-label">{label}</span>
-                <ArrowRight size={22} strokeWidth={1.5} style={{ justifySelf: "end" }} />
+                <Icon size={28} strokeWidth={1.35} className="home-v3-action-icon" />
+                <div className="home-v3-action-text">
+                  <span className="home-v3-action-label">{label}</span>
+                  <span className="home-v3-action-sub">{sub}</span>
+                </div>
+                <ArrowRight size={20} strokeWidth={1.5} className="home-v3-action-arrow" />
               </Link>
             ))}
           </div>
 
-          <div className="home-v2-ornament">
+          <div className="home-v3-ornament">
             <span /><i>✧</i><b>♧</b><i>✧</i><span />
           </div>
         </div>

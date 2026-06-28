@@ -1,7 +1,39 @@
 "use client";
 
-import { Sun } from "lucide-react";
 import { useTheme } from "@/components/providers/ThemeProvider";
+
+function SunIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="3.8" fill="currentColor" opacity="0.9" />
+      {[0, 45, 90, 135, 180, 225, 270, 315].map((deg, i) => {
+        const r = (deg * Math.PI) / 180;
+        const inner = 6.2;
+        const outer = i % 2 === 0 ? 9.2 : 8.2;
+        return (
+          <line
+            key={deg}
+            x1={12 + inner * Math.cos(r)}
+            y1={12 + inner * Math.sin(r)}
+            x2={12 + outer * Math.cos(r)}
+            y2={12 + outer * Math.sin(r)}
+            stroke="currentColor"
+            strokeWidth={i % 2 === 0 ? 1.8 : 1.2}
+            strokeLinecap="round"
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+  );
+}
 
 export function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
@@ -10,49 +42,27 @@ export function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="relative flex items-center h-9 rounded-full transition-all duration-300 hover:scale-105 shrink-0"
-      style={{
-        width: "72px",
-        background: isDark ? "var(--surface-soft)" : "var(--surface-soft)",
-        border: "1px solid var(--border)",
-        padding: "3px",
-      }}
+      className="anv-theme-toggle"
       aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
-      title={`${isDark ? "Light" : "Dark"} mode`}
+      title={`Switch to ${isDark ? "light" : "dark"} mode`}
     >
-      {/* Sliding indicator dot */}
       <span
-        className="absolute top-[4px] w-[28px] h-[28px] rounded-full transition-all duration-300"
-        style={{
-          background: "var(--gold)",
-          left: isDark ? "calc(100% - 32px)" : "4px",
-          boxShadow: isDark ? "0 0 8px rgba(213,170,97,0.4)" : "0 1px 4px rgba(168,124,43,0.3)",
-        }}
+        className="anv-theme-thumb"
+        style={{ left: isDark ? "calc(100% - 30px)" : "3px" }}
       />
-      {/* Sun icon - left */}
       <span
-        className="relative z-10 flex items-center justify-center transition-all duration-300"
-        style={{
-          width: "28px",
-          height: "28px",
-          color: isDark ? "var(--muted)" : "#1a1108",
-        }}
+        className="anv-theme-icon"
+        style={{ color: isDark ? "var(--muted)" : "var(--gold)" }}
+        aria-hidden="true"
       >
-        <Sun size={14} strokeWidth={2} />
+        <SunIcon />
       </span>
-      {/* Contrast / half-moon icon - right */}
       <span
-        className="relative z-10 flex items-center justify-center transition-all duration-300"
-        style={{
-          width: "28px",
-          height: "28px",
-          color: isDark ? "#1a1108" : "var(--muted)",
-        }}
+        className="anv-theme-icon"
+        style={{ color: isDark ? "var(--gold-bright)" : "var(--muted)" }}
+        aria-hidden="true"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 2a10 10 0 0 1 0 20V2z" fill="currentColor" />
-        </svg>
+        <MoonIcon />
       </span>
     </button>
   );
