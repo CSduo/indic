@@ -78,11 +78,21 @@ export function SacredHeader() {
               </span>
             </Link>
 
-            {/* Right actions — Search, Sign In, Theme toggle only */}
+            {/* Right actions — Search, Sign In, Theme toggle, Mobile Menu */}
             <div className="sacred-actions">
+              <button
+                type="button"
+                onClick={() => setMenuOpen((v) => !v)}
+                className="sacred-icon-btn lg:hidden"
+                aria-expanded={menuOpen}
+                aria-label="Toggle main menu"
+              >
+                {menuOpen ? <X size={19} /> : <Menu size={19} />}
+              </button>
+
               <Link
                 href="/search"
-                className="sacred-icon-btn"
+                className="sacred-icon-btn hidden sm:inline-flex"
                 aria-label="Search the journal"
               >
                 <Search size={19} strokeWidth={1.6} />
