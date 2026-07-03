@@ -6,7 +6,11 @@
   "outputDirectory": "artifacts/anvikshiki/dist/public",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/api/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/((?!assets/|favicon\\.ico|robots\\.txt|.*\\.png|.*\\.jpg|.*\\.jpeg|.*\\.svg|.*\\.webp|.*\\.js|.*\\.css|.*\\.woff|.*\\.woff2|.*\\.ttf).*)$",
       "destination": "/index.html"
     }
   ]

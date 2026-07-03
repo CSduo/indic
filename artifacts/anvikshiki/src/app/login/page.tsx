@@ -54,8 +54,16 @@ export default function LoginPage() {
         body: JSON.stringify(body),
         credentials: "include",
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Authentication failed");
+      let data: any = {};
+      try {
+        const text = await response.text();
+        if (text) data = JSON.parse(text);
+      } catch (e) {
+        // Fallback for non-JSON response
+      }
+      if (!response.ok) {
+        throw new Error(data.error || `Server responded with ${response.status} ${response.statusText}`);
+      }
       login(data.user);
       toast.success(tab === "login" ? "Welcome back" : "Account created");
       navigate("/account");
