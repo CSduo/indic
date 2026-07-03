@@ -260,20 +260,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ─── STATS BAR ─── */}
-      <section className="home-stats-bar" aria-label="Journal statistics">
-        <div className="container-anv home-stats-inner">
-          {STATS.map((s, i) => (
-            <div key={i} className="home-stat-item" style={{ "--stat-color": s.color, "--stat-bg": s.bg } as React.CSSProperties}>
-              <span className="home-stat-glyph" aria-hidden="true">{s.glyph}</span>
-              <span className="home-stat-num">{s.num}</span>
-              <span className="home-stat-label">{s.label}</span>
-            </div>
-          ))}
-        </div>
-        <RainbowDivider className="home-stats-rainbow" />
-      </section>
-
       {/* ─── WISDOM STRIP ─── */}
       <WisdomStrip />
 
@@ -304,30 +290,6 @@ export default function HomePage() {
           </div>
         </section>
       )}
-
-      {/* ─── FOUR PILLARS OF INQUIRY ─── */}
-      <section className="home-pillars-section">
-        <div className="container-anv">
-          <div className="home-v3-section-head centered">
-            <ColorMandala size={44} />
-            <h2 className="home-pillars-title">Four Pillars of Inquiry</h2>
-          </div>
-          <p className="home-v3-section-sub" style={{ textAlign: "center", marginBottom: "2rem" }}>
-            The values that shape every piece we publish.
-          </p>
-          <div className="home-pillars-grid">
-            {PILLARS.map(({ Icon, label, sub, color, bg }) => (
-              <div key={label} className="home-pillar-card" style={{ "--pillar-color": color, "--pillar-bg": bg } as React.CSSProperties}>
-                <div className="home-pillar-icon">
-                  <Icon size={28} strokeWidth={1.4} />
-                </div>
-                <h3 className="home-pillar-name">{label}</h3>
-                <p className="home-pillar-sub">{sub}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* ─── BROWSE BY DOMAIN ─── */}
       <section className="home-v3-section home-v3-domains-section" style={{ position: "relative", overflow: "hidden" }}>
