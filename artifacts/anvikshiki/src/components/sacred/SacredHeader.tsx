@@ -40,6 +40,9 @@ export function SacredHeader() {
           Skip to main content
         </a>
 
+        {/* ── Rainbow spectrum accent strip ── */}
+        <div className="sacred-rainbow-strip" aria-hidden="true" />
+
         <div className="container-anv">
           <div className="sacred-header-row">
 

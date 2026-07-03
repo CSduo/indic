@@ -3827,3 +3827,350 @@ input[type="search"]::-webkit-search-decoration {
 
 /* ── Page rise for inner content behind petals ──────────────────────────── */
 .z-content { position: relative; z-index: 1; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   COLORFUL DECOR SYSTEM — vivid spectrum aesthetics
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── Sacred rainbow strip in header ─────────────────────────────────── */
+.sacred-rainbow-strip {
+  height: 3px;
+  width: 100%;
+  background: linear-gradient(90deg,
+    #E11D48 0%, #F97316 14%, #EAB308 28%,
+    #22C55E 42%, #06B6D4 56%, #3B82F6 70%,
+    #7C3AED 84%, #EC4899 100%
+  );
+  background-size: 200% 100%;
+  animation: rainbowShift 8s linear infinite;
+  opacity: 0.85;
+}
+@keyframes rainbowShift {
+  from { background-position: 0% 0%; }
+  to   { background-position: 200% 0%; }
+}
+
+/* ── Stats Bar ───────────────────────────────────────────────────────── */
+.home-stats-bar {
+  background: var(--bg-alt);
+  border-top: 1px solid var(--border-gold);
+  border-bottom: 1px solid var(--border-gold);
+  padding: 0;
+}
+.home-stats-inner {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  padding: 1.5rem 0;
+}
+@media (max-width: 640px) {
+  .home-stats-inner { grid-template-columns: repeat(2, 1fr); }
+}
+.home-stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 1rem 0.75rem;
+  border-right: 1px solid var(--border-subtle);
+  position: relative;
+  transition: background var(--motion);
+}
+.home-stat-item:last-child { border-right: none; }
+.home-stat-item::before {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 0; height: 2px;
+  background: var(--stat-color, var(--gold));
+  transition: width 0.4s var(--ease-ink);
+  border-radius: 2px;
+}
+.home-stat-item:hover::before { width: 60%; }
+.home-stat-item:hover { background: var(--stat-bg, var(--ink-wash)); }
+.home-stat-glyph {
+  font-size: 1.55rem;
+  line-height: 1;
+  margin-bottom: 0.1rem;
+}
+.home-stat-num {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--stat-color, var(--gold));
+  letter-spacing: -0.01em;
+}
+.home-stat-label {
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.home-stats-rainbow {
+  margin: 0;
+  padding: 0 1rem 0.5rem;
+  opacity: 0.6;
+}
+
+/* ── Wisdom Strip ────────────────────────────────────────────────────── */
+.home-wisdom-strip {
+  position: relative;
+  background: linear-gradient(135deg,
+    #1a1535 0%,
+    #231b45 30%,
+    #1e2d4a 60%,
+    #0f2029 100%
+  );
+  overflow: hidden;
+  padding: 3rem 0 2rem;
+  text-align: center;
+  border-top: 1px solid rgba(124,58,237,0.3);
+  border-bottom: 1px solid rgba(59,130,246,0.3);
+}
+.home-wisdom-yantra {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.home-wisdom-body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+}
+.home-wisdom-left,
+.home-wisdom-right { flex-shrink: 0; }
+@media (max-width: 640px) {
+  .home-wisdom-left, .home-wisdom-right { display: none; }
+}
+.home-wisdom-center { max-width: 600px; }
+.home-wisdom-label {
+  font-family: var(--font-ui);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(196,181,253,0.7);
+  margin-bottom: 1rem;
+}
+.home-wisdom-deva {
+  font-family: "Noto Serif Devanagari", var(--font-display), serif;
+  font-size: clamp(1.6rem, 4vw, 2.8rem);
+  font-weight: 400;
+  line-height: 1.2;
+  color: #FDE68A;
+  margin-bottom: 0.4rem;
+  text-shadow: 0 0 40px rgba(253,230,138,0.35);
+}
+.home-wisdom-roman {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-style: italic;
+  color: rgba(196,181,253,0.85);
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.04em;
+}
+.home-wisdom-trans {
+  font-family: var(--font-body);
+  font-size: 1.2rem;
+  color: rgba(255,255,255,0.90);
+  margin-bottom: 0.6rem;
+  font-style: italic;
+}
+.home-wisdom-source {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  color: rgba(196,181,253,0.55);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.home-wisdom-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  margin-top: 1.5rem;
+  position: relative;
+  z-index: 1;
+}
+.home-wisdom-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  padding: 0;
+}
+.home-wisdom-dot:hover { transform: scale(1.4); }
+
+/* ── Pillars Section ─────────────────────────────────────────────────── */
+.home-pillars-section {
+  padding: 4rem 0;
+  background: var(--bg);
+  border-top: 1px solid var(--border-subtle);
+}
+.home-pillars-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  color: var(--ink);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  margin-left: 0.75rem;
+  background: linear-gradient(135deg, var(--ink) 0%, var(--gold-bright) 50%, var(--terracotta) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.home-pillars-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+}
+@media (max-width: 900px)  { .home-pillars-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 540px)  { .home-pillars-grid { grid-template-columns: 1fr; } }
+.home-pillar-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1.75rem 1.5rem;
+  background: var(--pillar-bg, var(--ink-wash));
+  border: 1px solid color-mix(in srgb, var(--pillar-color, var(--gold)) 22%, transparent);
+  border-left: 3px solid var(--pillar-color, var(--gold));
+  border-radius: var(--radius-card);
+  transition: transform var(--motion) var(--ease-ink),
+              box-shadow var(--motion) var(--ease-ink);
+}
+.home-pillar-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-card), 0 0 0 1px color-mix(in srgb, var(--pillar-color, var(--gold)) 25%, transparent);
+}
+.home-pillar-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--pillar-color, var(--gold)) 14%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--pillar-color, var(--gold)) 28%, transparent);
+  color: var(--pillar-color, var(--gold));
+  flex-shrink: 0;
+}
+.home-pillar-name {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--pillar-color, var(--terracotta));
+  letter-spacing: 0.04em;
+}
+.home-pillar-sub {
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  line-height: 1.7;
+  color: var(--ink-soft);
+}
+
+/* ── Domain icon vivid ring ──────────────────────────────────────────── */
+.home-v3-domain-icon-vivid {
+  background: color-mix(in srgb, var(--icon-color, var(--gold)) 16%, var(--surface)) !important;
+  border: 2px solid color-mix(in srgb, var(--icon-color, var(--gold)) 42%, transparent) !important;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--icon-color, var(--gold)) 10%, transparent),
+              0 0 14px color-mix(in srgb, var(--icon-color, var(--gold)) 22%, transparent);
+}
+.home-v3-domain-card:hover .home-v3-domain-icon-vivid {
+  background: color-mix(in srgb, var(--icon-color, var(--gold)) 24%, var(--surface)) !important;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--icon-color, var(--gold)) 14%, transparent),
+              0 0 22px color-mix(in srgb, var(--icon-color, var(--gold)) 32%, transparent);
+  transform: scale(1.08);
+}
+.home-domain-emoji {
+  font-size: 1.3rem;
+  line-height: 1;
+  margin-top: -0.3rem;
+  margin-bottom: 0.1rem;
+  opacity: 0.85;
+}
+
+/* ── Background yantra watermark in domains section ─────────────────── */
+.home-domains-yantra {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Featured quote section ─────────────────────────────────────────── */
+.home-quote-section {
+  background: linear-gradient(135deg, var(--bg-deep) 0%, var(--bg-alt) 100%);
+  border-top: 1px solid var(--border-gold);
+  border-bottom: 1px solid var(--border-gold);
+  padding: 3.5rem 0 2rem;
+}
+.home-quote-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+}
+.home-quote-prism { flex-shrink: 0; }
+@media (max-width: 640px) {
+  .home-quote-prism { display: none; }
+  .home-quote-inner { padding: 0 1rem; }
+}
+.home-quote-block {
+  max-width: 560px;
+  text-align: center;
+  margin: 0;
+}
+.home-quote-text {
+  font-family: var(--font-display);
+  font-size: clamp(1.2rem, 3vw, 1.85rem);
+  font-style: italic;
+  line-height: 1.55;
+  color: var(--ink);
+  margin-bottom: 1rem;
+}
+.home-quote-attr {
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+}
+.home-quote-dash { margin-right: 0.4em; }
+
+/* ── Gradient section title ──────────────────────────────────────────── */
+.home-v3-section-title {
+  background: linear-gradient(135deg, var(--ink) 0%, var(--gold-bright) 55%, var(--terracotta) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-size: 200% auto;
+  animation: titleShimmer 10s ease-in-out infinite alternate;
+}
+@keyframes titleShimmer {
+  from { background-position: 0% center; }
+  to   { background-position: 100% center; }
+}
+
+/* ── Domain chip vivid hover ─────────────────────────────────────────── */
+.home-v3-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.home-v3-chip:hover {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
