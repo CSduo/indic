@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
+import { LotusIcon } from "@/components/sacred/LotusIcon";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -78,15 +79,19 @@ export function SacredFooter() {
         <div className="grid gap-8 md:grid-cols-[1.25fr_.8fr_.8fr_1fr]">
           <section>
             <div className="mb-4 flex items-center gap-3">
-              <img
-                src={`${base()}/brand-emblem.png`}
-                alt=""
+              <div
                 aria-hidden="true"
-                width={44}
-                height={44}
-                className="rounded-[8px] border border-[var(--border-gold)] object-contain shrink-0"
-                style={{ background: 'var(--surface)', padding: '4px' }}
-              />
+                style={{
+                  width: 44, height: 44, flexShrink: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  borderRadius: 8,
+                  border: "1px solid var(--border-gold)",
+                  background: "linear-gradient(135deg, var(--surface) 0%, var(--bg-deep) 100%)",
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 8px rgba(139,96,32,0.12)",
+                }}
+              >
+                <LotusIcon size={28} style={{ color: "var(--gold)" }} />
+              </div>
               <div>
                 <div className="font-display text-xl tracking-[0.18em]" style={{ color: 'var(--gold)' }}>ĀNVĪKṢIKĪ</div>
                 <div className="font-ui text-[0.58rem] font-bold uppercase tracking-[0.24em] text-[var(--ink-faint)]">Journal &amp; Research Platform</div>

@@ -115,7 +115,7 @@ function LotusFlower({ size = 200 }: { size?: number }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    FALLING SAKURA PETAL  —  single petal SVG shape, used for many instances
 ───────────────────────────────────────────────────────────────────────────── */
-function SakuraPetal({ size = 14, color = "#f5b8c8", opacity = 0.8 }: { size?: number; color?: string; opacity?: number }) {
+function SakuraPetal({ size = 14, color = "#ffaa52", opacity = 0.8 }: { size?: number; color?: string; opacity?: number }) {
   // Single cherry blossom petal — rounded oblong, slightly notched tip
   return (
     <svg width={size} height={size * 1.6} viewBox="0 0 14 22" aria-hidden="true" style={{ display: "block" }}>
@@ -141,12 +141,12 @@ function SakuraGrove() {
       {/* Branch fork */}
       <line x1={x} y1={180 - h * 0.55} x2={x - r * 0.6} y2={180 - h * 0.78} stroke="#c8a090" strokeWidth={r * 0.1} opacity="0.4" />
       <line x1={x} y1={180 - h * 0.55} x2={x + r * 0.7} y2={180 - h * 0.72} stroke="#c8a090" strokeWidth={r * 0.1} opacity="0.4" />
-      {/* Blossom cloud puffs */}
-      <circle cx={x}           cy={180 - h - r * 0.2} r={r}         fill="#f5c8d8" opacity="0.32" />
-      <circle cx={x - r * 0.7} cy={180 - h + r * 0.3} r={r * 0.72}  fill="#f0b8cc" opacity="0.28" />
-      <circle cx={x + r * 0.8} cy={180 - h + r * 0.2} r={r * 0.68}  fill="#f5d0e0" opacity="0.26" />
-      <circle cx={x - r * 0.3} cy={180 - h - r * 0.7} r={r * 0.58}  fill="#fce4f0" opacity="0.22" />
-      <circle cx={x + r * 0.4} cy={180 - h - r * 0.8} r={r * 0.52}  fill="#f5c0d8" opacity="0.2" />
+      {/* Blossom cloud puffs — orange sakura */}
+      <circle cx={x}           cy={180 - h - r * 0.2} r={r}         fill="#ffc87a" opacity="0.32" />
+      <circle cx={x - r * 0.7} cy={180 - h + r * 0.3} r={r * 0.72}  fill="#ffad60" opacity="0.28" />
+      <circle cx={x + r * 0.8} cy={180 - h + r * 0.2} r={r * 0.68}  fill="#ffd599" opacity="0.26" />
+      <circle cx={x - r * 0.3} cy={180 - h - r * 0.7} r={r * 0.58}  fill="#ffe8c0" opacity="0.22" />
+      <circle cx={x + r * 0.4} cy={180 - h - r * 0.8} r={r * 0.52}  fill="#ffbf70" opacity="0.2" />
     </g>
   );
 
@@ -157,10 +157,10 @@ function SakuraGrove() {
       aria-hidden="true"
       style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: "36%", pointerEvents: "none" }}
     >
-      {/* Far hazy treeline */}
+      {/* Far hazy treeline — warm amber */}
       <path
         d="M 0,140 C 80,118 160,128 240,112 C 320,98 400,115 480,100 C 560,88 640,108 720,94 C 800,80 880,100 960,86 C 1040,74 1120,92 1200,78 L 1200,180 L 0,180 Z"
-        fill="#f5d0e0" opacity="0.12"
+        fill="#ffd599" opacity="0.12"
       />
       {/* Individual trees (x, height, radius) */}
       {tree(60,   82,  36, "t1")}
@@ -174,8 +174,8 @@ function SakuraGrove() {
       {tree(900,  65,  28, "t9")}
       {tree(1000, 80,  34, "ta")}
       {tree(1110, 60,  26, "tb")}
-      {/* Ground mist */}
-      <ellipse cx="600" cy="180" rx="620" ry="22" fill="#fce8f4" opacity="0.14" />
+      {/* Ground mist — warm saffron */}
+      <ellipse cx="600" cy="180" rx="620" ry="22" fill="#ffecd8" opacity="0.14" />
     </svg>
   );
 }
@@ -248,7 +248,7 @@ function Lantern() {
 const SAKURA_PETALS = Array.from({ length: 32 }, (_, i) => ({
   left: `${3 + (i * 37) % 94}%`,
   size: 8 + (i % 5) * 3,
-  color: ["#f9c4d4", "#f5a8be", "#fbd8e8", "#f0a0c0", "#fce4f2", "#e8789a"][i % 6],
+  color: ["#ffc87a", "#ff9f43", "#ffd59d", "#ff8c42", "#ffebd0", "#f97316"][i % 6],
   opacity: 0.55 + (i % 4) * 0.1,
   delay: `${(i * 0.42) % 5.8}s`,
   dur: `${5.2 + (i % 7) * 0.88}s`,
@@ -313,29 +313,29 @@ export function LoadingScreen({ onDone }: { onDone?: () => void }) {
           position: "absolute", inset: 0,
           background: "linear-gradient(168deg, #f7ede0 0%, var(--bg) 45%, #fdf0f5 100%)",
         }} />
-        {/* Rose bloom — upper-centre */}
+        {/* Saffron bloom — upper-centre */}
         <div style={{
           position: "absolute", top: "4%", left: "50%", transform: "translateX(-50%)",
           width: 720, height: 720, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(240,140,175,0.14) 0%, transparent 60%)",
+          background: "radial-gradient(circle, rgba(249,115,22,0.10) 0%, transparent 60%)",
         }} />
-        {/* Blush bloom — lower-left */}
+        {/* Amber bloom — lower-left */}
         <div style={{
           position: "absolute", bottom: "0%", left: "16%",
           width: 520, height: 520, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(250,180,210,0.13) 0%, transparent 65%)",
+          background: "radial-gradient(circle, rgba(255,160,80,0.10) 0%, transparent 65%)",
         }} />
-        {/* Deep rose bloom — lower-right */}
+        {/* Deep orange bloom — lower-right */}
         <div style={{
           position: "absolute", bottom: "8%", right: "12%",
           width: 380, height: 380, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(220,100,145,0.09) 0%, transparent 65%)",
+          background: "radial-gradient(circle, rgba(249,115,22,0.07) 0%, transparent 65%)",
         }} />
-        {/* Pale lilac bloom — upper-right */}
+        {/* Warm gold bloom — upper-right */}
         <div style={{
           position: "absolute", top: "3%", right: "10%",
           width: 300, height: 300, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(200,160,220,0.07) 0%, transparent 68%)",
+          background: "radial-gradient(circle, rgba(255,140,60,0.06) 0%, transparent 68%)",
         }} />
 
         {/* Manuscript specks — pink/gold dust */}
@@ -347,7 +347,7 @@ export function LoadingScreen({ onDone }: { onDone?: () => void }) {
             width: i % 9 === 0 ? 3 : i % 4 === 0 ? 2 : 1.3,
             height: i % 9 === 0 ? 3 : i % 4 === 0 ? 2 : 1.3,
             borderRadius: "50%",
-            background: i % 4 === 0 ? "#e8789a" : i % 6 === 0 ? "#c9983a" : "#f5a8be",
+            background: i % 4 === 0 ? "#f97316" : i % 6 === 0 ? "#c9983a" : "#ff9f43",
             opacity: 0.04 + (i % 7) * 0.04,
             animation: `shimmer ${2.1 + (i % 5) * 0.65}s ease-in-out infinite`,
             animationDelay: `${(i * 0.27) % 2.4}s`,
@@ -392,13 +392,13 @@ export function LoadingScreen({ onDone }: { onDone?: () => void }) {
         display: "flex", flexDirection: "column", alignItems: "center",
       }}>
 
-        {/* Lotus glow aura */}
+        {/* Lotus glow aura — saffron */}
         <div aria-hidden="true" style={{
           position: "absolute",
           top: "15%", left: "50%", transform: "translateX(-50%)",
           width: 220, height: 220,
           borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(240,130,170,0.18) 0%, transparent 68%)",
+          background: "radial-gradient(circle, rgba(249,115,22,0.14) 0%, transparent 68%)",
           filter: "blur(20px)",
           animation: "lanternGlow 4s ease-in-out infinite",
         }} />
@@ -410,13 +410,13 @@ export function LoadingScreen({ onDone }: { onDone?: () => void }) {
           <svg width="280" height="280" viewBox="0 0 280 280"
             className="animate-spin-slow"
             style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-            <circle cx="140" cy="140" r="134" stroke="#e88fa8" strokeWidth="0.55" fill="none" opacity="0.18" strokeDasharray="4 18" />
+            <circle cx="140" cy="140" r="134" stroke="#ffaa52" strokeWidth="0.55" fill="none" opacity="0.18" strokeDasharray="4 18" />
             {[0,30,60,90,120,150,180,210,240,270,300,330].map((a, i) => (
               <circle key={i}
                 cx={140 + 134 * Math.cos((a * Math.PI) / 180)}
                 cy={140 + 134 * Math.sin((a * Math.PI) / 180)}
                 r={i % 3 === 0 ? 3 : 1.8}
-                fill={i % 4 === 0 ? "#d4688a" : "#c9983a"}
+                fill={i % 4 === 0 ? "#e87c30" : "#c9983a"}
                 opacity={0.22 + (i % 4) * 0.08}
               />
             ))}
@@ -499,11 +499,11 @@ export function LoadingScreen({ onDone }: { onDone?: () => void }) {
 
         {/* Subtitle */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.55rem", marginBottom: "0.4rem" }}>
-          <span style={{ width: 22, height: 1, background: "#f5a8be", opacity: 0.45, flexShrink: 0 }} />
+          <span style={{ width: 22, height: 1, background: "#ff9f43", opacity: 0.45, flexShrink: 0 }} />
           <span className="font-ui" style={{ fontSize: "0.54rem", letterSpacing: "0.42em", textTransform: "uppercase", color: "var(--ink-faint)" }}>
             Journal &amp; Research Platform
           </span>
-          <span style={{ width: 22, height: 1, background: "#f5a8be", opacity: 0.45, flexShrink: 0 }} />
+          <span style={{ width: 22, height: 1, background: "#ff9f43", opacity: 0.45, flexShrink: 0 }} />
         </div>
 
         {/* Tagline */}
@@ -517,15 +517,15 @@ export function LoadingScreen({ onDone }: { onDone?: () => void }) {
         {/* ── PROGRESS BAR ── */}
         <div style={{ width: 220 }}>
           <div style={{
-            height: 2, background: "rgba(220,120,160,0.15)",
+            height: 2, background: "rgba(249,115,22,0.12)",
             borderRadius: 2, overflow: "hidden", marginBottom: 9,
           }}>
             <div style={{
               height: "100%",
-              background: "linear-gradient(90deg, #d4688a, #e8a0b8, #c9983a)",
+              background: "linear-gradient(90deg, #e87c30, #ffaa52, #c9983a)",
               width: `${pct}%`,
               transition: "width 0.52s ease",
-              boxShadow: "0 0 14px rgba(212,104,138,0.55), 0 0 4px rgba(240,160,184,0.8)",
+              boxShadow: "0 0 14px rgba(232,124,48,0.55), 0 0 4px rgba(255,170,82,0.8)",
               borderRadius: 2,
             }} />
           </div>
@@ -554,7 +554,7 @@ export function LoadingScreen({ onDone }: { onDone?: () => void }) {
         }}>
           <SakuraPetal
             size={p.big ? 12 : 7}
-            color={["#f5a8be", "#f9c4d4", "#e8789a"][i % 3]}
+            color={["#ff9f43", "#ffc87a", "#f97316"][i % 3]}
             opacity={0.4}
           />
         </div>

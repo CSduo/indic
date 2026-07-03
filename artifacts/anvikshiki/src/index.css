@@ -3429,3 +3429,283 @@ body:has(.sacred-drawer) {
   from { transform: translateX(-100%); }
   to { transform: translateX(0); }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ORANGE SAKURA THEME  +  20× AESTHETICISM ENHANCEMENT
+   Saffron / amber palette; richly ornamented domain cards & sections
+═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Sakura palette tokens ─────────────────────────────────────────── */
+:root {
+  --sakura-1: #ffaa52;
+  --sakura-2: #ff9f43;
+  --sakura-3: #ffd599;
+  --sakura-4: #ff8c42;
+  --sakura-5: #ffebd0;
+  --sakura-6: #f97316;
+}
+
+/* ── Ambient page-level sakura petals ────────────────────────────────── */
+.home-v3-ambient-sakura {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.home-v3-ambient-petal {
+  position: absolute;
+  will-change: transform, opacity;
+  animation: sakuraFall var(--dur, 9s) var(--delay, 0s) linear infinite;
+}
+
+/* ── Section mandala ornament ────────────────────────────────────────── */
+.home-v3-section-mandala {
+  display: block;
+  margin: 0 auto 0.4rem;
+  opacity: 0.22;
+  color: var(--gold);
+  animation: rotateSlow 30s linear infinite;
+}
+
+/* ── Section backgrounds — sacred geometry atmospheric layers ─────────── */
+.home-v3-section {
+  position: relative;
+  overflow: hidden;
+}
+
+.home-v3-domains-section {
+  background:
+    radial-gradient(ellipse 65% 50% at 50% 0%,   rgba(139,96,32,0.06)  0%, transparent 65%),
+    radial-gradient(ellipse 40% 70% at 8%  60%,  rgba(184,76,42,0.04)  0%, transparent 65%),
+    radial-gradient(ellipse 35% 50% at 92% 40%,  rgba(201,136,61,0.04) 0%, transparent 65%),
+    var(--bg);
+}
+
+.home-v3-actions-section {
+  background:
+    radial-gradient(ellipse 55% 55% at 90% 95%, rgba(201,136,61,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 40% at 5%  5%,  rgba(139,96,32,0.05)  0%, transparent 65%);
+}
+
+/* Fine hairline above each section */
+.home-v3-section::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 75%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--border-gold), transparent);
+  pointer-events: none;
+}
+
+/* ── Domain grid — 14-domain layout ──────────────────────────────────── */
+.home-v3-domains-expanded {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 960px) {
+  .home-v3-domains-expanded { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .home-v3-domains-expanded { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── Domain card — radial bloom background ───────────────────────────── */
+.home-v3-domain-card {
+  padding: 2rem 1.25rem 1.5rem;
+}
+
+/* Override ::before — radial glow from top instead of text corner mark */
+.home-v3-domain-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-card);
+  background: radial-gradient(
+    ellipse 70% 55% at 50% -5%,
+    color-mix(in srgb, var(--card-color, var(--gold)) 18%, transparent) 0%,
+    transparent 72%
+  );
+  pointer-events: none;
+  transition: opacity 0.45s ease;
+  opacity: 0.65;
+}
+
+.home-v3-domain-card:hover::before { opacity: 1; }
+
+/* Override ::after — shimmer sweep on hover */
+.home-v3-domain-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    108deg,
+    transparent 28%,
+    color-mix(in srgb, white 7%, transparent) 50%,
+    transparent 72%
+  );
+  background-size: 220% 100%;
+  background-position: -200% center;
+  border-radius: var(--radius-card);
+  pointer-events: none;
+  transition: background-position 0.85s ease;
+}
+
+.home-v3-domain-card:hover::after {
+  background-position: 300% center;
+}
+
+/* ── Domain icon wrapper — outer dashed ring ─────────────────────────── */
+.home-v3-domain-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+
+.home-v3-domain-icon-wrap::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1px dashed color-mix(in srgb, var(--card-color, var(--gold)) 32%, transparent);
+  animation: rotateSlow 24s linear infinite;
+  pointer-events: none;
+  transition: border-color 0.4s ease;
+}
+
+.home-v3-domain-card:hover .home-v3-domain-icon-wrap::before {
+  border-color: color-mix(in srgb, var(--card-color, var(--gold)) 60%, transparent);
+  animation-duration: 10s;
+}
+
+.home-v3-domain-icon-wrap::after {
+  content: '';
+  position: absolute;
+  inset: -14px;
+  border-radius: 50%;
+  border: 0.5px solid color-mix(in srgb, var(--card-color, var(--gold)) 15%, transparent);
+  animation: rotateSlow 40s linear infinite reverse;
+  pointer-events: none;
+}
+
+/* Refine domain icon background */
+.home-v3-domain-icon {
+  width: 60px;
+  height: 60px;
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--card-color, var(--gold)) 10%, transparent),
+    0 4px 16px rgba(0,0,0,0.06);
+}
+
+.home-v3-domain-card:hover .home-v3-domain-icon {
+  box-shadow:
+    0 0 0 5px color-mix(in srgb, var(--card-color, var(--gold)) 20%, transparent),
+    0 6px 20px rgba(0,0,0,0.10);
+}
+
+/* Domain name color tint */
+.home-v3-domain-name {
+  color: color-mix(in srgb, var(--card-color, var(--gold)) 75%, var(--ink));
+  font-size: 1rem;
+}
+
+/* Domain ornament — spaced diamonds */
+.home-v3-domain-ornament {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.4rem;
+  color: color-mix(in srgb, var(--card-color, var(--gold)) 50%, transparent);
+  margin-top: 0.25rem;
+}
+
+/* ── Chip hover refinement ────────────────────────────────────────────── */
+.home-v3-chip {
+  transition: opacity var(--motion-fast), transform var(--motion-fast), box-shadow var(--motion-fast);
+}
+
+.home-v3-chip:hover {
+  opacity: 1;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.09);
+}
+
+/* ── Section head ornament row ────────────────────────────────────────── */
+.home-v3-section-head.centered {
+  padding-top: 0.25rem;
+}
+
+/* ── Theme toggle — enhanced visibility ──────────────────────────────── */
+.anv-theme-toggle {
+  background: var(--surface-elevated);
+  border: 1.5px solid color-mix(in srgb, var(--gold) 52%, transparent);
+  box-shadow:
+    0 1px 4px rgba(0,0,0,0.11),
+    inset 0 1px 0 rgba(255,255,255,0.35);
+}
+
+.anv-theme-toggle:hover {
+  border-color: var(--gold);
+  box-shadow:
+    0 0 0 3px rgba(168,124,43,0.16),
+    0 1px 4px rgba(0,0,0,0.11);
+}
+
+/* ── Sacred header — subtle gold gradient underline on scroll ────────── */
+.sacred-header-scrolled {
+  box-shadow:
+    0 1px 0 var(--border-gold),
+    0 4px 20px rgba(42,31,14,0.10);
+}
+
+/* ── Essay card — richer hover ────────────────────────────────────────── */
+.home-v3-essay-card:hover {
+  box-shadow:
+    var(--shadow-lg),
+    0 0 0 1px var(--border-gold);
+}
+
+/* ── Action strip richness ────────────────────────────────────────────── */
+.home-v3-action {
+  border: 1px solid color-mix(in srgb, var(--action-bg, var(--gold)) 28%, transparent);
+  transition:
+    box-shadow var(--motion) var(--ease-archive),
+    transform var(--motion) var(--ease-archive),
+    border-color var(--motion) var(--ease-archive);
+}
+
+.home-v3-action:hover {
+  box-shadow:
+    var(--shadow-lg),
+    0 0 0 1px color-mix(in srgb, var(--action-bg, var(--gold)) 42%, transparent);
+  transform: translateX(3px);
+}
+
+/* ── Frieze — richer bar with lotus accent ───────────────────────────── */
+.home-v3-frieze-line {
+  display: inline-block;
+  width: 48px;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(180,140,60,0.55), transparent);
+  vertical-align: middle;
+}
+
+.home-v3-frieze-diamond {
+  animation: lampBreath 3.6s ease-in-out infinite;
+}
+
+/* ── Footer logo container hover ─────────────────────────────────────── */
+footer .font-display:first-child {
+  transition: color var(--motion-fast) ease;
+}
+
+/* ── 404 page animate-float ──────────────────────────────────────────── */
+.animate-float {
+  animation: marginaliaDrift 7s ease-in-out infinite;
+}
