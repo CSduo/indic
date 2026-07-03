@@ -163,26 +163,44 @@ router.post(
   }
 );
 
+// Statuses a user is still allowed to delete or edit — anything not yet
+// finalized by editorial review. Once ACCEPTED/PUBLISHED/ARCHIVED, the user
+// can no longer delete or edit their own submission.
+const USER_DELETABLE_STATUSES = ["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "REJECTED"];
+const USER_EDITABLE_STATUSES = ["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED"];
+
 // POST /api/submissions/write — full essay written in browser
 router.post("/submissions/write", async (req, res) => {
   try {
+    const auth = await getUserAuth(req);
+
     const schema = z.object({
       type: z.enum(["ESSAY", "PAPER", "REVIEW", "COMMENTARY"]),
       submitterName: z.string().min(1).max(160),
       submitterEmail: z.string().email(),
       title: z.string().min(1).max(500),
-      abstract: z.string().min(1).max(10000),
-      body: z.string().min(1),
+      abstract: z.string().max(10000).optional().default(""),
+      body: z.string().optional().default(""),
       notes: z.string().max(5000).optional(),
-      consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).transform(v => v === true || v === "true"),
+      consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).optional().transform(v => v === true || v === "true"),
+      status: z.enum(["DRAFT", "RECEIVED"]).optional().default("RECEIVED"),
     });
 
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
 
-    const auth = await getUserAuth(req);
     const data = parsed.data;
-    if (!data.consent) return res.status(400).json({ error: "Consent is required" });
+    const isDraft = data.status === "DRAFT";
+
+    // Only signed-in users may save drafts — drafts must be resumable/owned.
+    if (isDraft && !auth) return res.status(401).json({ error: "Sign in to save a draft" });
+
+    // Full submissions still require the declaration + minimum content.
+    if (!isDraft) {
+      if (!data.consent) return res.status(400).json({ error: "Consent is required" });
+      if (!data.abstract.trim()) return res.status(400).json({ error: "Abstract is required" });
+      if (!data.body.trim() || data.body.length < 1) return res.status(400).json({ error: "Essay body is required" });
+    }
 
     const [submission] = await db.insert(submissionsTable).values({
       userId: auth?.userId || null,
@@ -190,10 +208,11 @@ router.post("/submissions/write", async (req, res) => {
       submitterEmail: data.submitterEmail,
       type: data.type,
       title: data.title,
-      abstract: data.abstract,
-      body: data.body,
+      abstract: data.abstract || "",
+      body: data.body || "",
       notes: data.notes || null,
-      consent: true,
+      consent: !isDraft,
+      status: isDraft ? "DRAFT" : "RECEIVED",
     }).returning();
 
     return res.status(201).json({ success: true, submission });
@@ -203,7 +222,7 @@ router.post("/submissions/write", async (req, res) => {
   }
 });
 
-// GET /api/submissions (user's own)
+// GET /api/submissions (user's own — includes drafts, never shown to admin)
 router.get("/submissions", async (req, res) => {
   try {
     const auth = await getUserAuth(req);
@@ -241,6 +260,95 @@ router.get("/submissions/:id", async (req, res) => {
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed" });
+  }
+});
+
+// PUT /api/submissions/:id — owner updates a draft, or submits a saved draft for review
+router.put("/submissions/:id", async (req, res) => {
+  try {
+    const auth = await getUserAuth(req);
+    if (!auth) return res.status(401).json({ error: "Unauthorized" });
+
+    const [existing] = await db.select().from(submissionsTable)
+      .where(eq(submissionsTable.id, req.params.id)).limit(1);
+    if (!existing) return res.status(404).json({ error: "Submission not found" });
+    if (existing.userId !== auth.userId) return res.status(403).json({ error: "Forbidden" });
+    if (!USER_EDITABLE_STATUSES.includes(existing.status)) {
+      return res.status(403).json({ error: "This submission can no longer be edited" });
+    }
+
+    const schema = z.object({
+      type: z.enum(["ESSAY", "PAPER", "REVIEW", "COMMENTARY"]).optional(),
+      submitterName: z.string().min(1).max(160).optional(),
+      submitterEmail: z.string().email().optional(),
+      title: z.string().min(1).max(500).optional(),
+      abstract: z.string().max(10000).optional(),
+      body: z.string().optional(),
+      notes: z.string().max(5000).optional(),
+      consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).optional(),
+      status: z.enum(["DRAFT", "RECEIVED"]).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
+    const data = parsed.data;
+
+    const wantsSubmit = data.status === "RECEIVED";
+    if (wantsSubmit) {
+      const consent = data.consent === true || data.consent === "true";
+      const abstract = data.abstract ?? existing.abstract ?? "";
+      const body = data.body ?? existing.body ?? "";
+      if (!consent) return res.status(400).json({ error: "Consent is required" });
+      if (!abstract.trim()) return res.status(400).json({ error: "Abstract is required" });
+      if (!body.trim()) return res.status(400).json({ error: "Essay body is required" });
+    }
+
+    const updates: Record<string, any> = { updatedAt: new Date() };
+    if (data.type !== undefined) updates.type = data.type;
+    if (data.submitterName !== undefined) updates.submitterName = data.submitterName;
+    if (data.submitterEmail !== undefined) updates.submitterEmail = data.submitterEmail;
+    if (data.title !== undefined) updates.title = data.title;
+    if (data.abstract !== undefined) updates.abstract = data.abstract;
+    if (data.body !== undefined) updates.body = data.body;
+    if (data.notes !== undefined) updates.notes = data.notes;
+    if (wantsSubmit) {
+      updates.status = "RECEIVED";
+      updates.consent = true;
+    } else if (data.status === "DRAFT") {
+      updates.status = "DRAFT";
+    }
+
+    const [submission] = await db.update(submissionsTable)
+      .set(updates)
+      .where(eq(submissionsTable.id, req.params.id))
+      .returning();
+
+    return res.json({ success: true, submission });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed to update submission" });
+  }
+});
+
+// DELETE /api/submissions/:id — owner can delete their own submission/draft
+// as long as it has not yet been accepted/published by an admin.
+router.delete("/submissions/:id", async (req, res) => {
+  try {
+    const auth = await getUserAuth(req);
+    if (!auth) return res.status(401).json({ error: "Unauthorized" });
+
+    const [existing] = await db.select().from(submissionsTable)
+      .where(eq(submissionsTable.id, req.params.id)).limit(1);
+    if (!existing) return res.status(404).json({ error: "Submission not found" });
+    if (existing.userId !== auth.userId) return res.status(403).json({ error: "Forbidden" });
+    if (!USER_DELETABLE_STATUSES.includes(existing.status)) {
+      return res.status(403).json({ error: "This submission has already been approved and can no longer be deleted" });
+    }
+
+    await db.delete(submissionsTable).where(eq(submissionsTable.id, req.params.id));
+    return res.json({ success: true });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed to delete submission" });
   }
 });
 

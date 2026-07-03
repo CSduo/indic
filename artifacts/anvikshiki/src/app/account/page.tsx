@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { BookMarked, Check, Edit3, FileText, LogOut, Mail, User, X } from "lucide-react";
+import { BookMarked, Check, Edit3, FileText, LogOut, Mail, Trash2, User, X } from "lucide-react";
 import { toast } from "sonner";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
@@ -11,6 +11,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
+  DRAFT: { label: "Draft", className: "badge-draft" },
   RECEIVED: { label: "Received", className: "badge-received" },
   UNDER_REVIEW: { label: "Under Review", className: "badge-reviewing" },
   REVISION_REQUESTED: { label: "Revision Requested", className: "badge-received" },
@@ -20,6 +21,9 @@ const STATUS_LABELS: Record<string, { label: string; className: string }> = {
   ARCHIVED: { label: "Archived", className: "badge-draft" },
 };
 
+// Statuses the user themselves may still delete (mirrors the server rule).
+const USER_DELETABLE_STATUSES = new Set(["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "REJECTED"]);
+
 export default function AccountPage() {
   const [, navigate] = useLocation();
   const { user, logout, refresh } = useAuthContext();
@@ -28,6 +32,15 @@ export default function AccountPage() {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const loadSubmissions = () => {
+    fetch(`${base()}/api/submissions`, { credentials: "include" })
+      .then((response) => response.json())
+      .then((data) => setSubmissions(data.submissions || []))
+      .catch(() => {})
+      .finally(() => setLoadingPage(false));
+  };
 
   useEffect(() => {
     if (!user && !loadingPage) {
@@ -36,13 +49,10 @@ export default function AccountPage() {
     }
     if (user) {
       setEditName(user.name || "");
-      fetch(`${base()}/api/submissions`, { credentials: "include" })
-        .then((response) => response.json())
-        .then((data) => setSubmissions(data.submissions || []))
-        .catch(() => {})
-        .finally(() => setLoadingPage(false));
+      loadSubmissions();
     }
-  }, [user, loadingPage, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, navigate]);
 
   useEffect(() => {
     let timeoutId: number | undefined;
@@ -89,6 +99,21 @@ export default function AccountPage() {
     setSaving(false);
   };
 
+  const deleteSubmission = async (id: string) => {
+    if (!window.confirm("Delete this submission permanently? This cannot be undone.")) return;
+    setDeletingId(id);
+    try {
+      const r = await fetch(`${base()}/api/submissions/${id}`, { method: "DELETE", credentials: "include" });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || "Failed to delete");
+      setSubmissions((prev) => prev.filter((s) => s.id !== id));
+      toast.success("Submission deleted");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete submission");
+    }
+    setDeletingId(null);
+  };
+
   if (!user) {
     return (
       <div className="grid min-h-[60vh] place-items-center bg-[var(--bg)]">
@@ -97,14 +122,63 @@ export default function AccountPage() {
     );
   }
 
+  const drafts = submissions.filter((s) => s.status === "DRAFT");
+  const published = submissions.filter((s) => s.status !== "DRAFT");
+
+  const renderCard = (submission: any, isDraft: boolean) => {
+    const status = STATUS_LABELS[submission.status] || { label: submission.status || "Received", className: "badge-received" };
+    const canDelete = USER_DELETABLE_STATUSES.has(submission.status);
+    return (
+      <div key={submission.id} className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <AnimalGlyph domain={submission.domain || "papers"} size={28} className="mt-1 shrink-0 text-[var(--gold)]" />
+            <div>
+              <h3 className="font-display text-2xl leading-tight text-[var(--ink)]">{submission.title || "Untitled draft"}</h3>
+              <p className="mt-1 font-ui text-xs text-[var(--muted)]">
+                {submission.type} · {submission.createdAt ? new Date(submission.createdAt).toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" }) : "Undated"}
+              </p>
+              {submission.abstract ? <p className="mt-2 line-clamp-2 font-body text-sm leading-6 text-[var(--ink-soft)]">{submission.abstract}</p> : null}
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-2 shrink-0">
+            <span className={`badge ${status.className}`}>{status.label}</span>
+            <div className="flex items-center gap-2">
+              {isDraft ? (
+                <Link href={`/submit/write?draftId=${submission.id}`} className="btn-ink px-2 py-1 text-[10px]">
+                  <Edit3 size={12} /> Resume
+                </Link>
+              ) : null}
+              {canDelete ? (
+                <button
+                  type="button"
+                  onClick={() => deleteSubmission(submission.id)}
+                  disabled={deletingId === submission.id}
+                  className="btn-ink px-2 py-1 text-[10px] text-[var(--terracotta)]"
+                  title="Delete this submission"
+                >
+                  <Trash2 size={12} /> {deletingId === submission.id ? "Deleting…" : "Delete"}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="bg-[var(--bg)]">
       <section className="container-anv py-10">
         <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
           <aside className="space-y-4">
             <ParchmentCard className="p-6 text-center">
-              <div className="mx-auto mb-4 grid h-20 w-20 place-items-center rounded-full border border-[var(--border-gold)] bg-[var(--terracotta-pale)] text-[var(--terracotta)]">
-                <User size={34} />
+              <div className="mx-auto mb-4 grid h-20 w-20 place-items-center overflow-hidden rounded-full border border-[var(--border-gold)] bg-[var(--terracotta-pale)] text-[var(--terracotta)]">
+                {user.avatarUrl ? (
+                  <img src={user.avatarUrl} alt={user.name || "Your avatar"} className="h-full w-full object-cover" />
+                ) : (
+                  <User size={34} />
+                )}
               </div>
               {editing ? (
                 <div className="flex items-center gap-2">
@@ -123,6 +197,7 @@ export default function AccountPage() {
               <div className="mt-2 flex items-center justify-center gap-2 font-ui text-sm text-[var(--muted)]">
                 <Mail size={14} /> {user.email}
               </div>
+              {user.institution ? <p className="mt-1 font-ui text-xs text-[var(--muted)]">{user.institution}</p> : null}
               <span className="badge badge-received mt-4">{user.role === "ADMIN" ? "Admin" : "Member"}</span>
               <OrnamentDivider variant="minimal" className="my-5" />
               <button type="button" onClick={handleLogout} className="btn-ink w-full justify-center">
@@ -156,9 +231,9 @@ export default function AccountPage() {
               <h2 className="font-display text-4xl text-[var(--ink)]">Your Profile</h2>
               <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
                 {[
-                  ["Submissions", submissions.length],
+                  ["Submissions", published.length],
                   ["Published", submissions.filter((s) => s.status === "PUBLISHED").length],
-                  ["Bookmarks", 0],
+                  ["Drafts", drafts.length],
                   ["Profile Views", 0],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-4 text-center">
@@ -169,6 +244,18 @@ export default function AccountPage() {
               </div>
             </ParchmentCard>
 
+            {drafts.length > 0 ? (
+              <ParchmentCard className="p-6">
+                <div className="mb-5 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="type-section-label mb-2">Not Yet Submitted</p>
+                    <h2 className="font-display text-3xl text-[var(--ink)]">Your Drafts</h2>
+                  </div>
+                </div>
+                <div className="space-y-3">{drafts.map((d) => renderCard(d, true))}</div>
+              </ParchmentCard>
+            ) : null}
+
             <ParchmentCard className="p-6">
               <div className="mb-5 flex items-center justify-between gap-4">
                 <div>
@@ -178,31 +265,10 @@ export default function AccountPage() {
                 <Link href="/submit" className="btn-terracotta">New Submission</Link>
               </div>
 
-              {submissions.length === 0 ? (
+              {published.length === 0 ? (
                 <EmptyState title="No submissions yet" description="Submit your work to the journal and track its progress here." action={<Link href="/submit" className="btn-terracotta">Submit Work</Link>} />
               ) : (
-                <div className="space-y-3">
-                  {submissions.map((submission) => {
-                    const status = STATUS_LABELS[submission.status] || { label: submission.status || "Received", className: "badge-received" };
-                    return (
-                      <div key={submission.id} className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-start gap-3">
-                            <AnimalGlyph domain={submission.domain || "papers"} size={28} className="mt-1 shrink-0 text-[var(--gold)]" />
-                            <div>
-                              <h3 className="font-display text-2xl leading-tight text-[var(--ink)]">{submission.title}</h3>
-                              <p className="mt-1 font-ui text-xs text-[var(--muted)]">
-                                {submission.type} · {submission.createdAt ? new Date(submission.createdAt).toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" }) : "Undated"}
-                              </p>
-                              {submission.abstract ? <p className="mt-2 line-clamp-2 font-body text-sm leading-6 text-[var(--ink-soft)]">{submission.abstract}</p> : null}
-                            </div>
-                          </div>
-                          <span className={`badge ${status.className} shrink-0`}>{status.label}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                <div className="space-y-3">{published.map((s) => renderCard(s, false))}</div>
               )}
             </ParchmentCard>
           </main>

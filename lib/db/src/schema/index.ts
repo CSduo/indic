@@ -10,7 +10,7 @@ export const roleEnum = pgEnum("role", ["USER", "ADMIN"]);
 export const adminRoleEnum = pgEnum("admin_role", ["ADMIN", "EDITOR", "REVIEWER"]);
 export const contentStatusEnum = pgEnum("content_status", ["DRAFT", "PUBLISHED", "ARCHIVED"]);
 export const submissionTypeEnum = pgEnum("submission_type", ["ESSAY", "PAPER", "REVIEW", "COMMENTARY"]);
-export const submissionStatusEnum = pgEnum("submission_status", ["RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "ACCEPTED", "REJECTED", "PUBLISHED", "ARCHIVED"]);
+export const submissionStatusEnum = pgEnum("submission_status", ["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "ACCEPTED", "REJECTED", "PUBLISHED", "ARCHIVED"]);
 export const paperTypeEnum = pgEnum("paper_type", ["RESEARCH_PAPER", "WORKING_PAPER", "REVIEW_ESSAY", "MONOGRAPH", "TRANSLATION", "ARCHIVAL_NOTE"]);
 export const fileCategoryEnum = pgEnum("file_category", ["MANUSCRIPT", "COVER", "SUPPORTING", "SUPPLEMENTARY"]);
 export const priorityEnum = pgEnum("priority", ["LOW", "NORMAL", "HIGH", "URGENT"]);
@@ -23,6 +23,9 @@ export const usersTable = pgTable("users", {
   name: text("name"),
   password: text("password"),
   role: roleEnum("role").notNull().default("USER"),
+  avatarUrl: text("avatar_url"),
+  bio: text("bio"),
+  institution: text("institution"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

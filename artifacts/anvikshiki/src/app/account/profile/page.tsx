@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, Camera, Check, Mail, User, X } from "lucide-react";
+import { ArrowLeft, Camera, Check, Loader2, Mail, User, X } from "lucide-react";
 import { toast } from "sonner";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
@@ -14,9 +14,21 @@ export default function ProfilePage() {
   const { user, refresh } = useAuthContext();
 
   const [name, setName] = useState(user?.name || "");
-  const [bio, setBio] = useState("");
-  const [institution, setInstitution] = useState("");
+  const [bio, setBio] = useState(user?.bio || "");
+  const [institution, setInstitution] = useState(user?.institution || "");
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || "");
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (user) {
+      setName(user.name || "");
+      setBio(user.bio || "");
+      setInstitution(user.institution || "");
+      setAvatarUrl(user.avatarUrl || "");
+    }
+  }, [user]);
 
   if (!user) {
     return (
@@ -27,6 +39,35 @@ export default function ProfilePage() {
       />
     );
   }
+
+  const pickAvatar = () => avatarInputRef.current?.click();
+
+  const uploadAvatar = async (file: File) => {
+    if (!file.type.startsWith("image/")) { toast.error("Please choose an image file"); return; }
+    if (file.size > 8 * 1024 * 1024) { toast.error("Image must be under 8 MB"); return; }
+    setUploadingAvatar(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("context", "avatar");
+      const r = await fetch(`${base()}/api/media/upload`, { method: "POST", credentials: "include", body: fd });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "Upload failed");
+      setAvatarUrl(data.url);
+      const putRes = await fetch(`${base()}/api/auth/profile`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ avatarUrl: data.url }),
+      });
+      if (!putRes.ok) throw new Error("Failed to save avatar");
+      await refresh();
+      toast.success("Avatar updated");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to upload avatar");
+    }
+    setUploadingAvatar(false);
+  };
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,17 +108,29 @@ export default function ProfilePage() {
           {/* Avatar section */}
           <ParchmentCard className="p-6 flex items-center gap-6">
             <div className="relative shrink-0">
-              <div className="h-20 w-20 rounded-full border-2 border-[var(--border-gold)] bg-[var(--terracotta-pale)] grid place-items-center text-[var(--terracotta)]">
-                <User size={32} />
+              <div className="h-20 w-20 overflow-hidden rounded-full border-2 border-[var(--border-gold)] bg-[var(--terracotta-pale)] grid place-items-center text-[var(--terracotta)]">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Your avatar" className="h-full w-full object-cover" />
+                ) : (
+                  <User size={32} />
+                )}
               </div>
               <button
                 type="button"
-                className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-[var(--gold)] grid place-items-center text-white hover:bg-[var(--gold-light)] transition-colors"
-                title="Change avatar (coming soon)"
-                onClick={() => toast.info("Avatar upload coming soon")}
+                className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-[var(--gold)] grid place-items-center text-white hover:bg-[var(--gold-light)] transition-colors disabled:opacity-60"
+                title="Change avatar"
+                onClick={pickAvatar}
+                disabled={uploadingAvatar}
               >
-                <Camera size={13} />
+                {uploadingAvatar ? <Loader2 size={13} className="animate-spin" /> : <Camera size={13} />}
               </button>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="sr-only"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); e.target.value = ""; }}
+              />
             </div>
             <div>
               <p className="font-ui text-sm font-semibold text-[var(--ink)]">{user.name || "Anonymous Scholar"}</p>

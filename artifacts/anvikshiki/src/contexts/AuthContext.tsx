@@ -5,6 +5,9 @@ interface User {
   email: string;
   name: string | null;
   role: string;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  institution?: string | null;
 }
 
 interface AuthContextValue {

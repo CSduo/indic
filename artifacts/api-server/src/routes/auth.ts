@@ -69,12 +69,22 @@ router.post("/auth/signup", async (req, res) => {
   }
 });
 
+const PROFILE_FIELDS = {
+  id: usersTable.id,
+  email: usersTable.email,
+  name: usersTable.name,
+  role: usersTable.role,
+  avatarUrl: usersTable.avatarUrl,
+  bio: usersTable.bio,
+  institution: usersTable.institution,
+};
+
 // GET /api/auth/me
 router.get("/auth/me", async (req, res) => {
   try {
     const auth = await getUserAuth(req);
     if (!auth) return res.status(401).json({ error: "Not authenticated" });
-    const [user] = await db.select({ id: usersTable.id, email: usersTable.email, name: usersTable.name, role: usersTable.role })
+    const [user] = await db.select(PROFILE_FIELDS)
       .from(usersTable).where(eq(usersTable.id, auth.userId)).limit(1);
     if (!user) return res.status(404).json({ error: "User not found" });
     return res.json({ user });
@@ -149,14 +159,23 @@ router.put("/auth/profile", async (req, res) => {
 
     const schema = z.object({
       name: z.string().min(1).max(100).optional(),
+      bio: z.string().max(500).optional(),
+      institution: z.string().max(200).optional(),
+      avatarUrl: z.string().url().max(2000).optional().or(z.literal("")),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
 
+    const updates: Record<string, any> = { updatedAt: new Date() };
+    if (parsed.data.name !== undefined) updates.name = parsed.data.name;
+    if (parsed.data.bio !== undefined) updates.bio = parsed.data.bio;
+    if (parsed.data.institution !== undefined) updates.institution = parsed.data.institution;
+    if (parsed.data.avatarUrl !== undefined) updates.avatarUrl = parsed.data.avatarUrl || null;
+
     const [user] = await db.update(usersTable)
-      .set({ name: parsed.data.name })
+      .set(updates)
       .where(eq(usersTable.id, auth.userId))
-      .returning({ id: usersTable.id, email: usersTable.email, name: usersTable.name, role: usersTable.role });
+      .returning(PROFILE_FIELDS);
 
     if (!user) return res.status(404).json({ error: "User not found" });
     return res.json({ success: true, user });

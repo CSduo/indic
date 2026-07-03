@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useLocation, Link } from "wouter";
-import { ArrowLeft, Image as ImageIcon, X, CheckCircle, AlertCircle, Lock, Cloud, Save } from "lucide-react";
+import { useLocation, Link, useSearch } from "wouter";
+import { ArrowLeft, Image as ImageIcon, X, CheckCircle, AlertCircle, Lock, Cloud, Save, FileText } from "lucide-react";
 import { LotusIcon, LotusDivider } from "@/components/sacred/LotusIcon";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -39,15 +39,20 @@ function loadDraft(): Draft {
 
 export default function SubmitWritePage() {
   const [, navigate] = useLocation();
+  const search = useSearch();
   const { user } = useAuth();
+  const draftIdParam = new URLSearchParams(search).get("draftId");
 
   const [draft, setDraft] = useState<Draft>(() => {
     const d = loadDraft();
     const type = sessionStorage.getItem("anvikshiki_submit_type") || "essay";
     return { ...d, type, fullName: d.fullName || user?.name || "", email: d.email || user?.email || "" };
   });
+  const [serverDraftId, setServerDraftId] = useState<string | null>(null);
+  const [loadingDraft, setLoadingDraft] = useState(!!draftIdParam);
 
   const [saveStatus, setSaveStatus] = useState<"idle"|"saving"|"saved">("idle");
+  const [savingDraft, setSavingDraft] = useState(false);
   const [imgFile, setImgFile] = useState<File | null>(null);
   const [imgPreview, setImgPreview] = useState<string>("");
   const [imgDragging, setImgDragging] = useState(false);
@@ -58,6 +63,46 @@ export default function SubmitWritePage() {
   const imgRef = useRef<HTMLInputElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
+
+  // Resume an existing server-saved draft when arriving via ?draftId=
+  useEffect(() => {
+    if (!draftIdParam) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch(`${base()}/api/submissions/${draftIdParam}`, { credentials: "include" });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Could not load draft");
+        const s = data.submission;
+        if (cancelled) return;
+        const typeMap: Record<string, string> = { ESSAY: "essay", PAPER: "paper", REVIEW: "review", COMMENTARY: "commentary" };
+        const notesLines: string = s.notes || "";
+        const pick = (label: string) => {
+          const m = notesLines.match(new RegExp(`^${label}: (.*)$`, "m"));
+          return m ? m[1] : "";
+        };
+        setDraft((prev) => ({
+          ...prev,
+          type: typeMap[s.type] || "essay",
+          fullName: s.submitterName || prev.fullName,
+          email: s.submitterEmail || prev.email,
+          institution: pick("Institution") || prev.institution,
+          domain: pick("Domain") || prev.domain,
+          keywords: pick("Keywords") || prev.keywords,
+          notes: pick("Author notes") || "",
+          title: s.title || "",
+          abstract: s.abstract || "",
+          body: s.body || "",
+        }));
+        setServerDraftId(s.id);
+      } catch (err: any) {
+        setError(err.message || "Could not load draft");
+      } finally {
+        if (!cancelled) setLoadingDraft(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [draftIdParam]);
 
   // Auto-grow textarea
   useEffect(() => {
@@ -103,6 +148,72 @@ export default function SubmitWritePage() {
     return Object.keys(e).length === 0;
   };
 
+  const buildNotes = (imageUrl: string) => [
+    draft.institution ? `Institution: ${draft.institution}` : "",
+    draft.domain ? `Domain: ${draft.domain}` : "",
+    draft.keywords ? `Keywords: ${draft.keywords}` : "",
+    draft.language !== "English" ? `Language: ${draft.language}` : "",
+    draft.notes ? `Author notes: ${draft.notes}` : "",
+    imageUrl ? `Cover image: ${imageUrl}` : "",
+  ].filter(Boolean).join("\n");
+
+  const uploadCoverIfNeeded = async (): Promise<string> => {
+    if (!imgFile) return "";
+    const fd = new FormData();
+    fd.append("file", imgFile);
+    fd.append("context", "submission_cover");
+    const imgRes = await fetch(`${base()}/api/media/upload`, { method: "POST", credentials: "include", body: fd });
+    if (imgRes.ok) {
+      const d = await imgRes.json();
+      return d.url || "";
+    }
+    return "";
+  };
+
+  const saveDraftToServer = async () => {
+    if (!user) { setError("Please sign in to save a draft."); return; }
+    if (!draft.title.trim() && !draft.body.trim()) { setError("Write a title or some content before saving a draft."); return; }
+    setError(""); setSavingDraft(true);
+    try {
+      const typeMap: Record<string, string> = { essay: "ESSAY", paper: "PAPER", review: "REVIEW", commentary: "COMMENTARY", "book-review": "COMMENTARY", translation: "ESSAY" };
+      const type = typeMap[(draft.type || "essay").toLowerCase()] || "ESSAY";
+      const imageUrl = await uploadCoverIfNeeded();
+
+      if (serverDraftId) {
+        const r = await fetch(`${base()}/api/submissions/${serverDraftId}`, {
+          method: "PUT",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type, submitterName: draft.fullName, submitterEmail: draft.email,
+            title: draft.title || "Untitled draft", abstract: draft.abstract, body: draft.body,
+            notes: buildNotes(imageUrl), status: "DRAFT",
+          }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Could not save draft");
+      } else {
+        const r = await fetch(`${base()}/api/submissions/write`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type, submitterName: draft.fullName || user.name || "Draft author", submitterEmail: draft.email || user.email,
+            title: draft.title || "Untitled draft", abstract: draft.abstract, body: draft.body,
+            notes: buildNotes(imageUrl), status: "DRAFT",
+          }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Could not save draft");
+        setServerDraftId(data.submission?.id || null);
+      }
+      setSaveStatus("saved");
+    } catch (err: any) {
+      setError(err.message || "Could not save draft. Please try again.");
+    }
+    setSavingDraft(false);
+  };
+
   const submit = async () => {
     if (!validate()) { setError("Please fix the highlighted fields before submitting."); return; }
     if (!declared) { setError("Please confirm the declaration before submitting."); return; }
@@ -114,42 +225,34 @@ export default function SubmitWritePage() {
 
       // If there's an image, upload it first via the media upload endpoint,
       // then submit the write form with the image URL in notes.
-      let imageUrl = "";
-      if (imgFile) {
-        const fd = new FormData();
-        fd.append("file", imgFile);
-        fd.append("context", "submission_cover");
-        const imgRes = await fetch(`${base()}/api/media/upload`, { method: "POST", credentials: "include", body: fd });
-        if (imgRes.ok) {
-          const d = await imgRes.json();
-          imageUrl = d.url || "";
-        }
+      const imageUrl = await uploadCoverIfNeeded();
+
+      const notes = buildNotes(imageUrl);
+
+      let r: Response;
+      if (serverDraftId) {
+        r = await fetch(`${base()}/api/submissions/${serverDraftId}`, {
+          method: "PUT",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type, submitterName: draft.fullName, submitterEmail: draft.email,
+            title: draft.title, abstract: draft.abstract || "See essay body.", body: draft.body,
+            notes, consent: true, status: "RECEIVED",
+          }),
+        });
+      } else {
+        r = await fetch(`${base()}/api/submissions/write`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type, submitterName: draft.fullName, submitterEmail: draft.email,
+            title: draft.title, abstract: draft.abstract || "See essay body.", body: draft.body,
+            notes, consent: true,
+          }),
+        });
       }
-
-      const body = {
-        type,
-        submitterName: draft.fullName,
-        submitterEmail: draft.email,
-        title: draft.title,
-        abstract: draft.abstract || "See essay body.",
-        body: draft.body,
-        notes: [
-          draft.institution ? `Institution: ${draft.institution}` : "",
-          draft.domain ? `Domain: ${draft.domain}` : "",
-          draft.keywords ? `Keywords: ${draft.keywords}` : "",
-          draft.language !== "English" ? `Language: ${draft.language}` : "",
-          draft.notes ? `Author notes: ${draft.notes}` : "",
-          imageUrl ? `Cover image: ${imageUrl}` : "",
-        ].filter(Boolean).join("\n"),
-        consent: true,
-      };
-
-      const r = await fetch(`${base()}/api/submissions/write`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
 
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "Submission failed");
@@ -376,15 +479,38 @@ export default function SubmitWritePage() {
                 </div>
               )}
 
-              <button
-                type="button"
-                onClick={submit}
-                disabled={submitting}
-                className="w-full btn-sacred btn-gold flex items-center justify-center gap-2"
-                style={{ borderRadius: 6, padding: "1rem", fontSize: "0.8rem", letterSpacing: "0.18em" }}
-              >
-                {submitting ? "Submitting…" : "SUBMIT FOR REVIEW"}
-              </button>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  type="button"
+                  onClick={saveDraftToServer}
+                  disabled={savingDraft || !user}
+                  title={!user ? "Sign in to save drafts to your account" : undefined}
+                  className="w-full sm:w-auto btn-sacred flex items-center justify-center gap-2"
+                  style={{ borderRadius: 6, padding: "1rem 1.25rem", fontSize: "0.75rem", letterSpacing: "0.14em", border: "1px solid rgba(201,152,58,0.4)", background: "transparent", color: "var(--gold-bright)" }}
+                >
+                  <FileText size={14} /> {savingDraft ? "SAVING…" : "SAVE AS DRAFT"}
+                </button>
+                <button
+                  type="button"
+                  onClick={submit}
+                  disabled={submitting}
+                  className="w-full flex-1 btn-sacred btn-gold flex items-center justify-center gap-2"
+                  style={{ borderRadius: 6, padding: "1rem", fontSize: "0.8rem", letterSpacing: "0.18em" }}
+                >
+                  {submitting ? "Submitting…" : "SUBMIT FOR REVIEW"}
+                </button>
+              </div>
+
+              {!user && (
+                <p className="font-ui text-[10px] mt-3 text-center" style={{ color: "var(--ink-faint)", opacity: 0.7 }}>
+                  Sign in to save multiple drafts and resume them later from your account.
+                </p>
+              )}
+              {serverDraftId && (
+                <p className="font-ui text-[10px] mt-3 text-center" style={{ color: "var(--ink-faint)", opacity: 0.7 }}>
+                  This draft is saved to your account and only visible to you until you submit it.
+                </p>
+              )}
 
               <div className="flex items-center justify-center gap-1.5 mt-4">
                 <Lock size={11} style={{ color: "var(--ink-faint)", opacity: 0.5 }} />

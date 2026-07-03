@@ -4,7 +4,7 @@ import {
   adminsTable, articlesTable, papersTable, submissionsTable,
   newsletterSubscribersTable, categoriesTable, usersTable, siteSettingsTable
 } from "@workspace/db";
-import { eq, desc, sql, and } from "drizzle-orm";
+import { eq, desc, sql, and, ne } from "drizzle-orm";
 import {
   hashPassword, comparePassword, createAdminToken,
   getAdminAuth, setAdminCookie, clearAdminCookie
@@ -154,9 +154,9 @@ router.get("/admin/stats", requireAdmin, async (req, res) => {
       db.select({ total: sql<number>`count(*)` }).from(papersTable),
       db.select({ total: sql<number>`count(*)` }).from(papersTable).where(eq(papersTable.status, "PUBLISHED")),
       db.select({ total: sql<number>`count(*)` }).from(submissionsTable).where(eq(submissionsTable.status, "RECEIVED")),
-      db.select({ total: sql<number>`count(*)` }).from(submissionsTable),
+      db.select({ total: sql<number>`count(*)` }).from(submissionsTable).where(ne(submissionsTable.status, "DRAFT")),
       db.select({ total: sql<number>`count(*)` }).from(newsletterSubscribersTable).where(eq(newsletterSubscribersTable.isActive, true)),
-      db.select().from(submissionsTable).orderBy(desc(submissionsTable.createdAt)).limit(5),
+      db.select().from(submissionsTable).where(ne(submissionsTable.status, "DRAFT")).orderBy(desc(submissionsTable.createdAt)).limit(5),
     ]);
 
     return res.json({
@@ -345,12 +345,15 @@ router.delete("/admin/papers/:id", requireAdmin, async (req, res) => {
 });
 
 // GET /api/admin/submissions
+// Drafts are private working copies and must never surface here, regardless
+// of the requested status filter.
 router.get("/admin/submissions", requireAdmin, async (req, res) => {
   try {
     const { status } = req.query;
-    const conditions = status ? [eq(submissionsTable.status, status as any)] : [];
+    const conditions = [ne(submissionsTable.status, "DRAFT")];
+    if (status && status !== "DRAFT") conditions.push(eq(submissionsTable.status, status as any));
     const submissions = await db.select().from(submissionsTable)
-      .where(conditions.length ? and(...conditions) : undefined)
+      .where(and(...conditions))
       .orderBy(desc(submissionsTable.createdAt));
     return res.json({ submissions, total: submissions.length });
   } catch (err) {
