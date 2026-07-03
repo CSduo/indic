@@ -1358,6 +1358,28 @@ button {
   50% { transform: translateY(-8px); }
 }
 
+@keyframes embersRise {
+  0%   { opacity: 0.9;  transform: translateY(0)      translateX(0)                         scale(1); }
+  40%  { opacity: 0.6;  transform: translateY(-50px)  translateX(var(--ember-drift, 6px))   scale(0.7); }
+  100% { opacity: 0;    transform: translateY(-140px) translateX(var(--ember-drift2, -4px)) scale(0.12); }
+}
+
+@keyframes heroZoom {
+  0%, 100% { transform: scale(1.04); }
+  50%       { transform: scale(1.12); }
+}
+
+@keyframes lanternGlow {
+  0%, 100% { opacity: 0.28; transform: scale(1)    blur(18px); }
+  33%       { opacity: 0.52; transform: scale(1.08) blur(12px); }
+  66%       { opacity: 0.32; transform: scale(0.96) blur(22px); }
+}
+
+@keyframes inscribe {
+  from { opacity: 0; letter-spacing: 0.5em; }
+  to   { opacity: 1; letter-spacing: 0.3em; }
+}
+
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
