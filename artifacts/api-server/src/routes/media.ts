@@ -4,8 +4,17 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { UPLOADS_DIR } from "./submissions";
+import { getUserAuth } from "../lib/auth";
 
 const router = Router();
+
+const ALLOWED_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
+const ALLOWED_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
 
 const storage = multer.diskStorage({
   destination: (_req: any, _file: any, cb: any) => cb(null, UPLOADS_DIR),
@@ -18,9 +27,29 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB max
+  fileFilter: (_req: any, file: any, cb: any): void => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!ALLOWED_MIME_TYPES.has(file.mimetype) || !ALLOWED_EXTENSIONS.has(ext)) {
+      cb(new Error("Unsupported file type. Only JPEG, PNG, WEBP, and GIF images are allowed."));
+      return;
+    }
+    cb(null, true);
+  },
 });
 
-router.post("/media/upload", upload.single("file"), async (req: any, res) => {
+router.post("/media/upload", async (req: any, res: any, next: any): Promise<void> => {
+  const auth = await getUserAuth(req);
+  if (!auth) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  next();
+}, (req: any, res: any, next: any) => {
+  upload.single("file")(req, res, (err: any) => {
+    if (err) return res.status(400).json({ error: err.message || "Upload failed" });
+    next();
+  });
+}, async (req: any, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });

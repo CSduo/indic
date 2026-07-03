@@ -1,1 +1,2 @@
 - [pnpm workspace TS project references](ts-project-references-stale-dist.md) — after copying/overwriting `lib/*` package sources, stale `dist/` + `.tsbuildinfo` break downstream typecheck with confusing `TS2305`/`TS6305` errors.
+- [API server security review gate](api-server-security-gate.md) — code review blocks task completion on unauthenticated upload endpoints and SSRF-prone URL fetchers, even if pre-existing/unrelated to the session's task.
