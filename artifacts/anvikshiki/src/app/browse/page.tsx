@@ -24,8 +24,8 @@ export default function BrowsePage() {
         </nav>
 
         <HeroPanel
-          image={asset("/images/heroes/explore-domain.jpg")}
-          imageAlt="Illustrated archival domain landscape"
+          image={asset("/images/provided/browse-atlas-map-hero.jpg")}
+          imageAlt="Illustrated civilizational atlas map with routes, ships, animals, and cities"
           eyebrow="Domain Atlas"
           title="Explore by Domain"
           subtitle="Discover knowledge across timeless fields of inquiry."

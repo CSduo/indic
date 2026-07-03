@@ -43,8 +43,8 @@ export default function PapersPage() {
           <span className="text-[var(--terracotta)]">Papers</span>
         </nav>
         <HeroPanel
-          image={asset("/images/heroes/archive-scribe.jpg")}
-          imageAlt="Illustrated scribe and manuscript archive"
+          image={asset("/images/provided/papers-ornate-library-hall-hero.jpg")}
+          imageAlt="Illustrated ornate library hall with books, owl, globe, and scholarly symbols"
           eyebrow="Research Repository"
           title="Papers"
           subtitle="Working papers, peer-reviewed manuscripts, and research notes."

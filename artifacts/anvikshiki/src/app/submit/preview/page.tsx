@@ -7,6 +7,15 @@ import { useAuthContext } from "@/contexts/AuthContext";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
+function escapeHtml(text: string): string {
+  return (text || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 export default function PreviewPage() {
   const [, navigate] = useLocation();
   const { user } = useAuthContext();
@@ -19,9 +28,9 @@ export default function PreviewPage() {
     if (!id) { navigate("/submit/write"); return; }
     fetch(`${base()}/api/submissions/${id}`, { credentials: "include" })
       .then(r => { if (r.status === 401) { navigate("/login"); return null; } return r.json(); })
-      .then(d => { if (d) setDraft(d); setLoading(false); })
+      .then(d => { if (d) setDraft(d.submission || d); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [user]);
+  }, [user, navigate]);
 
   if (loading) {
     return (
@@ -82,7 +91,7 @@ export default function PreviewPage() {
             {draft.body ? (
               <div
                 className="prose-anv font-body text-base leading-[1.9] text-[var(--ink-soft)]"
-                dangerouslySetInnerHTML={{ __html: draft.body.replace(/\n/g, "<br />") }}
+                dangerouslySetInnerHTML={{ __html: escapeHtml(draft.body).replace(/\n/g, "<br />") }}
               />
             ) : (
               <ParchmentCard className="p-8 text-center">

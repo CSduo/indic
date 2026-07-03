@@ -13,8 +13,8 @@ export default function AboutPage() {
     <div className="bg-[var(--bg)]">
       <section className="container-anv py-6 md:py-10">
         <HeroPanel
-          image={asset("/images/heroes/explore-domain.jpg")}
-          imageAlt="Illustrated archive and civilizational landscape"
+          image={asset("/images/provided/about-temple-guardian-cat-hero.jpg")}
+          imageAlt="Illustrated scholar walking past carved temple panels with a black cat companion"
           eyebrow="Our Mission"
           title="About Anvikshiki"
           subtitle="The philosophical examination of truth."

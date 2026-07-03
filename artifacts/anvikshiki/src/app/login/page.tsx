@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Eye, EyeOff, Globe } from "lucide-react";
 import { toast } from "sonner";
-import { Emblem } from "@/components/brand/Emblem";
+
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
@@ -69,7 +69,7 @@ export default function LoginPage() {
         <ParchmentCard className="p-6 md:p-8">
           <div className="mb-7 text-center">
             <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-[8px] border border-[var(--border-ink)] bg-[var(--surface)] text-[var(--gold)]">
-              <Emblem size={48} />
+              <span className="font-display text-3xl tracking-[0.18em]" style={{ color: 'var(--gold)' }}>ĀNVĪKṢIKĪ</span>
             </div>
             <h1 className="font-display text-3xl tracking-[0.12em] text-[var(--ink)]">ANVIKSIKI</h1>
             <p className="mt-2 font-body text-sm italic text-[var(--ink-soft)]">Sign in to continue your inquiry.</p>

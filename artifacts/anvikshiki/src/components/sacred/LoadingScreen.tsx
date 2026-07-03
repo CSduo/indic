@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Emblem } from "@/components/brand/Emblem";
+
 
 export function LoadingScreen({ onDone }: { onDone?: () => void }) {
   const [pct, setPct] = useState(0);
@@ -73,7 +73,7 @@ export function LoadingScreen({ onDone }: { onDone?: () => void }) {
         {/* Emblem */}
         <div className="relative w-[200px] h-[200px] flex items-center justify-center">
           <div className="animate-glow" style={{ borderRadius: "50%", padding: 8 }}>
-            <Emblem size={120} />
+            <span className="font-display text-4xl tracking-[0.2em] animate-pulse" style={{ color: 'var(--gold)' }}>ĀNVĪKṢIKĪ</span>
           </div>
         </div>
       </div>

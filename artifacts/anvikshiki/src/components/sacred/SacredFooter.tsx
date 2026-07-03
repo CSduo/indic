@@ -2,8 +2,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { ArrowRight } from "lucide-react";
 import { toast } from "sonner";
-import { Emblem } from "@/components/brand/Emblem";
-import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
+
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -43,7 +42,7 @@ function FooterNewsletter() {
   if (status === "ok") {
     return (
       <div className="flex items-center gap-2 rounded-[8px] border border-[var(--border-gold)] bg-[var(--surface)] px-3 py-2 text-[var(--gold)]">
-        <AnimalGlyph domain="community" size={18} />
+        <span className="font-display text-sm" style={{ color: 'var(--gold)' }}>✦</span>
         <span className="font-ui text-xs font-bold uppercase tracking-[0.12em]">Connected</span>
       </div>
     );
@@ -80,7 +79,7 @@ export function SacredFooter() {
           <section>
             <div className="mb-4 flex items-center gap-3">
               <span className="grid h-11 w-11 place-items-center rounded-[8px] border border-[var(--border-ink)] bg-[var(--surface)] text-[var(--gold)]">
-                <Emblem size={34} />
+                <span className="font-display text-lg tracking-[0.15em]" style={{ color: 'var(--gold)' }}>ĀNVĪKṢIKĪ</span>
               </span>
               <div>
                 <div className="font-display text-xl tracking-[0.18em] text-[var(--ink)]">ANVIKSIKI</div>

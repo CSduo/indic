@@ -66,7 +66,7 @@ export default function ArchivePage() {
 
           <ParchmentCard className="overflow-hidden" corners={false}>
             <div className="relative min-h-[420px]">
-              <img src={asset("/images/heroes/archive-scribe.jpg")} alt="Illustrated scribe working in an archive" className="absolute inset-0 h-full w-full object-cover" />
+              <img src={asset("/images/provided/archive-voyage-harbor-hero.jpg")} alt="Illustrated ship arriving at an ornate harbor city under a bright sun" className="absolute inset-0 h-full w-full object-cover" />
               <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg)] via-[var(--bg)]/15 to-transparent" aria-hidden="true" />
               <div className="absolute inset-x-0 bottom-0 p-7 text-center">
                 <h1 className="font-display text-[clamp(2.5rem,6vw,4.8rem)] leading-none text-[var(--ink)]">Archive / Knowledge Map</h1>

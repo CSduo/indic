@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { ArrowRight, BookOpen, Clock3, Send, Users } from "lucide-react";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
@@ -21,11 +21,8 @@ const ACTION_ROWS = [
   { label: "Join Community",   sub: "Connect with scholars, readers, and creators of knowledge.",     href: "/community", Icon: Users,    bg: "var(--gold-pale)",  text: "var(--ink)" },
 ] as const;
 
-const FRIEZE_SYMBOLS = ["♦", "🐂", "♦", "🐆", "♦", "🪷", "♦", "🐘", "♦", "🦢", "♦", "🐍", "♦"];
-
 export default function HomePage() {
   const [featuredEssays, setFeaturedEssays] = useState<any[]>([]);
-  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     fetch(`${base}/api/articles?featured=true&limit=4`, { credentials: "include" })
@@ -49,20 +46,16 @@ export default function HomePage() {
   return (
     <div className="home-v3">
 
-      {/* ─── HERO ─── */}
+      {/* ─── HERO — Image hero replacing broken video ─── */}
       <section className="home-v3-hero">
 
-        {/* Full-bleed video */}
+        {/* Full-bleed hero image */}
         <div className="home-v3-video-wrap" aria-hidden="true">
-          <video
-            ref={videoRef}
+          <img
+            src={asset("/images/provided/home-falcon-city-panorama-hero.jpg")}
+            alt="Illustrated scholar with falcon overlooking mountains and a luminous city"
             className="home-v3-video"
-            src={asset("/hero-world.mp4")}
-            autoPlay
-            muted
-            loop
-            playsInline
-            poster={asset("/homepage_hero_scholar.png")}
+            style={{ objectFit: "cover", width: "100%", height: "100%" }}
           />
         </div>
 
@@ -114,13 +107,15 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Bottom animal-glyph frieze */}
+        {/* Ornamental divider — replaces old emoji FRIEZE_SYMBOLS */}
         <div className="home-v3-frieze" aria-hidden="true">
-          {FRIEZE_SYMBOLS.map((s, i) => (
-            <span key={i} className={s === "♦" ? "home-v3-frieze-diamond" : "home-v3-frieze-animal"}>
-              {s}
-            </span>
-          ))}
+          <span className="home-v3-frieze-ornament">
+            <span className="home-v3-frieze-diamond">✦</span>
+            <span className="home-v3-frieze-line" />
+            <span className="home-v3-frieze-diamond">❋</span>
+            <span className="home-v3-frieze-line" />
+            <span className="home-v3-frieze-diamond">✦</span>
+          </span>
         </div>
 
       </section>

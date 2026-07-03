@@ -17,175 +17,201 @@ const strokeProps = {
   strokeLinejoin: "round" as const,
 };
 
-function Serpent() {
+/* ─── Premium abstract domain marks ─── */
+
+/** Lotus flower — Philosophy */
+function Lotus() {
   return (
     <>
-      <path {...strokeProps} d="M20 7c-5 1-8 4-8 8 0 5 8 3 8 8 0 4-6 5-10 2" />
-      <path {...strokeProps} d="M19 7c3 1 4 3 3 5-1.5 3-7 2-8 5" />
-      <circle cx="22" cy="8" r="1.2" fill="currentColor" opacity=".55" />
-      <path {...strokeProps} d="M9 26c3-2 6-2 9 0" opacity=".55" />
+      <path {...strokeProps} d="M16 26c-2-4-1-10 0-14 1 4 2 10 0 14" />
+      <path {...strokeProps} d="M16 12c-3 2-6 7-5 14 3-3 4-8 5-14" opacity=".75" />
+      <path {...strokeProps} d="M16 12c3 2 6 7 5 14-3-3-4-8-5-14" opacity=".75" />
+      <path {...strokeProps} d="M16 10c-5 1-9 6-9 12 3-2 6-6 9-12" opacity=".5" />
+      <path {...strokeProps} d="M16 10c5 1 9 6 9 12-3-2-6-6-9-12" opacity=".5" />
+      <circle cx="16" cy="8" r="1.5" fill="currentColor" opacity=".4" />
     </>
   );
 }
 
-function Ram() {
+/** Arch/Column — History */
+function Arch() {
   return (
     <>
-      <path {...strokeProps} d="M10 16c0-5 4-8 8-6 4 2 4 8 0 10-4 2-8 0-8-4Z" />
-      <path {...strokeProps} d="M10 15c-4-1-4-7 1-8 3 0 4 3 2 5" />
-      <path {...strokeProps} d="M18 10c2-4 8-2 8 2 0 4-4 5-6 3" />
-      <path {...strokeProps} d="M14 21v5M20 20v6M12 26h10" opacity=".7" />
+      <path {...strokeProps} d="M8 28V12a8 8 0 0 1 16 0v16" />
+      <path {...strokeProps} d="M11 28V14a5 5 0 0 1 10 0v14" opacity=".6" />
+      <line {...strokeProps} x1="6" y1="28" x2="26" y2="28" />
+      <line {...strokeProps} x1="8" y1="8" x2="24" y2="8" opacity=".4" />
+      <circle cx="16" cy="6" r="1.2" fill="currentColor" opacity=".45" />
     </>
   );
 }
 
-function Monkey() {
+/** Spiral eye — Psychology */
+function Spiral() {
   return (
     <>
-      <circle {...strokeProps} cx="14" cy="13" r="5" />
-      <circle {...strokeProps} cx="8" cy="13" r="2.5" opacity=".7" />
-      <path {...strokeProps} d="M18 18c3 1 5 3 5 6 0 2-2 3-4 2" />
-      <path {...strokeProps} d="M12 18c-2 2-4 4-6 5M15 18v7" />
-      <path {...strokeProps} d="M12 13h.1M16 13h.1M13 16c1 .6 2 .6 3 0" />
+      <circle {...strokeProps} cx="16" cy="16" r="10" opacity=".35" />
+      <path {...strokeProps} d="M16 10c3.3 0 6 2.7 6 6s-2.7 6-6 6-5-2.2-5-5 1.8-4 4-4 3 1.3 3 3-1 2-2 2" />
+      <circle cx="16" cy="16" r="1.5" fill="currentColor" opacity=".55" />
     </>
   );
 }
 
-function Crane() {
+/** Network nodes — Sociology */
+function Network() {
   return (
     <>
-      <path {...strokeProps} d="M10 24c3-2 6-6 7-13" />
-      <path {...strokeProps} d="M17 11c2-3 5-3 8-1-3 1-5 2-8 1Z" />
-      <path {...strokeProps} d="M14 16c-4-2-8 0-9 4 4 1 7 0 10-3" />
-      <path {...strokeProps} d="M13 24v4M17 23l2 5M10 28h10" opacity=".7" />
+      <circle {...strokeProps} cx="16" cy="8" r="3" />
+      <circle {...strokeProps} cx="8" cy="22" r="3" />
+      <circle {...strokeProps} cx="24" cy="22" r="3" />
+      <circle {...strokeProps} cx="16" cy="20" r="2.5" opacity=".6" />
+      <line {...strokeProps} x1="16" y1="11" x2="16" y2="17.5" />
+      <line {...strokeProps} x1="14" y1="19" x2="10.5" y2="20.5" opacity=".6" />
+      <line {...strokeProps} x1="18" y1="19" x2="21.5" y2="20.5" opacity=".6" />
+      <line {...strokeProps} x1="10" y1="20" x2="22" y2="20" opacity=".35" />
     </>
   );
 }
 
-function Spider() {
+/** Atom — Science */
+function Atom() {
   return (
     <>
-      <circle {...strokeProps} cx="16" cy="15" r="4.5" />
-      <circle {...strokeProps} cx="16" cy="8" r="2.2" opacity=".75" />
-      <path {...strokeProps} d="M12 13 6 9M12 16 5 16M12 18 7 23M20 13l6-4M20 16h7M20 18l5 5" />
-      <path {...strokeProps} d="M14 11 10 6M18 11l4-5" opacity=".65" />
+      <ellipse {...strokeProps} cx="16" cy="16" rx="10" ry="4" />
+      <ellipse {...strokeProps} cx="16" cy="16" rx="10" ry="4" transform="rotate(60 16 16)" />
+      <ellipse {...strokeProps} cx="16" cy="16" rx="10" ry="4" transform="rotate(120 16 16)" />
+      <circle cx="16" cy="16" r="2" fill="currentColor" opacity=".5" />
     </>
   );
 }
 
-function Elephant() {
+/** Globe — Geopolitics */
+function Globe() {
   return (
     <>
-      <path {...strokeProps} d="M7 19c0-6 4-10 10-10 5 0 8 3 8 8v6" />
-      <path {...strokeProps} d="M10 13c-4 0-6 3-5 7 2 0 4-2 5-5" />
-      <path {...strokeProps} d="M23 17c3 0 4 2 3 4-1 2-4 1-4-1" />
-      <path {...strokeProps} d="M12 20v6M20 20v6M10 26h4M18 26h5" opacity=".7" />
-      <path {...strokeProps} d="M24 13c2 2 2 5 0 7" />
+      <circle {...strokeProps} cx="16" cy="16" r="10" />
+      <ellipse {...strokeProps} cx="16" cy="16" rx="5" ry="10" />
+      <line {...strokeProps} x1="6" y1="12" x2="26" y2="12" opacity=".5" />
+      <line {...strokeProps} x1="6" y1="20" x2="26" y2="20" opacity=".5" />
+      <line {...strokeProps} x1="16" y1="6" x2="16" y2="26" opacity=".35" />
     </>
   );
 }
 
-function Leopard() {
+/** Scroll — Papers */
+function Scroll() {
   return (
     <>
-      <path {...strokeProps} d="M5 18c3-5 9-7 15-5 4 1 6 4 5 7" />
-      <path {...strokeProps} d="M20 13c1-3 4-4 6-2M9 19l-2 6M16 19l1 6M7 25h4M16 25h4" />
-      <path {...strokeProps} d="M23 20c3 0 4 2 3 4" opacity=".7" />
-      <circle cx="12" cy="15" r=".9" fill="currentColor" opacity=".45" />
-      <circle cx="16" cy="16" r=".8" fill="currentColor" opacity=".38" />
-      <circle cx="19" cy="14" r=".75" fill="currentColor" opacity=".38" />
+      <path {...strokeProps} d="M10 6c-2 0-3 1.5-3 3v16c0 1.5 1 3 3 3h12c2 0 3-1.5 3-3" />
+      <path {...strokeProps} d="M10 6h12c2 0 3 1.5 3 3 0 1.5-1 3-3 3H10c-2 0-3-1.5-3-3s1-3 3-3z" />
+      <line {...strokeProps} x1="11" y1="16" x2="21" y2="16" opacity=".5" />
+      <line {...strokeProps} x1="11" y1="19.5" x2="19" y2="19.5" opacity=".4" />
+      <line {...strokeProps} x1="11" y1="23" x2="17" y2="23" opacity=".35" />
     </>
   );
 }
 
-function Bull() {
+/** Book/chest — Archive */
+function BookChest() {
   return (
     <>
-      <path {...strokeProps} d="M8 18c0-5 4-8 9-8 5 0 8 3 8 8 0 4-3 7-8 7s-9-3-9-7Z" />
-      <path {...strokeProps} d="M10 11C8 7 5 7 3 10c2 0 4 1 5 3M23 11c2-4 5-4 7-1-2 0-4 1-5 3" />
-      <path {...strokeProps} d="M13 18h.1M20 18h.1M14 22h5" />
+      <rect {...strokeProps} x="6" y="8" width="20" height="18" rx="2" />
+      <line {...strokeProps} x1="6" y1="14" x2="26" y2="14" />
+      <line {...strokeProps} x1="14" y1="14" x2="14" y2="26" opacity=".4" />
+      <rect {...strokeProps} x="9" y="10" width="3" height="4" rx=".5" opacity=".5" />
+      <rect {...strokeProps} x="13" y="9" width="3.5" height="5" rx=".5" opacity=".6" />
+      <circle cx="22" cy="20" r="1.2" fill="currentColor" opacity=".35" />
     </>
   );
 }
 
-function Peacock() {
+/** Temple — Civilization */
+function Temple() {
   return (
     <>
-      <path {...strokeProps} d="M15 24c-1-6 1-10 4-13 2-2 5-2 7 0-3 0-5 2-6 5" />
-      <path {...strokeProps} d="M12 22C8 17 6 12 8 7c4 2 6 6 6 12M16 22c5-5 7-10 6-15-4 2-7 6-7 12" opacity=".75" />
-      <circle cx="8" cy="7" r="1" fill="currentColor" opacity=".45" />
-      <circle cx="22" cy="7" r="1" fill="currentColor" opacity=".45" />
-      <circle cx="15" cy="5" r="1" fill="currentColor" opacity=".35" />
-      <path {...strokeProps} d="M15 24v4M12 28h6" />
+      <path {...strokeProps} d="M16 4l-12 8h24z" />
+      <line {...strokeProps} x1="8" y1="12" x2="8" y2="26" />
+      <line {...strokeProps} x1="13" y1="12" x2="13" y2="26" />
+      <line {...strokeProps} x1="19" y1="12" x2="19" y2="26" />
+      <line {...strokeProps} x1="24" y1="12" x2="24" y2="26" />
+      <line {...strokeProps} x1="5" y1="26" x2="27" y2="26" />
+      <line {...strokeProps} x1="6" y1="12" x2="26" y2="12" />
+      <circle cx="16" cy="8" r="1" fill="currentColor" opacity=".4" />
     </>
   );
 }
 
-function Lion() {
+/** Shield/seal — Political Theory */
+function Shield() {
   return (
     <>
-      <circle {...strokeProps} cx="15" cy="15" r="6" />
-      <path {...strokeProps} d="M9 15c-3-3-2-8 2-9M21 15c3-3 2-8-2-9M11 10l-3-4M19 10l3-4" opacity=".75" />
-      <path {...strokeProps} d="M13 15h.1M17 15h.1M14 19c1 .7 2 .7 3 0M15 21v5" />
+      <path {...strokeProps} d="M16 4l-9 4v8c0 6 4 10 9 12 5-2 9-6 9-12V8z" />
+      <path {...strokeProps} d="M16 10v10M12 15h8" opacity=".5" />
+      <circle cx="16" cy="11" r="1.2" fill="currentColor" opacity=".35" />
     </>
   );
 }
 
-function TwoBirds() {
+/** Two quills — Translations */
+function TwoQuills() {
   return (
     <>
-      <path {...strokeProps} d="M5 17c4-5 8-5 12 0-4 1-8 1-12 0Z" />
-      <path {...strokeProps} d="M16 14c4-4 8-3 11 1-4 1-7 1-11-1Z" />
-      <path {...strokeProps} d="M9 17v5M21 15v6M7 22h5M19 21h5" opacity=".7" />
-      <circle cx="13" cy="14" r=".8" fill="currentColor" opacity=".6" />
-      <circle cx="24" cy="13" r=".8" fill="currentColor" opacity=".6" />
+      <path {...strokeProps} d="M8 26c1-8 3-14 8-18" />
+      <path {...strokeProps} d="M16 8c-1 2-3 4-6 5" opacity=".6" />
+      <path {...strokeProps} d="M24 26c-1-8-3-14-8-18" />
+      <path {...strokeProps} d="M16 8c1 2 3 4 6 5" opacity=".6" />
+      <circle cx="16" cy="6" r="1.3" fill="currentColor" opacity=".45" />
+      <line {...strokeProps} x1="12" y1="28" x2="20" y2="28" opacity=".4" />
     </>
   );
 }
 
-function Bird() {
+/** Lyre/harp — Multimedia */
+function Lyre() {
   return (
     <>
-      <path {...strokeProps} d="M5 16c5-6 12-6 18 0-5 2-11 2-18 0Z" />
-      <path {...strokeProps} d="M13 16c-1 4 1 7 5 8M19 14c2-2 5-2 8 0-2 1-4 2-7 1" />
-      <path {...strokeProps} d="M17 24v4M14 28h7" opacity=".7" />
-      <circle cx="20" cy="13" r=".8" fill="currentColor" opacity=".6" />
+      <path {...strokeProps} d="M10 24V10c0-3 3-5 6-5s6 2 6 5v14" />
+      <path {...strokeProps} d="M10 10c3 3 9 3 12 0" opacity=".6" />
+      <line {...strokeProps} x1="13" y1="12" x2="13" y2="24" opacity=".35" />
+      <line {...strokeProps} x1="16" y1="11" x2="16" y2="24" opacity=".4" />
+      <line {...strokeProps} x1="19" y1="12" x2="19" y2="24" opacity=".35" />
+      <line {...strokeProps} x1="8" y1="24" x2="24" y2="24" />
     </>
   );
 }
 
-function DefaultGlyph() {
+/** Compass star — Default */
+function CompassStar() {
   return (
     <>
-      <path {...strokeProps} d="M16 4c-3 6-7 9-12 9 5 0 9 3 12 9 3-6 7-9 12-9-5 0-9-3-12-9Z" />
-      <path {...strokeProps} d="M16 22v6" opacity=".65" />
-      <circle cx="16" cy="29" r="1.3" fill="currentColor" opacity=".55" />
+      <path {...strokeProps} d="M16 4l2 10 10 2-10 2-2 10-2-10-10-2 10-2z" />
+      <circle cx="16" cy="16" r="2" fill="currentColor" opacity=".35" />
     </>
   );
 }
 
 function glyphFor(key: DomainKey) {
   switch (key) {
-    case "philosophy": return <Serpent />;
-    case "history": return <Ram />;
-    case "psychology": return <Monkey />;
-    case "sociology": return <Crane />;
-    case "science": return <Spider />;
-    case "geopolitics": return <Elephant />;
-    case "papers": return <Leopard />;
-    case "archive": return <Bull />;
+    case "philosophy": return <Lotus />;
+    case "history": return <Arch />;
+    case "psychology": return <Spiral />;
+    case "sociology": return <Network />;
+    case "science": return <Atom />;
+    case "geopolitics": return <Globe />;
+    case "papers": return <Scroll />;
+    case "archive": return <BookChest />;
     case "civilization":
     case "civilizational-thought":
     case "aesthetics":
     case "sanskrit":
     case "sanskrit-studies":
-      return <Peacock />;
-    case "political-theory": return <Lion />;
-    case "translations": return <TwoBirds />;
-    case "multimedia": return <Bird />;
-    case "community": return <Crane />;
-    case "submit": return <Leopard />;
-    default: return <DefaultGlyph />;
+      return <Temple />;
+    case "political-theory": return <Shield />;
+    case "translations": return <TwoQuills />;
+    case "multimedia": return <Lyre />;
+    case "community": return <Network />;
+    case "submit": return <Scroll />;
+    default: return <CompassStar />;
   }
 }
 

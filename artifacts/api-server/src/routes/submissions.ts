@@ -14,8 +14,8 @@ const UPLOADS_DIR = process.env.UPLOADS_DIR || "/tmp/anvikshiki-uploads";
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
-  filename: (_req, file, cb) => {
+  destination: (_req: any, _file: any, cb: any) => cb(null, UPLOADS_DIR),
+  filename: (_req: any, file: any, cb: any) => {
     const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_");
     cb(null, `${Date.now()}-${safe}`);
   },
@@ -24,18 +24,30 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: { fileSize: 52 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    const allowed = [
+  fileFilter: (_req: any, file: any, cb: any) => {
+    const manuscriptTypes = [
       "application/pdf",
       "application/msword",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       "text/plain",
-      "image/jpeg",
-      "image/png",
-      "image/webp",
     ];
-    if (allowed.includes(file.mimetype) || file.fieldname === "coverImage") {
-      cb(null, true);
+    const imageTypes = ["image/jpeg", "image/png", "image/webp"];
+
+    if (file.fieldname === "coverImage") {
+      // Cover images: only allow image MIME types
+      if (imageTypes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error("File type not allowed"));
+      }
+    } else if (file.fieldname === "manuscript") {
+      // Manuscripts: allow document + image types
+      const allowed = [...manuscriptTypes, ...imageTypes];
+      if (allowed.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error("File type not allowed"));
+      }
     } else {
       cb(new Error("File type not allowed"));
     }
@@ -202,6 +214,30 @@ router.get("/submissions", async (req, res) => {
       .orderBy(submissionsTable.createdAt);
 
     return res.json({ submissions });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
+// GET /api/submissions/:id (single submission by ID)
+router.get("/submissions/:id", async (req, res) => {
+  try {
+    const auth = await getUserAuth(req);
+    if (!auth) return res.status(401).json({ error: "Unauthorized" });
+
+    const [submission] = await db.select().from(submissionsTable)
+      .where(eq(submissionsTable.id, req.params.id))
+      .limit(1);
+
+    if (!submission) return res.status(404).json({ error: "Submission not found" });
+
+    // Only the owning user (or an admin via separate admin routes) can view
+    if (submission.userId !== auth.userId) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    return res.json({ submission });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed" });

@@ -13,6 +13,8 @@ import savedItemsRouter from "./saved-items";
 import uploadsRouter from "./uploads";
 import collectionsRouter from "./collections";
 import notificationsRouter from "./notifications";
+import contactRouter from "./contact";
+import mediaRouter from "./media";
 
 const router: IRouter = Router();
 
@@ -30,5 +32,7 @@ router.use(savedItemsRouter);
 router.use(uploadsRouter);
 router.use(collectionsRouter);
 router.use(notificationsRouter);
+router.use(contactRouter);
+router.use(mediaRouter);
 
 export default router;

@@ -13,13 +13,23 @@ export default function DomainsPage() {
 
   return (
     <div className="bg-[var(--bg)]">
+      {/* Hero Banner */}
+      <section className="container-anv pt-6 md:pt-10">
+        <div className="relative w-full h-48 md:h-64 rounded-xl overflow-hidden mb-8">
+          <img src="/images/provided/domains-tiger-civilization-panel.jpg" alt="Illustrated tiger walking across ancient terraces above a grand city" className="w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[var(--surface)]/80 to-transparent flex items-end p-6">
+            <h1 className="font-display text-3xl md:text-4xl" style={{ color: 'var(--ink)' }}>Domains of Knowledge</h1>
+          </div>
+        </div>
+      </section>
+
       {/* Header */}
       <section className="container-anv py-12 md:py-16">
         <div className="max-w-2xl">
           <p className="type-section-label mb-3">Domains of Inquiry</p>
-          <h1 className="font-display text-5xl md:text-6xl leading-[1.1] text-[var(--ink)]">
+          <h2 className="font-display text-5xl md:text-6xl leading-[1.1] text-[var(--ink)]">
             Explore the Fields
-          </h1>
+          </h2>
           <p className="mt-4 font-body text-base leading-7 text-[var(--ink-soft)] max-w-lg">
             Each domain is a living field of sustained inquiry — drawing from tradition,
             evidence, and imagination to map the terrain of thought.

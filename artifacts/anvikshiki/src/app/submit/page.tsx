@@ -29,8 +29,8 @@ export default function SubmitLandingPage() {
     <div className="bg-[var(--bg)]">
       <section className="container-anv py-6 md:py-10">
         <HeroPanel
-          image={asset("/images/heroes/submit-hero.jpg")}
-          imageAlt="Illustrated traveler-scholar entering the archive"
+          image={asset("/images/provided/submit-falcon-city-hero.jpg")}
+          imageAlt="Illustrated figure with falcon and lantern overlooking a scholarly city"
           eyebrow="Submission Portal"
           title="Share your inquiry. Join the archive."
           description="Anvikshiki welcomes original essays, research papers, translations, reviews, and reflections that deepen civilizational inquiry."
