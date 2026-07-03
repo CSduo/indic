@@ -1785,6 +1785,28 @@ button {
   color: var(--ink);
 }
 
+/* Icon-only account button (unauthenticated state) */
+.sacred-account-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-gold);
+  border-radius: 50%;
+  color: var(--ink-soft);
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  margin-inline: 0.35rem;
+  flex-shrink: 0;
+}
+
+.sacred-account-icon-btn:hover {
+  background: rgba(139, 96, 32, 0.08);
+  color: var(--ink);
+  border-color: var(--gold);
+}
+
 /* Account button */
 .sacred-account-btn {
   display: flex;

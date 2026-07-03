@@ -112,8 +112,8 @@ export function SacredHeader() {
                   ) : null}
                 </div>
               ) : (
-                <Link href="/login" className="sacred-signin-btn">
-                  Sign In
+                <Link href="/login" className="sacred-account-icon-btn" aria-label="Sign in or create account">
+                  <User size={20} strokeWidth={1.6} />
                 </Link>
               )}
 
