@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { Lock } from "lucide-react";
 import { toast } from "sonner";
-import { Emblem } from "@/components/brand/Emblem";
+
 import { LotusDivider, LotusIcon } from "@/components/sacred/LotusIcon";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -42,7 +42,7 @@ export default function AdminLoginPage() {
       </div>
       <div className="relative z-10 w-full max-w-sm px-4">
         <div className="flex flex-col items-center mb-8">
-          <Emblem size={56} className="mb-3 animate-float" />
+          <span className="font-display text-4xl tracking-[0.2em] animate-float mb-3" style={{ color: 'var(--gold)' }}>ĀNVĪKṢIKĪ</span>
           <div className="font-display text-2xl tracking-[0.15em]" style={{ color: "var(--gold-bright)" }}>ĀNVĪKṢIKĪ</div>
           <div className="font-ui text-xs tracking-[0.2em] uppercase mt-1" style={{ color: "var(--muted)" }}>Admin Portal</div>
           <LotusIcon size={14} className="mt-2" style={{ color: "var(--gold)", opacity: 0.5 }} />

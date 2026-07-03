@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { ArrowRight } from "lucide-react";
 import { toast } from "sonner";
-import { Emblem } from "@/components/brand/Emblem";
-import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
+
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
+import { LotusIcon } from "@/components/sacred/LotusIcon";
+import { FloralBorder, FloralCorner, LotusBlossom } from "@/components/sacred/FloralDecor";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -43,7 +44,7 @@ function FooterNewsletter() {
   if (status === "ok") {
     return (
       <div className="flex items-center gap-2 rounded-[8px] border border-[var(--border-gold)] bg-[var(--surface)] px-3 py-2 text-[var(--gold)]">
-        <AnimalGlyph domain="community" size={18} />
+        <span className="font-display text-sm" style={{ color: 'var(--gold)' }}>✦</span>
         <span className="font-ui text-xs font-bold uppercase tracking-[0.12em]">Connected</span>
       </div>
     );
@@ -71,20 +72,43 @@ export function SacredFooter() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="border-t border-[var(--border-gold)] bg-[var(--bg-deep)]" role="contentinfo">
+    <footer className="relative border-t border-[var(--border-gold)] bg-[var(--bg-deep)] overflow-hidden" role="contentinfo">
+      {/* Corner flowers */}
+      <FloralCorner position="tl" size={64} className="absolute top-0 left-0 text-[var(--gold)] opacity-40" />
+      <FloralCorner position="tr" size={64} className="absolute top-0 right-0 text-[var(--gold)] opacity-40" />
+
+      {/* Large background lotus watermark */}
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/3 pointer-events-none" aria-hidden="true">
+        <LotusBlossom size={420} className="text-[var(--gold)] opacity-[0.035]" />
+      </div>
+
       <div className="h-px bg-gradient-to-r from-transparent via-[var(--gold)] to-transparent" aria-hidden="true" />
-      <div className="container-anv py-12">
-        <OrnamentDivider className="mb-10" />
+
+      {/* Grand floral border below top line */}
+      <FloralBorder petals={7} className="mt-6 mb-2 px-4 opacity-60" />
+
+      <div className="container-anv py-8 relative z-10">
+        <OrnamentDivider variant="grand" className="mb-10" />
 
         <div className="grid gap-8 md:grid-cols-[1.25fr_.8fr_.8fr_1fr]">
           <section>
             <div className="mb-4 flex items-center gap-3">
-              <span className="grid h-11 w-11 place-items-center rounded-[8px] border border-[var(--border-ink)] bg-[var(--surface)] text-[var(--gold)]">
-                <Emblem size={34} />
-              </span>
+              <div
+                aria-hidden="true"
+                style={{
+                  width: 44, height: 44, flexShrink: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  borderRadius: 8,
+                  border: "1px solid var(--border-gold)",
+                  background: "linear-gradient(135deg, var(--surface) 0%, var(--bg-deep) 100%)",
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 8px rgba(139,96,32,0.12)",
+                }}
+              >
+                <LotusIcon size={28} style={{ color: "var(--gold)" }} />
+              </div>
               <div>
-                <div className="font-display text-xl tracking-[0.18em] text-[var(--ink)]">ANVIKSIKI</div>
-                <div className="font-ui text-[0.58rem] font-bold uppercase tracking-[0.24em] text-[var(--ink-faint)]">Journal & Research Platform</div>
+                <div className="font-display text-xl tracking-[0.18em]" style={{ color: 'var(--gold)' }}>ĀNVĪKṢIKĪ</div>
+                <div className="font-ui text-[0.58rem] font-bold uppercase tracking-[0.24em] text-[var(--ink-faint)]">Journal &amp; Research Platform</div>
               </div>
             </div>
             <p className="max-w-sm font-body text-sm leading-7 text-[var(--ink-soft)]">
@@ -117,14 +141,14 @@ export function SacredFooter() {
           </section>
         </div>
 
-        <OrnamentDivider variant="minimal" className="my-10" />
+        <OrnamentDivider variant="floral" className="my-10" />
 
         <div className="flex flex-col items-center justify-between gap-3 font-ui text-[0.72rem] uppercase tracking-[0.12em] text-[var(--ink-faint)] md:flex-row">
           <p>Copyright {year} Anvikshiki</p>
           <div className="flex flex-wrap items-center justify-center gap-4">
             <Link href="/privacy" className="hover:text-[var(--terracotta)]">Privacy</Link>
             <Link href="/terms" className="hover:text-[var(--terracotta)]">Terms</Link>
-            <span className="text-[var(--gold)]">Inquiry · Wisdom · Truth</span>
+            <span className="text-[var(--gold)]">✦ Inquiry · Wisdom · Truth ✦</span>
           </div>
         </div>
       </div>

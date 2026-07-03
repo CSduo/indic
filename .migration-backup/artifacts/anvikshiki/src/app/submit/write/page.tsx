@@ -112,23 +112,17 @@ export default function SubmitWritePage() {
       const typeMap: Record<string, string> = { essay: "ESSAY", paper: "PAPER", review: "REVIEW", commentary: "COMMENTARY", "book-review": "COMMENTARY", translation: "ESSAY" };
       const type = typeMap[(draft.type || "essay").toLowerCase()] || "ESSAY";
 
-      // If there's an image, upload it first via the upload endpoint,
+      // If there's an image, upload it first via the media upload endpoint,
       // then submit the write form with the image URL in notes.
       let imageUrl = "";
       if (imgFile) {
         const fd = new FormData();
-        fd.append("coverImage", imgFile);
-        fd.append("submitterName", draft.fullName);
-        fd.append("submitterEmail", draft.email);
-        fd.append("title", draft.title);
-        fd.append("abstract", draft.abstract || "See body.");
-        fd.append("type", type);
-        fd.append("consent", "true");
-        const imgRes = await fetch(`${base()}/api/submissions/upload`, { method: "POST", credentials: "include", body: fd });
+        fd.append("file", imgFile);
+        fd.append("context", "submission_cover");
+        const imgRes = await fetch(`${base()}/api/media/upload`, { method: "POST", credentials: "include", body: fd });
         if (imgRes.ok) {
           const d = await imgRes.json();
-          imageUrl = d.submission?.coverImageUrl || "";
-          // We'll use the actual text-write endpoint now
+          imageUrl = d.url || "";
         }
       }
 

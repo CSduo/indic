@@ -2,10 +2,12 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Eye, EyeOff, Globe } from "lucide-react";
 import { toast } from "sonner";
-import { Emblem } from "@/components/brand/Emblem";
+
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
+import { LotusIcon } from "@/components/sacred/LotusIcon";
+import { AmbientPetals, FloralCorner, LotusBlossom, LotusRing, LotusWatermark } from "@/components/sacred/FloralDecor";
 import { useAuthContext } from "@/contexts/AuthContext";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -64,14 +66,35 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="bg-[var(--bg)]">
-      <section className="container-anv grid min-h-[80vh] gap-6 py-10 lg:grid-cols-[minmax(0,440px)_1fr] lg:items-center">
-        <ParchmentCard className="p-6 md:p-8">
+    <div className="relative bg-[var(--bg)] overflow-hidden">
+      {/* Page-level ambient petals */}
+      <AmbientPetals />
+
+      {/* Large lotus watermark centred behind everything */}
+      <LotusWatermark
+        size={600}
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[var(--gold)]"
+      />
+
+      {/* Corner ornaments on the page */}
+      <FloralCorner position="tl" size={100} className="absolute top-0 left-0 opacity-50" />
+      <FloralCorner position="tr" size={100} className="absolute top-0 right-0 opacity-50" />
+      <FloralCorner position="bl" size={80} className="absolute bottom-0 left-0 opacity-40" />
+      <FloralCorner position="br" size={80} className="absolute bottom-0 right-0 opacity-40" />
+
+      <section className="container-anv relative z-10 grid min-h-[90vh] gap-6 py-10 lg:grid-cols-[minmax(0,460px)_1fr] lg:items-center">
+        <ParchmentCard className="p-6 md:p-8 relative overflow-hidden">
+          {/* Inner card corner flowers */}
+          <FloralCorner position="tl" size={52} className="absolute top-0 left-0 opacity-40 text-[var(--gold)]" />
+          <FloralCorner position="tr" size={52} className="absolute top-0 right-0 opacity-40 text-[var(--gold)]" />
+
           <div className="mb-7 text-center">
-            <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-[8px] border border-[var(--border-ink)] bg-[var(--surface)] text-[var(--gold)]">
-              <Emblem size={48} />
+            {/* Ornate lotus ring header */}
+            <div className="mx-auto mb-4 relative w-20 h-20 flex items-center justify-center">
+              <LotusRing size={80} className="absolute inset-0 text-[var(--gold)] opacity-60" />
+              <LotusIcon size={36} style={{ color: "var(--gold)" }} className="relative" />
             </div>
-            <h1 className="font-display text-3xl tracking-[0.12em] text-[var(--ink)]">ANVIKSIKI</h1>
+            <h1 className="font-display text-3xl tracking-[0.14em] text-[var(--ink)]">ĀNVĪKṢIKĪ</h1>
             <p className="mt-2 font-body text-sm italic text-[var(--ink-soft)]">Sign in to continue your inquiry.</p>
           </div>
 
@@ -134,12 +157,30 @@ export default function LoginPage() {
           </p>
         </ParchmentCard>
 
-        <ParchmentCard className="hidden min-h-[620px] overflow-hidden lg:block" corners={false}>
+        <ParchmentCard className="hidden min-h-[620px] overflow-hidden lg:block relative" corners={false}>
           <img src={asset("/images/heroes/article-default.jpg")} alt="Illustrated scholar inside an archive gate" className="h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg)] via-transparent to-transparent" aria-hidden="true" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg)] via-[rgba(245,237,216,0.25)] to-transparent" aria-hidden="true" />
+
+          {/* Floral overlays on the image card */}
+          <FloralCorner position="tl" size={72} className="absolute top-4 left-4 text-[var(--gold)] opacity-70" />
+          <FloralCorner position="tr" size={72} className="absolute top-4 right-4 text-[var(--gold)] opacity-70" />
+
+          {/* Rotating lotus ring watermark */}
+          <div className="absolute top-8 right-8 opacity-20">
+            <LotusRing size={160} spin className="text-[var(--gold)]" />
+          </div>
+
+          {/* Large lotus blossom watermark */}
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 opacity-10">
+            <LotusBlossom size={280} className="text-[var(--gold)]" />
+          </div>
+
           <div className="absolute bottom-8 left-8 right-8">
+            <OrnamentDivider variant="floral" className="mb-5" />
             <div className="mb-4 flex gap-3 text-[var(--gold)]">
-              {["philosophy", "archive", "community"].map((domain) => <AnimalGlyph key={domain} domain={domain} size={34} />)}
+              {["philosophy", "archive", "community"].map((domain) => (
+                <AnimalGlyph key={domain} domain={domain} size={34} />
+              ))}
             </div>
             <h2 className="font-display text-5xl leading-none text-[var(--ink)]">The gate opens with inquiry.</h2>
           </div>

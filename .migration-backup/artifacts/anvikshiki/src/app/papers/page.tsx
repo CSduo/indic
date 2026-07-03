@@ -6,6 +6,7 @@ import { HeroPanel } from "@/components/manuscript/HeroPanel";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { EmptyState } from "@/components/sacred/EmptyState";
+import { AmbientPetals, FloralCorner } from "@/components/sacred/FloralDecor";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
@@ -35,16 +36,19 @@ export default function PapersPage() {
   });
 
   return (
-    <div className="bg-[var(--bg)]">
-      <section className="container-anv py-6 md:py-10">
+    <div className="relative bg-[var(--bg)] overflow-hidden">
+      <AmbientPetals />
+      <FloralCorner position="tl" size={80} className="absolute top-0 left-0 text-[var(--gold)] opacity-40" />
+      <FloralCorner position="tr" size={80} className="absolute top-0 right-0 text-[var(--gold)] opacity-40" />
+      <section className="container-anv relative z-10 py-6 md:py-10">
         <nav className="mb-4 flex items-center gap-2 font-ui text-xs font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]" aria-label="Breadcrumb">
           <Link href="/" className="hover:text-[var(--terracotta)]">Home</Link>
           <span>/</span>
           <span className="text-[var(--terracotta)]">Papers</span>
         </nav>
         <HeroPanel
-          image={asset("/images/heroes/archive-scribe.jpg")}
-          imageAlt="Illustrated scribe and manuscript archive"
+          image={asset("/images/provided/papers-ornate-library-hall-hero.jpg")}
+          imageAlt="Illustrated ornate library hall with books, owl, globe, and scholarly symbols"
           eyebrow="Research Repository"
           title="Papers"
           subtitle="Working papers, peer-reviewed manuscripts, and research notes."

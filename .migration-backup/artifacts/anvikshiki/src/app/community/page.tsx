@@ -50,8 +50,8 @@ export default function CommunityPage() {
     <div className="bg-[var(--bg)]">
       <section className="container-anv py-6 md:py-10">
         <HeroPanel
-          image={asset("/images/heroes/submit-hero.jpg")}
-          imageAlt="Illustrated community journey through the archive"
+          image={asset("/images/provided/community-musician-salon-hero.jpg")}
+          imageAlt="Illustrated musician seated in an ornate scholarly salon"
           eyebrow="Join the Conversation"
           title="A Living Community of Seekers"
           description="Gather around essays, manuscripts, and questions that deserve patient attention."

@@ -10,6 +10,9 @@ import path from "path";
 
 const app: Express = express();
 
+// Trust the Replit reverse proxy so express-rate-limit reads the correct client IP
+app.set("trust proxy", 1);
+
 app.use(
   pinoHttp({
     logger,
@@ -30,8 +33,8 @@ app.use(
   }),
 );
 
-// CORS — restrict to FRONTEND_URL in production
-const allowedOrigin = process.env.FRONTEND_URL || "http://localhost:5173";
+// CORS — allow all origins in development
+const allowedOrigin = process.env.FRONTEND_URL || true;
 app.use(cors({
   origin: allowedOrigin,
   credentials: true,
@@ -44,7 +47,7 @@ app.use(cookieParser());
 
 // Rate limiting on auth endpoints
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,

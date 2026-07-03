@@ -11,6 +11,11 @@ import adminRouter from "./admin";
 import archiveRouter from "./archive";
 import savedItemsRouter from "./saved-items";
 import uploadsRouter from "./uploads";
+import collectionsRouter from "./collections";
+import notificationsRouter from "./notifications";
+import contactRouter from "./contact";
+import mediaRouter from "./media";
+import extractUrlRouter from "./extract-url";
 
 const router: IRouter = Router();
 
@@ -26,5 +31,10 @@ router.use(adminRouter);
 router.use(archiveRouter);
 router.use(savedItemsRouter);
 router.use(uploadsRouter);
+router.use(collectionsRouter);
+router.use(notificationsRouter);
+router.use(contactRouter);
+router.use(mediaRouter);
+router.use(extractUrlRouter);
 
 export default router;

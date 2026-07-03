@@ -113,6 +113,34 @@ router.post("/auth/logout", (req, res) => {
   return res.json({ success: true });
 });
 
+// POST /api/auth/change-password
+router.post("/auth/change-password", async (req, res) => {
+  try {
+    const auth = await getUserAuth(req);
+    if (!auth) return res.status(401).json({ error: "Not authenticated" });
+
+    const schema = z.object({
+      currentPassword: z.string().min(1),
+      newPassword: z.string().min(8),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
+
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, auth.userId)).limit(1);
+    if (!user || !user.password) return res.status(400).json({ error: "Account has no password set" });
+
+    const valid = await comparePassword(parsed.data.currentPassword, user.password);
+    if (!valid) return res.status(401).json({ error: "Current password is incorrect" });
+
+    const hashed = await hashPassword(parsed.data.newPassword);
+    await db.update(usersTable).set({ password: hashed, updatedAt: new Date() }).where(eq(usersTable.id, auth.userId));
+    return res.json({ success: true });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed to change password" });
+  }
+});
+
 // PUT /api/auth/profile
 router.put("/auth/profile", async (req, res) => {
   try {

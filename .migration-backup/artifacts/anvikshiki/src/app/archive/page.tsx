@@ -6,6 +6,7 @@ import { GlyphTag } from "@/components/manuscript/GlyphTag";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { EmptyState } from "@/components/sacred/EmptyState";
+import { AmbientPetals, FloralCorner } from "@/components/sacred/FloralDecor";
 import { DOMAIN_ORDER } from "@/lib/domainMeta";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -43,8 +44,11 @@ export default function ArchivePage() {
   const years = Object.keys(byYear).sort((a, b) => b.localeCompare(a));
 
   return (
-    <div className="bg-[var(--bg)]">
-      <section className="container-anv py-6 md:py-10">
+    <div className="relative bg-[var(--bg)] overflow-hidden">
+      <AmbientPetals />
+      <FloralCorner position="tl" size={80} className="absolute top-0 left-0 text-[var(--gold)] opacity-40" />
+      <FloralCorner position="tr" size={80} className="absolute top-0 right-0 text-[var(--gold)] opacity-40" />
+      <section className="container-anv relative z-10 py-6 md:py-10">
         <nav className="mb-4 flex items-center gap-2 font-ui text-xs font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]" aria-label="Breadcrumb">
           <Link href="/" className="hover:text-[var(--terracotta)]">Home</Link>
           <span>/</span>
@@ -66,7 +70,7 @@ export default function ArchivePage() {
 
           <ParchmentCard className="overflow-hidden" corners={false}>
             <div className="relative min-h-[420px]">
-              <img src={asset("/images/heroes/archive-scribe.jpg")} alt="Illustrated scribe working in an archive" className="absolute inset-0 h-full w-full object-cover" />
+              <img src={asset("/images/provided/archive-voyage-harbor-hero.jpg")} alt="Illustrated ship arriving at an ornate harbor city under a bright sun" className="absolute inset-0 h-full w-full object-cover" />
               <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg)] via-[var(--bg)]/15 to-transparent" aria-hidden="true" />
               <div className="absolute inset-x-0 bottom-0 p-7 text-center">
                 <h1 className="font-display text-[clamp(2.5rem,6vw,4.8rem)] leading-none text-[var(--ink)]">Archive / Knowledge Map</h1>

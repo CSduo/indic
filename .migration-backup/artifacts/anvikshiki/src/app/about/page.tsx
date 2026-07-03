@@ -4,17 +4,21 @@ import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
 import { HeroPanel } from "@/components/manuscript/HeroPanel";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
+import { AmbientPetals, FloralBorder, FloralCorner } from "@/components/sacred/FloralDecor";
 import { DOMAIN_ORDER } from "@/lib/domainMeta";
 
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
 
 export default function AboutPage() {
   return (
-    <div className="bg-[var(--bg)]">
-      <section className="container-anv py-6 md:py-10">
+    <div className="relative bg-[var(--bg)] overflow-hidden">
+      <AmbientPetals />
+      <FloralCorner position="tl" size={90} className="absolute top-0 left-0 text-[var(--gold)] opacity-45" />
+      <FloralCorner position="tr" size={90} className="absolute top-0 right-0 text-[var(--gold)] opacity-45" />
+      <section className="container-anv relative z-10 py-6 md:py-10">
         <HeroPanel
-          image={asset("/images/heroes/explore-domain.jpg")}
-          imageAlt="Illustrated archive and civilizational landscape"
+          image={asset("/images/provided/about-temple-guardian-cat-hero.jpg")}
+          imageAlt="Illustrated scholar walking past carved temple panels with a black cat companion"
           eyebrow="Our Mission"
           title="About Anvikshiki"
           subtitle="The philosophical examination of truth."
@@ -26,7 +30,8 @@ export default function AboutPage() {
         />
       </section>
 
-      <section className="container-anv pb-14">
+      <FloralBorder petals={5} className="my-2 px-8 opacity-50 relative z-10" />
+      <section className="container-anv relative z-10 pb-14">
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
           <div>
             <ParchmentCard className="p-6 md:p-8">

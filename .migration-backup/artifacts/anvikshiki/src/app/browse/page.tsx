@@ -6,17 +6,21 @@ import { GlyphTag } from "@/components/manuscript/GlyphTag";
 import { HeroPanel } from "@/components/manuscript/HeroPanel";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
+import { AmbientPetals, FloralBorder, FloralCorner } from "@/components/sacred/FloralDecor";
 import { DOMAIN_META, DOMAIN_ORDER } from "@/lib/domainMeta";
 
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
 
 export default function BrowsePage() {
   const [view, setView] = useState<"grid" | "list">("grid");
-  const domains = DOMAIN_ORDER;
+  const domains = DOMAIN_ORDER.filter(key => key !== "philosophy");
 
   return (
-    <div className="bg-[var(--bg)]">
-      <section className="container-anv py-6 md:py-10">
+    <div className="relative bg-[var(--bg)] overflow-hidden">
+      <AmbientPetals />
+      <FloralCorner position="tl" size={80} className="absolute top-0 left-0 text-[var(--gold)] opacity-40" />
+      <FloralCorner position="tr" size={80} className="absolute top-0 right-0 text-[var(--gold)] opacity-40" />
+      <section className="container-anv relative z-10 py-6 md:py-10">
         <nav className="mb-4 flex items-center gap-2 font-ui text-xs font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]" aria-label="Breadcrumb">
           <Link href="/" className="hover:text-[var(--terracotta)]">Home</Link>
           <span>/</span>
@@ -24,8 +28,8 @@ export default function BrowsePage() {
         </nav>
 
         <HeroPanel
-          image={asset("/images/heroes/explore-domain.jpg")}
-          imageAlt="Illustrated archival domain landscape"
+          image={asset("/images/provided/browse-atlas-map-hero.jpg")}
+          imageAlt="Illustrated civilizational atlas map with routes, ships, animals, and cities"
           eyebrow="Domain Atlas"
           title="Explore by Domain"
           subtitle="Discover knowledge across timeless fields of inquiry."
@@ -37,7 +41,8 @@ export default function BrowsePage() {
         />
       </section>
 
-      <section className="container-anv pb-12">
+      <FloralBorder petals={5} className="my-1 px-8 opacity-45 relative z-10" />
+      <section className="container-anv relative z-10 pb-12">
         <ParchmentCard className="mb-6 grid gap-4 p-4 md:grid-cols-[auto_1fr_auto] md:items-center">
           <div>
             <p className="type-section-label mb-2">View</p>

@@ -1,68 +1,66 @@
-# Ānvīkṣikī — Journal & Research Platform
+# Anvikshiki — Journal & Research Platform
 
-A scholarly journal and research platform at the intersection of history, philosophy, civilizational thought, and the arts.
-
-## Quick Start
-
-### On Replit (new account import)
-1. Import the GitHub repo — if Replit asks about "migrating from Vercel", click **Skip** or **Keep as-is**. The project already has full Replit configuration committed.
-2. Add a PostgreSQL database via the **Database** tab — Replit injects `DATABASE_URL` automatically.
-3. Click **Run** — both the frontend (Vite) and API server start automatically.
-
-### On Vercel
-1. Connect the GitHub repo in the Vercel dashboard.
-2. **Do not change** the Framework Preset — `vercel.json` sets `"framework": null` to handle everything.
-3. Add `DATABASE_URL` under Project → Settings → Environment Variables.
-4. Deploy — Vercel builds the Vite frontend and serves it as a static SPA.
-
-## Environment Variables
-
-Copy `.env.example` to `.env` and fill in your values. Required:
-
-| Variable | Where needed | Notes |
-|---|---|---|
-| `DATABASE_URL` | API server, DB migrations | PostgreSQL connection string |
-| `PORT` | API server | Replit/Vercel set this automatically |
-| `NODE_ENV` | API server | `development` or `production` |
+A scholarly journal and research platform for deep thinking across philosophy, science, humanities, and culture. Supports article and paper publishing, submissions, newsletter, admin dashboard, and user accounts.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/anvikshiki run dev` — frontend dev server
-- `pnpm --filter @workspace/api-server run dev` — API server (port 8080)
+- Workflows: `artifacts/anvikshiki: web` (frontend) + `artifacts/api-server: API Server` (backend)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/db run push` — push DB schema changes (requires `DATABASE_URL`)
+- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
+- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
+- Required env: `DATABASE_URL` — Postgres connection string; `SESSION_SECRET`
 
 ## Stack
 
-- **Frontend**: Vite + React 19 + Tailwind CSS v4 + wouter (client-side routing)
-- **API**: Express 5 (Node.js 20+)
-- **DB**: PostgreSQL + Drizzle ORM
-- **Workspace**: pnpm workspaces, TypeScript 5.9
-- **Deployment**: Vercel (static SPA) + Replit (autoscale)
+- pnpm workspaces, Node.js 20, TypeScript 5.9
+- Frontend: React + Vite + Wouter (SPA, served at `/`)
+- API: Express 5 (served at `/api`)
+- DB: PostgreSQL + Drizzle ORM (`lib/db/src/schema/index.ts`)
+- Validation: Zod (`zod/v4`), `drizzle-zod`
+- API codegen: Orval (from `lib/api-spec/openapi.yaml`)
+- CSS: Tailwind v4 with a custom parchment/gold/terracotta design system (`artifacts/anvikshiki/src/index.css`)
+- Fonts: Cormorant Garamond (display), EB Garamond (body), DM Sans (UI)
 
 ## Where things live
 
-- `artifacts/anvikshiki/` — Vite + React frontend
-- `artifacts/api-server/` — Express API server
-- `lib/db/` — Drizzle ORM schema and migrations
-- `lib/api-spec/` — OpenAPI spec
-- `vercel.json` — Vercel deployment config (Vite build, SPA rewrites)
-- `.env.example` — all required environment variables documented
+- **Frontend routes**: `artifacts/anvikshiki/src/App.tsx`
+- **Page components**: `artifacts/anvikshiki/src/app/**` (Next.js-style flat tree, routed via Wouter)
+- **Theme/CSS**: `artifacts/anvikshiki/src/index.css` — custom CSS vars (`--ink`, `--gold`, `--terracotta`, etc.)
+- **API routes**: `artifacts/api-server/src/routes/`
+- **DB schema**: `lib/db/src/schema/index.ts`
+- **OpenAPI spec**: `lib/api-spec/openapi.yaml`
+- **Public assets**: `artifacts/anvikshiki/public/` (images, hero media, brand emblem)
+- **Shared assets**: `attached_assets/` (aliased as `@assets` in Vite)
 
-## Deployment configs
+## Architecture decisions
 
-Both deployment targets are committed and work independently:
+- Converted from Next.js (Vercel) to Vite + React with Wouter routing for Replit compatibility
+- SPA with client-side routing — all deep links handled via `/* → /index.html` rewrite
+- API server uses JWT + cookie auth with separate admin and user sessions
+- Theme uses custom CSS variables only (no shadcn tokens) — the parchment design system is fully self-contained
+- `fs.strict: false` in vite.config.ts is intentional — `@assets` alias points to `attached_assets/` outside the artifact root
 
-- **Replit**: `.replit` + `artifacts/*/. replit-artifact/artifact.toml`
-- **Vercel**: `vercel.json` at the repo root
+## Product
+
+- **Articles & Papers**: Editorial content with categories, tags, authors, hero images, audio narration
+- **Browse & Search**: Filterable content discovery across domains
+- **Submissions**: Multi-step submission flow (details → upload → write → preview → success)
+- **Admin Dashboard**: Full CMS for articles, papers, submissions, users, newsletter, settings
+- **User Accounts**: Registration, saved items, collections, notifications, profile settings
+- **Newsletter**: Subscriber management with admin broadcast
 
 ## User preferences
 
-_Populate as you build._
+_Populate as you build — explicit user instructions worth remembering across sessions._
 
 ## Gotchas
 
-- **Fresh Replit import**: `DATABASE_URL` won't exist until you add a database. The post-merge script skips DB migration gracefully if `DATABASE_URL` is missing — run `pnpm --filter db push` manually after adding the database.
-- **Vercel**: Only the frontend deploys to Vercel (static SPA). The API server (`/api/*`) is not included in the Vercel deployment — it runs separately on Replit or another Node.js host.
-- **pnpm only**: The workspace enforces pnpm via a `preinstall` check. Do not use npm or yarn.
+- Do not run `pnpm dev` at workspace root — apps run via their artifact workflows
+- `PORT` and `BASE_PATH` are injected by the artifact workflow; never hardcode them
+- After any OpenAPI spec change, run codegen before using new types
+- DB schema push is dev-only; production schema is managed via Replit's Publish flow
+
+## Pointers
+
+- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
