@@ -328,7 +328,6 @@ export default function HomePage() {
                     borderColor: `${d.color}66`,
                     background: `${d.color}12`,
                   }}>
-                  <span aria-hidden="true">{d.emoji}</span>
                   {d.label}
                 </Link>
               ))}
@@ -412,9 +411,6 @@ export default function HomePage() {
                     <AnimalGlyph domain={d.domain} size={50} />
                   </div>
                 </div>
-
-                {/* Domain emoji accent */}
-                <div className="home-domain-emoji" aria-hidden="true">{d.emoji}</div>
 
                 <div className="home-v3-domain-name">{d.label}</div>
                 <p className="home-v3-domain-desc">{d.desc}</p>
