@@ -1,0 +1,2 @@
+- [Vite artifact env config](vite-artifact-env.md) — PORT/BASE_PATH must have safe defaults so `pnpm build` works without env injection; NaN guard required.
+- [AnimalGlyph domain icon mapping](animal-glyph-icons.md) — DomainKey is a strict union; any case label must be a valid member or TypeScript rejects it.

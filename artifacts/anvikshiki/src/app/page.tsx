@@ -154,10 +154,11 @@ export default function HomePage() {
       <section className="home-v3-section">
         <div className="container-anv">
           <div className="home-v3-section-head centered">
-            <span className="home-v3-lotus-mark">✦</span>
             <h2 className="home-v3-section-title">Browse by Domain</h2>
-            <span className="home-v3-lotus-mark">✦</span>
           </div>
+          <p className="home-v3-section-sub">
+            Six fields of inquiry — from the sweep of civilizations to the intimacy of the aesthetic moment.
+          </p>
           <div className="home-v3-domains">
             {HOME_DOMAINS.map(d => (
               <Link
@@ -167,11 +168,11 @@ export default function HomePage() {
                 style={{ "--card-color": d.color } as React.CSSProperties}
               >
                 <div className="home-v3-domain-icon">
-                  <AnimalGlyph domain={d.domain} size={56} />
+                  <AnimalGlyph domain={d.domain} size={52} />
                 </div>
                 <div className="home-v3-domain-name">{d.label}</div>
                 <p className="home-v3-domain-desc">{d.desc}</p>
-                <div className="home-v3-domain-ornament">✦</div>
+                <div className="home-v3-domain-ornament">✦ ✦ ✦</div>
               </Link>
             ))}
           </div>
@@ -181,6 +182,9 @@ export default function HomePage() {
       {/* ─── ACTION ROWS ─── */}
       <section className="home-v3-section home-v3-actions-section">
         <div className="container-anv">
+          <div className="home-v3-section-head centered" style={{ marginBottom: "2rem" }}>
+            <h2 className="home-v3-section-title">Join the Conversation</h2>
+          </div>
           <div className="home-v3-actions">
             {ACTION_ROWS.map(({ label, sub, href, Icon, bg, text }) => (
               <Link
@@ -189,7 +193,7 @@ export default function HomePage() {
                 className="home-v3-action"
                 style={{ "--action-bg": bg, "--action-text": text } as React.CSSProperties}
               >
-                <Icon size={28} strokeWidth={1.35} className="home-v3-action-icon" />
+                <Icon size={30} strokeWidth={1.3} className="home-v3-action-icon" />
                 <div className="home-v3-action-text">
                   <span className="home-v3-action-label">{label}</span>
                   <span className="home-v3-action-sub">{sub}</span>
@@ -200,7 +204,7 @@ export default function HomePage() {
           </div>
 
           <div className="home-v3-ornament">
-            <span /><i>✧</i><b>♧</b><i>✧</i><span />
+            <span /><i>✦</i><b>❧</b><i>✦</i><span />
           </div>
         </div>
       </section>

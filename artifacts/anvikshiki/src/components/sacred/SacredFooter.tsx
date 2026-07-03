@@ -78,12 +78,18 @@ export function SacredFooter() {
         <div className="grid gap-8 md:grid-cols-[1.25fr_.8fr_.8fr_1fr]">
           <section>
             <div className="mb-4 flex items-center gap-3">
-              <span className="grid h-11 w-11 place-items-center rounded-[8px] border border-[var(--border-ink)] bg-[var(--surface)] text-[var(--gold)]">
-                <span className="font-display text-lg tracking-[0.15em]" style={{ color: 'var(--gold)' }}>ĀNVĪKṢIKĪ</span>
-              </span>
+              <img
+                src={`${base()}/brand-emblem.png`}
+                alt=""
+                aria-hidden="true"
+                width={44}
+                height={44}
+                className="rounded-[8px] border border-[var(--border-gold)] object-contain shrink-0"
+                style={{ background: 'var(--surface)', padding: '4px' }}
+              />
               <div>
-                <div className="font-display text-xl tracking-[0.18em] text-[var(--ink)]">ANVIKSIKI</div>
-                <div className="font-ui text-[0.58rem] font-bold uppercase tracking-[0.24em] text-[var(--ink-faint)]">Journal & Research Platform</div>
+                <div className="font-display text-xl tracking-[0.18em]" style={{ color: 'var(--gold)' }}>ĀNVĪKṢIKĪ</div>
+                <div className="font-ui text-[0.58rem] font-bold uppercase tracking-[0.24em] text-[var(--ink-faint)]">Journal &amp; Research Platform</div>
               </div>
             </div>
             <p className="max-w-sm font-body text-sm leading-7 text-[var(--ink-soft)]">

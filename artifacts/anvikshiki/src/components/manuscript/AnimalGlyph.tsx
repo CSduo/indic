@@ -125,6 +125,58 @@ function BookChest() {
   );
 }
 
+/** Ziggurat — Civilizational Thought (stepped monument) */
+function Ziggurat() {
+  return (
+    <>
+      <line {...strokeProps} x1="4" y1="28" x2="28" y2="28" />
+      <rect {...strokeProps} x="5" y="23" width="22" height="5" rx="0.5" />
+      <rect {...strokeProps} x="8" y="18" width="16" height="5" rx="0.5" />
+      <rect {...strokeProps} x="11" y="14" width="10" height="4" rx="0.5" />
+      <rect {...strokeProps} x="13" y="11" width="6" height="3" rx="0.5" />
+      <line {...strokeProps} x1="16" y1="8" x2="16" y2="11" opacity=".7" />
+      <circle cx="16" cy="7" r="1.5" fill="currentColor" opacity=".5" />
+    </>
+  );
+}
+
+/** Rasa — Aesthetics (mandala eye — art, beauty, symbol, form) */
+function Rasa() {
+  return (
+    <>
+      <circle {...strokeProps} cx="16" cy="16" r="9" opacity=".28" />
+      <path {...strokeProps} d="M7 16 C9 11 13 8 16 8 C19 8 23 11 25 16 C23 21 19 24 16 24 C13 24 9 21 7 16 Z" />
+      <path {...strokeProps} d="M11 16 C12 14 14 12 16 12 C18 12 20 14 21 16 C20 18 18 20 16 20 C14 20 12 18 11 16 Z" opacity=".7" />
+      <circle cx="16" cy="16" r="2.5" fill="currentColor" opacity=".5" />
+      <line {...strokeProps} x1="16" y1="5" x2="16" y2="8" opacity=".45" />
+      <line {...strokeProps} x1="16" y1="24" x2="16" y2="27" opacity=".35" />
+      <line {...strokeProps} x1="5" y1="16" x2="7" y2="16" opacity=".3" />
+      <line {...strokeProps} x1="25" y1="16" x2="27" y2="16" opacity=".3" />
+    </>
+  );
+}
+
+/** Shirorekha — Sanskrit Studies (Devanagari horizontal bar + stems) */
+function Shirorekha() {
+  return (
+    <>
+      {/* Shirorekha — the defining top-bar of Devanagari script */}
+      <line {...strokeProps} x1="6" y1="10" x2="26" y2="10" strokeWidth="2.2" />
+      {/* Left stem with arm */}
+      <line {...strokeProps} x1="9" y1="10" x2="9" y2="22" />
+      <path {...strokeProps} d="M9 15 C11 15 13 14.5 14 13" opacity=".75" />
+      {/* Central stem with curved base */}
+      <line {...strokeProps} x1="16" y1="10" x2="16" y2="20" />
+      <path {...strokeProps} d="M13 20 C14 22 18 23 20 21 L20 19" opacity=".65" />
+      {/* Right stem */}
+      <line {...strokeProps} x1="23" y1="10" x2="23" y2="22" />
+      <path {...strokeProps} d="M23 17 C21 17 19 17 18 18" opacity=".5" />
+      {/* Anusvar dot */}
+      <circle cx="24.5" cy="7.5" r="1.5" fill="currentColor" opacity=".5" />
+    </>
+  );
+}
+
 /** Temple — Civilization */
 function Temple() {
   return (
@@ -202,10 +254,13 @@ function glyphFor(key: DomainKey) {
     case "archive": return <BookChest />;
     case "civilization":
     case "civilizational-thought":
+      return <Ziggurat />;
     case "aesthetics":
+      return <Rasa />;
     case "sanskrit":
     case "sanskrit-studies":
-      return <Temple />;
+      return <Shirorekha />;
+    /* Temple kept for internal use but not exposed via DomainKey */
     case "political-theory": return <Shield />;
     case "translations": return <TwoQuills />;
     case "multimedia": return <Lyre />;
