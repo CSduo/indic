@@ -2767,8 +2767,8 @@ body:has(.sacred-drawer) {
 
 .home-v3-chips {
   display: flex;
-  flex-wrap: nowrap;
-  gap: 0.4rem;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.35rem;
   overflow: visible;
 }
 

@@ -166,6 +166,7 @@ export default function HomePage() {
                     background: `rgba(245,237,216,0.82)`,
                   }}
                 >
+                  <AnimalGlyph domain={d.domain} size={13} style={{ opacity: 0.8 }} />
                   {d.label}
                 </Link>
               ))}

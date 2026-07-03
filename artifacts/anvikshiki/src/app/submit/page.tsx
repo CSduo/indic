@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { ArrowRight, BookOpen, FileText, Languages, MessageSquare, PenLine, Upload } from "lucide-react";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
@@ -6,6 +6,7 @@ import { HeroPanel } from "@/components/manuscript/HeroPanel";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { SubmissionStepper } from "@/components/manuscript/SubmissionStepper";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
 
@@ -18,7 +19,16 @@ const TYPES = [
 
 export default function SubmitLandingPage() {
   const [, navigate] = useLocation();
+  const { user, loading } = useAuthContext();
   const [selectedType, setSelectedType] = useState("essay");
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/login");
+    }
+  }, [user, loading, navigate]);
+
+  if (loading || !user) return null;
 
   const proceed = (method: "write" | "upload") => {
     sessionStorage.setItem("anvikshiki_submit_type", selectedType);

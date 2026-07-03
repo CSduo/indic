@@ -15,6 +15,7 @@ import collectionsRouter from "./collections";
 import notificationsRouter from "./notifications";
 import contactRouter from "./contact";
 import mediaRouter from "./media";
+import extractUrlRouter from "./extract-url";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(collectionsRouter);
 router.use(notificationsRouter);
 router.use(contactRouter);
 router.use(mediaRouter);
+router.use(extractUrlRouter);
 
 export default router;

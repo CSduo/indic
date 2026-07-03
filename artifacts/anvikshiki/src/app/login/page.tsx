@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
+import { LotusIcon } from "@/components/sacred/LotusIcon";
 import { useAuthContext } from "@/contexts/AuthContext";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -68,8 +69,8 @@ export default function LoginPage() {
       <section className="container-anv grid min-h-[80vh] gap-6 py-10 lg:grid-cols-[minmax(0,440px)_1fr] lg:items-center">
         <ParchmentCard className="p-6 md:p-8">
           <div className="mb-7 text-center">
-            <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-[8px] border border-[var(--border-ink)] bg-[var(--surface)] text-[var(--gold)]">
-              <span className="font-display text-3xl tracking-[0.18em]" style={{ color: 'var(--gold)' }}>ĀNVĪKṢIKĪ</span>
+            <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-[8px] border border-[var(--border-gold)] bg-[var(--surface)] text-[var(--gold)]">
+              <LotusIcon size={38} style={{ color: "var(--gold)" }} />
             </div>
             <h1 className="font-display text-3xl tracking-[0.12em] text-[var(--ink)]">ANVIKSIKI</h1>
             <p className="mt-2 font-body text-sm italic text-[var(--ink-soft)]">Sign in to continue your inquiry.</p>
