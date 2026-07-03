@@ -130,57 +130,6 @@ function SakuraPetal({ size = 14, color = "#ffaa52", opacity = 0.8 }: { size?: n
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   SAKURA GROVE  —  simplified cherry blossom tree silhouettes at bottom
-───────────────────────────────────────────────────────────────────────────── */
-function SakuraGrove() {
-  // Cloud-puff blossom top on a thin trunk, repeated
-  const tree = (x: number, h: number, r: number, key: string) => (
-    <g key={key}>
-      {/* Trunk */}
-      <line x1={x} y1={180} x2={x} y2={180 - h} stroke="#c8a090" strokeWidth={r * 0.18} opacity="0.55" />
-      {/* Branch fork */}
-      <line x1={x} y1={180 - h * 0.55} x2={x - r * 0.6} y2={180 - h * 0.78} stroke="#c8a090" strokeWidth={r * 0.1} opacity="0.4" />
-      <line x1={x} y1={180 - h * 0.55} x2={x + r * 0.7} y2={180 - h * 0.72} stroke="#c8a090" strokeWidth={r * 0.1} opacity="0.4" />
-      {/* Blossom cloud puffs — orange sakura */}
-      <circle cx={x}           cy={180 - h - r * 0.2} r={r}         fill="#ffc87a" opacity="0.32" />
-      <circle cx={x - r * 0.7} cy={180 - h + r * 0.3} r={r * 0.72}  fill="#ffad60" opacity="0.28" />
-      <circle cx={x + r * 0.8} cy={180 - h + r * 0.2} r={r * 0.68}  fill="#ffd599" opacity="0.26" />
-      <circle cx={x - r * 0.3} cy={180 - h - r * 0.7} r={r * 0.58}  fill="#ffe8c0" opacity="0.22" />
-      <circle cx={x + r * 0.4} cy={180 - h - r * 0.8} r={r * 0.52}  fill="#ffbf70" opacity="0.2" />
-    </g>
-  );
-
-  return (
-    <svg
-      viewBox="0 0 1200 180"
-      preserveAspectRatio="xMidYMax slice"
-      aria-hidden="true"
-      style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: "36%", pointerEvents: "none" }}
-    >
-      {/* Far hazy treeline — warm amber */}
-      <path
-        d="M 0,140 C 80,118 160,128 240,112 C 320,98 400,115 480,100 C 560,88 640,108 720,94 C 800,80 880,100 960,86 C 1040,74 1120,92 1200,78 L 1200,180 L 0,180 Z"
-        fill="#ffd599" opacity="0.12"
-      />
-      {/* Individual trees (x, height, radius) */}
-      {tree(60,   82,  36, "t1")}
-      {tree(155,  68,  30, "t2")}
-      {tree(240,  92,  40, "t3")}
-      {tree(360,  74,  32, "t4")}
-      {tree(460,  58,  26, "t5")}
-      {tree(560,  88,  38, "t6")}
-      {tree(680,  70,  30, "t7")}
-      {tree(780,  96,  42, "t8")}
-      {tree(900,  65,  28, "t9")}
-      {tree(1000, 80,  34, "ta")}
-      {tree(1110, 60,  26, "tb")}
-      {/* Ground mist — warm saffron */}
-      <ellipse cx="600" cy="180" rx="620" ry="22" fill="#ffecd8" opacity="0.14" />
-    </svg>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
    CORNER ORNAMENT  —  manuscript filigree, all four corners
 ───────────────────────────────────────────────────────────────────────────── */
 function CornerOrnament({ corner }: { corner: "tl" | "tr" | "bl" | "br" }) {
@@ -382,9 +331,6 @@ export function LoadingScreen({ onDone }: { onDone?: () => void }) {
           <CornerOrnament corner={corner} />
         </div>
       ))}
-
-      {/* ══ LAYER 5 — SAKURA GROVE (bottom) ══ */}
-      <SakuraGrove />
 
       {/* ══ CENTRAL COMPOSITION (z=4) ══ */}
       <div style={{
