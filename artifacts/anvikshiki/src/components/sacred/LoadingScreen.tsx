@@ -4,242 +4,184 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (p: string) => `${base}${p.startsWith("/") ? p : `/${p}`}`;
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   FALCON  —  drawn from the hero illustration motif
-   Wings fully spread, detailed primary feathers, proud head, Mughal jesses
+   LOTUS FLOWER  —  top-down, three rings of petals, central seed pod
+   Inspired by the sacred lotus motif in Indian philosophical tradition
 ───────────────────────────────────────────────────────────────────────────── */
-function Falcon({ size = 220 }: { size?: number }) {
-  const sp = { fill: "none", stroke: "currentColor" as const, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+function LotusFlower({ size = 200 }: { size?: number }) {
+  const cx = 100, cy = 100;
+
+  // Petal shape: an elongated teardrop pointing outward from (cx,cy)
+  // Each petal path written for "pointing north" (up), rotated by SVG transform
+  const outerPetal = (angle: number, i: number) => (
+    <g key={`op${i}`} transform={`rotate(${angle},${cx},${cy})`}>
+      {/* Petal fill */}
+      <path
+        d={`M ${cx},${cy} C ${cx-15},${cy-22} ${cx-12},${cy-52} ${cx},${cy-62} C ${cx+12},${cy-52} ${cx+15},${cy-22} ${cx},${cy}`}
+        fill="url(#outerGrad)" opacity="0.82"
+      />
+      {/* Petal centre vein */}
+      <line x1={cx} y1={cy-2} x2={cx} y2={cy-56} stroke="#e88fa8" strokeWidth="0.5" opacity="0.45" />
+      {/* Side veins */}
+      <path d={`M ${cx},${cy-18} C ${cx-8},${cy-32} ${cx-6},${cy-44} ${cx-4},${cy-50}`} fill="none" stroke="#e88fa8" strokeWidth="0.35" opacity="0.3" />
+      <path d={`M ${cx},${cy-18} C ${cx+8},${cy-32} ${cx+6},${cy-44} ${cx+4},${cy-50}`} fill="none" stroke="#e88fa8" strokeWidth="0.35" opacity="0.3" />
+    </g>
+  );
+
+  const middlePetal = (angle: number, i: number) => (
+    <g key={`mp${i}`} transform={`rotate(${angle},${cx},${cy})`}>
+      <path
+        d={`M ${cx},${cy} C ${cx-12},${cy-16} ${cx-10},${cy-38} ${cx},${cy-46} C ${cx+10},${cy-38} ${cx+12},${cy-16} ${cx},${cy}`}
+        fill="url(#middleGrad)" opacity="0.9"
+      />
+      <line x1={cx} y1={cy-2} x2={cx} y2={cy-40} stroke="#d4688a" strokeWidth="0.5" opacity="0.4" />
+    </g>
+  );
+
+  const innerPetal = (angle: number, i: number) => (
+    <g key={`ip${i}`} transform={`rotate(${angle},${cx},${cy})`}>
+      <path
+        d={`M ${cx},${cy} C ${cx-9},${cy-12} ${cx-7},${cy-26} ${cx},${cy-32} C ${cx+7},${cy-26} ${cx+9},${cy-12} ${cx},${cy}`}
+        fill="url(#innerGrad)" opacity="0.92"
+      />
+    </g>
+  );
+
   return (
-    <svg width={size} height={size} viewBox="0 0 220 220" aria-hidden="true" style={{ display: "block", overflow: "visible" }}>
+    <svg width={size} height={size} viewBox="0 0 200 200" aria-hidden="true" style={{ display: "block", overflow: "visible" }}>
+      <defs>
+        {/* Outer petal: pale blush at base → medium pink at tip */}
+        <radialGradient id="outerGrad" cx="50%" cy="95%" r="85%" gradientUnits="objectBoundingBox">
+          <stop offset="0%" stopColor="#fce8f0" />
+          <stop offset="55%" stopColor="#f7b8cc" />
+          <stop offset="100%" stopColor="#e8789a" />
+        </radialGradient>
+        {/* Middle petal: soft pink → rose */}
+        <radialGradient id="middleGrad" cx="50%" cy="95%" r="85%" gradientUnits="objectBoundingBox">
+          <stop offset="0%" stopColor="#fbd0e0" />
+          <stop offset="55%" stopColor="#f09ab8" />
+          <stop offset="100%" stopColor="#d45882" />
+        </radialGradient>
+        {/* Inner petal: blush-white → deep rose */}
+        <radialGradient id="innerGrad" cx="50%" cy="95%" r="85%" gradientUnits="objectBoundingBox">
+          <stop offset="0%" stopColor="#fff0f5" />
+          <stop offset="50%" stopColor="#f5a0bc" />
+          <stop offset="100%" stopColor="#c04872" />
+        </radialGradient>
+        {/* Seed pod */}
+        <radialGradient id="podGrad" cx="50%" cy="40%" r="65%">
+          <stop offset="0%" stopColor="#ffe8b4" />
+          <stop offset="70%" stopColor="#c9983a" />
+          <stop offset="100%" stopColor="#8b6020" />
+        </radialGradient>
+      </defs>
 
-      {/* ── Wing surfaces (translucent warm fill) ── */}
-      <path
-        d="M 88,112 C 65,96 40,74 8,52 C 22,67 42,82 62,94 C 75,100 87,110 88,112 Z"
-        fill="var(--gold-pale)" fillOpacity="0.22" stroke="none"
-      />
-      <path
-        d="M 132,112 C 155,96 180,74 212,52 C 198,67 178,82 158,94 C 145,100 133,110 132,112 Z"
-        fill="var(--gold-pale)" fillOpacity="0.22" stroke="none"
-      />
+      {/* Water ripple rings beneath */}
+      <circle cx={cx} cy={cy} r="88" stroke="#e8a0b8" strokeWidth="0.4" fill="none" opacity="0.18" />
+      <circle cx={cx} cy={cy} r="74" stroke="#e8a0b8" strokeWidth="0.3" fill="none" opacity="0.14" />
 
-      {/* ── Left wing – leading edge ── */}
-      <path d="M 88,106 C 65,90 40,68 8,52" {...sp} stroke="var(--gold)" strokeWidth="1.25" opacity="0.85" />
+      {/* ── Outer petals — 8, 45° apart ── */}
+      {[0,45,90,135,180,225,270,315].map((a, i) => outerPetal(a, i))}
 
-      {/* ── Left wing – trailing edge ── */}
-      <path d="M 88,116 C 72,108 54,98 40,88 C 26,78 14,66 8,60" {...sp} stroke="var(--gold-soft)" strokeWidth="0.9" opacity="0.6" />
+      {/* ── Middle petals — 8, offset 22.5° ── */}
+      {[22.5,67.5,112.5,157.5,202.5,247.5,292.5,337.5].map((a, i) => middlePetal(a, i))}
 
-      {/* ── Left wing – primary feathers (7) ── */}
-      {[
-        [8,52,  16,72], [18,49, 28,68], [30,47, 42,65],
-        [43,46, 55,62], [56,47, 66,62], [67,49, 76,63], [76,53, 83,65],
-      ].map(([x1,y1,x2,y2], i) => (
-        <line key={`lp${i}`} x1={x1} y1={y1} x2={x2} y2={y2} {...sp}
-          stroke="var(--gold)" strokeWidth={1.05 - i * 0.04} opacity={0.62 + i * 0.03} />
+      {/* ── Inner petals — 6, 60° apart ── */}
+      {[0,60,120,180,240,300].map((a, i) => innerPetal(a, i))}
+
+      {/* ── Central seed pod ── */}
+      <circle cx={cx} cy={cy} r="17" fill="url(#podGrad)" stroke="#b87820" strokeWidth="0.8" opacity="0.95" />
+      {/* Seed cells */}
+      {[0,45,90,135,180,225,270,315].map((a, i) => (
+        <circle key={i}
+          cx={cx + 9 * Math.cos((a * Math.PI) / 180)}
+          cy={cy + 9 * Math.sin((a * Math.PI) / 180)}
+          r="2.2" fill="#6b4010" opacity="0.5"
+        />
       ))}
+      <circle cx={cx} cy={cy} r="3.5" fill="#4a2c08" opacity="0.55" />
 
-      {/* ── Left wing – secondary feathers (5) ── */}
-      {[
-        [44,78, 40,88], [55,84, 52,93], [65,89, 63,98],
-        [74,94, 72,102], [82,100, 80,108],
-      ].map(([x1,y1,x2,y2], i) => (
-        <line key={`ls${i}`} x1={x1} y1={y1} x2={x2} y2={y2} {...sp}
-          stroke="var(--gold-soft)" strokeWidth="0.75" opacity={0.42 + i * 0.04} />
+      {/* ── Petal sheen highlights ── */}
+      {[0,90,180,270].map((a, i) => (
+        <path key={i}
+          transform={`rotate(${a},${cx},${cy})`}
+          d={`M ${cx-3},${cy-30} C ${cx-1},${cy-42} ${cx-1},${cy-50} ${cx},${cy-55}`}
+          stroke="rgba(255,255,255,0.5)" strokeWidth="1.4" fill="none" strokeLinecap="round"
+        />
       ))}
-
-      {/* ── Left wing – covert lines (texture) ── */}
-      {[[30,62,40,58],[48,66,58,62],[62,70,70,66],[74,76,80,72]].map(([x1,y1,x2,y2],i) => (
-        <line key={`lc${i}`} x1={x1} y1={y1} x2={x2} y2={y2} {...sp}
-          stroke="var(--gold)" strokeWidth="0.55" opacity="0.3" />
-      ))}
-
-      {/* ── Right wing – leading edge ── */}
-      <path d="M 132,106 C 155,90 180,68 212,52" {...sp} stroke="var(--gold)" strokeWidth="1.25" opacity="0.85" />
-
-      {/* ── Right wing – trailing edge ── */}
-      <path d="M 132,116 C 148,108 166,98 180,88 C 194,78 206,66 212,60" {...sp} stroke="var(--gold-soft)" strokeWidth="0.9" opacity="0.6" />
-
-      {/* ── Right wing – primary feathers (7) ── */}
-      {[
-        [212,52, 204,72], [202,49, 192,68], [190,47, 178,65],
-        [177,46, 165,62], [164,47, 154,62], [153,49, 144,63], [144,53, 137,65],
-      ].map(([x1,y1,x2,y2], i) => (
-        <line key={`rp${i}`} x1={x1} y1={y1} x2={x2} y2={y2} {...sp}
-          stroke="var(--gold)" strokeWidth={1.05 - i * 0.04} opacity={0.62 + i * 0.03} />
-      ))}
-
-      {/* ── Right wing – secondary feathers (5) ── */}
-      {[
-        [176,78, 180,88], [165,84, 168,93], [155,89, 157,98],
-        [146,94, 148,102], [138,100, 140,108],
-      ].map(([x1,y1,x2,y2], i) => (
-        <line key={`rs${i}`} x1={x1} y1={y1} x2={x2} y2={y2} {...sp}
-          stroke="var(--gold-soft)" strokeWidth="0.75" opacity={0.42 + i * 0.04} />
-      ))}
-
-      {/* ── Right wing – covert lines ── */}
-      {[[190,62,180,58],[172,66,162,62],[158,70,150,66],[146,76,140,72]].map(([x1,y1,x2,y2],i) => (
-        <line key={`rc${i}`} x1={x1} y1={y1} x2={x2} y2={y2} {...sp}
-          stroke="var(--gold)" strokeWidth="0.55" opacity="0.3" />
-      ))}
-
-      {/* ── Body ── */}
-      <path
-        d="M 88,112 C 84,106 82,120 84,134 C 87,152 98,174 110,178 C 122,174 133,152 136,134 C 138,120 136,106 132,112 C 126,106 118,102 110,102 C 102,102 94,106 88,112 Z"
-        fill="var(--gold-pale)" fillOpacity="0.18"
-        stroke="var(--gold)" strokeWidth="1.1" opacity="0.82"
-      />
-
-      {/* ── Breast feather streaks ── */}
-      {[[104,118,102,148],[109,114,108,146],[115,114,115,147],[120,118,122,148]].map(([x1,y1,x2,y2],i) => (
-        <path key={`br${i}`} d={`M ${x1},${y1} C ${x1-1},${(y1+y2)/2} ${x2-1},${(y1+y2)/2} ${x2},${y2}`}
-          {...sp} stroke="var(--gold)" strokeWidth="0.6" opacity="0.3" />
-      ))}
-
-      {/* ── Head ── */}
-      <circle cx="118" cy="80" r="18"
-        fill="var(--gold-pale)" fillOpacity="0.22"
-        stroke="var(--gold)" strokeWidth="1.15" opacity="0.88"
-      />
-
-      {/* ── Beak – hooked ── */}
-      <path d="M 134,77 C 140,75 145,79 141,86 L 135,84" {...sp} stroke="var(--terracotta)" strokeWidth="1.3" opacity="0.85" />
-
-      {/* ── Eye & highlight ── */}
-      <circle cx="126" cy="76" r="3.2" fill="var(--terracotta)" opacity="0.85" />
-      <circle cx="127.2" cy="75.2" r="1.1" fill="var(--gold-bright)" opacity="0.7" />
-
-      {/* ── Supercilium (brow stripe) ── */}
-      <path d="M 110,72 C 116,68 124,68 130,72" {...sp} stroke="var(--ink)" strokeWidth="0.6" opacity="0.3" />
-
-      {/* ── Tail feathers (5) ── */}
-      {[
-        [102,174, 95,200], [106,176, 101,202], [110,177, 110,204],
-        [114,176, 119,202], [118,174, 125,200],
-      ].map(([x1,y1,x2,y2], i) => (
-        <line key={`tf${i}`} x1={x1} y1={y1} x2={x2} y2={y2} {...sp}
-          stroke="var(--gold)" strokeWidth={i === 2 ? 1.1 : 0.9} opacity={i === 2 ? 0.7 : 0.52} />
-      ))}
-
-      {/* ── Jesses (falconry straps on legs) ── */}
-      <line x1="104" y1="174" x2="100" y2="186" {...sp} stroke="var(--terracotta)" strokeWidth="0.9" opacity="0.5" />
-      <line x1="116" y1="174" x2="120" y2="186" {...sp} stroke="var(--terracotta)" strokeWidth="0.9" opacity="0.5" />
-      <line x1="100" y1="186" x2="96" y2="190" {...sp} stroke="var(--terracotta)" strokeWidth="0.8" opacity="0.4" />
-      <line x1="100" y1="186" x2="103" y2="192" {...sp} stroke="var(--terracotta)" strokeWidth="0.8" opacity="0.4" />
-      <line x1="120" y1="186" x2="124" y2="190" {...sp} stroke="var(--terracotta)" strokeWidth="0.8" opacity="0.4" />
-      <line x1="120" y1="186" x2="117" y2="192" {...sp} stroke="var(--terracotta)" strokeWidth="0.8" opacity="0.4" />
     </svg>
   );
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   CITY SILHOUETTE  —  Mughal domes, minarets, mountain ridgeline
+   FALLING SAKURA PETAL  —  single petal SVG shape, used for many instances
 ───────────────────────────────────────────────────────────────────────────── */
-function CityScape() {
-  const base = 165;   // ground line in SVG units
-  const top  = 180;   // SVG height
-
-  /* Helper: dome arc shape */
-  const dome = (cx: number, r: number, h: number, key: string) => {
-    const b = base;
-    return (
-      <path key={key}
-        d={`M ${cx-r},${b} C ${cx-r},${b-h*0.62} ${cx-r*0.5},${b-h} ${cx},${b-h} C ${cx+r*0.5},${b-h} ${cx+r},${b-h*0.62} ${cx+r},${b} Z`}
+function SakuraPetal({ size = 14, color = "#f5b8c8", opacity = 0.8 }: { size?: number; color?: string; opacity?: number }) {
+  // Single cherry blossom petal — rounded oblong, slightly notched tip
+  return (
+    <svg width={size} height={size * 1.6} viewBox="0 0 14 22" aria-hidden="true" style={{ display: "block" }}>
+      <path
+        d="M 7,22 C 1,18 0,12 0,8 C 0,2 3,0 7,0 C 11,0 14,2 14,8 C 14,12 13,18 7,22 Z"
+        fill={color} opacity={opacity}
       />
-    );
-  };
-
-  /* Helper: minaret */
-  const minaret = (x: number, topY: number, w: number, key: string) => (
-    <path key={key}
-      d={`M ${x-w/2},${base} L ${x-w/2},${topY+4} C ${x-w/2},${topY-1} ${x+w/2},${topY-1} ${x+w/2},${topY+4} L ${x+w/2},${base} Z`}
-    />
+      {/* Central vein */}
+      <line x1="7" y1="2" x2="7" y2="19" stroke="rgba(255,255,255,0.45)" strokeWidth="0.8" />
+    </svg>
   );
+}
 
-  /* Helper: flat parapet block */
-  const parapet = (x1: number, x2: number, h: number, key: string) => (
-    <rect key={key} x={x1} y={base-h} width={x2-x1} height={h} />
+/* ─────────────────────────────────────────────────────────────────────────────
+   SAKURA GROVE  —  simplified cherry blossom tree silhouettes at bottom
+───────────────────────────────────────────────────────────────────────────── */
+function SakuraGrove() {
+  // Cloud-puff blossom top on a thin trunk, repeated
+  const tree = (x: number, h: number, r: number, key: string) => (
+    <g key={key}>
+      {/* Trunk */}
+      <line x1={x} y1={180} x2={x} y2={180 - h} stroke="#c8a090" strokeWidth={r * 0.18} opacity="0.55" />
+      {/* Branch fork */}
+      <line x1={x} y1={180 - h * 0.55} x2={x - r * 0.6} y2={180 - h * 0.78} stroke="#c8a090" strokeWidth={r * 0.1} opacity="0.4" />
+      <line x1={x} y1={180 - h * 0.55} x2={x + r * 0.7} y2={180 - h * 0.72} stroke="#c8a090" strokeWidth={r * 0.1} opacity="0.4" />
+      {/* Blossom cloud puffs */}
+      <circle cx={x}           cy={180 - h - r * 0.2} r={r}         fill="#f5c8d8" opacity="0.32" />
+      <circle cx={x - r * 0.7} cy={180 - h + r * 0.3} r={r * 0.72}  fill="#f0b8cc" opacity="0.28" />
+      <circle cx={x + r * 0.8} cy={180 - h + r * 0.2} r={r * 0.68}  fill="#f5d0e0" opacity="0.26" />
+      <circle cx={x - r * 0.3} cy={180 - h - r * 0.7} r={r * 0.58}  fill="#fce4f0" opacity="0.22" />
+      <circle cx={x + r * 0.4} cy={180 - h - r * 0.8} r={r * 0.52}  fill="#f5c0d8" opacity="0.2" />
+    </g>
   );
-
-  const nearFill = "var(--terracotta)";
-  const nearOpacity = 0.22;
 
   return (
     <svg
       viewBox="0 0 1200 180"
       preserveAspectRatio="xMidYMax slice"
       aria-hidden="true"
-      style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: "38%", pointerEvents: "none" }}
+      style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: "36%", pointerEvents: "none" }}
     >
-      {/* ── Layer 1: Far mountains (sage mist) ── */}
+      {/* Far hazy treeline */}
       <path
-        d="M 0,128 C 70,92 140,108 210,80 C 280,58 350,88 420,68 C 490,48 560,78 630,56 C 700,36 770,66 840,48 C 910,32 980,60 1050,42 C 1110,28 1160,52 1200,38 L 1200,180 L 0,180 Z"
-        fill="var(--gold-soft)" opacity="0.09"
+        d="M 0,140 C 80,118 160,128 240,112 C 320,98 400,115 480,100 C 560,88 640,108 720,94 C 800,80 880,100 960,86 C 1040,74 1120,92 1200,78 L 1200,180 L 0,180 Z"
+        fill="#f5d0e0" opacity="0.12"
       />
-      {/* Mountain ridgeline detail */}
-      <path
-        d="M 0,128 C 70,92 140,108 210,80 C 280,58 350,88 420,68 C 490,48 560,78 630,56 C 700,36 770,66 840,48 C 910,32 980,60 1050,42 C 1110,28 1160,52 1200,38"
-        fill="none" stroke="var(--gold-soft)" strokeWidth="0.6" opacity="0.18"
-      />
-
-      {/* ── Layer 2: City silhouette (near) ── */}
-      <g fill={nearFill} opacity={nearOpacity}>
-        {/* Left cluster */}
-        {parapet(0, 30, 14, "p1")}
-        {dome(52, 22, 34, "d1")}
-        {parapet(74, 82, 8, "p2")}
-        {minaret(88, 78, 6, "m1")}
-        {parapet(92, 108, 12, "p3")}
-        {dome(125, 18, 26, "d2")}
-
-        {/* Left-centre: main mosque */}
-        {minaret(150, 38, 5.5, "m2")}
-        {parapet(156, 168, 10, "p4")}
-        {dome(215, 58, 92, "d3")}  {/* Grand dome */}
-        {parapet(273, 290, 10, "p5")}
-        {minaret(296, 36, 5.5, "m3")}
-        {dome(320, 16, 24, "d4")}
-        {parapet(338, 360, 10, "p6")}
-        {dome(378, 20, 32, "d5")}
-
-        {/* Centre: palace complex */}
-        {parapet(400, 432, 16, "p7")}
-        {minaret(438, 28, 5, "m4")}
-        {parapet(444, 460, 20, "p8")}
-        {dome(520, 68, 108, "d6")}  {/* Central palace dome */}
-        {/* Chattri (small dome on drum) */}
-        {dome(520, 22, 42, "d6b")}
-        {parapet(590, 608, 20, "p9")}
-        {minaret(614, 26, 5, "m5")}
-        {parapet(620, 640, 12, "p10")}
-        {dome(660, 22, 30, "d7")}
-
-        {/* Right-centre */}
-        {parapet(684, 700, 10, "p11")}
-        {dome(718, 26, 42, "d8")}
-        {dome(762, 20, 30, "d9")}
-        {minaret(792, 56, 5.5, "m6")}
-        {parapet(798, 820, 10, "p12")}
-        {dome(840, 24, 38, "d10")}
-        {dome(882, 20, 32, "d11")}
-
-        {/* Right cluster */}
-        {minaret(916, 64, 5, "m7")}
-        {parapet(922, 944, 10, "p13")}
-        {dome(965, 28, 40, "d12")}
-        {parapet(995, 1020, 12, "p14")}
-        {dome(1040, 22, 30, "d13")}
-        {dome(1082, 18, 24, "d14")}
-        {parapet(1102, 1200, 14, "p15")}
-      </g>
-
-      {/* ── Ground baseline ── */}
-      <line x1="0" y1={base} x2="1200" y2={base} stroke="var(--terracotta)" strokeWidth="0.5" opacity="0.15" />
+      {/* Individual trees (x, height, radius) */}
+      {tree(60,   82,  36, "t1")}
+      {tree(155,  68,  30, "t2")}
+      {tree(240,  92,  40, "t3")}
+      {tree(360,  74,  32, "t4")}
+      {tree(460,  58,  26, "t5")}
+      {tree(560,  88,  38, "t6")}
+      {tree(680,  70,  30, "t7")}
+      {tree(780,  96,  42, "t8")}
+      {tree(900,  65,  28, "t9")}
+      {tree(1000, 80,  34, "ta")}
+      {tree(1110, 60,  26, "tb")}
+      {/* Ground mist */}
+      <ellipse cx="600" cy="180" rx="620" ry="22" fill="#fce8f4" opacity="0.14" />
     </svg>
   );
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   CORNER ORNAMENT  —  manuscript-style filigree for each corner
+   CORNER ORNAMENT  —  manuscript filigree, all four corners
 ───────────────────────────────────────────────────────────────────────────── */
 function CornerOrnament({ corner }: { corner: "tl" | "tr" | "bl" | "br" }) {
   const flip = {
@@ -251,25 +193,23 @@ function CornerOrnament({ corner }: { corner: "tl" | "tr" | "bl" | "br" }) {
 
   return (
     <svg width="80" height="80" viewBox="0 0 80 80" aria-hidden="true" style={{ display: "block" }}>
-      <g transform={flip} fill="none" stroke="var(--gold)" opacity="0.32">
-        {/* Outer arc */}
-        <path d="M 4,4 L 36,4 C 36,4 40,4 40,8 L 40,40" strokeWidth="0.6" opacity="0.4" />
-        {/* Corner bracket */}
-        <path d="M 4,4 L 4,28" strokeWidth="1.2" strokeLinecap="round" />
-        <path d="M 4,4 L 28,4" strokeWidth="1.2" strokeLinecap="round" />
-        {/* Lotus curl – vertical */}
-        <path d="M 4,28 C 4,36 8,40 14,40 C 18,40 22,36 20,32 C 18,28 14,28 14,32" strokeWidth="0.8" opacity="0.7" />
-        {/* Lotus curl – horizontal */}
-        <path d="M 28,4 C 36,4 40,8 40,14 C 40,18 36,22 32,20 C 28,18 28,14 32,14" strokeWidth="0.8" opacity="0.7" />
-        {/* Inner fine line */}
-        <path d="M 8,8 L 24,8 C 26,8 28,10 28,12 L 28,24" strokeWidth="0.45" opacity="0.35" />
-        {/* Diamond marks */}
-        <circle cx="4" cy="4" r="2.5" fill="var(--gold)" opacity="0.45" />
-        <circle cx="18" cy="4" r="1.2" fill="var(--gold)" opacity="0.3" />
-        <circle cx="4" cy="18" r="1.2" fill="var(--gold)" opacity="0.3" />
-        {/* Floral dot cluster */}
-        {[[14,14],[20,10],[10,20],[22,18],[18,22]].map(([cx,cy],i) => (
-          <circle key={i} cx={cx} cy={cy} r="0.8" fill="var(--gold)" opacity={0.2 + i * 0.04} />
+      <g transform={flip} fill="none" stroke="#d4688a" opacity="0.28">
+        <path d="M 4,4 L 36,4 C 38,4 40,6 40,8 L 40,40" strokeWidth="0.55" opacity="0.35" />
+        <path d="M 4,4 L 4,28" strokeWidth="1.1" strokeLinecap="round" />
+        <path d="M 4,4 L 28,4" strokeWidth="1.1" strokeLinecap="round" />
+        {/* Lotus curl — vertical */}
+        <path d="M 4,28 C 4,36 8,40 14,40 C 18,40 22,36 20,32 C 18,28 14,28 14,32" strokeWidth="0.8" opacity="0.65" />
+        {/* Lotus curl — horizontal */}
+        <path d="M 28,4 C 36,4 40,8 40,14 C 40,18 36,22 32,20 C 28,18 28,14 32,14" strokeWidth="0.8" opacity="0.65" />
+        {/* Inner line */}
+        <path d="M 8,8 L 22,8 C 24,8 26,10 26,12 L 26,22" strokeWidth="0.4" opacity="0.3" />
+        {/* Blossom dots */}
+        <circle cx="4" cy="4" r="2.4" fill="#e88fa8" opacity="0.45" />
+        <circle cx="16" cy="4" r="1.1" fill="#e88fa8" opacity="0.28" />
+        <circle cx="4" cy="16" r="1.1" fill="#e88fa8" opacity="0.28" />
+        {/* Sakura petal micro-cluster */}
+        {[[13,13],[19,9],[9,19],[20,17],[17,20]].map(([x,y],i)=>(
+          <circle key={i} cx={x} cy={y} r="0.9" fill="#d4688a" opacity={0.18 + i*0.04} />
         ))}
       </g>
     </svg>
@@ -277,37 +217,44 @@ function CornerOrnament({ corner }: { corner: "tl" | "tr" | "bl" | "br" }) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   LANTERN GLOW  —  ornate Mughal lantern silhouette with inner flame
+   LANTERN  —  Mughal ornate lantern with flickering inner glow
 ───────────────────────────────────────────────────────────────────────────── */
 function Lantern() {
   return (
-    <svg width="38" height="56" viewBox="0 0 38 56" aria-hidden="true" style={{ display: "block" }}>
-      <g fill="none" stroke="var(--gold-soft)" strokeWidth="0.9" opacity="0.55">
-        {/* Chain */}
-        <line x1="19" y1="0" x2="19" y2="7" strokeWidth="0.7" />
-        {/* Top cap */}
-        <path d="M 12,7 C 12,4 26,4 26,7 L 28,12 L 10,12 Z" />
-        {/* Body */}
-        <path d="M 10,12 L 8,40 C 8,44 14,48 19,48 C 24,48 30,44 30,40 L 28,12 Z" />
-        {/* Arch panels */}
-        <path d="M 13,14 C 13,10 25,10 25,14" strokeWidth="0.6" opacity="0.6" />
-        <path d="M 12,24 C 12,18 26,18 26,24" strokeWidth="0.5" opacity="0.5" />
-        <path d="M 11,34 C 11,28 27,28 27,34" strokeWidth="0.5" opacity="0.4" />
-        {/* Bottom finial */}
-        <path d="M 14,48 C 14,52 24,52 24,48" strokeWidth="0.7" />
-        <line x1="19" y1="52" x2="19" y2="56" strokeWidth="0.6" />
-        <circle cx="19" cy="56" r="1.5" fill="var(--gold)" opacity="0.4" />
+    <svg width="34" height="50" viewBox="0 0 34 50" aria-hidden="true" style={{ display: "block" }}>
+      <g fill="none" stroke="#d4688a" strokeWidth="0.85" opacity="0.5">
+        <line x1="17" y1="0" x2="17" y2="6" strokeWidth="0.65" />
+        <path d="M 11,6 C 11,3 23,3 23,6 L 25,10 L 9,10 Z" />
+        <path d="M 9,10 L 7,36 C 7,40 12,44 17,44 C 22,44 27,40 27,36 L 25,10 Z" />
+        <path d="M 12,12 C 12,8 22,8 22,12" strokeWidth="0.55" opacity="0.5" />
+        <path d="M 11,21 C 11,16 23,16 23,21" strokeWidth="0.45" opacity="0.4" />
+        <path d="M 10,30 C 10,25 24,25 24,30" strokeWidth="0.45" opacity="0.35" />
+        <path d="M 13,44 C 13,48 21,48 21,44" strokeWidth="0.65" />
+        <line x1="17" y1="48" x2="17" y2="50" strokeWidth="0.55" />
+        <circle cx="17" cy="50" r="1.4" fill="#d4688a" opacity="0.38" />
       </g>
-      {/* Inner flame glow */}
-      <ellipse cx="19" cy="30" rx="5" ry="8" fill="var(--terracotta)" opacity="0.25"
-        style={{ animation: "lanternGlow 2.8s ease-in-out infinite" }}
-      />
-      <ellipse cx="19" cy="30" rx="2.5" ry="4" fill="var(--gold-bright)" opacity="0.35"
-        style={{ animation: "lanternGlow 1.9s ease-in-out infinite reverse" }}
-      />
+      {/* Inner rose-gold flame */}
+      <ellipse cx="17" cy="27" rx="4.5" ry="7" fill="#f5a0c0" opacity="0.22"
+        style={{ animation: "lanternGlow 2.8s ease-in-out infinite" }} />
+      <ellipse cx="17" cy="27" rx="2" ry="3.5" fill="#ffd4e8" opacity="0.3"
+        style={{ animation: "lanternGlow 1.9s ease-in-out infinite reverse" }} />
     </svg>
   );
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SAKURA PETAL CONFIG  —  falling petals data
+───────────────────────────────────────────────────────────────────────────── */
+const SAKURA_PETALS = Array.from({ length: 32 }, (_, i) => ({
+  left: `${3 + (i * 37) % 94}%`,
+  size: 8 + (i % 5) * 3,
+  color: ["#f9c4d4", "#f5a8be", "#fbd8e8", "#f0a0c0", "#fce4f2", "#e8789a"][i % 6],
+  opacity: 0.55 + (i % 4) * 0.1,
+  delay: `${(i * 0.42) % 5.8}s`,
+  dur: `${5.2 + (i % 7) * 0.88}s`,
+  drift: `${((i % 9) - 4) * 28}px`,
+  spin: `${((i % 3) === 0 ? -1 : 1) * (200 + (i % 5) * 60)}deg`,
+}));
 
 /* ─────────────────────────────────────────────────────────────────────────────
    LOADING SCREEN
@@ -315,10 +262,10 @@ function Lantern() {
 export function LoadingScreen({ onDone }: { onDone?: () => void }) {
   const [pct, setPct] = useState(0);
   const [fade, setFade] = useState(false);
-  const [titleVisible, setTitleVisible] = useState(false);
+  const [titleIn, setTitleIn] = useState(false);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setTitleVisible(true), 420);
+    const t1 = setTimeout(() => setTitleIn(true), 440);
     const steps = [10, 28, 48, 66, 84, 100];
     let i = 0;
     const tick = () => {
@@ -336,9 +283,7 @@ export function LoadingScreen({ onDone }: { onDone?: () => void }) {
 
   return (
     <div
-      role="status"
-      aria-live="polite"
-      aria-label="Loading Ānvīkṣikī"
+      role="status" aria-live="polite" aria-label="Loading Ānvīkṣikī"
       style={{
         position: "fixed", inset: 0, zIndex: 9999,
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
@@ -349,214 +294,190 @@ export function LoadingScreen({ onDone }: { onDone?: () => void }) {
       }}
     >
 
-      {/* ══════════════════════════════════════════
-          LAYER 1 — HERO IMAGE BACKDROP
-      ══════════════════════════════════════════ */}
+      {/* ══ LAYER 1 — HERO IMAGE, sepia tinted, barely visible ══ */}
       <div aria-hidden="true" style={{
         position: "absolute", inset: 0,
         backgroundImage: `url(${asset("/images/provided/home-falcon-city-panorama-hero.jpg")})`,
         backgroundSize: "cover",
         backgroundPosition: "58% 18%",
-        filter: "sepia(0.9) brightness(1.12) saturate(0.52)",
-        opacity: 0.18,
-        animation: "heroZoom 14s ease-in-out infinite",
+        filter: "sepia(1) hue-rotate(290deg) brightness(1.6) saturate(0.28)",
+        opacity: 0.07,
+        animation: "heroZoom 16s ease-in-out infinite",
         transformOrigin: "center center",
       }} />
 
-      {/* ══════════════════════════════════════════
-          LAYER 2 — ATMOSPHERIC COLOUR WASHES
-      ══════════════════════════════════════════ */}
+      {/* ══ LAYER 2 — ATMOSPHERIC COLOUR WASHES ══ */}
       <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
         {/* Warm parchment base */}
         <div style={{
           position: "absolute", inset: 0,
-          background: "linear-gradient(168deg, var(--bg-deep) 0%, var(--bg) 48%, var(--bg-alt) 100%)",
+          background: "linear-gradient(168deg, #f7ede0 0%, var(--bg) 45%, #fdf0f5 100%)",
         }} />
-        {/* Terracotta bloom — upper-centre (falcon's warm tones) */}
+        {/* Rose bloom — upper-centre */}
         <div style={{
-          position: "absolute", top: "5%", left: "50%", transform: "translateX(-50%)",
-          width: 700, height: 700, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(184,76,42,0.11) 0%, transparent 62%)",
+          position: "absolute", top: "4%", left: "50%", transform: "translateX(-50%)",
+          width: 720, height: 720, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(240,140,175,0.14) 0%, transparent 60%)",
         }} />
-        {/* Deep ochre bloom — lower-left (city panorama warmth) */}
+        {/* Blush bloom — lower-left */}
         <div style={{
-          position: "absolute", bottom: "0%", left: "18%",
-          width: 480, height: 480, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(201,152,58,0.13) 0%, transparent 68%)",
+          position: "absolute", bottom: "0%", left: "16%",
+          width: 520, height: 520, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(250,180,210,0.13) 0%, transparent 65%)",
         }} />
-        {/* Sage bloom — upper-right (architectural mist) */}
+        {/* Deep rose bloom — lower-right */}
         <div style={{
-          position: "absolute", top: "2%", right: "14%",
-          width: 340, height: 340, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(100,118,80,0.08) 0%, transparent 68%)",
+          position: "absolute", bottom: "8%", right: "12%",
+          width: 380, height: 380, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(220,100,145,0.09) 0%, transparent 65%)",
         }} />
-        {/* Warm sienna bloom — lower-right */}
+        {/* Pale lilac bloom — upper-right */}
         <div style={{
-          position: "absolute", bottom: "10%", right: "20%",
-          width: 260, height: 260, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(160,100,40,0.08) 0%, transparent 70%)",
+          position: "absolute", top: "3%", right: "10%",
+          width: 300, height: 300, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(200,160,220,0.07) 0%, transparent 68%)",
         }} />
 
-        {/* Manuscript specks — scattered gold/terracotta dust */}
+        {/* Manuscript specks — pink/gold dust */}
         {Array.from({ length: 38 }).map((_, i) => (
           <div key={i} style={{
             position: "absolute",
             left: `${6 + (i * 43) % 88}%`,
             top: `${6 + (i * 61) % 86}%`,
-            width: i % 9 === 0 ? 3.5 : i % 4 === 0 ? 2.2 : 1.4,
-            height: i % 9 === 0 ? 3.5 : i % 4 === 0 ? 2.2 : 1.4,
+            width: i % 9 === 0 ? 3 : i % 4 === 0 ? 2 : 1.3,
+            height: i % 9 === 0 ? 3 : i % 4 === 0 ? 2 : 1.3,
             borderRadius: "50%",
-            background: i % 5 === 0 ? "var(--terracotta)" : "var(--gold)",
-            opacity: 0.04 + (i % 7) * 0.038,
+            background: i % 4 === 0 ? "#e8789a" : i % 6 === 0 ? "#c9983a" : "#f5a8be",
+            opacity: 0.04 + (i % 7) * 0.04,
             animation: `shimmer ${2.1 + (i % 5) * 0.65}s ease-in-out infinite`,
             animationDelay: `${(i * 0.27) % 2.4}s`,
           }} />
         ))}
       </div>
 
-      {/* ══════════════════════════════════════════
-          LAYER 3 — CORNER ORNAMENTS
-      ══════════════════════════════════════════ */}
+      {/* ══ LAYER 3 — FALLING SAKURA PETALS ══ */}
+      {SAKURA_PETALS.map((p, i) => (
+        <div key={i} aria-hidden="true" style={{
+          position: "absolute",
+          top: "-4%",
+          left: p.left,
+          opacity: 0,
+          animation: `sakuraFall ${p.dur} ${p.delay} linear infinite`,
+          ["--petal-drift" as string]: p.drift,
+          ["--petal-spin"  as string]: p.spin,
+          zIndex: i % 4 === 0 ? 3 : 1,
+        }}>
+          <SakuraPetal size={p.size} color={p.color} opacity={p.opacity} />
+        </div>
+      ))}
+
+      {/* ══ LAYER 4 — CORNER ORNAMENTS ══ */}
       {(["tl", "tr", "bl", "br"] as const).map((corner) => (
         <div key={corner} aria-hidden="true" style={{
           position: "absolute",
-          ...(corner.includes("t") ? { top: 12 } : { bottom: 12 }),
-          ...(corner.includes("l") ? { left: 12 } : { right: 12 }),
+          ...(corner.includes("t") ? { top: 10 } : { bottom: 10 }),
+          ...(corner.includes("l") ? { left: 10 } : { right: 10 }),
+          zIndex: 2,
         }}>
           <CornerOrnament corner={corner} />
         </div>
       ))}
 
-      {/* ══════════════════════════════════════════
-          LAYER 4 — RISING EMBERS (lantern sparks)
-      ══════════════════════════════════════════ */}
-      {Array.from({ length: 18 }).map((_, i) => {
-        const driftX = ((i % 5) - 2) * 18;
-        const driftX2 = ((i % 3) - 1) * 12;
-        const delay = (i * 0.38) % 3.2;
-        const dur = 2.8 + (i % 5) * 0.55;
-        const left = 45 + (((i * 37) % 20) - 10);
-        return (
-          <div key={i} aria-hidden="true" style={{
-            position: "absolute",
-            bottom: "8%",
-            left: `${left}%`,
-            width: i % 3 === 0 ? 4 : 2.5,
-            height: i % 3 === 0 ? 4 : 2.5,
-            borderRadius: "50%",
-            background: i % 4 === 0 ? "var(--terracotta)" : "var(--gold-bright)",
-            boxShadow: `0 0 ${i % 3 === 0 ? 6 : 3}px currentColor`,
-            opacity: 0,
-            animation: `embersRise ${dur}s ${delay}s ease-out infinite`,
-            ["--ember-drift" as string]: `${driftX}px`,
-            ["--ember-drift2" as string]: `${driftX2}px`,
-          }} />
-        );
-      })}
+      {/* ══ LAYER 5 — SAKURA GROVE (bottom) ══ */}
+      <SakuraGrove />
 
-      {/* ══════════════════════════════════════════
-          LAYER 5 — CITY SILHOUETTE (bottom)
-      ══════════════════════════════════════════ */}
-      <CityScape />
-
-      {/* ══════════════════════════════════════════
-          CENTRAL COMPOSITION
-      ══════════════════════════════════════════ */}
+      {/* ══ CENTRAL COMPOSITION (z=4) ══ */}
       <div style={{
-        position: "relative",
-        zIndex: 2,
+        position: "relative", zIndex: 4,
         display: "flex", flexDirection: "column", alignItems: "center",
-        gap: 0,
       }}>
 
-        {/* Lantern glow aura beneath emblem */}
+        {/* Lotus glow aura */}
         <div aria-hidden="true" style={{
           position: "absolute",
-          bottom: "8%",
-          left: "50%", transform: "translateX(-50%)",
-          width: 180, height: 80,
+          top: "15%", left: "50%", transform: "translateX(-50%)",
+          width: 220, height: 220,
           borderRadius: "50%",
-          background: "radial-gradient(ellipse, rgba(184,76,42,0.22) 0%, transparent 70%)",
-          filter: "blur(16px)",
-          animation: "lanternGlow 3.2s ease-in-out infinite",
+          background: "radial-gradient(circle, rgba(240,130,170,0.18) 0%, transparent 68%)",
+          filter: "blur(20px)",
+          animation: "lanternGlow 4s ease-in-out infinite",
         }} />
 
-        {/* ── RINGS + FALCON EMBLEM ── */}
-        <div style={{ position: "relative", width: 260, height: 260, flexShrink: 0 }}>
+        {/* ── RING SYSTEM ── */}
+        <div style={{ position: "relative", width: 280, height: 280, flexShrink: 0 }}>
 
-          {/* Outermost slow-spin ring */}
-          <svg width="260" height="260" viewBox="0 0 260 260"
+          {/* Outer slow-spin ring */}
+          <svg width="280" height="280" viewBox="0 0 280 280"
             className="animate-spin-slow"
             style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-            <circle cx="130" cy="130" r="124" stroke="var(--gold)" strokeWidth="0.5" fill="none" opacity="0.14" strokeDasharray="5 20" />
+            <circle cx="140" cy="140" r="134" stroke="#e88fa8" strokeWidth="0.55" fill="none" opacity="0.18" strokeDasharray="4 18" />
             {[0,30,60,90,120,150,180,210,240,270,300,330].map((a, i) => (
               <circle key={i}
-                cx={130 + 124 * Math.cos((a * Math.PI) / 180)}
-                cy={130 + 124 * Math.sin((a * Math.PI) / 180)}
+                cx={140 + 134 * Math.cos((a * Math.PI) / 180)}
+                cy={140 + 134 * Math.sin((a * Math.PI) / 180)}
                 r={i % 3 === 0 ? 3 : 1.8}
-                fill={i % 4 === 0 ? "var(--terracotta)" : "var(--gold)"}
-                opacity={0.2 + (i % 4) * 0.08}
+                fill={i % 4 === 0 ? "#d4688a" : "#c9983a"}
+                opacity={0.22 + (i % 4) * 0.08}
               />
             ))}
           </svg>
 
           {/* Counter-rotating middle ring */}
-          <svg width="260" height="260" viewBox="0 0 260 260"
-            style={{ position: "absolute", inset: 0, animation: "rotateSlow 24s linear infinite reverse", pointerEvents: "none" }}>
-            <circle cx="130" cy="130" r="100" stroke="var(--gold)" strokeWidth="0.5" fill="none" opacity="0.2" strokeDasharray="2 12" />
+          <svg width="280" height="280" viewBox="0 0 280 280"
+            style={{ position: "absolute", inset: 0, animation: "rotateSlow 26s linear infinite reverse", pointerEvents: "none" }}>
+            <circle cx="140" cy="140" r="108" stroke="#e88fa8" strokeWidth="0.5" fill="none" opacity="0.2" strokeDasharray="2 12" />
             {[0,45,90,135,180,225,270,315].map((a, i) => (
               <path key={i}
-                d={`M ${130 + 92 * Math.cos((a * Math.PI) / 180)} ${130 + 92 * Math.sin((a * Math.PI) / 180)} L ${130 + 108 * Math.cos((a * Math.PI) / 180)} ${130 + 108 * Math.sin((a * Math.PI) / 180)}`}
-                stroke="var(--gold-soft)" strokeWidth="0.8" opacity="0.3"
+                d={`M ${140 + 100 * Math.cos((a * Math.PI) / 180)} ${140 + 100 * Math.sin((a * Math.PI) / 180)} L ${140 + 116 * Math.cos((a * Math.PI) / 180)} ${140 + 116 * Math.sin((a * Math.PI) / 180)}`}
+                stroke="#f5a8be" strokeWidth="0.8" opacity="0.32"
               />
             ))}
           </svg>
 
-          {/* Static inner mandala ring */}
-          <svg width="260" height="260" viewBox="0 0 260 260"
+          {/* Inner static mandala ring */}
+          <svg width="280" height="280" viewBox="0 0 280 280"
             style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-            <circle cx="130" cy="130" r="76" stroke="var(--gold)" strokeWidth="0.4" fill="none" opacity="0.18" />
+            <circle cx="140" cy="140" r="82" stroke="#e88fa8" strokeWidth="0.4" fill="none" opacity="0.2" />
             {[0,60,120,180,240,300].map((a, i) => (
               <line key={i}
-                x1={130 + 66 * Math.cos((a * Math.PI) / 180)}
-                y1={130 + 66 * Math.sin((a * Math.PI) / 180)}
-                x2={130 + 76 * Math.cos((a * Math.PI) / 180)}
-                y2={130 + 76 * Math.sin((a * Math.PI) / 180)}
-                stroke="var(--terracotta)" strokeWidth="0.8" opacity="0.3"
+                x1={140 + 72 * Math.cos((a * Math.PI) / 180)}
+                y1={140 + 72 * Math.sin((a * Math.PI) / 180)}
+                x2={140 + 82 * Math.cos((a * Math.PI) / 180)}
+                y2={140 + 82 * Math.sin((a * Math.PI) / 180)}
+                stroke="#d4688a" strokeWidth="0.9" opacity="0.3"
               />
             ))}
-            {/* Cardinal diamond marks */}
             {[0,90,180,270].map((a, i) => {
-              const x = 130 + 76 * Math.cos((a * Math.PI) / 180);
-              const y = 130 + 76 * Math.sin((a * Math.PI) / 180);
-              return <circle key={i} cx={x} cy={y} r="2.2" fill="var(--gold)" opacity="0.42" />;
+              const x = 140 + 82 * Math.cos((a * Math.PI) / 180);
+              const y = 140 + 82 * Math.sin((a * Math.PI) / 180);
+              return <circle key={i} cx={x} cy={y} r="2.5" fill="#d4688a" opacity="0.42" />;
             })}
           </svg>
 
-          {/* Falcon — centred in rings */}
+          {/* Lotus — centred in rings */}
           <div style={{
             position: "absolute", inset: 0,
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>
-            <div className="animate-glow" style={{ color: "var(--gold)" }}>
-              <Falcon size={210} />
+            <div className="animate-glow">
+              <LotusFlower size={220} />
             </div>
           </div>
         </div>
 
-        {/* Lantern beneath falcon */}
-        <div aria-hidden="true" style={{ marginTop: -8, marginBottom: 10, opacity: 0.72 }}>
+        {/* Lantern beneath lotus */}
+        <div aria-hidden="true" style={{ marginTop: -10, marginBottom: 12, opacity: 0.68 }}>
           <Lantern />
         </div>
 
         {/* ── ORNAMENTAL RULE ── */}
         <div aria-hidden="true" style={{
           display: "flex", alignItems: "center", gap: "0.5rem",
-          marginBottom: "1.1rem", opacity: 0.55,
+          marginBottom: "1.1rem", opacity: 0.5,
         }}>
-          <div style={{ width: 48, height: 1, background: "linear-gradient(to right, transparent, var(--gold))" }} />
-          <span style={{ color: "var(--terracotta)", fontSize: "0.5rem", letterSpacing: "0.4em" }}>✦ ✦ ✦</span>
-          <div style={{ width: 48, height: 1, background: "linear-gradient(to left, transparent, var(--gold))" }} />
+          <div style={{ width: 48, height: 1, background: "linear-gradient(to right, transparent, #d4688a)" }} />
+          <span style={{ color: "#e88fa8", fontSize: "0.48rem", letterSpacing: "0.4em" }}>✦ ✦ ✦</span>
+          <div style={{ width: 48, height: 1, background: "linear-gradient(to left, transparent, #d4688a)" }} />
         </div>
 
         {/* ── SINGLE TITLE ── */}
@@ -568,30 +489,27 @@ export function LoadingScreen({ onDone }: { onDone?: () => void }) {
             color: "var(--gold-bright)",
             marginBottom: "0.55rem",
             lineHeight: 1,
-            textShadow: "0 0 28px rgba(184,76,42,0.3), 0 1px 0 rgba(0,0,0,0.08)",
-            animation: titleVisible ? "inscribe 0.9s ease both" : "none",
-            opacity: titleVisible ? undefined : 0,
+            textShadow: "0 0 32px rgba(220,100,150,0.22), 0 1px 0 rgba(0,0,0,0.06)",
+            animation: titleIn ? "inscribe 0.9s ease both" : "none",
+            opacity: titleIn ? undefined : 0,
           }}
         >
           ĀNVĪKṢIKĪ
         </h1>
 
-        {/* Subtitle with flanking rules */}
-        <div style={{
-          display: "flex", alignItems: "center", gap: "0.55rem",
-          marginBottom: "0.4rem",
-        }}>
-          <span style={{ width: 22, height: 1, background: "var(--gold-soft)", opacity: 0.45, flexShrink: 0 }} />
+        {/* Subtitle */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.55rem", marginBottom: "0.4rem" }}>
+          <span style={{ width: 22, height: 1, background: "#f5a8be", opacity: 0.45, flexShrink: 0 }} />
           <span className="font-ui" style={{ fontSize: "0.54rem", letterSpacing: "0.42em", textTransform: "uppercase", color: "var(--ink-faint)" }}>
             Journal &amp; Research Platform
           </span>
-          <span style={{ width: 22, height: 1, background: "var(--gold-soft)", opacity: 0.45, flexShrink: 0 }} />
+          <span style={{ width: 22, height: 1, background: "#f5a8be", opacity: 0.45, flexShrink: 0 }} />
         </div>
 
         {/* Tagline */}
         <p className="font-body" style={{
           fontSize: "0.72rem", color: "var(--ink-faint)", fontStyle: "italic",
-          letterSpacing: "0.06em", marginBottom: "1.6rem", opacity: 0.65,
+          letterSpacing: "0.06em", marginBottom: "1.6rem", opacity: 0.62,
         }}>
           Where Inquiry Becomes Insight
         </p>
@@ -599,16 +517,15 @@ export function LoadingScreen({ onDone }: { onDone?: () => void }) {
         {/* ── PROGRESS BAR ── */}
         <div style={{ width: 220 }}>
           <div style={{
-            height: 2, background: "rgba(201,152,58,0.14)",
+            height: 2, background: "rgba(220,120,160,0.15)",
             borderRadius: 2, overflow: "hidden", marginBottom: 9,
-            boxShadow: "inset 0 0 0 1px rgba(201,152,58,0.08)",
           }}>
             <div style={{
               height: "100%",
-              background: "linear-gradient(90deg, var(--terracotta), var(--gold), var(--gold-bright))",
+              background: "linear-gradient(90deg, #d4688a, #e8a0b8, #c9983a)",
               width: `${pct}%`,
               transition: "width 0.52s ease",
-              boxShadow: "0 0 14px rgba(184,76,42,0.55), 0 0 4px rgba(201,152,58,0.8)",
+              boxShadow: "0 0 14px rgba(212,104,138,0.55), 0 0 4px rgba(240,160,184,0.8)",
               borderRadius: 2,
             }} />
           </div>
@@ -620,34 +537,26 @@ export function LoadingScreen({ onDone }: { onDone?: () => void }) {
           </p>
         </div>
 
-      </div>{/* /central composition */}
+      </div>{/* /central */}
 
-      {/* ══════════════════════════════════════════
-          DRIFTING PETAL ORNAMENTS
-      ══════════════════════════════════════════ */}
+      {/* ══ FLOATING PETAL ORNAMENTS (large, slow sway) ══ */}
       {[
-        { left: "6%",  top: "14%", delay: "0s",   dur: "5.4s", big: false },
-        { left: "90%", top: "20%", delay: "1.5s", dur: "7.0s", big: true  },
-        { left: "12%", top: "82%", delay: "2.8s", dur: "5.0s", big: false },
-        { left: "85%", top: "76%", delay: "0.9s", dur: "5.8s", big: true  },
-        { left: "52%", top: "8%",  delay: "3.4s", dur: "7.4s", big: false },
-        { left: "28%", top: "5%",  delay: "2.0s", dur: "6.1s", big: true  },
-        { left: "75%", top: "88%", delay: "1.1s", dur: "4.7s", big: false },
-        { left: "3%",  top: "48%", delay: "3.8s", dur: "6.6s", big: true  },
+        { left: "5%",  top: "15%", delay: "0s",    dur: "6s",   big: false },
+        { left: "92%", top: "18%", delay: "1.6s",  dur: "7.5s", big: true  },
+        { left: "10%", top: "84%", delay: "3.0s",  dur: "5.2s", big: false },
+        { left: "88%", top: "78%", delay: "1.0s",  dur: "6.2s", big: true  },
+        { left: "2%",  top: "50%", delay: "4.2s",  dur: "7.0s", big: false },
+        { left: "96%", top: "52%", delay: "2.4s",  dur: "5.8s", big: true  },
       ].map((p, i) => (
         <div key={i} aria-hidden="true" style={{
-          position: "absolute", left: p.left, top: p.top,
+          position: "absolute", left: p.left, top: p.top, zIndex: 5,
           animation: `float ${p.dur} ${p.delay} ease-in-out infinite`,
-          zIndex: 1,
         }}>
-          <div style={{
-            width: p.big ? 9 : 5,
-            height: p.big ? 9 : 5,
-            borderRadius: "50% 0 50% 0",
-            background: i % 3 === 0 ? "var(--terracotta)" : i % 3 === 1 ? "var(--gold-pale)" : "var(--gold-soft)",
-            transform: "rotate(45deg)",
-            opacity: 0.35,
-          }} />
+          <SakuraPetal
+            size={p.big ? 12 : 7}
+            color={["#f5a8be", "#f9c4d4", "#e8789a"][i % 3]}
+            opacity={0.4}
+          />
         </div>
       ))}
 

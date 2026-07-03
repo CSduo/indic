@@ -1364,6 +1364,18 @@ button {
   100% { opacity: 0;    transform: translateY(-140px) translateX(var(--ember-drift2, -4px)) scale(0.12); }
 }
 
+@keyframes sakuraFall {
+  0%   { opacity: 0;    transform: translateY(-6vh)   translateX(0)                          rotate(0deg); }
+  6%   { opacity: 0.88; }
+  82%  { opacity: 0.45; }
+  100% { opacity: 0;    transform: translateY(108vh)  translateX(var(--petal-drift, 35px))   rotate(var(--petal-spin, 300deg)); }
+}
+
+@keyframes petalSway {
+  0%, 100% { transform: rotate(-8deg) scale(1); }
+  50%       { transform: rotate(8deg) scale(1.05); }
+}
+
 @keyframes heroZoom {
   0%, 100% { transform: scale(1.04); }
   50%       { transform: scale(1.12); }
