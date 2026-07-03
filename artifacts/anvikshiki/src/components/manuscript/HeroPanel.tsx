@@ -48,7 +48,7 @@ export function HeroPanel({
       )}
     >
       {image ? (
-        <div className={cn("relative min-h-[280px] lg:min-h-[520px]", overlay && "absolute inset-0")}>
+        <div className={cn("relative h-72 sm:h-96 lg:h-[520px] w-full", overlay && "absolute inset-0 h-full")}>
           <img src={image} alt={imageAlt} className={cn("absolute inset-0 h-full w-full object-cover", objectPosition)} loading="eager" />
           <div
             className={cn(

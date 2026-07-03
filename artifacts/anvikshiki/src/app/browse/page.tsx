@@ -12,7 +12,7 @@ const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//
 
 export default function BrowsePage() {
   const [view, setView] = useState<"grid" | "list">("grid");
-  const domains = DOMAIN_ORDER;
+  const domains = DOMAIN_ORDER.filter(key => key !== "philosophy");
 
   return (
     <div className="bg-[var(--bg)]">
