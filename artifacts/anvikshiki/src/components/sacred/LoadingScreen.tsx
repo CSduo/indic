@@ -243,8 +243,8 @@ export function LoadingScreen({ onDone }: { onDone?: () => void }) {
       }}
     >
 
-      {/* ══ LAYER 1 — HERO IMAGE, sepia tinted, barely visible ══ */}
-      <div aria-hidden="true" style={{
+      {/* ══ LAYER 1 — HERO IMAGE, barely visible (hidden in dark mode via CSS) ══ */}
+      <div aria-hidden="true" className="anv-ls-hero-img" style={{
         position: "absolute", inset: 0,
         backgroundImage: `url(${asset("/images/provided/home-falcon-city-panorama-hero.jpg")})`,
         backgroundSize: "cover",
@@ -257,34 +257,24 @@ export function LoadingScreen({ onDone }: { onDone?: () => void }) {
 
       {/* ══ LAYER 2 — ATMOSPHERIC COLOUR WASHES ══ */}
       <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-        {/* Warm parchment base */}
-        <div style={{
-          position: "absolute", inset: 0,
-          background: "linear-gradient(168deg, #f7ede0 0%, var(--bg) 45%, #fdf0f5 100%)",
-        }} />
-        {/* Saffron bloom — upper-centre */}
-        <div style={{
+        {/* Base — parchment in light, pure black in dark (via CSS) */}
+        <div className="anv-ls-base" style={{ position: "absolute", inset: 0 }} />
+        {/* Colour blooms */}
+        <div className="anv-ls-bloom-top" style={{
           position: "absolute", top: "4%", left: "50%", transform: "translateX(-50%)",
           width: 720, height: 720, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(249,115,22,0.10) 0%, transparent 60%)",
         }} />
-        {/* Amber bloom — lower-left */}
-        <div style={{
+        <div className="anv-ls-bloom-bl" style={{
           position: "absolute", bottom: "0%", left: "16%",
           width: 520, height: 520, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(255,160,80,0.10) 0%, transparent 65%)",
         }} />
-        {/* Deep orange bloom — lower-right */}
-        <div style={{
+        <div className="anv-ls-bloom-br" style={{
           position: "absolute", bottom: "8%", right: "12%",
           width: 380, height: 380, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(249,115,22,0.07) 0%, transparent 65%)",
         }} />
-        {/* Warm gold bloom — upper-right */}
-        <div style={{
+        <div className="anv-ls-bloom-tr" style={{
           position: "absolute", top: "3%", right: "10%",
           width: 300, height: 300, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(255,140,60,0.06) 0%, transparent 68%)",
         }} />
 
         {/* Manuscript specks — pink/gold dust */}

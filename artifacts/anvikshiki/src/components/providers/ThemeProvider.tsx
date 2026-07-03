@@ -14,9 +14,9 @@ const ThemeContext = createContext<ThemeContextType>({ theme: "light", toggleThe
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
     try {
-      return (localStorage.getItem("anv-theme") as Theme) || "light";
+      return (localStorage.getItem("anv-theme") as Theme) || "dark";
     } catch {
-      return "light";
+      return "dark";
     }
   });
 
