@@ -4,7 +4,7 @@ import { ArrowRight, BookOpen, Clock3, Compass, Feather, Globe, Layers, Send, Us
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { FloralBorder } from "@/components/sacred/FloralDecor";
-import { ColorMandala, GemstoneRow, PrismaticBurst, RainbowDivider, YantraPattern } from "@/components/sacred/ColorfulDecor";
+import { PrismaticBurst, YantraPattern } from "@/components/sacred/ColorfulDecor";
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (p: string) => `${base}${p.startsWith("/") ? p : `/${p}`}`;
@@ -29,142 +29,24 @@ function SectionMandala({ size = 52, color = "currentColor" }: { size?: number; 
   );
 }
 
-/* ── VIVID ambient sakura — full spectrum petals ── */
-const AMBIENT_PETALS = Array.from({ length: 22 }, (_, i) => ({
-  left: `${4 + (i * 29 + 11) % 92}%`,
-  size: 7 + (i % 5) * 2.2,
-  color: [
-    "#E11D48","#F97316","#EAB308","#22C55E","#06B6D4","#3B82F6",
-    "#7C3AED","#EC4899","#F43F5E","#D97706","#059669","#0EA5E9",
-  ][i % 12],
-  opacity: 0.26 + (i % 4) * 0.06,
-  delay: `${(i * 0.55) % 9}s`,
-  dur: `${8 + (i % 6) * 1.3}s`,
-  drift: `${((i % 7) - 3) * 34}px`,
-  spin: `${((i % 2) === 0 ? -1 : 1) * (170 + (i % 5) * 45)}deg`,
-}));
+/* ── Silver, monochrome domain styling — no per-domain color ── */
+const DOMAIN_SILVER = "#B8B8C2";
 
-/* ── Flower shape helpers ── */
-function FullFlower({ color, shape }: { color: string; shape: number }) {
-  if (shape === 0) {
-    /* 5-petal round flower */
-    return (
-      <>
-        {[0, 72, 144, 216, 288].map((a) => {
-          const rad = (a * Math.PI) / 180;
-          const cx = 12 + 7 * Math.cos(rad);
-          const cy = 12 + 7 * Math.sin(rad);
-          return <ellipse key={a} cx={cx} cy={cy} rx="5.5" ry="3.5" fill={color} transform={`rotate(${a} ${cx} ${cy})`} opacity=".92" />;
-        })}
-        <circle cx="12" cy="12" r="4" fill="rgba(255,255,200,0.9)" />
-        <circle cx="12" cy="12" r="2" fill={color} opacity=".5" />
-      </>
-    );
-  }
-  if (shape === 1) {
-    /* 6-petal lotus-style flower */
-    return (
-      <>
-        {[0, 60, 120, 180, 240, 300].map((a) => (
-          <path
-            key={a}
-            d="M12,12 C10,8 9,4 12,2 C15,4 14,8 12,12Z"
-            fill={color}
-            transform={`rotate(${a} 12 12)`}
-            opacity=".88"
-          />
-        ))}
-        {/* Inner petals */}
-        {[30, 90, 150, 210, 270, 330].map((a) => (
-          <path
-            key={a}
-            d="M12,12 C11,9.5 10.5,7 12,5.5 C13.5,7 13,9.5 12,12Z"
-            fill={color}
-            transform={`rotate(${a} 12 12)`}
-            opacity=".55"
-          />
-        ))}
-        <circle cx="12" cy="12" r="3" fill="rgba(255,240,200,0.9)" />
-      </>
-    );
-  }
-  if (shape === 2) {
-    /* 8-petal marigold */
-    return (
-      <>
-        {[0, 45, 90, 135, 180, 225, 270, 315].map((a) => {
-          const rad = (a * Math.PI) / 180;
-          const cx = 12 + 6 * Math.cos(rad);
-          const cy = 12 + 6 * Math.sin(rad);
-          return <ellipse key={a} cx={cx} cy={cy} rx="4" ry="2.8" fill={color} transform={`rotate(${a} ${cx} ${cy})`} opacity=".9" />;
-        })}
-        <circle cx="12" cy="12" r="3.5" fill="rgba(255,220,100,0.95)" />
-        <circle cx="12" cy="12" r="1.5" fill={color} opacity=".6" />
-      </>
-    );
-  }
-  /* shape 3 — rose-style cupped flower */
-  return (
-    <>
-      <path d="M12,4 C8,5 5,8 5,12 C5,16.5 8.3,19.5 12,20 C15.7,19.5 19,16.5 19,12 C19,8 16,5 12,4Z" fill={color} opacity=".35" />
-      <path d="M12,6 C9,7 7,9.5 7,12 C7,15.2 9.3,17.5 12,18 C14.7,17.5 17,15.2 17,12 C17,9.5 15,7 12,6Z" fill={color} opacity=".6" />
-      <path d="M12,9 C10.5,9.5 9.5,10.8 9.5,12 C9.5,13.8 10.7,15 12,15 C13.3,15 14.5,13.8 14.5,12 C14.5,10.8 13.5,9.5 12,9Z" fill={color} opacity=".85" />
-      <circle cx="12" cy="12" r="2" fill="rgba(255,240,220,0.9)" />
-    </>
-  );
-}
-
-const FLOWER_COLORS = [
-  "#E8426A",   /* rose red */
-  "#F97316",   /* marigold orange */
-  "#EC4899",   /* lotus pink */
-  "#A855F7",   /* violet */
-  "#FBBF24",   /* saffron yellow */
-  "#34D399",   /* sage green */
-  "#60A5FA",   /* cornflower */
-  "#F472B6",   /* petal pink */
-  "#FB923C",   /* deep marigold */
-  "#C084FC",   /* lavender */
-];
-
-function AmbientSakura() {
-  return (
-    <div className="home-v3-ambient-sakura" aria-hidden="true">
-      {AMBIENT_PETALS.map((p, i) => {
-        const color = FLOWER_COLORS[i % FLOWER_COLORS.length];
-        const flowerShape = i % 4;
-        const sz = p.size * 1.8;
-        return (
-          <svg key={i} width={sz} height={sz} viewBox="0 0 24 24"
-            className="home-v3-ambient-petal"
-            style={{ left: p.left, top: "-5%", opacity: p.opacity,
-              "--dur": p.dur, "--delay": p.delay,
-              "--petal-drift": p.drift, "--petal-spin": p.spin,
-            } as React.CSSProperties}>
-            <FullFlower color={color} shape={flowerShape} />
-          </svg>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ── VIVID domain colors ── */
 const HOME_DOMAINS = [
-  { label: "Philosophy",             domain: "philosophy",             href: "/domains/philosophy",             color: "#7C3AED", emoji: "🔮", desc: "Reality, reasoning, self, knowledge, and truth." },
-  { label: "History",                domain: "history",                href: "/domains/history",                color: "#D97706", emoji: "📜", desc: "Civilizations, memory, events, eras, and inheritance." },
-  { label: "Psychology",             domain: "psychology",             href: "/domains/psychology",             color: "#E11D48", emoji: "🧠", desc: "Mind, behavior, consciousness, and inner landscapes." },
-  { label: "Sociology",              domain: "sociology",              href: "/domains/sociology",              color: "#059669", emoji: "🌿", desc: "Communities, institutions, cultures, and shared patterns." },
-  { label: "Science",                domain: "science",                href: "/domains/science",                color: "#0EA5E9", emoji: "🔭", desc: "Observation, logic, nature, systems, and discovery." },
-  { label: "Geopolitics",            domain: "geopolitics",            href: "/domains/geopolitics",            color: "#B91C1C", emoji: "🌐", desc: "Power, geography, statecraft, strategy, and place." },
-  { label: "Papers",                 domain: "papers",                 href: "/papers",                         color: "#B45309", emoji: "📋", desc: "Research manuscripts, working papers, and scholarship." },
-  { label: "Archive",                domain: "archive",                href: "/archive",                        color: "#71717A", emoji: "🗂️", desc: "Texts, records, timelines, sources, and living memory." },
-  { label: "Civilizational Thought", domain: "civilizational-thought", href: "/domains/civilizational-thought", color: "#16A34A", emoji: "🏛️", desc: "Long-arc inquiry into culture, tradition, and society." },
-  { label: "Aesthetics",             domain: "aesthetics",             href: "/domains/aesthetics",             color: "#9D174D", emoji: "🎨", desc: "Art, beauty, literature, music, symbol, and form." },
-  { label: "Sanskrit Studies",       domain: "sanskrit-studies",       href: "/domains/sanskrit-studies",       color: "#CA8A04", emoji: "🪔", desc: "Language, shastra, grammar, and textual traditions." },
-  { label: "Political Theory",       domain: "political-theory",       href: "/domains/political-theory",       color: "#DC2626", emoji: "⚖️", desc: "State, order, sovereignty, justice, and power." },
-  { label: "Translations",           domain: "translations",           href: "/domains/translations",           color: "#4338CA", emoji: "📖", desc: "Texts moving between languages, worlds, and eras." },
-  { label: "Multimedia",             domain: "multimedia",             href: "/domains/aesthetics",             color: "#1D4ED8", emoji: "🎬", desc: "Visual stories, lectures, audio, and interactive work." },
+  { label: "Philosophy",             domain: "philosophy",             href: "/domains/philosophy",             color: DOMAIN_SILVER, emoji: "🔮", desc: "Reality, reasoning, self, knowledge, and truth." },
+  { label: "History",                domain: "history",                href: "/domains/history",                color: DOMAIN_SILVER, emoji: "📜", desc: "Civilizations, memory, events, eras, and inheritance." },
+  { label: "Psychology",             domain: "psychology",             href: "/domains/psychology",             color: DOMAIN_SILVER, emoji: "🧠", desc: "Mind, behavior, consciousness, and inner landscapes." },
+  { label: "Sociology",              domain: "sociology",              href: "/domains/sociology",              color: DOMAIN_SILVER, emoji: "🌿", desc: "Communities, institutions, cultures, and shared patterns." },
+  { label: "Science",                domain: "science",                href: "/domains/science",                color: DOMAIN_SILVER, emoji: "🔭", desc: "Observation, logic, nature, systems, and discovery." },
+  { label: "Geopolitics",            domain: "geopolitics",            href: "/domains/geopolitics",            color: DOMAIN_SILVER, emoji: "🌐", desc: "Power, geography, statecraft, strategy, and place." },
+  { label: "Papers",                 domain: "papers",                 href: "/papers",                         color: DOMAIN_SILVER, emoji: "📋", desc: "Research manuscripts, working papers, and scholarship." },
+  { label: "Archive",                domain: "archive",                href: "/archive",                        color: DOMAIN_SILVER, emoji: "🗂️", desc: "Texts, records, timelines, sources, and living memory." },
+  { label: "Civilizational Thought", domain: "civilizational-thought", href: "/domains/civilizational-thought", color: DOMAIN_SILVER, emoji: "🏛️", desc: "Long-arc inquiry into culture, tradition, and society." },
+  { label: "Aesthetics",             domain: "aesthetics",             href: "/domains/aesthetics",             color: DOMAIN_SILVER, emoji: "🎨", desc: "Art, beauty, literature, music, symbol, and form." },
+  { label: "Sanskrit Studies",       domain: "sanskrit-studies",       href: "/domains/sanskrit-studies",       color: DOMAIN_SILVER, emoji: "🪔", desc: "Language, shastra, grammar, and textual traditions." },
+  { label: "Political Theory",       domain: "political-theory",       href: "/domains/political-theory",       color: DOMAIN_SILVER, emoji: "⚖️", desc: "State, order, sovereignty, justice, and power." },
+  { label: "Translations",           domain: "translations",           href: "/domains/translations",           color: DOMAIN_SILVER, emoji: "📖", desc: "Texts moving between languages, worlds, and eras." },
+  { label: "Multimedia",             domain: "multimedia",             href: "/domains/aesthetics",             color: DOMAIN_SILVER, emoji: "🎬", desc: "Visual stories, lectures, audio, and interactive work." },
 ];
 
 /* ── Stats ── */
@@ -319,7 +201,7 @@ export default function HomePage() {
               </Link>
             </div>
 
-            {/* Vivid colored domain chips */}
+            {/* Domain chips — silver, monochrome */}
             <div className="home-v3-chips">
               {HOME_DOMAINS.map(d => (
                 <Link key={d.label} href={d.href} className="home-v3-chip"
@@ -379,8 +261,6 @@ export default function HomePage() {
 
       {/* ─── BROWSE BY DOMAIN ─── */}
       <section className="home-v3-section home-v3-domains-section" style={{ position: "relative", overflow: "hidden" }}>
-        <AmbientSakura />
-
         {/* Background Yantra watermark */}
         <div className="home-domains-yantra" aria-hidden="true">
           <YantraPattern size={400} style={{ opacity: 0.04 }} />
@@ -391,8 +271,6 @@ export default function HomePage() {
             <SectionMandala size={48} />
             <h2 className="home-v3-section-title">Browse by Domain</h2>
           </div>
-
-          <GemstoneRow count={7} className="mb-2 mt-1 opacity-70" />
 
           <p className="home-v3-section-sub">
             Fourteen fields of inquiry — from the sweep of civilizations to the intimacy of the aesthetic moment,

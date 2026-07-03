@@ -3492,21 +3492,6 @@ body:has(.sacred-drawer) {
   --sakura-6: #f97316;
 }
 
-/* ── Ambient page-level sakura petals ────────────────────────────────── */
-.home-v3-ambient-sakura {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-  z-index: 0;
-}
-
-.home-v3-ambient-petal {
-  position: absolute;
-  will-change: transform, opacity;
-  animation: sakuraFall var(--dur, 9s) var(--delay, 0s) linear infinite;
-}
-
 /* ── Section mandala ornament ────────────────────────────────────────── */
 .home-v3-section-mandala {
   display: block;
@@ -3548,16 +3533,12 @@ body:has(.sacred-drawer) {
   pointer-events: none;
 }
 
-/* ── Domain grid — 14-domain layout ──────────────────────────────────── */
+/* ── Domain grid — 14-domain layout (7×2 so every row is fully symmetric) ── */
 .home-v3-domains-expanded {
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(7, 1fr);
 }
 
-@media (max-width: 960px) {
-  .home-v3-domains-expanded { grid-template-columns: repeat(3, 1fr); }
-}
-
-@media (max-width: 640px) {
+@media (max-width: 1200px) {
   .home-v3-domains-expanded { grid-template-columns: repeat(2, 1fr); }
 }
 
@@ -3878,24 +3859,6 @@ input[type="search"]::-webkit-search-decoration {
 /* ════════════════════════════════════════════════════════════════════════
    COLORFUL DECOR SYSTEM — vivid spectrum aesthetics
    ════════════════════════════════════════════════════════════════════════ */
-
-/* ── Sacred rainbow strip in header ─────────────────────────────────── */
-.sacred-rainbow-strip {
-  height: 3px;
-  width: 100%;
-  background: linear-gradient(90deg,
-    #E11D48 0%, #F97316 14%, #EAB308 28%,
-    #22C55E 42%, #06B6D4 56%, #3B82F6 70%,
-    #7C3AED 84%, #EC4899 100%
-  );
-  background-size: 200% 100%;
-  animation: rainbowShift 8s linear infinite;
-  opacity: 0.85;
-}
-@keyframes rainbowShift {
-  from { background-position: 0% 0%; }
-  to   { background-position: 200% 0%; }
-}
 
 /* ── Stats Bar ───────────────────────────────────────────────────────── */
 .home-stats-bar {
