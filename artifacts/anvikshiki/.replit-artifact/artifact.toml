@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Anvikshiki"
+version = "1.0.0"
+id = "artifacts/anvikshiki"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24483
+
+[services.development]
+run = "pnpm --filter @workspace/anvikshiki run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/anvikshiki", "run", "build" ]
+publicDir = "artifacts/anvikshiki/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24483"
+BASE_PATH = "/"

@@ -1,0 +1,1 @@
+- [pnpm workspace TS project references](ts-project-references-stale-dist.md) — after copying/overwriting `lib/*` package sources, stale `dist/` + `.tsbuildinfo` break downstream typecheck with confusing `TS2305`/`TS6305` errors.
