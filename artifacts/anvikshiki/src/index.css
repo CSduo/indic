@@ -3709,3 +3709,121 @@ footer .font-display:first-child {
 .animate-float {
   animation: marginaliaDrift 7s ease-in-out infinite;
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   FLORAL DECOR — enhanced lotus / petal decorative system
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── Animate-spin-slow utility (used by LotusRing) ─────────────────────── */
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.animate-spin-slow {
+  animation: spinSlow 24s linear infinite;
+}
+
+/* ── Lotus bloom entrance ────────────────────────────────────────────────── */
+@keyframes lotusBloom {
+  0%   { opacity: 0; transform: scale(0.6) rotate(-15deg); }
+  60%  { opacity: 1; transform: scale(1.04) rotate(2deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+.lotus-bloom-in {
+  animation: lotusBloom 1.1s cubic-bezier(.16,1,.3,1) both;
+}
+
+/* ── Soft pulse for centre glow ──────────────────────────────────────────── */
+@keyframes lotusPulse {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50%       { opacity: 0.55; transform: scale(1.08); }
+}
+.lotus-pulse {
+  animation: lotusPulse 4s ease-in-out infinite;
+}
+
+/* ── Floral page background watermark ───────────────────────────────────── */
+.floral-page-bg {
+  position: relative;
+  overflow: hidden;
+}
+.floral-page-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle 1px at 25% 18%, rgba(139,96,32,0.18) 0%, transparent 0%),
+    radial-gradient(circle 1px at 75% 38%, rgba(139,96,32,0.14) 0%, transparent 0%),
+    radial-gradient(circle 1px at 50% 72%, rgba(184,76,42,0.12) 0%, transparent 0%),
+    radial-gradient(circle 1px at 10% 55%, rgba(139,96,32,0.10) 0%, transparent 0%),
+    radial-gradient(circle 1px at 88% 80%, rgba(154,80,96,0.12) 0%, transparent 0%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Parchment card inner glow on hover ─────────────────────────────────── */
+.card-parchment.hoverable:hover {
+  box-shadow:
+    var(--shadow-lg),
+    inset 0 0 40px rgba(139,96,32,0.04),
+    0 0 0 1px rgba(139,96,32,0.16);
+}
+
+/* ── Floral border row ───────────────────────────────────────────────────── */
+.floral-border-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  color: var(--gold);
+}
+
+/* ── Section divider with gradient lines ────────────────────────────────── */
+.section-divider-gradient {
+  height: 1px;
+  background: linear-gradient(to right, transparent 0%, var(--border-gold) 20%, var(--gold-soft) 50%, var(--border-gold) 80%, transparent 100%);
+  opacity: 0.6;
+}
+
+/* ── Corner ornament absolute positioning helpers ───────────────────────── */
+.corner-tl { position: absolute; top: 0; left: 0; }
+.corner-tr { position: absolute; top: 0; right: 0; }
+.corner-bl { position: absolute; bottom: 0; left: 0; }
+.corner-br { position: absolute; bottom: 0; right: 0; }
+
+/* ── Input sacred — remove browser search cancel button ─────────────────── */
+input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+input[type="search"]::-webkit-search-decoration {
+  -webkit-appearance: none;
+}
+
+/* ── Sacred header — subtle lotus shimmer on brand name ─────────────────── */
+.sacred-brand-name {
+  background: linear-gradient(
+    135deg,
+    var(--ink) 0%,
+    var(--gold-bright) 48%,
+    var(--ink) 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: brandShimmer 8s linear infinite;
+}
+
+@keyframes brandShimmer {
+  0%   { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+/* ── Lotus ring — slow counter-rotation variant ──────────────────────────── */
+.lotus-ring-counter {
+  animation: spinSlow 36s linear infinite reverse;
+}
+
+/* ── Page rise for inner content behind petals ──────────────────────────── */
+.z-content { position: relative; z-index: 1; }

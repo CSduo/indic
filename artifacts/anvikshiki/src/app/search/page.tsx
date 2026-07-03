@@ -6,6 +6,7 @@ import { GlyphTag } from "@/components/manuscript/GlyphTag";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { EmptyState } from "@/components/sacred/EmptyState";
+import { AmbientPetals, FloralCorner, LotusRing } from "@/components/sacred/FloralDecor";
 import { DOMAIN_ORDER } from "@/lib/domainMeta";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -50,28 +51,54 @@ export default function SearchPage() {
 
   return (
     <div className="min-h-[80vh] bg-[var(--bg)]">
-      <section className="border-b border-[var(--border-gold)] bg-[var(--bg-alt)] py-12">
-        <div className="container-anv text-center">
-          <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-full border border-[var(--border-gold)] bg-[var(--surface)] text-[var(--gold)]">
-            <Search size={30} />
+      <section className="relative border-b border-[var(--border-gold)] bg-[var(--bg-alt)] py-14 overflow-hidden">
+        {/* Ambient floating petals */}
+        <AmbientPetals />
+
+        {/* Corner ornaments */}
+        <FloralCorner position="tl" size={80} className="absolute top-0 left-0 opacity-60" />
+        <FloralCorner position="tr" size={80} className="absolute top-0 right-0 opacity-60" />
+
+        <div className="container-anv text-center relative z-10">
+          {/* Lotus ring icon */}
+          <div className="mx-auto mb-5 relative w-20 h-20 flex items-center justify-center">
+            <LotusRing size={80} spin className="absolute inset-0 opacity-70" />
+            <Search size={26} className="relative text-[var(--gold)]" />
           </div>
+
           <h1 className="font-display text-[clamp(2.5rem,6vw,5rem)] leading-none text-[var(--ink)]">Search</h1>
-          <p className="mx-auto mt-3 max-w-xl font-display text-2xl text-[var(--terracotta)]">Discover ideas across the archive.</p>
-          <OrnamentDivider variant="minimal" className="my-7" />
+          <p className="mx-auto mt-3 max-w-xl font-display text-2xl text-[var(--terracotta)] italic">
+            Discover ideas across the archive.
+          </p>
+
+          <OrnamentDivider variant="floral" className="my-7" />
+
           <form onSubmit={onSubmit} className="mx-auto w-full max-w-2xl" role="search">
             <div className="relative">
-              <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--gold)]" aria-hidden="true" />
+              {/* Search icon only visible when input is empty */}
+              {!query && (
+                <Search
+                  size={20}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--gold)] pointer-events-none"
+                  aria-hidden="true"
+                />
+              )}
               <input
                 type="search"
-                className="input-sacred h-14 pl-12 pr-12 text-lg"
-                placeholder="Search essays, papers, authors..."
+                className={`input-sacred h-14 pr-12 text-lg transition-all ${query ? "pl-4" : "pl-12"}`}
+                placeholder="Search essays, papers, authors…"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 autoFocus
                 aria-label="Search the journal"
               />
               {query ? (
-                <button type="button" onClick={() => { setQuery(""); setResults([]); setSearched(false); }} className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)]" aria-label="Clear search">
+                <button
+                  type="button"
+                  onClick={() => { setQuery(""); setResults([]); setSearched(false); }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] hover:text-[var(--terracotta)] transition-colors"
+                  aria-label="Clear search"
+                >
                   <X size={18} />
                 </button>
               ) : null}

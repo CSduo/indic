@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import { ArrowRight } from "lucide-react";
 import { AnimalGlyph } from "./AnimalGlyph";
 import { OrnamentDivider } from "./OrnamentDivider";
+import { FloralCorner, LotusBlossom } from "@/components/sacred/FloralDecor";
 import type { DomainKey } from "@/lib/domainMeta";
 import { cn } from "@/lib/utils";
 
@@ -59,10 +60,20 @@ export function HeroPanel({
             )}
             aria-hidden="true"
           />
+          {/* Floral corner overlays on image */}
+          <FloralCorner position="tl" size={60} className="absolute top-2 left-2 text-[var(--gold)] opacity-60" />
+          <FloralCorner position="br" size={60} className="absolute bottom-2 right-2 text-[var(--gold)] opacity-50" />
+          {/* Subtle lotus watermark on image */}
+          <div className="absolute bottom-4 right-4 pointer-events-none" aria-hidden="true">
+            <LotusBlossom size={110} className="text-[var(--gold)] opacity-[0.08]" />
+          </div>
         </div>
       ) : null}
 
       <div className={cn("relative z-10 flex flex-col justify-center p-6 md:p-10 lg:p-12", overlay && "max-w-2xl min-h-[420px]")}>
+        {/* Decorative corner on text side */}
+        <FloralCorner position="tr" size={52} className="absolute top-2 right-2 text-[var(--gold)] opacity-30" />
+
         {glyph ? (
           <div className="mb-5 animate-marginalia text-[var(--gold)]">
             <AnimalGlyph domain={glyph} size={48} />
@@ -72,8 +83,8 @@ export function HeroPanel({
         <h1 className="font-display animate-ink-reveal text-[clamp(2.4rem,6vw,5.7rem)] leading-[.95] text-[var(--ink)]">
           {title}
         </h1>
-        {subtitle ? <p className="mt-4 font-display text-2xl leading-snug text-[var(--terracotta)]">{subtitle}</p> : null}
-        <OrnamentDivider variant="minimal" className="my-6 justify-start" />
+        {subtitle ? <p className="mt-4 font-display text-2xl leading-snug text-[var(--terracotta)] italic">{subtitle}</p> : null}
+        <OrnamentDivider variant="floral" className="my-6 justify-start" />
         {description ? <p className="max-w-xl font-body text-lg leading-8 text-[var(--ink-soft)]">{description}</p> : null}
         {children}
         {(ctaPrimary || ctaSecondary) ? (

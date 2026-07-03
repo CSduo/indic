@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { LotusIcon } from "@/components/sacred/LotusIcon";
+import { FloralBorder, FloralCorner, LotusBlossom } from "@/components/sacred/FloralDecor";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -71,10 +72,23 @@ export function SacredFooter() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="border-t border-[var(--border-gold)] bg-[var(--bg-deep)]" role="contentinfo">
+    <footer className="relative border-t border-[var(--border-gold)] bg-[var(--bg-deep)] overflow-hidden" role="contentinfo">
+      {/* Corner flowers */}
+      <FloralCorner position="tl" size={64} className="absolute top-0 left-0 text-[var(--gold)] opacity-40" />
+      <FloralCorner position="tr" size={64} className="absolute top-0 right-0 text-[var(--gold)] opacity-40" />
+
+      {/* Large background lotus watermark */}
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/3 pointer-events-none" aria-hidden="true">
+        <LotusBlossom size={420} className="text-[var(--gold)] opacity-[0.035]" />
+      </div>
+
       <div className="h-px bg-gradient-to-r from-transparent via-[var(--gold)] to-transparent" aria-hidden="true" />
-      <div className="container-anv py-12">
-        <OrnamentDivider className="mb-10" />
+
+      {/* Grand floral border below top line */}
+      <FloralBorder petals={7} className="mt-6 mb-2 px-4 opacity-60" />
+
+      <div className="container-anv py-8 relative z-10">
+        <OrnamentDivider variant="grand" className="mb-10" />
 
         <div className="grid gap-8 md:grid-cols-[1.25fr_.8fr_.8fr_1fr]">
           <section>
@@ -127,14 +141,14 @@ export function SacredFooter() {
           </section>
         </div>
 
-        <OrnamentDivider variant="minimal" className="my-10" />
+        <OrnamentDivider variant="floral" className="my-10" />
 
         <div className="flex flex-col items-center justify-between gap-3 font-ui text-[0.72rem] uppercase tracking-[0.12em] text-[var(--ink-faint)] md:flex-row">
           <p>Copyright {year} Anvikshiki</p>
           <div className="flex flex-wrap items-center justify-center gap-4">
             <Link href="/privacy" className="hover:text-[var(--terracotta)]">Privacy</Link>
             <Link href="/terms" className="hover:text-[var(--terracotta)]">Terms</Link>
-            <span className="text-[var(--gold)]">Inquiry · Wisdom · Truth</span>
+            <span className="text-[var(--gold)]">✦ Inquiry · Wisdom · Truth ✦</span>
           </div>
         </div>
       </div>
