@@ -44,20 +44,107 @@ const AMBIENT_PETALS = Array.from({ length: 22 }, (_, i) => ({
   spin: `${((i % 2) === 0 ? -1 : 1) * (170 + (i % 5) * 45)}deg`,
 }));
 
+/* ── Flower shape helpers ── */
+function FullFlower({ color, shape }: { color: string; shape: number }) {
+  if (shape === 0) {
+    /* 5-petal round flower */
+    return (
+      <>
+        {[0, 72, 144, 216, 288].map((a) => {
+          const rad = (a * Math.PI) / 180;
+          const cx = 12 + 7 * Math.cos(rad);
+          const cy = 12 + 7 * Math.sin(rad);
+          return <ellipse key={a} cx={cx} cy={cy} rx="5.5" ry="3.5" fill={color} transform={`rotate(${a} ${cx} ${cy})`} opacity=".92" />;
+        })}
+        <circle cx="12" cy="12" r="4" fill="rgba(255,255,200,0.9)" />
+        <circle cx="12" cy="12" r="2" fill={color} opacity=".5" />
+      </>
+    );
+  }
+  if (shape === 1) {
+    /* 6-petal lotus-style flower */
+    return (
+      <>
+        {[0, 60, 120, 180, 240, 300].map((a) => (
+          <path
+            key={a}
+            d="M12,12 C10,8 9,4 12,2 C15,4 14,8 12,12Z"
+            fill={color}
+            transform={`rotate(${a} 12 12)`}
+            opacity=".88"
+          />
+        ))}
+        {/* Inner petals */}
+        {[30, 90, 150, 210, 270, 330].map((a) => (
+          <path
+            key={a}
+            d="M12,12 C11,9.5 10.5,7 12,5.5 C13.5,7 13,9.5 12,12Z"
+            fill={color}
+            transform={`rotate(${a} 12 12)`}
+            opacity=".55"
+          />
+        ))}
+        <circle cx="12" cy="12" r="3" fill="rgba(255,240,200,0.9)" />
+      </>
+    );
+  }
+  if (shape === 2) {
+    /* 8-petal marigold */
+    return (
+      <>
+        {[0, 45, 90, 135, 180, 225, 270, 315].map((a) => {
+          const rad = (a * Math.PI) / 180;
+          const cx = 12 + 6 * Math.cos(rad);
+          const cy = 12 + 6 * Math.sin(rad);
+          return <ellipse key={a} cx={cx} cy={cy} rx="4" ry="2.8" fill={color} transform={`rotate(${a} ${cx} ${cy})`} opacity=".9" />;
+        })}
+        <circle cx="12" cy="12" r="3.5" fill="rgba(255,220,100,0.95)" />
+        <circle cx="12" cy="12" r="1.5" fill={color} opacity=".6" />
+      </>
+    );
+  }
+  /* shape 3 — rose-style cupped flower */
+  return (
+    <>
+      <path d="M12,4 C8,5 5,8 5,12 C5,16.5 8.3,19.5 12,20 C15.7,19.5 19,16.5 19,12 C19,8 16,5 12,4Z" fill={color} opacity=".35" />
+      <path d="M12,6 C9,7 7,9.5 7,12 C7,15.2 9.3,17.5 12,18 C14.7,17.5 17,15.2 17,12 C17,9.5 15,7 12,6Z" fill={color} opacity=".6" />
+      <path d="M12,9 C10.5,9.5 9.5,10.8 9.5,12 C9.5,13.8 10.7,15 12,15 C13.3,15 14.5,13.8 14.5,12 C14.5,10.8 13.5,9.5 12,9Z" fill={color} opacity=".85" />
+      <circle cx="12" cy="12" r="2" fill="rgba(255,240,220,0.9)" />
+    </>
+  );
+}
+
+const FLOWER_COLORS = [
+  "#E8426A",   /* rose red */
+  "#F97316",   /* marigold orange */
+  "#EC4899",   /* lotus pink */
+  "#A855F7",   /* violet */
+  "#FBBF24",   /* saffron yellow */
+  "#34D399",   /* sage green */
+  "#60A5FA",   /* cornflower */
+  "#F472B6",   /* petal pink */
+  "#FB923C",   /* deep marigold */
+  "#C084FC",   /* lavender */
+];
+
 function AmbientSakura() {
   return (
     <div className="home-v3-ambient-sakura" aria-hidden="true">
-      {AMBIENT_PETALS.map((p, i) => (
-        <svg key={i} width={p.size} height={p.size * 1.65} viewBox="0 0 14 23"
-          className="home-v3-ambient-petal"
-          style={{ left: p.left, top: "-5%", opacity: p.opacity,
-            "--dur": p.dur, "--delay": p.delay,
-            "--petal-drift": p.drift, "--petal-spin": p.spin,
-          } as React.CSSProperties}>
-          <path d="M7,23 C1,19 0,13 0,8.5 C0,2.5 3,0 7,0 C11,0 14,2.5 14,8.5 C14,13 13,19 7,23Z" fill={p.color} />
-          <line x1="7" y1="2" x2="7" y2="20" stroke="rgba(255,255,255,0.38)" strokeWidth="0.65" />
-        </svg>
-      ))}
+      {AMBIENT_PETALS.map((p, i) => {
+        const color = FLOWER_COLORS[i % FLOWER_COLORS.length];
+        const flowerShape = i % 4;
+        const sz = p.size * 1.8;
+        return (
+          <svg key={i} width={sz} height={sz} viewBox="0 0 24 24"
+            className="home-v3-ambient-petal"
+            style={{ left: p.left, top: "-5%", opacity: p.opacity,
+              "--dur": p.dur, "--delay": p.delay,
+              "--petal-drift": p.drift, "--petal-spin": p.spin,
+            } as React.CSSProperties}>
+            <FullFlower color={color} shape={flowerShape} />
+          </svg>
+        );
+      })}
     </div>
   );
 }

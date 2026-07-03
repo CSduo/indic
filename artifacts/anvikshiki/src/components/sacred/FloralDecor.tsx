@@ -232,25 +232,92 @@ export function FloralBorder({
   );
 }
 
-/* ─── Ambient floating petals — use on any page ─────────────────────── */
-const PETAL_CONFIGS = Array.from({ length: 22 }, (_, i) => ({
-  left: `${3 + (i * 29 + 13) % 94}%`,
-  size: 6 + (i % 5) * 2,
-  color: [
-    "var(--gold)",
-    "var(--terracotta-soft)",
-    "var(--lotus)",
-    "var(--gold-soft)",
-    "var(--saffron-muted)",
-    "var(--dusty-rose)",
-  ][i % 6],
-  opacity: 0.18 + (i % 4) * 0.06,
-  delay: `${(i * 0.55) % 9}s`,
-  dur: `${9 + (i % 6) * 1.2}s`,
-  drift: `${((i % 7) - 3) * 30}px`,
-  spin: `${((i % 2) === 0 ? -1 : 1) * (160 + (i % 5) * 40)}deg`,
-  shape: i % 3, // 0=petal, 1=lotus, 2=circle
+/* ─── Ambient falling flowers — use on any page ─────────────────────── */
+const FLOWER_COLORS_AMBIENT = [
+  "#E8426A",  /* rose red */
+  "#F97316",  /* marigold orange */
+  "#EC4899",  /* lotus pink */
+  "#A855F7",  /* violet */
+  "#FBBF24",  /* saffron yellow */
+  "#34D399",  /* sage green */
+  "#60A5FA",  /* cornflower */
+  "#F472B6",  /* petal pink */
+  "#FB923C",  /* deep marigold */
+  "#C084FC",  /* lavender */
+  "#FCD34D",  /* jasmine gold */
+  "#6EE7B7",  /* mint */
+];
+
+const PETAL_CONFIGS = Array.from({ length: 26 }, (_, i) => ({
+  left: `${2 + (i * 27 + 11) % 95}%`,
+  size: 18 + (i % 5) * 5,
+  color: FLOWER_COLORS_AMBIENT[i % FLOWER_COLORS_AMBIENT.length],
+  opacity: 0.55 + (i % 4) * 0.1,
+  delay: `${(i * 0.6) % 11}s`,
+  dur: `${10 + (i % 7) * 1.4}s`,
+  drift: `${((i % 7) - 3) * 32}px`,
+  spin: `${((i % 2) === 0 ? -1 : 1) * (120 + (i % 5) * 50)}deg`,
+  shape: i % 4,
 }));
+
+function AmbientFlower({ color, shape }: { color: string; shape: number }) {
+  if (shape === 0) {
+    /* 5-petal round flower */
+    return (
+      <>
+        {[0, 72, 144, 216, 288].map((a) => {
+          const rad = (a * Math.PI) / 180;
+          const cx = 12 + 7 * Math.cos(rad);
+          const cy = 12 + 7 * Math.sin(rad);
+          return <ellipse key={a} cx={cx} cy={cy} rx="5.5" ry="3.5" fill={color} transform={`rotate(${a} ${cx} ${cy})`} opacity=".9" />;
+        })}
+        <circle cx="12" cy="12" r="4" fill="rgba(255,255,200,0.9)" />
+        <circle cx="12" cy="12" r="1.8" fill={color} opacity=".5" />
+      </>
+    );
+  }
+  if (shape === 1) {
+    /* 6-petal lotus flower */
+    return (
+      <>
+        {[0, 60, 120, 180, 240, 300].map((a) => (
+          <path key={a} d="M12,12 C10,7.5 9,3.5 12,1.5 C15,3.5 14,7.5 12,12Z"
+            fill={color} transform={`rotate(${a} 12 12)`} opacity=".88" />
+        ))}
+        {[30, 90, 150, 210, 270, 330].map((a) => (
+          <path key={a} d="M12,12 C11,9 10.5,6.5 12,5 C13.5,6.5 13,9 12,12Z"
+            fill={color} transform={`rotate(${a} 12 12)`} opacity=".5" />
+        ))}
+        <circle cx="12" cy="12" r="3" fill="rgba(255,240,200,0.95)" />
+        <circle cx="12" cy="12" r="1.2" fill={color} opacity=".6" />
+      </>
+    );
+  }
+  if (shape === 2) {
+    /* 8-petal marigold */
+    return (
+      <>
+        {[0, 45, 90, 135, 180, 225, 270, 315].map((a) => {
+          const rad = (a * Math.PI) / 180;
+          const cx = 12 + 6.5 * Math.cos(rad);
+          const cy = 12 + 6.5 * Math.sin(rad);
+          return <ellipse key={a} cx={cx} cy={cy} rx="4.5" ry="3" fill={color} transform={`rotate(${a} ${cx} ${cy})`} opacity=".88" />;
+        })}
+        <circle cx="12" cy="12" r="4" fill="rgba(255,230,120,0.95)" />
+        <circle cx="12" cy="12" r="1.8" fill={color} opacity=".55" />
+      </>
+    );
+  }
+  /* shape 3 — rose / cupped bloom */
+  return (
+    <>
+      <path d="M12,3 C8,4.5 5,8 5,12 C5,16.5 8.2,19.5 12,20 C15.8,19.5 19,16.5 19,12 C19,8 16,4.5 12,3Z" fill={color} opacity=".3" />
+      <path d="M12,6 C9,7 7,9.5 7,12 C7,15.5 9.3,17.5 12,18 C14.7,17.5 17,15.5 17,12 C17,9.5 15,7 12,6Z" fill={color} opacity=".65" />
+      <path d="M12,9.5 C10.5,10 9.5,11 9.5,12 C9.5,13.8 10.6,15 12,15 C13.4,15 14.5,13.8 14.5,12 C14.5,11 13.5,10 12,9.5Z" fill={color} opacity=".9" />
+      <circle cx="12" cy="12" r="2" fill="rgba(255,245,230,0.95)" />
+    </>
+  );
+}
 
 export const AmbientPetals = memo(function AmbientPetals({ className = "" }: { className?: string }) {
   return (
@@ -260,8 +327,12 @@ export const AmbientPetals = memo(function AmbientPetals({ className = "" }: { c
       style={{ zIndex: 0 }}
     >
       {PETAL_CONFIGS.map((p, i) => (
-        <div
+        <svg
           key={i}
+          width={p.size}
+          height={p.size}
+          viewBox="0 0 24 24"
+          fill="none"
           className="absolute top-0"
           style={{
             left: p.left,
@@ -271,41 +342,8 @@ export const AmbientPetals = memo(function AmbientPetals({ className = "" }: { c
             ["--petal-spin" as string]: p.spin,
           }}
         >
-          {p.shape === 1 ? (
-            /* mini lotus */
-            <svg width={p.size * 1.4} height={p.size * 1.4} viewBox="0 0 100 100" fill="none">
-              {[0, 60, 120, 180, 240, 300].map((a) => (
-                <path
-                  key={a}
-                  d="M50,50 C46,38 44,22 50,12 C56,22 54,38 50,50Z"
-                  fill={p.color}
-                  transform={`rotate(${a} 50 50)`}
-                />
-              ))}
-              <circle cx="50" cy="50" r="7" fill={p.color} />
-            </svg>
-          ) : p.shape === 2 ? (
-            /* soft dot cluster */
-            <svg width={p.size} height={p.size} viewBox="0 0 20 20" fill="none">
-              <circle cx="10" cy="10" r="5" fill={p.color} />
-              {[0, 72, 144, 216, 288].map((a) => {
-                const r = (a * Math.PI) / 180;
-                return (
-                  <circle key={a} cx={10 + 8 * Math.cos(r)} cy={10 + 8 * Math.sin(r)} r="2" fill={p.color} />
-                );
-              })}
-            </svg>
-          ) : (
-            /* teardrop petal */
-            <svg width={p.size} height={p.size * 1.7} viewBox="0 0 14 24" fill="none">
-              <path
-                d="M7,24 C1,19 0,13 0,8 C0,2 3,0 7,0 C11,0 14,2 14,8 C14,13 13,19 7,24Z"
-                fill={p.color}
-              />
-              <line x1="7" y1="2" x2="7" y2="21" stroke="rgba(255,255,255,0.35)" strokeWidth="0.7" />
-            </svg>
-          )}
-        </div>
+          <AmbientFlower color={p.color} shape={p.shape} />
+        </svg>
       ))}
     </div>
   );
