@@ -62,7 +62,7 @@ app.use(cookieParser());
 app.use((req, res, next) => {
   if (!process.env.DATABASE_URL) {
     res.status(500).json({
-      error: "DATABASE_URL environment variable is missing on the server. Please add DATABASE_URL in your Vercel Dashboard -> Project Settings -> Environment Variables."
+      error: "DATABASE_URL environment variable is missing on the server. Please add DATABASE_URL as a Replit Secret (Tools -> Secrets)."
     });
     return;
   }

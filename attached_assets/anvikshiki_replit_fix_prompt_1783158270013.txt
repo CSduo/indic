@@ -1,0 +1,633 @@
+ANVIKSHIKI REPLIT FIX MASTER PROMPT
+
+Copy this into Replit Agent:
+
+============================================================
+SHORT CONTROL INSTRUCTION
+============================================================
+
+Stop and inspect before editing. This is a pnpm monorepo. Fix Replit run workflow, API routing, DATABASE_URL/migrations, signup 500, upload storage, and filters. Do not make design changes. Do not delete features. Do not hide errors with || true. Test with pnpm commands before claiming success.
+
+============================================================
+FULL REPLIT AGENT PROMPT
+============================================================
+
+You are working inside Replit on this GitHub repository:
+
+https://github.com/CSduo/indic
+
+Project name: Anvikshiki
+
+This is a pnpm monorepo with:
+- React + Vite frontend in artifacts/anvikshiki
+- Express backend in artifacts/api-server
+- Drizzle ORM + PostgreSQL DB in lib/db
+- Shared Zod schemas in lib/api-zod
+- Existing Vercel config, but now this must be made reliable inside Replit development and Replit deployment.
+
+The user is seeing:
+1. 404 / NOT_FOUND on hosted deployment.
+2. Signup/create-account form showing “Server responded with 500”.
+3. Upload/submission features not working reliably.
+4. Domain/category filters not working.
+5. Local/API routing confusion.
+
+Your task is to fully inspect, fix, test, and prepare this project for Replit.
+
+Do not guess. First inspect the actual files. Do not make visual/design changes. Do not remove features. Do not hide errors with “|| true”. Do not claim success unless commands/tests actually pass.
+
+============================================================
+MAIN GOAL
+============================================================
+
+Make this app run correctly in Replit with:
+- One clear Run button workflow.
+- Frontend preview working.
+- Backend API working.
+- Signup working.
+- Login working.
+- Database connected.
+- Uploads handled safely.
+- Filters working.
+- Submission write/upload working.
+- Clear docs for Replit Secrets and deployment.
+
+============================================================
+PHASE 1 — INSPECT PROJECT
+============================================================
+
+First read these files:
+
+Root:
+- package.json
+- pnpm-workspace.yaml
+- vercel.json
+- api/index.ts
+- .replit if it exists
+- replit.nix if it exists
+
+Frontend:
+- artifacts/anvikshiki/package.json
+- artifacts/anvikshiki/vite.config.ts
+- artifacts/anvikshiki/src/**/* auth/signup/login files
+- frontend API helper files
+- explorer/domain/category/filter components
+- submission/write/upload pages
+
+Backend:
+- artifacts/api-server/package.json
+- artifacts/api-server/src/app.ts
+- artifacts/api-server/src/index.ts
+- artifacts/api-server/src/routes/index.ts
+- artifacts/api-server/src/routes/auth.ts
+- artifacts/api-server/src/routes/submissions.ts
+- artifacts/api-server/src/routes/categories.ts
+- artifacts/api-server/src/routes/articles.ts
+- artifacts/api-server/src/routes/papers.ts
+- artifacts/api-server/src/routes/search.ts
+- artifacts/api-server/src/lib/auth.ts
+
+Database:
+- lib/db/package.json
+- lib/db/drizzle.config.ts
+- lib/db/src/index.ts
+- lib/db/src/schema/index.ts
+
+Search the whole repo for:
+- /api/auth/signup
+- /api/auth/register
+- /api/auth/login
+- /api/submissions
+- /api/submissions/upload
+- /api/submissions/write
+- DATABASE_URL
+- AUTH_SECRET
+- ADMIN_SECRET
+- UPLOADS_DIR
+- API_BASE_URL
+- FRONTEND_URL
+- fetch(
+- axios
+- category
+- domain
+- filter
+- VERCEL
+- REPL_ID
+- REPLIT
+
+============================================================
+PHASE 2 — REPLIT RUN WORKFLOW
+============================================================
+
+This project must have a simple Replit run command.
+
+Create or update Replit config if needed:
+
+1. If `.replit` does not exist, create it.
+2. If `.replit` exists, inspect and fix it.
+3. The Replit Run button should install/build/run the app clearly.
+
+Preferred Replit dev setup:
+- Backend runs on port 5000.
+- Frontend Vite runs on the Replit preview port.
+- Vite proxies `/api` to backend at `http://localhost:5000`.
+
+If using two dev processes, add a reliable dev script at root.
+
+Add dependency if needed:
+- concurrently
+
+Recommended root package.json scripts:
+- "dev": "concurrently \"pnpm --filter @workspace/api-server dev\" \"pnpm --filter @workspace/anvikshiki dev\""
+- "build": keep existing typecheck + build if valid
+- "typecheck": keep existing
+- "db:push": "pnpm --filter @workspace/db run push"
+
+But inspect the actual package names before editing.
+
+Make sure Replit Run command uses:
+pnpm install && pnpm run dev
+
+Or, if Replit already installs dependencies:
+pnpm run dev
+
+Do not break existing Vercel config unless necessary. Replit should work even if Vercel files remain.
+
+============================================================
+PHASE 3 — FIX FRONTEND VITE CONFIG FOR REPLIT
+============================================================
+
+Open:
+artifacts/anvikshiki/vite.config.ts
+
+Make sure:
+- host is `0.0.0.0`
+- allowedHosts works for Replit
+- port uses `process.env.PORT || "5173"` or Replit-compatible value
+- Replit plugins are preserved if already present
+- dev server proxies `/api` to backend
+
+Add/confirm:
+
+server: {
+  port,
+  strictPort: true,
+  host: "0.0.0.0",
+  allowedHosts: true,
+  proxy: {
+    "/api": {
+      target: process.env.API_PROXY_TARGET || "http://localhost:5000",
+      changeOrigin: true
+    }
+  },
+  fs: {
+    strict: false
+  }
+}
+
+Do not hardcode production API URLs in frontend.
+Use relative `/api/...` paths.
+
+============================================================
+PHASE 4 — FIX BACKEND PORT FOR REPLIT
+============================================================
+
+Inspect:
+artifacts/api-server/src/index.ts
+
+Make sure backend can run locally in Replit on port 5000 unless overridden.
+
+Recommended:
+const port = Number(process.env.API_PORT || 5000);
+
+app.listen(port, "0.0.0.0", () => {
+  console.log(`API server listening on ${port}`);
+});
+
+Important:
+- Serverless `api/index.ts` must not call listen.
+- Local backend index.ts can call listen.
+- Express app should remain exported from app.ts.
+
+============================================================
+PHASE 5 — FIX DATABASE FOR REPLIT
+============================================================
+
+Open:
+lib/db/src/index.ts
+
+Current known problem:
+- DB pool uses max: 20, which is too high for serverless and risky.
+- DB verification may run automatically at import time.
+- Placeholder DATABASE_URL can hide misconfiguration.
+- Signup 500 is likely caused by missing DATABASE_URL, missing users table, failed migration, or DB connection failure.
+
+Implement safe DB handling:
+
+1. DATABASE_URL:
+- In Replit, DATABASE_URL must come from Replit Secrets.
+- Do not hardcode database credentials.
+- Do not use placeholder DB URL in production/deployment.
+- If DATABASE_URL is missing, fail clearly for DB routes.
+
+2. Pool:
+Use safe max:
+const maxConnections = Number(
+  process.env.PG_POOL_MAX || (process.env.REPLIT_DEPLOYMENT ? 2 : process.env.VERCEL ? 1 : 10)
+);
+
+3. Verification:
+Do not automatically verify DB connection on every import unless:
+VERIFY_DATABASE_ON_START=true
+
+4. SSL:
+Hosted Postgres like Neon/Supabase often requires SSL.
+Add safe optional SSL:
+- If PGSSL=true or NODE_ENV=production, use ssl: { rejectUnauthorized: false }
+- Do not break local DB.
+
+5. Add useful DB error handling:
+- missing DATABASE_URL
+- relation "users" does not exist
+- connection refused
+- password authentication failed
+- SSL required
+- migration not run
+
+============================================================
+PHASE 6 — REPLIT SECRETS
+============================================================
+
+Create or update REPLIT_SETUP.md or DEPLOYMENT.md with exact Replit instructions.
+
+Required Replit Secrets:
+- DATABASE_URL
+- AUTH_SECRET
+- ADMIN_SECRET
+
+Required if production uploads are enabled:
+- STORAGE_PROVIDER
+- SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, OR CLOUDINARY_URL, OR another chosen provider
+- Do not require Vercel Blob if deploying on Replit unless user specifically wants Vercel Blob.
+
+Optional:
+- PG_POOL_MAX
+- PGSSL=true
+- VERIFY_DATABASE_ON_START=false
+- API_PROXY_TARGET=http://localhost:5000
+- FRONTEND_URL only if needed
+- API_BASE_URL only if needed
+- COOKIE_SAMESITE=lax
+
+Add instructions:
+1. Open Replit.
+2. Go to Tools → Secrets.
+3. Add DATABASE_URL.
+4. Add AUTH_SECRET.
+5. Add ADMIN_SECRET.
+6. Generate secrets using:
+   openssl rand -base64 32
+7. Run:
+   pnpm install
+   pnpm --filter @workspace/db run push
+   pnpm run dev
+
+============================================================
+PHASE 7 — FIX AUTH / SIGNUP 500
+============================================================
+
+Open:
+artifacts/api-server/src/routes/auth.ts
+
+Backend routes should be:
+- POST /api/auth/signup
+- POST /api/auth/register
+- POST /api/auth/login
+- GET /api/auth/me
+- POST /api/auth/logout
+
+Frontend must call the correct route.
+
+Backend expects:
+{
+  "name": "User Name",
+  "email": "user@example.com",
+  "password": "password"
+}
+
+If frontend sends `fullName`, map it to `name`.
+
+Fix signup so:
+- invalid input returns 400 with details
+- duplicate email returns 409
+- successful signup creates user and sets cookie
+- DB failure logs useful server-side info
+- public response is safe but helpful
+- no raw stack traces or secrets are returned
+
+Return useful JSON on failure:
+{
+  "error": "Failed to create account",
+  "code": "SIGNUP_FAILED",
+  "hint": "Database may not be configured or migrations may not have run."
+}
+
+Handle common database errors:
+- users table missing
+- duplicate email
+- connection failure
+- SSL failure
+- missing DATABASE_URL
+
+Make sure production requires:
+- AUTH_SECRET
+- ADMIN_SECRET
+
+In development, fallback secrets are okay with warnings.
+In production/Replit deployment, do not use random per-process secrets.
+
+============================================================
+PHASE 8 — COOKIE SETTINGS FOR REPLIT
+============================================================
+
+Open:
+artifacts/api-server/src/lib/auth.ts
+
+Cookies should be:
+- httpOnly: true
+- secure: true only when needed in production HTTPS
+- sameSite: "lax" for same-site preview/deployment
+- path: "/"
+- maxAge correct
+
+Make configurable:
+- COOKIE_SAMESITE=lax by default
+- COOKIE_SAMESITE=none only when cross-site frontend/backend are on different domains
+- if sameSite none, secure must be true
+
+Make sure Replit preview works.
+If frontend and backend are proxied through same Replit preview origin, sameSite lax is okay.
+
+============================================================
+PHASE 9 — HEALTH ENDPOINT
+============================================================
+
+Add or improve:
+GET /api/health
+
+It should safely return:
+
+{
+  "ok": true,
+  "service": "anvikshiki-api",
+  "time": "...",
+  "environment": {
+    "nodeEnv": "...",
+    "isReplit": true/false,
+    "isReplitDeployment": true/false,
+    "hasDatabaseUrl": true/false,
+    "hasAuthSecret": true/false,
+    "hasAdminSecret": true/false
+  },
+  "database": {
+    "reachable": true/false,
+    "usersTableExists": true/false,
+    "submissionsTableExists": true/false
+  }
+}
+
+Rules:
+- Never expose secret values.
+- Never expose DATABASE_URL.
+- Boolean checks are okay.
+- If DB is not configured, health should explain safely.
+- This endpoint should help debug signup 500.
+
+============================================================
+PHASE 10 — FIX UPLOADS FOR REPLIT
+============================================================
+
+Current known problem:
+- uploads are stored on local disk `/tmp/anvikshiki-uploads`
+- that is not safe for production deployment
+- files can disappear
+
+For Replit development:
+- local disk fallback is okay.
+
+For Replit deployment:
+- use persistent external storage.
+
+Choose one practical storage provider and implement cleanly:
+Preferred options:
+1. Supabase Storage
+2. Cloudinary
+3. S3-compatible storage
+4. Replit Object Storage, if available and appropriate
+
+Do not use Vercel Blob as the default for Replit unless the project still deploys on Vercel.
+
+Implement:
+- In local dev: multer disk storage is okay.
+- In Replit production/deployment: multer memory storage + upload buffer to persistent storage.
+- Store returned public URL.
+- Return public URL to frontend.
+- Do not expose local server file paths.
+- If storage env vars are missing in production, return:
+  {
+    "error": "Upload storage is not configured",
+    "code": "STORAGE_NOT_CONFIGURED"
+  }
+
+Keep file validation:
+- coverImage: jpeg, png, webp
+- manuscript: pdf, doc, docx, txt, jpeg, png, webp
+- size limit around 52MB unless project requires otherwise
+
+============================================================
+PHASE 11 — FIX SUBMISSION WRITE / UPLOAD / PREVIEW
+============================================================
+
+Inspect and fix:
+- POST /api/submissions/write
+- POST /api/submissions/upload
+- GET /api/submissions
+- GET /api/submissions/:id
+- PUT /api/submissions/:id
+- DELETE route if present
+
+Make sure:
+- logged-in draft save works
+- final submit requires consent
+- abstract/body validation matches frontend
+- upload form field names match backend
+- backend returns useful errors
+- frontend displays useful errors
+- preview page receives the correct saved data
+- owner-only access remains enforced
+- admin routes are not exposed to normal users
+
+============================================================
+PHASE 12 — FIX DOMAIN / CATEGORY FILTERS
+============================================================
+
+The user said filters are not working in the domain area.
+
+Find frontend components/pages for:
+- explorer
+- domains
+- categories
+- article filters
+- paper filters
+- search filters
+
+Find backend routes for:
+- categories
+- articles
+- papers
+- search
+- archive
+
+Check and fix:
+- frontend query param names match backend
+- category slug/name mismatch
+- domain slug/name mismatch
+- selected filter state updates correctly
+- URL search params update correctly if used
+- fetch request includes filters
+- backend applies filters
+- empty state works
+- reset filter works
+- mobile and desktop filter UI both work
+- no console errors
+
+Do not just change UI. Make the data actually filter.
+
+============================================================
+PHASE 13 — FRONTEND API ERROR HANDLING
+============================================================
+
+Search frontend API calls.
+
+Create/improve a central API helper.
+
+Requirements:
+- Use relative `/api/...`
+- Always include `credentials: "include"` for auth/session routes
+- Parse JSON safely
+- If response is not ok, use backend `error`, `code`, and `hint`
+- Show useful messages:
+  - 409: Email already registered
+  - 400: Invalid input
+  - 500 DB issue: Database may not be configured/migrated
+- Avoid generic “Server responded with 500” when backend gives better message
+
+============================================================
+PHASE 14 — REPLIT DEPLOYMENT
+============================================================
+
+Add Replit-specific deployment notes.
+
+Explain:
+- This is a monorepo.
+- Run from root.
+- Replit Secrets must be added before running DB push.
+- Use pnpm.
+- Start command for development.
+- Build command if deploying static + backend.
+- Which port is exposed.
+- How frontend talks to backend through `/api`.
+
+If using Replit Autoscale/Reserved VM deployment, document:
+- Build command
+- Run command
+- Required secrets
+- DB migration command
+- How to test after deploy
+
+Recommended test URLs:
+- /
+- /api/health
+- /api/auth/me
+- signup page
+- login page
+- submission page
+- explorer/domain page
+- direct refresh of deep frontend route
+
+============================================================
+PHASE 15 — TEST COMMANDS
+============================================================
+
+Run:
+
+pnpm install
+pnpm run typecheck
+pnpm --filter @workspace/api-server typecheck
+pnpm --filter @workspace/anvikshiki build
+
+If DATABASE_URL is available:
+pnpm --filter @workspace/db run push
+
+Then run the app in Replit:
+pnpm run dev
+
+Test:
+1. Frontend opens in Replit preview.
+2. GET /api/health works.
+3. Signup works.
+4. Duplicate signup returns 409.
+5. Login works.
+6. /api/auth/me returns current user when logged in.
+7. Domain filters work.
+8. Submission write works.
+9. Submission upload works locally.
+10. Upload production storage either works or returns clear configured error.
+11. No console errors.
+12. No terminal stack traces from normal usage.
+
+============================================================
+PHASE 16 — FINAL REPORT
+============================================================
+
+When finished, provide:
+
+1. Root cause summary:
+- Why signup was returning 500.
+- Why deployment/404 was happening or likely happening.
+- Whether DB env/migration was missing.
+- Whether frontend route/API mismatch existed.
+
+2. Files changed:
+- Exact list.
+
+3. Replit setup:
+- Run command.
+- Required secrets.
+- DB push command.
+- Preview URL testing steps.
+
+4. Commands run:
+- pnpm install
+- typecheck
+- frontend build
+- backend typecheck
+- db push if possible
+- dev run
+
+5. Test results:
+- What passed.
+- What failed.
+- What could not be tested because secrets/database/storage were missing.
+
+6. Remaining limitations:
+- Only real limitations.
+- Do not hide incomplete work.
+
+Do not finish until:
+- Replit Run button workflow is clear.
+- Typecheck/build pass or remaining errors are honestly explained.
+- Signup route is fixed.
+- DB setup is documented.
+- Upload production behavior is safe.
+- Filters are checked and fixed.

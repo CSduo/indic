@@ -1,1 +1,2 @@
 - [Submission lifecycle](submission-lifecycle.md) — DRAFT excluded from all admin queries; users can only delete/edit pre-approval statuses (not ACCEPTED/PUBLISHED/ARCHIVED).
+- [pnpm packageManager mismatch breaks workflows](pnpm-packagemanager-mismatch.md) — root package.json packageManager field must match the actual installed pnpm binary or workflow startup loops/fails with EAGAIN.
