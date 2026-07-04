@@ -4,13 +4,14 @@
   "installCommand": "pnpm install --no-frozen-lockfile",
   "buildCommand": "pnpm --filter @workspace/db run push-force || pnpm --filter @workspace/db run push || true && pnpm --filter @workspace/anvikshiki build",
   "outputDirectory": "artifacts/anvikshiki/dist/public",
+  "cleanUrls": true,
   "rewrites": [
     {
       "source": "/api/(.*)",
       "destination": "/api/index"
     },
     {
-      "source": "/((?!assets/|favicon\\.ico|robots\\.txt|.*\\.png|.*\\.jpg|.*\\.jpeg|.*\\.svg|.*\\.webp|.*\\.js|.*\\.css|.*\\.woff|.*\\.woff2|.*\\.ttf).*)$",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]

@@ -33,6 +33,19 @@ app.use(
   }),
 );
 
+// Ensure req.log always exists (fallback to console in serverless environments)
+app.use((req, res, next) => {
+  if (!req.log) {
+    (req as any).log = {
+      info: (...args: any[]) => console.log(...args),
+      error: (...args: any[]) => console.error(...args),
+      warn: (...args: any[]) => console.warn(...args),
+      debug: (...args: any[]) => console.debug(...args),
+    };
+  }
+  next();
+});
+
 // CORS — allow all origins in development
 const allowedOrigin = process.env.FRONTEND_URL || true;
 app.use(cors({
@@ -48,9 +61,10 @@ app.use(cookieParser());
 // Validate database configuration
 app.use((req, res, next) => {
   if (!process.env.DATABASE_URL) {
-    return res.status(500).json({
+    res.status(500).json({
       error: "DATABASE_URL environment variable is missing on the server. Please add DATABASE_URL in your Vercel Dashboard -> Project Settings -> Environment Variables."
     });
+    return;
   }
   next();
 });
