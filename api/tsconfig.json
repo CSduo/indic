@@ -8,7 +8,18 @@
     "skipLibCheck": true,
     "noImplicitAny": false,
     "noImplicitThis": false,
-    "strictNullChecks": false
+    "strictNullChecks": false,
+    "baseUrl": ".",
+    "paths": {
+      "@workspace/db": ["../lib/db/src/index.ts"],
+      "@workspace/db/schema": ["../lib/db/src/schema/index.ts"],
+      "@workspace/api-zod": ["../lib/api-zod/src/index.ts"]
+    }
   },
-  "include": ["index.ts", "../artifacts/api-server/src/**/*"]
+  "include": [
+    "index.ts",
+    "../artifacts/api-server/src/**/*",
+    "../lib/db/src/**/*",
+    "../lib/api-zod/src/**/*"
+  ]
 }
