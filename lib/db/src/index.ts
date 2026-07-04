@@ -4,17 +4,20 @@ import * as schema from "./schema";
 
 const { Pool } = pg;
 
+const isVercel = Boolean(process.env.VERCEL);
+const isProduction = process.env.NODE_ENV === "production";
+
 if (!process.env.DATABASE_URL) {
+  if (isProduction || isVercel) {
+    throw new Error("DATABASE_URL environment variable is missing on Vercel. Please add it to your environment settings.");
+  }
   console.warn(
     "DATABASE_URL is not set. Did you forget to configure environment variables? Database queries will fail."
   );
 }
 
-const isVercel = Boolean(process.env.VERCEL);
-const isProduction = process.env.NODE_ENV === "production";
-
 const maxConnections = Number(
-  process.env.PG_POOL_MAX || (isVercel ? 2 : isProduction ? 5 : 20)
+  process.env.PG_POOL_MAX || (isVercel ? 1 : isProduction ? 5 : 20)
 );
 
 const sslConfig = process.env.PGSSL === "false"
@@ -26,7 +29,7 @@ const sslConfig = process.env.PGSSL === "false"
 // Robust connection pool with configuration for production stability
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL || "postgresql://localhost:5432/placeholder",
-  max: maxConnections, // Max active connections
+  max: maxConnections,
   ssl: sslConfig,
   idleTimeoutMillis: 30000, // Close idle connections after 30s
   connectionTimeoutMillis: 10000, // Timeout after 10s on connect

@@ -193,29 +193,127 @@ export default function SubmitUploadPage() {
 
     try {
       const sim = window.setInterval(() => setProgress((v) => Math.min(v + 10, 85)), 400);
-      const formData = new FormData();
-      formData.append("manuscript", mainFile);
-      if (imgFile) formData.append("coverImage", imgFile);
-      formData.append("submitterName", details.fullName || details.name || "");
-      formData.append("submitterEmail", details.email || "");
-      formData.append("title", details.title || "");
-      formData.append("abstract", details.abstract || "See attached manuscript.");
-      formData.append("type", type);
-      formData.append("consent", "true");
-      if (details.domain) formData.append("domain", details.domain);
-      if (details.keywords) formData.append("keywords", details.keywords);
-      if (details.notes) formData.append("notes", details.notes);
 
-      const response = await fetch(`${base()}/api/submissions/upload`, {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
-      window.clearInterval(sim);
-      setProgress(100);
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Submission failed");
-      sessionStorage.setItem("anvikshiki_submit_id", data.submission?.id || "");
+      // Check if Cloudinary is configured
+      const healthRes = await fetch(`${base()}/api/health`);
+      let isCloudinary = false;
+      if (healthRes.ok) {
+        const health = await healthRes.json();
+        isCloudinary = health?.environment?.storageProvider === "cloudinary";
+      }
+
+      if (isCloudinary) {
+        const uploadToCloudinary = async (file: File, folder: string, resourceType: string) => {
+          const sigRes = await fetch(`${base()}/api/uploads/cloudinary-signature`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ folder }),
+          });
+          if (!sigRes.ok) {
+            const errData = await sigRes.json();
+            throw new Error(errData.error || "Failed to generate upload signature");
+          }
+          const sigData = await sigRes.json();
+
+          const cloudData = new FormData();
+          cloudData.append("file", file);
+          cloudData.append("api_key", sigData.apiKey);
+          cloudData.append("timestamp", String(sigData.timestamp));
+          cloudData.append("signature", sigData.signature);
+          cloudData.append("folder", sigData.folder);
+
+          const uploadUrl = `https://api.cloudinary.com/v1_1/${sigData.cloudName}/${resourceType}/upload`;
+          const uploadRes = await fetch(uploadUrl, {
+            method: "POST",
+            body: cloudData,
+          });
+
+          if (!uploadRes.ok) {
+            const errText = await uploadRes.text();
+            console.error("Cloudinary upload failure response:", errText);
+            throw new Error("Failed to upload file to Cloudinary cloud storage.");
+          }
+
+          const resData = await uploadRes.json();
+          return {
+            secureUrl: resData.secure_url,
+            publicId: resData.public_id,
+            resourceType: resData.resource_type || resourceType,
+          };
+        };
+
+        setProgress(30);
+        const manuscriptResult = await uploadToCloudinary(mainFile, "submissions/manuscripts", "auto");
+
+        let coverImageUrl = null;
+        let coverImagePublicId = null;
+        let coverImageResourceType = null;
+
+        if (imgFile) {
+          setProgress(65);
+          const coverResult = await uploadToCloudinary(imgFile, "submissions/covers", "image");
+          coverImageUrl = coverResult.secureUrl;
+          coverImagePublicId = coverResult.publicId;
+          coverImageResourceType = coverResult.resourceType;
+        }
+
+        setProgress(85);
+        const payload = {
+          submitterName: details.fullName || details.name || "",
+          submitterEmail: details.email || "",
+          title: details.title || "",
+          abstract: details.abstract || "See attached manuscript.",
+          type,
+          consent: true,
+          domain: details.domain,
+          keywords: details.keywords,
+          notes: details.notes,
+          manuscriptUrl: manuscriptResult.secureUrl,
+          manuscriptPublicId: manuscriptResult.publicId,
+          manuscriptResourceType: manuscriptResult.resourceType,
+          coverUrl: coverImageUrl,
+          coverPublicId: coverImagePublicId,
+          coverResourceType: coverImageResourceType,
+        };
+
+        const response = await fetch(`${base()}/api/submissions/upload`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+        window.clearInterval(sim);
+        setProgress(100);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Submission failed");
+        sessionStorage.setItem("anvikshiki_submit_id", data.submission?.id || "");
+      } else {
+        // Fallback to local multipart form upload
+        const formData = new FormData();
+        formData.append("manuscript", mainFile);
+        if (imgFile) formData.append("coverImage", imgFile);
+        formData.append("submitterName", details.fullName || details.name || "");
+        formData.append("submitterEmail", details.email || "");
+        formData.append("title", details.title || "");
+        formData.append("abstract", details.abstract || "See attached manuscript.");
+        formData.append("type", type);
+        formData.append("consent", "true");
+        if (details.domain) formData.append("domain", details.domain);
+        if (details.keywords) formData.append("keywords", details.keywords);
+        if (details.notes) formData.append("notes", details.notes);
+
+        const response = await fetch(`${base()}/api/submissions/upload`, {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        });
+        window.clearInterval(sim);
+        setProgress(100);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Submission failed");
+        sessionStorage.setItem("anvikshiki_submit_id", data.submission?.id || "");
+      }
+
       sessionStorage.removeItem("anvikshiki_submit_details");
       sessionStorage.removeItem("anvikshiki_submit_type");
       navigate("/submit/success");

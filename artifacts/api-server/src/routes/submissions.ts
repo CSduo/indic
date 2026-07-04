@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { getUserAuth } from "../lib/auth";
 import { z } from "zod";
 import multer from "multer";
+import { v2 as cloudinary } from "cloudinary";
 import path from "path";
 import fs from "fs";
 
@@ -102,13 +103,71 @@ router.post("/submissions", async (req, res) => {
   }
 });
 
-// POST /api/submissions/upload — multipart form with optional file
+// POST /api/uploads/cloudinary-signature — request upload signature for direct browser uploads
+router.post("/uploads/cloudinary-signature", async (req, res) => {
+  try {
+    const auth = await getUserAuth(req);
+    if (!auth) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    if (!process.env.CLOUDINARY_URL) {
+      return res.status(500).json({
+        error: "Cloudinary storage is not configured",
+        code: "CLOUDINARY_NOT_CONFIGURED"
+      });
+    }
+
+    const config = cloudinary.config();
+    const cloudName = config.cloud_name;
+    const apiKey = config.api_key;
+    const apiSecret = config.api_secret;
+
+    if (!cloudName || !apiKey || !apiSecret) {
+      return res.status(500).json({
+        error: "Cloudinary configuration is invalid",
+        code: "CLOUDINARY_CONFIG_INVALID"
+      });
+    }
+
+    const timestamp = Math.round(new Date().getTime() / 1000);
+    const folder = (req.body.folder || "submissions").trim();
+
+    const signature = cloudinary.utils.api_sign_request(
+      {
+        timestamp,
+        folder,
+      },
+      apiSecret
+    );
+
+    return res.json({
+      cloudName,
+      apiKey,
+      timestamp,
+      signature,
+      folder
+    });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed to generate signature" });
+  }
+});
+
+// POST /api/submissions/upload — handles metadata and Cloudinary URLs (JSON) or local file upload fallback (multipart)
 router.post(
   "/submissions/upload",
-  upload.fields([
-    { name: "manuscript", maxCount: 1 },
-    { name: "coverImage", maxCount: 1 },
-  ]),
+  (req, res, next) => {
+    const contentType = req.headers["content-type"] || "";
+    if (contentType.includes("multipart/form-data")) {
+      upload.fields([
+        { name: "manuscript", maxCount: 1 },
+        { name: "coverImage", maxCount: 1 },
+      ])(req, res, next);
+      return;
+    }
+    next();
+  },
   async (req: any, res) => {
     try {
       const submitterName = (req.body.submitterName || "").trim();
@@ -123,24 +182,40 @@ router.post(
         return res.status(400).json({ error: "Missing required fields: submitterName, submitterEmail, title" });
       }
 
-      const manuscriptFile = req.files?.["manuscript"]?.[0];
-      const coverFile = req.files?.["coverImage"]?.[0];
+      let manuscriptUrl = req.body.manuscriptUrl || null;
+      let manuscriptPublicId = req.body.manuscriptPublicId || null;
+      let manuscriptResourceType = req.body.manuscriptResourceType || null;
 
-      let manuscriptUrl: string | null = null;
-      let coverUrl: string | null = null;
+      let coverImageUrl = req.body.coverUrl || req.body.coverImageUrl || null;
+      let coverImagePublicId = req.body.coverPublicId || req.body.coverImagePublicId || null;
+      let coverImageResourceType = req.body.coverResourceType || req.body.coverImageResourceType || null;
 
-      if (manuscriptFile) {
-        manuscriptUrl = await saveFile(manuscriptFile, "manuscripts");
-      }
-      if (coverFile) {
-        coverUrl = await saveFile(coverFile, "covers");
+      const contentType = req.headers["content-type"] || "";
+      if (contentType.includes("multipart/form-data")) {
+        const manuscriptFile = req.files?.["manuscript"]?.[0];
+        const coverFile = req.files?.["coverImage"]?.[0];
+
+        try {
+          if (manuscriptFile) {
+            manuscriptUrl = await saveFile(manuscriptFile, "manuscripts");
+          }
+          if (coverFile) {
+            coverImageUrl = await saveFile(coverFile, "covers");
+          }
+        } catch (err: any) {
+          if (err?.message === "BLOB_STORAGE_MISSING") {
+            return res.status(500).json({
+              error: "Upload storage is not configured. Please configure BLOB_READ_WRITE_TOKEN in your environment variables.",
+              code: "BLOB_STORAGE_MISSING"
+            });
+          }
+          throw err;
+        }
       }
 
       const noteLines = [
-        manuscriptFile ? `Manuscript: ${manuscriptFile.originalname} (${(manuscriptFile.size / 1024).toFixed(1)} KB)` : null,
         manuscriptUrl ? `Manuscript URL: ${manuscriptUrl}` : null,
-        coverFile ? `Cover Image: ${coverFile.originalname}` : null,
-        coverUrl ? `Cover URL: ${coverUrl}` : null,
+        coverImageUrl ? `Cover URL: ${coverImageUrl}` : null,
         req.body.domain ? `Domain: ${req.body.domain}` : null,
         req.body.keywords ? `Keywords: ${req.body.keywords}` : null,
         req.body.notes ? `Notes: ${req.body.notes}` : null,
@@ -157,6 +232,12 @@ router.post(
         abstract,
         notes: noteLines || null,
         consent: true,
+        manuscriptUrl,
+        manuscriptPublicId,
+        manuscriptResourceType,
+        coverImageUrl,
+        coverImagePublicId,
+        coverImageResourceType,
       }).returning();
 
       return res.status(201).json({
@@ -164,7 +245,7 @@ router.post(
         submission,
         files: {
           manuscriptUrl,
-          coverUrl,
+          coverUrl: coverImageUrl,
         },
       });
     } catch (err: any) {
