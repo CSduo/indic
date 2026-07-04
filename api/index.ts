@@ -1,3 +1,5 @@
+import app from "../artifacts/api-server/src/app";
+
 declare global {
   namespace Express {
     interface Request {
@@ -6,7 +8,4 @@ declare global {
   }
 }
 
-export default async function handler(req: any, res: any) {
-  const { default: app } = await import("../artifacts/api-server/src/app");
-  return app(req, res);
-}
+export default app;
