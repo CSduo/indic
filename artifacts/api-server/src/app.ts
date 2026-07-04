@@ -45,6 +45,16 @@ app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 app.use(cookieParser());
 
+// Validate database configuration
+app.use((req, res, next) => {
+  if (!process.env.DATABASE_URL) {
+    return res.status(500).json({
+      error: "DATABASE_URL environment variable is missing on the server. Please add DATABASE_URL in your Vercel Dashboard -> Project Settings -> Environment Variables."
+    });
+  }
+  next();
+});
+
 // Rate limiting on auth endpoints
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
