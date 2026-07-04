@@ -21,6 +21,32 @@ const signupSchema = z.object({
   password: z.string().min(6),
 });
 
+function parseAuthError(err: any): { error: string; code: string; hint?: string } {
+  const errMsg = err?.message || String(err);
+  let hint: string | undefined = undefined;
+  let code = "SIGNUP_FAILED";
+  let error = "Failed to create account";
+
+  if (errMsg.includes("relation") && errMsg.includes("does not exist")) {
+    hint = "Database table 'users' does not exist. Please run database schema migrations.";
+    code = "DB_TABLE_MISSING";
+  } else if (errMsg.includes("connection") || errMsg.includes("connect") || errMsg.includes("Pool")) {
+    hint = "Failed to connect to the database. Please verify your DATABASE_URL credentials and connectivity.";
+    code = "DB_CONNECTION_FAILURE";
+  } else if (errMsg.includes("password authentication failed")) {
+    hint = "Database credentials are incorrect.";
+    code = "DB_AUTH_FAILURE";
+  } else if (errMsg.includes("SSL")) {
+    hint = "SSL connection is required by the database host. Check your SSL configuration.";
+    code = "DB_SSL_REQUIRED";
+  } else if (errMsg.includes("unique constraint") || errMsg.includes("duplicate key")) {
+    hint = "A user with this email already exists.";
+    code = "DB_UNIQUE_VIOLATION";
+  }
+
+  return { error, code, hint };
+}
+
 // POST /api/auth/login
 router.post("/auth/login", async (req, res) => {
   try {
@@ -51,21 +77,22 @@ router.post("/auth/signup", async (req, res) => {
   try {
     const parsed = signupSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ error: "Invalid input" });
+      return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
     }
     const { name, email, password } = parsed.data;
     const [existing] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
     if (existing) {
-      return res.status(409).json({ error: "Email already registered" });
+      return res.status(409).json({ error: "Email already registered", code: "EMAIL_EXISTS" });
     }
     const hashedPassword = await hashPassword(password);
     const [user] = await db.insert(usersTable).values({ name, email, password: hashedPassword }).returning();
     const token = await createUserToken(user.id, user.email);
     setUserCookie(res, token);
     return res.json({ success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
-  } catch (err) {
+  } catch (err: any) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed to create account" });
+    const parsedErr = parseAuthError(err);
+    return res.status(500).json(parsedErr);
   }
 });
 
@@ -99,21 +126,22 @@ router.post("/auth/register", async (req, res) => {
   try {
     const parsed = signupSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ error: "Invalid input" });
+      return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
     }
     const { name, email, password } = parsed.data;
     const [existing] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
     if (existing) {
-      return res.status(409).json({ error: "Email already registered" });
+      return res.status(409).json({ error: "Email already registered", code: "EMAIL_EXISTS" });
     }
     const hashedPassword = await hashPassword(password);
     const [user] = await db.insert(usersTable).values({ name, email, password: hashedPassword }).returning();
     const token = await createUserToken(user.id, user.email);
     setUserCookie(res, token);
     return res.json({ success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
-  } catch (err) {
+  } catch (err: any) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed to create account" });
+    const parsedErr = parseAuthError(err);
+    return res.status(500).json(parsedErr);
   }
 });
 

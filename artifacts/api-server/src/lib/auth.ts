@@ -4,6 +4,10 @@ import type { Request, Response } from "express";
 
 function makeSecret(envVar: string | undefined, name: string): Uint8Array {
   if (envVar) return new TextEncoder().encode(envVar);
+  const isProd = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
+  if (isProd) {
+    throw new Error(`Production environment detected but required secret "${name}" is not defined. Please configure it in your environment variables.`);
+  }
   console.warn(
     `[auth] WARNING: ${name} env var is not set. Using a random per-process secret — ` +
     "all sessions will be invalidated on server restart. Set this variable for production."
@@ -91,20 +95,24 @@ export async function getAdminAuth(req: Request) {
 }
 
 export function setUserCookie(res: Response, token: string) {
+  const isProd = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
+  const sameSite = (process.env.COOKIE_SAMESITE as "lax" | "strict" | "none") || "lax";
   res.cookie("user_session", token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: isProd || sameSite === "none",
+    sameSite,
     path: "/",
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 }
 
 export function setAdminCookie(res: Response, token: string) {
+  const isProd = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
+  const sameSite = (process.env.COOKIE_SAMESITE as "lax" | "strict" | "none") || "lax";
   res.cookie("admin_session", token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: isProd || sameSite === "none",
+    sameSite,
     path: "/",
     maxAge: 8 * 60 * 60 * 1000,
   });

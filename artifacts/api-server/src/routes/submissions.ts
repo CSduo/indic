@@ -13,13 +13,34 @@ const router = Router();
 const UPLOADS_DIR = process.env.UPLOADS_DIR || "/tmp/anvikshiki-uploads";
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
-const storage = multer.diskStorage({
-  destination: (_req: any, _file: any, cb: any) => cb(null, UPLOADS_DIR),
-  filename: (_req: any, file: any, cb: any) => {
-    const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_");
-    cb(null, `${Date.now()}-${safe}`);
-  },
-});
+import { put } from "@vercel/blob";
+
+const storage = multer.memoryStorage();
+
+async function saveFile(file: any, subFolder: string): Promise<string> {
+  const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const filename = `${Date.now()}-${safeName}`;
+  const isProd = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
+
+  if (isProd || process.env.BLOB_READ_WRITE_TOKEN) {
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      throw new Error("BLOB_STORAGE_MISSING");
+    }
+    // Upload to Vercel Blob
+    const blob = await put(`submissions/${subFolder}/${filename}`, file.buffer, {
+      access: "public",
+      contentType: file.mimetype,
+    });
+    return blob.url;
+  } else {
+    // Save to local disk
+    const filePath = path.join(UPLOADS_DIR, filename);
+    await fs.promises.writeFile(filePath, file.buffer);
+    const apiBase = process.env.API_BASE_URL || "";
+    return `${apiBase}/api/uploads/${filename}`;
+  }
+}
+
 
 const upload = multer({
   storage,
@@ -117,13 +138,25 @@ router.post(
       const manuscriptFile = req.files?.["manuscript"]?.[0];
       const coverFile = req.files?.["coverImage"]?.[0];
 
-      const apiBase = process.env.API_BASE_URL || "";
-      const manuscriptUrl = manuscriptFile
-        ? `${apiBase}/api/uploads/${path.basename(manuscriptFile.path)}`
-        : null;
-      const coverUrl = coverFile
-        ? `${apiBase}/api/uploads/${path.basename(coverFile.path)}`
-        : null;
+      let manuscriptUrl: string | null = null;
+      let coverUrl: string | null = null;
+
+      try {
+        if (manuscriptFile) {
+          manuscriptUrl = await saveFile(manuscriptFile, "manuscripts");
+        }
+        if (coverFile) {
+          coverUrl = await saveFile(coverFile, "covers");
+        }
+      } catch (err: any) {
+        if (err?.message === "BLOB_STORAGE_MISSING") {
+          return res.status(500).json({
+            error: "Upload storage is not configured. Please configure BLOB_READ_WRITE_TOKEN in your environment variables.",
+            code: "BLOB_STORAGE_MISSING"
+          });
+        }
+        throw err;
+      }
 
       const noteLines = [
         manuscriptFile ? `Manuscript: ${manuscriptFile.originalname} (${(manuscriptFile.size / 1024).toFixed(1)} KB)` : null,
