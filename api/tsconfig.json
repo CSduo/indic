@@ -1,14 +1,14 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "module": "commonjs",
-    "moduleResolution": "node",
     "types": ["node"],
     "noEmitOnError": false,
     "skipLibCheck": true,
     "noImplicitAny": false,
     "noImplicitThis": false,
     "strictNullChecks": false,
+    "strictPropertyInitialization": false,
+    "typeRoots": ["../artifacts/api-server/node_modules/@types"],
     "baseUrl": ".",
     "paths": {
       "@workspace/db": ["../lib/db/src/index.ts"],
