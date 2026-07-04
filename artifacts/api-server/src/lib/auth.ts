@@ -17,8 +17,21 @@ function makeSecret(envVar: string | undefined, name: string): Uint8Array {
   return arr;
 }
 
-const AUTH_SECRET = makeSecret(process.env.AUTH_SECRET, "AUTH_SECRET");
-const ADMIN_SECRET = makeSecret(process.env.ADMIN_SECRET, "ADMIN_SECRET");
+// Lazy singletons — evaluated on first use so a missing ADMIN_SECRET does NOT
+// crash the serverless function during module initialisation (which would cause
+// a blank 500 before Express can return any JSON error).
+let _authSecret: Uint8Array | undefined;
+let _adminSecret: Uint8Array | undefined;
+
+function getAuthSecret(): Uint8Array {
+  if (!_authSecret) _authSecret = makeSecret(process.env.AUTH_SECRET, "AUTH_SECRET");
+  return _authSecret;
+}
+
+function getAdminSecret(): Uint8Array {
+  if (!_adminSecret) _adminSecret = makeSecret(process.env.ADMIN_SECRET, "ADMIN_SECRET");
+  return _adminSecret;
+}
 
 export async function hashPassword(password: string): Promise<string> {
   return bcryptjs.hash(password, 12);
@@ -33,12 +46,12 @@ export async function createUserToken(userId: string, email: string): Promise<st
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
-    .sign(AUTH_SECRET);
+    .sign(getAuthSecret());
 }
 
 export async function verifyUserToken(token: string) {
   try {
-    const { payload } = await jwtVerify(token, AUTH_SECRET, { clockTolerance: 60 });
+    const { payload } = await jwtVerify(token, getAuthSecret(), { clockTolerance: 60 });
     return payload as { userId: string; email: string; type: string };
   } catch {
     return null;
@@ -50,12 +63,12 @@ export async function createAdminToken(adminId: string, email: string, role: str
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("8h")
-    .sign(ADMIN_SECRET);
+    .sign(getAdminSecret());
 }
 
 export async function verifyAdminToken(token: string) {
   try {
-    const { payload } = await jwtVerify(token, ADMIN_SECRET, { clockTolerance: 60 });
+    const { payload } = await jwtVerify(token, getAdminSecret(), { clockTolerance: 60 });
     return payload as { adminId: string; email: string; role: string; type: string };
   } catch {
     return null;

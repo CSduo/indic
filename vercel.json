@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "pnpm install --no-frozen-lockfile",
-  "buildCommand": "pnpm --filter @workspace/db run push && pnpm --filter @workspace/anvikshiki build",
+  "buildCommand": "pnpm --filter @workspace/api-server run build:vercel && pnpm --filter @workspace/db run push && pnpm --filter @workspace/anvikshiki build",
   "outputDirectory": "artifacts/anvikshiki/dist/public",
   "cleanUrls": true,
   "rewrites": [
