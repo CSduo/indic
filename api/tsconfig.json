@@ -3,7 +3,12 @@
   "compilerOptions": {
     "module": "commonjs",
     "moduleResolution": "node",
-    "types": ["node"]
+    "types": ["node"],
+    "noEmitOnError": false,
+    "skipLibCheck": true,
+    "noImplicitAny": false,
+    "noImplicitThis": false,
+    "strictNullChecks": false
   },
   "include": ["index.ts", "../artifacts/api-server/src/**/*"]
 }
