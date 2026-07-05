@@ -78,11 +78,11 @@ export function SacredHeader() {
                     className="sacred-account-btn"
                     aria-expanded={accountOpen}
                   >
-                  <span className="sacred-account-avatar" style={{ overflow: "hidden", width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--terracotta-pale)", flexShrink: 0 }}>
+                  <span className="sacred-account-avatar" style={{ overflow: "hidden" }}>
                     {user.avatarUrl ? (
                       <img src={user.avatarUrl} alt={user.name || "Avatar"} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
                     ) : (
-                      <span style={{ fontSize: 12, fontWeight: 700, color: "var(--terracotta)", fontFamily: "var(--font-ui)", lineHeight: 1 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "var(--terracotta)", fontFamily: "var(--font-ui)", lineHeight: 1 }}>
                         {(user.name || "A").charAt(0).toUpperCase()}
                       </span>
                     )}
