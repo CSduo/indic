@@ -36,6 +36,7 @@ export default function PublicProfilePage() {
   const [articles, setArticles] = useState<ArticlePreview[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [showLightbox, setShowLightbox] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -71,9 +72,13 @@ export default function PublicProfilePage() {
     );
   }
 
-  const initials = (profile.name || "A").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
-
-  const [showLightbox, setShowLightbox] = useState(false);
+  const initials = (profile.name || "A")
+    .split(" ")
+    .filter(Boolean)
+    .map(n => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <div className="bg-[var(--bg)] min-h-screen pb-20">

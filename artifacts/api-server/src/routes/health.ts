@@ -61,4 +61,25 @@ router.get("/health", async (_req, res) => {
   });
 });
 
+router.get("/health/debug-user", async (_req, res) => {
+  try {
+    const { articlesTable, papersTable } = await import("@workspace/db");
+    const { eq } = await import("drizzle-orm");
+    const userId = "f6200aac-6489-49df-94d8-301aa3539557";
+
+    const userSubmissions = await db.select().from(submissionsTable).where(eq(submissionsTable.userId, userId));
+    const allArticles = await db.select().from(articlesTable);
+    const allPapers = await db.select().from(papersTable);
+
+    return res.json({
+      success: true,
+      submissions: userSubmissions,
+      articles: allArticles.filter(a => a.submissionId || a.authorName?.toLowerCase().includes("chaitanya")),
+      papers: allPapers.filter(p => p.submissionId || p.authorName?.toLowerCase().includes("chaitanya"))
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
