@@ -388,18 +388,21 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
         // Determine which category slug to use
         let catSlug = parsed.data.categorySlug || "philosophy";
 
-        // Try to parse domain from notes (stored as "Domain: xxx")
-        if (!parsed.data.categorySlug && submission.notes) {
-          const domainMatch = submission.notes.match(/Domain:\s*([^\n]+)/i);
-          if (domainMatch) {
-            const rawDomain = domainMatch[1].trim().toLowerCase().replace(/\s+/g, "-");
+        if (!parsed.data.categorySlug) {
+          const rawDomain = submission.domain || "";
+          if (rawDomain) {
+            const normalized = rawDomain.trim().toLowerCase().replace(/_/g, "-").replace(/\s+/g, "-");
             const knownSlugs = [
               "philosophy","history","psychology","sociology","science","geopolitics",
               "civilizational-thought","aesthetics","sanskrit-studies","political-theory",
               "translations","multimedia","papers","archive",
             ];
-            if (knownSlugs.includes(rawDomain)) {
-              catSlug = rawDomain;
+            if (knownSlugs.includes(normalized)) {
+              catSlug = normalized;
+            } else if (normalized === "civilization" || normalized === "civilisations" || normalized === "civilizations") {
+              catSlug = "civilizational-thought";
+            } else if (normalized === "sanskrit") {
+              catSlug = "sanskrit-studies";
             } else {
               catSlug = "archive";
             }
@@ -426,10 +429,10 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
           if (imgMatch) heroImageUrl = imgMatch[1].trim();
         }
 
-        // Only create if no article with this base slug already exists
+        // Only create if no article with this submissionId already exists (prevent duplicates/skips)
         const [existing] = await db.select({ id: articlesTable.id })
           .from(articlesTable)
-          .where(eq(articlesTable.slug, baseSlug)).limit(1);
+          .where(eq(articlesTable.submissionId, submission.id)).limit(1);
 
         if (!existing) {
           await db.insert(articlesTable).values({
