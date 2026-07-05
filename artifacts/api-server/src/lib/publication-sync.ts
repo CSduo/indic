@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import {
   articlesTable,
   categoriesTable,
@@ -9,6 +9,14 @@ import {
 } from "@workspace/db";
 
 type PublicationKind = "article" | "paper";
+
+const PUBLIC_SUBMISSION_STATUSES = [
+  "RECEIVED",
+  "UNDER_REVIEW",
+  "REVISION_REQUESTED",
+  "ACCEPTED",
+  "PUBLISHED",
+] as const;
 
 export type PublicPublicationResult = {
   kind: PublicationKind | null;
@@ -135,7 +143,7 @@ export async function ensurePublicPublicationForSubmission(
   submission: Submission,
   options: { categorySlug?: string | null; publishedAt?: Date } = {},
 ): Promise<PublicPublicationResult> {
-  if (submission.status !== "PUBLISHED" || submission.deleted) {
+  if (!PUBLIC_SUBMISSION_STATUSES.includes(submission.status as typeof PUBLIC_SUBMISSION_STATUSES[number]) || submission.deleted) {
     return { kind: null, status: "skipped", reason: "submission-not-public" };
   }
 
@@ -155,6 +163,23 @@ export async function ensurePublicPublicationForSubmission(
       .limit(1);
 
     if (existing) {
+      await db
+        .update(papersTable)
+        .set({
+          title: submission.title,
+          abstract: submission.abstract || "",
+          body,
+          categorySlug,
+          authorName: submission.submitterName,
+          pdfUrl: submission.manuscriptUrl,
+          coverImageUrl: getSubmissionCoverImage(submission),
+          status: "PUBLISHED",
+          deleted: false,
+          deletedAt: null,
+          publishedAt,
+          updatedAt: new Date(),
+        })
+        .where(eq(papersTable.id, existing.id));
       await db
         .update(articlesTable)
         .set({ deleted: true, deletedAt: new Date(), updatedAt: new Date() })
@@ -208,6 +233,23 @@ export async function ensurePublicPublicationForSubmission(
 
   if (existing) {
     await db
+      .update(articlesTable)
+      .set({
+        title: submission.title,
+        excerpt: submission.abstract || "",
+        body,
+        categorySlug,
+        authorName: submission.submitterName,
+        heroImageUrl: getSubmissionCoverImage(submission),
+        heroImageAlt: submission.title,
+        status: "PUBLISHED",
+        deleted: false,
+        deletedAt: null,
+        publishedAt,
+        updatedAt: new Date(),
+      })
+      .where(eq(articlesTable.id, existing.id));
+    await db
       .update(papersTable)
       .set({ deleted: true, deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(papersTable.submissionId, submission.id));
@@ -256,7 +298,10 @@ export async function syncPublishedSubmissions() {
   const publishedSubmissions = await db
     .select()
     .from(submissionsTable)
-    .where(and(eq(submissionsTable.status, "PUBLISHED"), eq(submissionsTable.deleted, false)));
+    .where(and(
+      inArray(submissionsTable.status, [...PUBLIC_SUBMISSION_STATUSES]),
+      eq(submissionsTable.deleted, false),
+    ));
 
   const summary = {
     checked: publishedSubmissions.length,

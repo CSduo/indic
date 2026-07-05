@@ -3,7 +3,10 @@ import { db } from "@workspace/db";
 import { submissionsTable, articlesTable, papersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { getUserAuth } from "../lib/auth";
-import { normalizeCategorySlug } from "../lib/publication-sync";
+import {
+  ensurePublicPublicationForSubmission,
+  normalizeCategorySlug,
+} from "../lib/publication-sync";
 import { z } from "zod";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
@@ -99,7 +102,8 @@ router.post("/submissions", async (req, res) => {
       consent: true,
     }).returning();
 
-    return res.status(201).json({ success: true, submission });
+    const publication = await ensurePublicPublicationForSubmission(submission);
+    return res.status(201).json({ success: true, submission, publication });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed" });
@@ -245,9 +249,11 @@ router.post(
         coverImageResourceType,
       }).returning();
 
+      const publication = await ensurePublicPublicationForSubmission(submission);
       return res.status(201).json({
         success: true,
         submission,
+        publication,
         files: {
           manuscriptUrl,
           coverUrl: coverImageUrl,
@@ -313,7 +319,10 @@ router.post("/submissions/write", async (req, res) => {
       status: isDraft ? "DRAFT" : "RECEIVED",
     }).returning();
 
-    return res.status(201).json({ success: true, submission });
+    const publication = isDraft
+      ? null
+      : await ensurePublicPublicationForSubmission(submission);
+    return res.status(201).json({ success: true, submission, publication });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Write submission failed" });
@@ -430,7 +439,10 @@ router.put("/submissions/:id", async (req, res) => {
       .where(eq(submissionsTable.id, req.params.id))
       .returning();
 
-    return res.json({ success: true, submission });
+    const publication = wantsSubmit
+      ? await ensurePublicPublicationForSubmission(submission)
+      : null;
+    return res.json({ success: true, submission, publication });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed to update submission" });
