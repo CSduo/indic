@@ -22,7 +22,8 @@ const STATUS_LABELS: Record<string, { label: string; className: string }> = {
 };
 
 // Statuses the user themselves may still delete (mirrors the server rule).
-const USER_DELETABLE_STATUSES = new Set(["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "REJECTED"]);
+// All statuses are user-deletable; the server enforces its own rules on accepted/published.
+const USER_DELETABLE_STATUSES = new Set(["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "REJECTED", "ACCEPTED", "PUBLISHED", "ARCHIVED"]);
 
 export default function AccountPage() {
   const [, navigate] = useLocation();
@@ -160,17 +161,16 @@ export default function AccountPage() {
                   <Edit3 size={12} /> Resume
                 </Link>
               ) : null}
-              {canDelete ? (
-                <button
-                  type="button"
-                  onClick={() => deleteSubmission(submission.id)}
-                  disabled={deletingId === submission.id}
-                  className="btn-ink px-2 py-1 text-[10px] text-[var(--terracotta)]"
-                  title="Delete this submission"
-                >
-                  <Trash2 size={12} /> {deletingId === submission.id ? "Deleting…" : "Delete"}
-                </button>
-              ) : null}
+              <button
+                type="button"
+                onClick={() => deleteSubmission(submission.id)}
+                disabled={deletingId === submission.id}
+                className="btn-ink px-2 py-1 text-[10px] text-[var(--terracotta)] hover:bg-[var(--terracotta)]/10"
+                title="Delete this submission"
+              >
+                <Trash2 size={12} /> {deletingId === submission.id ? "Deleting…" : "Delete"}
+              </button>
+
             </div>
           </div>
         </div>

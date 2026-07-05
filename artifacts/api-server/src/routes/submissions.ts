@@ -255,10 +255,9 @@ router.post(
   }
 );
 
-// Statuses a user is still allowed to delete or edit — anything not yet
-// finalized by editorial review. Once ACCEPTED/PUBLISHED/ARCHIVED, the user
-// can no longer delete or edit their own submission.
-const USER_DELETABLE_STATUSES = ["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "REJECTED"];
+// Users can soft-delete any of their own submissions at any time; the article soft-delete
+// is handled separately and the admin panel still sees the submissions (just marked deleted).
+const USER_DELETABLE_STATUSES = ["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "REJECTED", "ACCEPTED", "PUBLISHED", "ARCHIVED"];
 const USER_EDITABLE_STATUSES = ["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED"];
 
 // POST /api/submissions/write — full essay written in browser

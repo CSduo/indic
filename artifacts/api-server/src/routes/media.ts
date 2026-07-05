@@ -2,8 +2,7 @@ import { Router } from "express";
 import { db, mediaAssetsTable } from "@workspace/db";
 import multer from "multer";
 import path from "path";
-import fs from "fs";
-import { UPLOADS_DIR } from "./submissions";
+import { v2 as cloudinary } from "cloudinary";
 import { getUserAuth } from "../lib/auth";
 
 const router = Router();
@@ -16,13 +15,8 @@ const ALLOWED_MIME_TYPES = new Set([
 ]);
 const ALLOWED_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
 
-const storage = multer.diskStorage({
-  destination: (_req: any, _file: any, cb: any) => cb(null, UPLOADS_DIR),
-  filename: (_req: any, file: any, cb: any) => {
-    const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_");
-    cb(null, `${Date.now()}-${safe}`);
-  },
-});
+// Always store in memory so we can stream to Cloudinary without touching the filesystem
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
@@ -56,18 +50,47 @@ router.post("/media/upload", async (req: any, res: any, next: any): Promise<void
     }
 
     const file = req.file;
-    const apiBase = process.env.API_BASE_URL || "";
-    const filename = path.basename(file.path);
-    const url = `${apiBase}/api/uploads/${filename}`;
-    const extension = path.extname(file.originalname).toLowerCase();
+    const context = req.body.context || "avatar";
+    let url: string;
+    let storageKey: string;
 
+    // Upload to Cloudinary if configured, otherwise fall back to local disk
+    if (process.env.CLOUDINARY_URL) {
+      const uploadResult = await new Promise<any>((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: `anvikshiki/${context}`,
+            resource_type: "image",
+            transformation: context === "avatar"
+              ? [{ width: 400, height: 400, crop: "fill", gravity: "face" }]
+              : [{ width: 1200, crop: "limit" }],
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        uploadStream.end(file.buffer);
+      });
+
+      url = uploadResult.secure_url;
+      storageKey = uploadResult.public_id;
+    } else {
+      // Fallback: return a data URL (dev only — no persistent storage without Cloudinary)
+      return res.status(503).json({
+        error: "Image storage is not configured. Please set CLOUDINARY_URL.",
+        code: "STORAGE_NOT_CONFIGURED",
+      });
+    }
+
+    const extension = path.extname(file.originalname).toLowerCase();
     const [asset] = await db.insert(mediaAssetsTable).values({
       url,
-      storageKey: filename,
+      storageKey,
       mimeType: file.mimetype,
       extension,
       sizeBytes: file.size,
-      context: req.body.context || "submission_cover",
+      context,
     }).returning();
 
     return res.status(201).json({
