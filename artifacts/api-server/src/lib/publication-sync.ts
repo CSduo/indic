@@ -18,6 +18,36 @@ const PUBLIC_SUBMISSION_STATUSES = [
   "PUBLISHED",
 ] as const;
 
+const DEFAULT_CATEGORIES = [
+  { slug: "philosophy", name: "Philosophy", description: "Philosophical schools and systems of thought", icon: "Compass", sortOrder: 1 },
+  { slug: "history", name: "History", description: "Historical chronicles, narratives, and research", icon: "History", sortOrder: 2 },
+  { slug: "psychology", name: "Psychology", description: "Mind, consciousness, and behavioral studies", icon: "Brain", sortOrder: 3 },
+  { slug: "sociology", name: "Sociology", description: "Social structures, communities, and institutions", icon: "Users", sortOrder: 4 },
+  { slug: "science", name: "Science", description: "Traditional sciences and modern research", icon: "Atom", sortOrder: 5 },
+  { slug: "geopolitics", name: "Geopolitics", description: "Strategy, geography, and global relationships", icon: "Globe", sortOrder: 6 },
+  { slug: "civilizational-thought", name: "Civilizational Thought", description: "Foundations of civilizational identity and theory", icon: "BookOpen", sortOrder: 7 },
+  { slug: "aesthetics", name: "Aesthetics", description: "Art, literature, poetry, and theories of beauty", icon: "Palette", sortOrder: 8 },
+  { slug: "sanskrit-studies", name: "Sanskrit Studies", description: "Philology, grammar, texts, and linguistics", icon: "Languages", sortOrder: 9 },
+  { slug: "political-theory", name: "Political Theory", description: "Statecraft, governance, and polity studies", icon: "Shield", sortOrder: 10 },
+  { slug: "translations", name: "Translations", description: "Translations of classical and contemporary texts", icon: "FileText", sortOrder: 11 },
+  { slug: "multimedia", name: "Multimedia", description: "Audio, video, and rich-media research", icon: "Video", sortOrder: 12 },
+  { slug: "papers", name: "Papers", description: "Research papers and monographs", icon: "FileSearch", sortOrder: 13 },
+  { slug: "archive", name: "Archive", description: "Historical archive files and miscellaneous work", icon: "Archive", sortOrder: 14 },
+] as const;
+
+let categoriesReady: Promise<void> | null = null;
+
+export function ensureDefaultCategories() {
+  if (!categoriesReady) {
+    categoriesReady = db
+      .insert(categoriesTable)
+      .values([...DEFAULT_CATEGORIES])
+      .onConflictDoNothing({ target: categoriesTable.slug })
+      .then(() => undefined);
+  }
+  return categoriesReady;
+}
+
 export type PublicPublicationResult = {
   kind: PublicationKind | null;
   status: "created" | "existing" | "skipped";
@@ -89,6 +119,7 @@ function getSubmissionCoverImage(submission: Submission) {
 }
 
 async function resolveCategorySlug(rawCategory: string | null | undefined) {
+  await ensureDefaultCategories();
   let slug = normalizeCategorySlug(rawCategory);
 
   const [category] = await db
@@ -295,6 +326,7 @@ export async function ensurePublicPublicationForSubmission(
 }
 
 export async function syncPublishedSubmissions() {
+  await ensureDefaultCategories();
   const publishedSubmissions = await db
     .select()
     .from(submissionsTable)
