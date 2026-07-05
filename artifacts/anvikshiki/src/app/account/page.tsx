@@ -36,6 +36,8 @@ export default function AccountPage() {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showLightbox, setShowLightbox] = useState(false);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [permDeletingId, setPermDeletingId] = useState<string | null>(null);
 
   const loadSubmissions = () => {
     Promise.all([
@@ -178,9 +180,6 @@ export default function AccountPage() {
       </div>
     );
   };
-
-  const [restoringId, setRestoringId] = useState<string | null>(null);
-  const [permDeletingId, setPermDeletingId] = useState<string | null>(null);
 
   const restoreSubmission = async (id: string) => {
     setRestoringId(id);
