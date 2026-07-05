@@ -9,6 +9,7 @@ import {
   hashPassword, comparePassword, createAdminToken,
   getAdminAuth, setAdminCookie, clearAdminCookie
 } from "../lib/auth";
+import { publishSubmission } from "../lib/publishHelper";
 import { z } from "zod";
 
 const router = Router();
@@ -382,79 +383,12 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
       .where(eq(submissionsTable.id, req.params.id)).returning();
     if (!submission) return res.status(404).json({ error: "Not found" });
 
-    // Auto-create article in the public articles table when a submission is published
+    // Auto-create article or paper in the public archives when a submission is published
     if (parsed.data.status === "PUBLISHED") {
       try {
-        // Determine which category slug to use
-        let catSlug = parsed.data.categorySlug || "philosophy";
-
-        if (!parsed.data.categorySlug) {
-          const rawDomain = submission.domain || "";
-          if (rawDomain) {
-            const normalized = rawDomain.trim().toLowerCase().replace(/_/g, "-").replace(/\s+/g, "-");
-            const knownSlugs = [
-              "philosophy","history","psychology","sociology","science","geopolitics",
-              "civilizational-thought","aesthetics","sanskrit-studies","political-theory",
-              "translations","multimedia","papers","archive",
-            ];
-            if (knownSlugs.includes(normalized)) {
-              catSlug = normalized;
-            } else if (normalized === "civilization" || normalized === "civilisations" || normalized === "civilizations") {
-              catSlug = "civilizational-thought";
-            } else if (normalized === "sanskrit") {
-              catSlug = "sanskrit-studies";
-            } else {
-              catSlug = "archive";
-            }
-          }
-        }
-
-        // Verify category exists in DB; fallback to first available
-        const [catRow] = await db.select().from(categoriesTable)
-          .where(eq(categoriesTable.slug, catSlug)).limit(1);
-        if (!catRow) {
-          const [fallback] = await db.select().from(categoriesTable)
-            .orderBy(categoriesTable.sortOrder).limit(1);
-          if (fallback) catSlug = fallback.slug;
-        }
-
-        // Build a unique slug
-        const baseSlug = submission.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-        const uniqueSlug = `${baseSlug}-${Date.now()}`;
-
-        // Extract cover image from submission or notes
-        let heroImageUrl: string | null = submission.coverImageUrl || null;
-        if (!heroImageUrl && submission.notes) {
-          const imgMatch = submission.notes.match(/Cover(?:\s*image)?(?:\s*URL)?:\s*(https?:\/\/\S+|\/api\/uploads\/\S+)/i);
-          if (imgMatch) heroImageUrl = imgMatch[1].trim();
-        }
-
-        // Only create if no article with this submissionId already exists (prevent duplicates/skips)
-        const [existing] = await db.select({ id: articlesTable.id })
-          .from(articlesTable)
-          .where(eq(articlesTable.submissionId, submission.id)).limit(1);
-
-        if (!existing) {
-          await db.insert(articlesTable).values({
-            slug: uniqueSlug,
-            title: submission.title,
-            subtitle: null,
-            excerpt: submission.abstract || "",
-            body: submission.body || submission.abstract || "",
-            categorySlug: catSlug,
-            tags: [],
-            authorName: submission.submitterName,
-            heroImageUrl,
-            heroImageAlt: submission.title,
-            keyTakeaways: [],
-            status: "PUBLISHED",
-            featured: false,
-            publishedAt: new Date(),
-            submissionId: submission.id,
-          });
-        }
+        await publishSubmission(submission.id, parsed.data.categorySlug);
       } catch (articleErr: any) {
-        req.log.warn({ err: articleErr }, "Failed to auto-create article from submission");
+        req.log.warn({ err: articleErr }, "Failed to auto-publish submission to public archives");
       }
     }
 
@@ -607,6 +541,18 @@ router.put("/admin/site-settings/:key", requireAdmin, async (req, res) => {
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed" });
+  }
+});
+
+// POST /api/admin/submissions/sync-public-archives - manually sync and backfill published submissions
+router.post("/admin/submissions/sync-public-archives", requireAdmin, async (req, res) => {
+  try {
+    const { syncPublishedArchives } = await import("../lib/publishHelper");
+    const count = await syncPublishedArchives();
+    return res.json({ success: true, message: `Successfully synchronized public archives. Restored ${count} publications.` });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Sync failed", detail: err instanceof Error ? err.message : String(err) });
   }
 });
 

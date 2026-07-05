@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { submissionsTable, articlesTable } from "@workspace/db";
+import { submissionsTable, articlesTable, papersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { getUserAuth } from "../lib/auth";
 import { z } from "zod";
@@ -231,6 +231,7 @@ router.post(
         title,
         abstract,
         notes: noteLines || null,
+        domain: req.body.domain || null,
         consent: true,
         manuscriptUrl,
         manuscriptPublicId,
@@ -273,6 +274,7 @@ router.post("/submissions/write", async (req, res) => {
       abstract: z.string().max(10000).optional().default(""),
       body: z.string().optional().default(""),
       notes: z.string().max(5000).optional(),
+      domain: z.string().optional(),
       consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).optional().transform(v => v === true || v === "true"),
       status: z.enum(["DRAFT", "RECEIVED"]).optional().default("RECEIVED"),
     });
@@ -302,6 +304,7 @@ router.post("/submissions/write", async (req, res) => {
       abstract: data.abstract || "",
       body: data.body || "",
       notes: data.notes || null,
+      domain: data.domain || null,
       consent: !isDraft,
       status: isDraft ? "DRAFT" : "RECEIVED",
     }).returning();
@@ -383,6 +386,7 @@ router.put("/submissions/:id", async (req, res) => {
       abstract: z.string().max(10000).optional(),
       body: z.string().optional(),
       notes: z.string().max(5000).optional(),
+      domain: z.string().optional(),
       consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).optional(),
       status: z.enum(["DRAFT", "RECEIVED"]).optional(),
     });
@@ -408,6 +412,7 @@ router.put("/submissions/:id", async (req, res) => {
     if (data.abstract !== undefined) updates.abstract = data.abstract;
     if (data.body !== undefined) updates.body = data.body;
     if (data.notes !== undefined) updates.notes = data.notes;
+    if (data.domain !== undefined) updates.domain = data.domain;
     if (wantsSubmit) {
       updates.status = "RECEIVED";
       updates.consent = true;
@@ -448,31 +453,29 @@ router.delete("/submissions/:id", async (req, res) => {
       .set({ deleted: true, deletedAt: now, updatedAt: now })
       .where(eq(submissionsTable.id, req.params.id));
 
-    // Also soft-delete any linked article (by submissionId or matching title)
+    // Also soft-delete any linked article or paper (by submissionId or title match fallback)
     try {
-      // Try by submissionId first
-      const [bySubId] = await db.select({ id: articlesTable.id })
-        .from(articlesTable)
-        .where(eq(articlesTable.submissionId, existing.id))
-        .limit(1);
-      if (bySubId) {
+      // Soft-delete by submissionId first
+      await db.update(articlesTable)
+        .set({ deleted: true, deletedAt: now, updatedAt: now })
+        .where(eq(articlesTable.submissionId, existing.id));
+
+      await db.update(papersTable)
+        .set({ deleted: true, deletedAt: now, updatedAt: now })
+        .where(eq(papersTable.submissionId, existing.id));
+
+      // Title fallbacks (for older records where submissionId was null)
+      if (existing.title) {
         await db.update(articlesTable)
           .set({ deleted: true, deletedAt: now, updatedAt: now })
-          .where(eq(articlesTable.id, bySubId.id));
-      } else {
-        // Fallback: find by matching title
-        const [byTitle] = await db.select({ id: articlesTable.id })
-          .from(articlesTable)
-          .where(eq(articlesTable.title, existing.title))
-          .limit(1);
-        if (byTitle) {
-          await db.update(articlesTable)
-            .set({ deleted: true, deletedAt: now, updatedAt: now })
-            .where(eq(articlesTable.id, byTitle.id));
-        }
+          .where(and(eq(articlesTable.title, existing.title), eq(articlesTable.deleted, false)));
+
+        await db.update(papersTable)
+          .set({ deleted: true, deletedAt: now, updatedAt: now })
+          .where(and(eq(papersTable.title, existing.title), eq(papersTable.deleted, false)));
       }
     } catch {
-      // Non-fatal: article soft-delete is best-effort
+      // Non-fatal
     }
 
     return res.json({ success: true });
@@ -500,17 +503,15 @@ router.post("/submissions/:id/restore", async (req, res) => {
       .where(eq(submissionsTable.id, req.params.id))
       .returning();
 
-    // Also restore any linked article
+    // Also restore any linked article or paper
     try {
-      const [bySubId] = await db.select({ id: articlesTable.id })
-        .from(articlesTable)
-        .where(eq(articlesTable.submissionId, existing.id))
-        .limit(1);
-      if (bySubId) {
-        await db.update(articlesTable)
-          .set({ deleted: false, deletedAt: null, updatedAt: now })
-          .where(eq(articlesTable.id, bySubId.id));
-      }
+      await db.update(articlesTable)
+        .set({ deleted: false, deletedAt: null, updatedAt: now })
+        .where(eq(articlesTable.submissionId, existing.id));
+
+      await db.update(papersTable)
+        .set({ deleted: false, deletedAt: null, updatedAt: now })
+        .where(eq(papersTable.submissionId, existing.id));
     } catch {
       // best effort
     }
@@ -534,15 +535,10 @@ router.delete("/submissions/:id/permanent", async (req, res) => {
     if (existing.userId !== auth.userId) return res.status(403).json({ error: "Forbidden" });
     if (!existing.deleted) return res.status(400).json({ error: "Move submission to trash first before permanently deleting" });
 
-    // Hard-delete any linked article first (cascade won't help because we're deleting submission)
+    // Hard-delete any linked article or paper first
     try {
-      const [bySubId] = await db.select({ id: articlesTable.id })
-        .from(articlesTable)
-        .where(eq(articlesTable.submissionId, existing.id))
-        .limit(1);
-      if (bySubId) {
-        await db.delete(articlesTable).where(eq(articlesTable.id, bySubId.id));
-      }
+      await db.delete(articlesTable).where(eq(articlesTable.submissionId, existing.id));
+      await db.delete(papersTable).where(eq(papersTable.submissionId, existing.id));
     } catch {
       // best effort
     }

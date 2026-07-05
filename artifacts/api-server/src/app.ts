@@ -92,4 +92,14 @@ app.use("/api/uploads", express.static(UPLOADS_DIR, {
 
 app.use("/api", router);
 
+// Non-blocking database synchronization on startup
+import("./lib/publishHelper").then(({ syncPublishedArchives }) => {
+  console.log("Starting background archive sync...");
+  syncPublishedArchives()
+    .then((count) => console.log(`Background sync successfully completed. Restored ${count} publications.`))
+    .catch((err) => console.error("Background sync failed:", err));
+}).catch((err) => {
+  console.error("Failed to import publishHelper for background sync:", err);
+});
+
 export default app;

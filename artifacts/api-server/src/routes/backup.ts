@@ -50,7 +50,7 @@ router.post("/admin/trigger-backup", requireAdmin, async (req: any, res) => {
       return res.status(500).json({ success: false, error: "Backup failed", detail: err });
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as any;
     req.log.info({ branchName, branchId: data.branch?.id }, "Database backup branch created successfully");
 
     return res.json({
@@ -84,7 +84,7 @@ router.get("/admin/backups", requireAdmin, async (req: any, res) => {
 
     if (!response.ok) return res.status(500).json({ error: "Failed to fetch branches" });
 
-    const data = await response.json();
+    const data = (await response.json()) as any;
     // Only return branches whose names start with "backup-"
     const backups = (data.branches || []).filter((b: any) => b.name?.startsWith("backup-"));
 

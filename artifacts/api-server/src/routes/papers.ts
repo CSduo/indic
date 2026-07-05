@@ -12,8 +12,15 @@ router.get("/papers", async (req, res) => {
     const limit = Math.min(parseInt(String(lim || "20")), 50);
     const offset = parseInt(String(off || "0"));
 
-    const conditions = [eq(papersTable.status, "PUBLISHED")];
-    if (category) conditions.push(eq(papersTable.categorySlug, String(category)));
+    const conditions = [
+      eq(papersTable.status, "PUBLISHED"),
+      eq(papersTable.deleted, false)
+    ];
+
+    if (category) {
+      const target = String(category).trim().toLowerCase().replace(/_/g, "-").replace(/\s+/g, "-");
+      conditions.push(sql`lower(replace(replace(${papersTable.categorySlug}, ' ', '-'), '_', '-')) = ${target}`);
+    }
     if (peerReviewed === "true") conditions.push(eq(papersTable.peerReviewed, true));
     if (q) {
       const searchTerm = `%${q}%`;
@@ -52,7 +59,11 @@ router.get("/papers/:slug", async (req, res) => {
       .select({ paper: papersTable, category: categoriesTable })
       .from(papersTable)
       .leftJoin(categoriesTable, eq(papersTable.categorySlug, categoriesTable.slug))
-      .where(and(eq(papersTable.slug, slug), eq(papersTable.status, "PUBLISHED")))
+      .where(and(
+        eq(papersTable.slug, slug),
+        eq(papersTable.status, "PUBLISHED"),
+        eq(papersTable.deleted, false)
+      ))
       .limit(1);
 
     if (!row) return res.status(404).json({ error: "Paper not found" });

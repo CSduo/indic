@@ -25,6 +25,7 @@ interface ArticlePreview {
   heroImageUrl?: string;
   categorySlug?: string;
   publishedAt?: string;
+  isPaper?: boolean;
 }
 
 export default function PublicProfilePage() {
@@ -168,7 +169,7 @@ export default function PublicProfilePage() {
           ) : (
             <div className="space-y-4">
               {articles.map(article => (
-                <Link key={article.id} href={`/articles/${article.slug}`} className="block group">
+                <Link key={article.id} href={article.isPaper ? `/papers/${article.slug}` : `/articles/${article.slug}`} className="block group">
                   <div className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-5 hover:border-[var(--border-gold)] transition-colors">
                     <div className="flex gap-4">
                       {article.heroImageUrl && (

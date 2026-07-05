@@ -8,11 +8,8 @@ const isVercel = Boolean(process.env.VERCEL);
 const isProduction = process.env.NODE_ENV === "production";
 
 if (!process.env.DATABASE_URL) {
-  if (isProduction || isVercel) {
-    throw new Error("DATABASE_URL environment variable is missing on Vercel. Please add it to your environment settings.");
-  }
   console.warn(
-    "DATABASE_URL is not set. Did you forget to configure environment variables? Database queries will fail."
+    "DATABASE_URL is not set. Database queries will fail. Ensure environment variables are configured correctly."
   );
 }
 

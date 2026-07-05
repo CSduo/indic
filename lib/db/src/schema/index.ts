@@ -111,11 +111,15 @@ export const papersTable = pgTable("papers", {
   seoDescription: text("seo_description"),
   status: contentStatusEnum("status").notNull().default("DRAFT"),
   publishedAt: timestamp("published_at"),
+  submissionId: text("submission_id"),
+  deleted: boolean("deleted").notNull().default(false),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   index("papers_status_idx").on(t.status),
   index("papers_category_idx").on(t.categorySlug),
+  index("papers_deleted_idx").on(t.deleted),
 ]);
 
 // Submissions
@@ -129,6 +133,7 @@ export const submissionsTable = pgTable("submissions", {
   abstract: text("abstract").notNull(),
   body: text("body"),
   notes: text("notes"),
+  domain: varchar("domain", { length: 150 }),
   manuscriptUrl: text("manuscript_url"),
   manuscriptPublicId: text("manuscript_public_id"),
   manuscriptResourceType: text("manuscript_resource_type"),

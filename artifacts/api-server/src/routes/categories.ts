@@ -14,17 +14,17 @@ router.get("/categories", async (req, res) => {
       .where(eq(categoriesTable.visible, true))
       .orderBy(asc(categoriesTable.sortOrder));
 
-    // Get counts per category
+    // Get counts per category (excluding soft-deleted ones)
     const articleCounts = await db
       .select({ slug: articlesTable.categorySlug, count: sql<number>`count(*)` })
       .from(articlesTable)
-      .where(eq(articlesTable.status, "PUBLISHED"))
+      .where(and(eq(articlesTable.status, "PUBLISHED"), eq(articlesTable.deleted, false)))
       .groupBy(articlesTable.categorySlug);
 
     const paperCounts = await db
       .select({ slug: papersTable.categorySlug, count: sql<number>`count(*)` })
       .from(papersTable)
-      .where(eq(papersTable.status, "PUBLISHED"))
+      .where(and(eq(papersTable.status, "PUBLISHED"), eq(papersTable.deleted, false)))
       .groupBy(papersTable.categorySlug);
 
     const articleMap = Object.fromEntries(articleCounts.map(r => [r.slug, Number(r.count)]));
@@ -48,13 +48,29 @@ router.get("/categories", async (req, res) => {
 router.get("/categories/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
-    const [category] = await db.select().from(categoriesTable).where(eq(categoriesTable.slug, slug)).limit(1);
+    const target = slug.trim().toLowerCase().replace(/_/g, "-").replace(/\s+/g, "-");
+
+    const [category] = await db.select()
+      .from(categoriesTable)
+      .where(sql`lower(replace(replace(${categoriesTable.slug}, ' ', '-'), '_', '-')) = ${target}`)
+      .limit(1);
+
     if (!category) return res.status(404).json({ error: "Not found" });
 
+    // Use normalized categorySlug comparison to query articles and papers robustly
     const articles = await db.select().from(articlesTable)
-      .where(and(eq(articlesTable.categorySlug, slug), eq(articlesTable.status, "PUBLISHED")));
+      .where(and(
+        sql`lower(replace(replace(${articlesTable.categorySlug}, ' ', '-'), '_', '-')) = ${target}`,
+        eq(articlesTable.status, "PUBLISHED"),
+        eq(articlesTable.deleted, false)
+      ));
+
     const papers = await db.select().from(papersTable)
-      .where(and(eq(papersTable.categorySlug, slug), eq(papersTable.status, "PUBLISHED")));
+      .where(and(
+        sql`lower(replace(replace(${papersTable.categorySlug}, ' ', '-'), '_', '-')) = ${target}`,
+        eq(papersTable.status, "PUBLISHED"),
+        eq(papersTable.deleted, false)
+      ));
 
     return res.json({ category, articles, papers });
   } catch (err) {
