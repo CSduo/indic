@@ -35,6 +35,7 @@ export default function AccountPage() {
   const [editName, setEditName] = useState("");
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showLightbox, setShowLightbox] = useState(false);
 
   const loadSubmissions = () => {
     Promise.all([
@@ -263,13 +264,48 @@ export default function AccountPage() {
         <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
           <aside className="space-y-4">
             <ParchmentCard className="p-6 text-center">
-              <div className="mx-auto mb-4 grid h-20 w-20 place-items-center overflow-hidden rounded-full border border-[var(--border-gold)] bg-[var(--terracotta-pale)] text-[var(--terracotta)]">
+              {/* Avatar (Clickable for close-up preview) */}
+              <div 
+                onClick={() => user.avatarUrl && setShowLightbox(true)}
+                className={`mx-auto mb-4 grid h-20 w-20 place-items-center overflow-hidden rounded-full border border-[var(--border-gold)] bg-[var(--terracotta-pale)] text-[var(--terracotta)] ${user.avatarUrl ? "cursor-zoom-in hover:scale-105 transition-transform" : ""}`}
+                title={user.avatarUrl ? "Click for close-up" : ""}
+              >
                 {user.avatarUrl ? (
                   <img src={user.avatarUrl} alt={user.name || "Your avatar"} className="h-full w-full object-cover" />
                 ) : (
                   <User size={34} />
                 )}
               </div>
+
+              {/* Lightbox Close-up Modal */}
+              {showLightbox && user.avatarUrl && (
+                <div 
+                  className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in"
+                  onClick={() => setShowLightbox(false)}
+                >
+                  <div 
+                    className="relative max-w-md w-full bg-[var(--bg-alt)] border border-[var(--border-gold)] rounded-2xl p-6 shadow-2xl animate-scale-up"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <button 
+                      onClick={() => setShowLightbox(false)}
+                      className="absolute top-4 right-4 text-[var(--muted)] hover:text-[var(--ink)] transition-colors p-1"
+                      aria-label="Close preview"
+                    >
+                      <X size={20} />
+                    </button>
+                    <div className="flex flex-col items-center">
+                      <div className="h-64 w-64 rounded-full overflow-hidden border-4 border-[var(--border-gold)] shadow-xl mb-4">
+                        <img src={user.avatarUrl} alt={user.name || "Your avatar"} className="h-full w-full object-cover" />
+                      </div>
+                      <h3 className="font-display text-2xl text-[var(--ink)] font-semibold">{user.name}</h3>
+                      {user.institution && (
+                        <p className="font-ui text-sm text-[var(--muted)] mt-1">{user.institution}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
               {editing ? (
                 <div className="flex items-center gap-2">
                   <input autoFocus className="input-sacred py-1 text-center" value={editName} onChange={(event) => setEditName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && saveProfile()} />

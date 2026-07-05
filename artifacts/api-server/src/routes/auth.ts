@@ -227,9 +227,10 @@ router.get("/users/:userId/profile", async (req, res) => {
 
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    // Fetch published articles authored by this user (matched by name)
-    const { articlesTable } = await import("@workspace/db");
-    const { eq: eqOp, and: andOp } = await import("drizzle-orm");
+    // Fetch published articles authored by this user
+    // (match by submissionsTable.userId or case-insensitively by articlesTable.authorName)
+    const { articlesTable, submissionsTable } = await import("@workspace/db");
+    const { eq: eqOp, and: andOp, or: orOp, ilike: ilikeOp } = await import("drizzle-orm");
     const articles = await db.select({
       id: articlesTable.id,
       slug: articlesTable.slug,
@@ -239,10 +240,14 @@ router.get("/users/:userId/profile", async (req, res) => {
       categorySlug: articlesTable.categorySlug,
       publishedAt: articlesTable.publishedAt,
     }).from(articlesTable)
+      .leftJoin(submissionsTable, eqOp(articlesTable.submissionId, submissionsTable.id))
       .where(andOp(
         eqOp(articlesTable.status, "PUBLISHED"),
         eqOp(articlesTable.deleted, false),
-        eqOp(articlesTable.authorName, user.name || ""),
+        orOp(
+          eqOp(submissionsTable.userId, userId),
+          ilikeOp(articlesTable.authorName, user.name || "")
+        )
       ))
       .orderBy(articlesTable.publishedAt)
       .limit(20);

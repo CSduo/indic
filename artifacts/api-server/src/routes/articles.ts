@@ -16,7 +16,10 @@ router.get("/articles", async (req, res) => {
       eq(articlesTable.status, "PUBLISHED"),
       eq(articlesTable.deleted, false),
     ];
-    if (category) conditions.push(eq(articlesTable.categorySlug, String(category)));
+    if (category) {
+      const target = String(category).trim().toLowerCase().replace(/_/g, "-").replace(/\s+/g, "-");
+      conditions.push(sql`lower(replace(${articlesTable.categorySlug}, ' ', '-')) = ${target}`);
+    }
     if (featured === "true") conditions.push(eq(articlesTable.featured, true));
     if (q) {
       const searchTerm = `%${q}%`;

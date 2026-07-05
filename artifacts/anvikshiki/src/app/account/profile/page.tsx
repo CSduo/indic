@@ -19,6 +19,7 @@ export default function ProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || "");
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [showLightbox, setShowLightbox] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -108,13 +109,49 @@ export default function ProfilePage() {
           {/* Avatar section */}
           <ParchmentCard className="p-6 flex items-center gap-6">
             <div className="relative shrink-0">
-              <div className="h-20 w-20 overflow-hidden rounded-full border-2 border-[var(--border-gold)] bg-[var(--terracotta-pale)] grid place-items-center text-[var(--terracotta)]">
+              {/* Avatar (Clickable for close-up preview) */}
+              <div 
+                onClick={() => avatarUrl && setShowLightbox(true)}
+                className={`h-20 w-20 overflow-hidden rounded-full border-2 border-[var(--border-gold)] bg-[var(--terracotta-pale)] grid place-items-center text-[var(--terracotta)] ${avatarUrl ? "cursor-zoom-in hover:scale-105 transition-transform" : ""}`}
+                title={avatarUrl ? "Click for close-up" : ""}
+              >
                 {avatarUrl ? (
                   <img src={avatarUrl} alt="Your avatar" className="h-full w-full object-cover" />
                 ) : (
                   <User size={32} />
                 )}
               </div>
+
+              {/* Lightbox Close-up Modal */}
+              {showLightbox && avatarUrl && (
+                <div 
+                  className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in"
+                  onClick={() => setShowLightbox(false)}
+                >
+                  <div 
+                    className="relative max-w-md w-full bg-[var(--bg-alt)] border border-[var(--border-gold)] rounded-2xl p-6 shadow-2xl animate-scale-up"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <button 
+                      type="button"
+                      onClick={() => setShowLightbox(false)}
+                      className="absolute top-4 right-4 text-[var(--muted)] hover:text-[var(--ink)] transition-colors p-1"
+                      aria-label="Close preview"
+                    >
+                      <X size={20} />
+                    </button>
+                    <div className="flex flex-col items-center">
+                      <div className="h-64 w-64 rounded-full overflow-hidden border-4 border-[var(--border-gold)] shadow-xl mb-4">
+                        <img src={avatarUrl} alt="Your avatar" className="h-full w-full object-cover" />
+                      </div>
+                      <h3 className="font-display text-2xl text-[var(--ink)] font-semibold">{name || user.name}</h3>
+                      {institution && (
+                        <p className="font-ui text-sm text-[var(--muted)] mt-1">{institution}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
               <button
                 type="button"
                 className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-[var(--gold)] grid place-items-center text-white hover:bg-[var(--gold-light)] transition-colors disabled:opacity-60"

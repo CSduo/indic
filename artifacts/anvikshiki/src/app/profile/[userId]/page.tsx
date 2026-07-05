@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Link, useParams } from "wouter";
-import { ArrowLeft, BookOpen, Building2, Mail, MessageSquare, User } from "lucide-react";
+import { ArrowLeft, BookOpen, Building2, Mail, MessageSquare, User, X } from "lucide-react";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { EmptyState } from "@/components/sacred/EmptyState";
@@ -72,6 +72,8 @@ export default function PublicProfilePage() {
 
   const initials = (profile.name || "A").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
 
+  const [showLightbox, setShowLightbox] = useState(false);
+
   return (
     <div className="bg-[var(--bg)] min-h-screen pb-20">
       <div className="container-anv py-10 max-w-3xl mx-auto">
@@ -86,14 +88,48 @@ export default function PublicProfilePage() {
         {/* Profile card */}
         <ParchmentCard className="p-8 mb-8">
           <div className="flex items-start gap-6">
-            {/* Avatar */}
-            <div className="shrink-0 h-20 w-20 rounded-full overflow-hidden border-2 border-[var(--border-gold)] bg-[var(--terracotta-pale)] flex items-center justify-center">
+            {/* Avatar (Clickable for close-up preview) */}
+            <div 
+              onClick={() => profile.avatarUrl && setShowLightbox(true)}
+              className={`shrink-0 h-20 w-20 rounded-full overflow-hidden border-2 border-[var(--border-gold)] bg-[var(--terracotta-pale)] flex items-center justify-center ${profile.avatarUrl ? "cursor-zoom-in hover:scale-105 transition-transform" : ""}`}
+              title={profile.avatarUrl ? "Click for close-up" : ""}
+            >
               {profile.avatarUrl ? (
                 <img src={profile.avatarUrl} alt={profile.name} className="h-full w-full object-cover" />
               ) : (
                 <span className="font-display text-2xl font-bold text-[var(--terracotta)]">{initials}</span>
               )}
             </div>
+
+            {/* Lightbox Close-up Modal */}
+            {showLightbox && profile.avatarUrl && (
+              <div 
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in"
+                onClick={() => setShowLightbox(false)}
+              >
+                <div 
+                  className="relative max-w-md w-full bg-[var(--bg-alt)] border border-[var(--border-gold)] rounded-2xl p-6 shadow-2xl animate-scale-up"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <button 
+                    onClick={() => setShowLightbox(false)}
+                    className="absolute top-4 right-4 text-[var(--muted)] hover:text-[var(--ink)] transition-colors p-1"
+                    aria-label="Close preview"
+                  >
+                    <X size={20} />
+                  </button>
+                  <div className="flex flex-col items-center">
+                    <div className="h-64 w-64 rounded-full overflow-hidden border-4 border-[var(--border-gold)] shadow-xl mb-4">
+                      <img src={profile.avatarUrl} alt={profile.name} className="h-full w-full object-cover" />
+                    </div>
+                    <h3 className="font-display text-2xl text-[var(--ink)] font-semibold">{profile.name}</h3>
+                    {profile.institution && (
+                      <p className="font-ui text-sm text-[var(--muted)] mt-1">{profile.institution}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Info */}
             <div className="flex-1 min-w-0">
