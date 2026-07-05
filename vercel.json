@@ -4,6 +4,12 @@
   "installCommand": "pnpm install --no-frozen-lockfile",
   "buildCommand": "pnpm --filter @workspace/api-server run build:vercel && pnpm --filter @workspace/db run push && pnpm --filter @workspace/anvikshiki build",
   "outputDirectory": "artifacts/anvikshiki/dist/public",
+  "crons": [
+    {
+      "path": "/api/admin/trigger-backup",
+      "schedule": "0 0 * * 0"
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/:path*",

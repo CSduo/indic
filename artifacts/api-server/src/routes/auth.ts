@@ -213,4 +213,46 @@ router.put("/auth/profile", async (req, res) => {
   }
 });
 
+// GET /api/users/:userId/profile — public profile page data
+router.get("/users/:userId/profile", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const [user] = await db.select({
+      id: usersTable.id,
+      name: usersTable.name,
+      bio: usersTable.bio,
+      institution: usersTable.institution,
+      avatarUrl: usersTable.avatarUrl,
+    }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    // Fetch published articles authored by this user (matched by name)
+    const { articlesTable } = await import("@workspace/db");
+    const { eq: eqOp, and: andOp } = await import("drizzle-orm");
+    const articles = await db.select({
+      id: articlesTable.id,
+      slug: articlesTable.slug,
+      title: articlesTable.title,
+      excerpt: articlesTable.excerpt,
+      heroImageUrl: articlesTable.heroImageUrl,
+      categorySlug: articlesTable.categorySlug,
+      publishedAt: articlesTable.publishedAt,
+    }).from(articlesTable)
+      .where(andOp(
+        eqOp(articlesTable.status, "PUBLISHED"),
+        eqOp(articlesTable.deleted, false),
+        eqOp(articlesTable.authorName, user.name || ""),
+      ))
+      .orderBy(articlesTable.publishedAt)
+      .limit(20);
+
+    return res.json({ user, articles });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed to fetch profile" });
+  }
+});
+
 export default router;
+

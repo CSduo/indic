@@ -33,6 +33,8 @@ import CollectionsPage  from "@/app/account/collections/page";
 import NotificationsPage from "@/app/account/notifications/page";
 import SettingsPage     from "@/app/account/settings/page";
 import SubmitLandingPage  from "@/app/submit/page";
+import PublicUserProfilePage from "@/app/profile/[userId]/page";
+
 import SubmitDetailsPage  from "@/app/submit/details/page";
 import SubmitUploadPage   from "@/app/submit/upload/page";
 import SubmitWritePage    from "@/app/submit/write/page";
@@ -113,6 +115,7 @@ function Router() {
         <Route path="/account/notifications"   component={() => <AppShell><NotificationsPage /></AppShell>} />
         <Route path="/account/settings"        component={() => <AppShell><SettingsPage /></AppShell>} />
         <Route path="/submit"                  component={() => <AppShell><SubmitLandingPage /></AppShell>} />
+        <Route path="/profile/:userId"          component={() => <AppShell><PublicUserProfilePage /></AppShell>} />
         <Route path="/submit/details"          component={() => <AppShell><SubmitDetailsPage /></AppShell>} />
         <Route path="/submit/upload"           component={() => <AppShell><SubmitUploadPage /></AppShell>} />
         <Route path="/submit/write"            component={() => <AppShell><SubmitWritePage /></AppShell>} />

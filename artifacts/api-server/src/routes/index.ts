@@ -17,6 +17,7 @@ import contactRouter from "./contact";
 import mediaRouter from "./media";
 import extractUrlRouter from "./extract-url";
 import commentsRouter from "./comments";
+import backupRouter from "./backup";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use(contactRouter);
 router.use(mediaRouter);
 router.use(extractUrlRouter);
 router.use(commentsRouter);
+router.use(backupRouter);
 
 export default router;

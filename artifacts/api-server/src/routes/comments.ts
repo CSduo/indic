@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { commentsTable, articlesTable, usersTable } from "@workspace/db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, isNull, desc } from "drizzle-orm";
 import { getUserAuth, getAdminAuth } from "../lib/auth";
 import { z } from "zod";
 
@@ -15,7 +15,7 @@ async function requireAdmin(req: any, res: any, next: any) {
   next();
 }
 
-// GET /api/articles/:articleId/comments — approved, non-deleted comments for article
+// GET /api/articles/:articleId/comments — all approved top-level comments + their replies
 router.get("/articles/:articleId/comments", async (req, res) => {
   try {
     const { articleId } = req.params;
@@ -27,8 +27,20 @@ router.get("/articles/:articleId/comments", async (req, res) => {
       .limit(1);
     if (!article) return res.status(404).json({ error: "Article not found" });
 
-    const comments = await db.select()
+    // Get all approved non-deleted comments for this article (top-level + replies)
+    const allComments = await db.select({
+      id: commentsTable.id,
+      articleId: commentsTable.articleId,
+      userId: commentsTable.userId,
+      parentId: commentsTable.parentId,
+      authorName: commentsTable.authorName,
+      content: commentsTable.content,
+      approved: commentsTable.approved,
+      createdAt: commentsTable.createdAt,
+      userAvatarUrl: usersTable.avatarUrl,
+    })
       .from(commentsTable)
+      .leftJoin(usersTable, eq(commentsTable.userId, usersTable.id))
       .where(and(
         eq(commentsTable.articleId, articleId),
         eq(commentsTable.approved, true),
@@ -36,14 +48,25 @@ router.get("/articles/:articleId/comments", async (req, res) => {
       ))
       .orderBy(desc(commentsTable.createdAt));
 
-    return res.json({ comments });
+    // Nest replies under their parents
+    const topLevel = allComments.filter(c => !c.parentId);
+    const replies = allComments.filter(c => !!c.parentId);
+
+    const threaded = topLevel.map(c => ({
+      ...c,
+      replies: replies.filter(r => r.parentId === c.id).sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      ),
+    }));
+
+    return res.json({ comments: threaded });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed to fetch comments" });
   }
 });
 
-// POST /api/articles/:articleId/comments — submit a comment
+// POST /api/articles/:articleId/comments — submit a comment or reply
 router.post("/articles/:articleId/comments", async (req, res) => {
   try {
     const { articleId } = req.params;
@@ -52,6 +75,7 @@ router.post("/articles/:articleId/comments", async (req, res) => {
       authorName: z.string().min(1).max(160),
       content: z.string().min(1).max(5000),
       authorEmail: z.string().email().optional(),
+      parentId: z.string().optional(), // if replying to a comment
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
@@ -63,6 +87,15 @@ router.post("/articles/:articleId/comments", async (req, res) => {
       .limit(1);
     if (!article) return res.status(404).json({ error: "Article not found" });
 
+    // Verify parent comment exists if replying
+    if (parsed.data.parentId) {
+      const [parent] = await db.select({ id: commentsTable.id })
+        .from(commentsTable)
+        .where(eq(commentsTable.id, parsed.data.parentId))
+        .limit(1);
+      if (!parent) return res.status(404).json({ error: "Parent comment not found" });
+    }
+
     // Check if user is logged in — auto-approve if so
     const auth = await getUserAuth(req);
     const isLoggedIn = Boolean(auth);
@@ -70,6 +103,7 @@ router.post("/articles/:articleId/comments", async (req, res) => {
     const [comment] = await db.insert(commentsTable).values({
       articleId,
       userId: auth?.userId || null,
+      parentId: parsed.data.parentId || null,
       authorName: parsed.data.authorName,
       authorEmail: parsed.data.authorEmail || null,
       content: parsed.data.content,
@@ -78,7 +112,7 @@ router.post("/articles/:articleId/comments", async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      comment,
+      comment: { ...comment, replies: [] },
       autoApproved: isLoggedIn,
     });
   } catch (err) {

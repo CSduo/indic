@@ -152,6 +152,7 @@ export const commentsTable = pgTable("comments", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   articleId: text("article_id").notNull().references(() => articlesTable.id, { onDelete: "cascade" }),
   userId: text("user_id").references(() => usersTable.id, { onDelete: "set null" }),
+  parentId: text("parent_id"), // null = top-level comment, set = reply
   authorName: varchar("author_name", { length: 160 }).notNull(),
   authorEmail: varchar("author_email", { length: 255 }),
   content: text("content").notNull(),
@@ -162,6 +163,7 @@ export const commentsTable = pgTable("comments", {
 }, (t) => [
   index("comments_article_idx").on(t.articleId),
   index("comments_approved_idx").on(t.approved),
+  index("comments_parent_idx").on(t.parentId),
 ]);
 
 // Newsletter subscribers

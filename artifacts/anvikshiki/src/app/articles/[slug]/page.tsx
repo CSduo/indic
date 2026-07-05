@@ -28,6 +28,9 @@ export default function ArticlePage() {
   const [authorEmail, setAuthorEmail] = useState("");
   const [content, setContent] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<string | null>(null); // parentId of comment being replied to
+  const [replyContent, setReplyContent] = useState("");
+  const [submittingReply, setSubmittingReply] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -96,6 +99,41 @@ export default function ArticlePage() {
       toast.error(err.message || "Failed to submit comment");
     } finally {
       setSubmittingComment(false);
+    }
+  };
+
+  const handleReplySubmit = async (parentId: string) => {
+    if (!replyContent.trim()) return;
+    if (!user && !authorName.trim()) { toast.error("Please enter your name above first"); return; }
+    setSubmittingReply(true);
+    try {
+      const response = await fetch(`${base()}/api/articles/${article.id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          authorName: user ? user.name : authorName.trim(),
+          authorEmail: user ? user.email : (authorEmail.trim() || undefined),
+          content: replyContent.trim(),
+          parentId,
+        }),
+        credentials: "include",
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed");
+      if (data.autoApproved) {
+        setComments(prev => prev.map(c =>
+          c.id === parentId ? { ...c, replies: [...(c.replies || []), data.comment] } : c
+        ));
+        toast.success("Reply posted!");
+      } else {
+        toast.success("Reply submitted — pending approval.");
+      }
+      setReplyContent("");
+      setReplyingTo(null);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to post reply");
+    } finally {
+      setSubmittingReply(false);
     }
   };
 
@@ -253,34 +291,107 @@ export default function ArticlePage() {
                 </form>
               </ParchmentCard>
 
-              {/* Comments list */}
-              <div className="space-y-4">
+              {/* Comments list — threaded */}
+              <div className="space-y-5">
                 {comments.length === 0 ? (
                   <p className="font-body text-sm text-[var(--ink-faint)] italic">
                     No contributions to this discussion yet. Be the first to share an inquiry.
                   </p>
                 ) : (
                   comments.map((comment) => (
-                    <div
-                      key={comment.id}
-                      className="p-4 rounded-lg border border-[var(--border)]"
-                      style={{ background: "var(--surface)" }}
-                    >
-                      <div className="flex justify-between items-start mb-2 flex-wrap gap-2">
-                        <span className="font-ui text-sm font-semibold text-[var(--gold-bright)]">
-                          {comment.authorName}
-                        </span>
-                        <span className="font-ui text-[10px] text-[var(--muted)]">
-                          {new Date(comment.createdAt).toLocaleDateString("en-IN", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </span>
+                    <div key={comment.id}>
+                      {/* Top-level comment */}
+                      <div className="p-4 rounded-lg border border-[var(--border)]" style={{ background: "var(--surface)" }}>
+                        <div className="flex items-start gap-3">
+                          {/* Avatar circle */}
+                          <div className="shrink-0 h-9 w-9 rounded-full overflow-hidden bg-[var(--terracotta-pale)] flex items-center justify-center border border-[var(--border-gold)]">
+                            {comment.userAvatarUrl ? (
+                              <img src={comment.userAvatarUrl} alt={comment.authorName} className="h-full w-full object-cover" />
+                            ) : (
+                              <span className="font-display text-sm font-bold text-[var(--terracotta)]">
+                                {(comment.authorName || "A").charAt(0).toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-center flex-wrap gap-1 mb-1">
+                              {/* Clickable author name if userId exists */}
+                              {comment.userId ? (
+                                <a href={`/profile/${comment.userId}`} className="font-ui text-sm font-semibold text-[var(--gold-bright)] hover:underline">
+                                  {comment.authorName}
+                                </a>
+                              ) : (
+                                <span className="font-ui text-sm font-semibold text-[var(--gold-bright)]">{comment.authorName}</span>
+                              )}
+                              <span className="font-ui text-[10px] text-[var(--muted)]">
+                                {new Date(comment.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                              </span>
+                            </div>
+                            <p className="font-body text-sm text-[var(--ink-soft)] leading-relaxed whitespace-pre-wrap">{comment.content}</p>
+                            <button
+                              type="button"
+                              onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
+                              className="mt-2 flex items-center gap-1 font-ui text-[10px] text-[var(--muted)] hover:text-[var(--terracotta)] transition-colors"
+                            >
+                              <MessageSquare size={11} /> {replyingTo === comment.id ? "Cancel" : `Reply${comment.replies?.length ? ` (${comment.replies.length})` : ""}`}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Inline reply form */}
+                        {replyingTo === comment.id && (
+                          <div className="mt-3 ml-12 border-l-2 border-[var(--border-gold)] pl-4">
+                            <textarea
+                              className="input-sacred w-full min-h-[80px] resize-y text-sm"
+                              placeholder={`Reply to ${comment.authorName}…`}
+                              value={replyContent}
+                              onChange={e => setReplyContent(e.target.value)}
+                              maxLength={2000}
+                              autoFocus
+                            />
+                            <div className="flex justify-end gap-2 mt-2">
+                              <button type="button" onClick={() => { setReplyingTo(null); setReplyContent(""); }} className="btn-ink px-3 py-1 text-xs">Cancel</button>
+                              <button type="button" onClick={() => handleReplySubmit(comment.id)} disabled={submittingReply || !replyContent.trim()} className="btn-terracotta text-xs px-3 py-1">
+                                {submittingReply ? "Posting…" : "Post Reply"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Nested replies */}
+                        {comment.replies && comment.replies.length > 0 && (
+                          <div className="mt-4 ml-12 space-y-3 border-l-2 border-[var(--border)] pl-4">
+                            {comment.replies.map((reply: any) => (
+                              <div key={reply.id} className="flex items-start gap-3">
+                                <div className="shrink-0 h-7 w-7 rounded-full overflow-hidden bg-[var(--terracotta-pale)] flex items-center justify-center border border-[var(--border)]">
+                                  {reply.userAvatarUrl ? (
+                                    <img src={reply.userAvatarUrl} alt={reply.authorName} className="h-full w-full object-cover" />
+                                  ) : (
+                                    <span className="font-display text-xs font-bold text-[var(--terracotta)]">
+                                      {(reply.authorName || "A").charAt(0).toUpperCase()}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex justify-between items-center flex-wrap gap-1 mb-0.5">
+                                    {reply.userId ? (
+                                      <a href={`/profile/${reply.userId}`} className="font-ui text-xs font-semibold text-[var(--gold-bright)] hover:underline">
+                                        {reply.authorName}
+                                      </a>
+                                    ) : (
+                                      <span className="font-ui text-xs font-semibold text-[var(--gold-bright)]">{reply.authorName}</span>
+                                    )}
+                                    <span className="font-ui text-[9px] text-[var(--muted)]">
+                                      {new Date(reply.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                                    </span>
+                                  </div>
+                                  <p className="font-body text-sm text-[var(--ink-soft)] leading-relaxed whitespace-pre-wrap">{reply.content}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <p className="font-body text-sm text-[var(--ink-soft)] leading-relaxed whitespace-pre-wrap">
-                        {comment.content}
-                      </p>
                     </div>
                   ))
                 )}

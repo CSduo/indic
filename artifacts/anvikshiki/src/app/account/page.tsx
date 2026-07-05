@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { BookMarked, Check, Edit3, FileText, LogOut, Mail, Trash2, User, X } from "lucide-react";
+import { ArchiveRestore, BookMarked, Check, Edit3, FileText, LogOut, Mail, Trash2, User, X } from "lucide-react";
 import { toast } from "sonner";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
@@ -178,20 +178,81 @@ export default function AccountPage() {
     );
   };
 
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [permDeletingId, setPermDeletingId] = useState<string | null>(null);
+
+  const restoreSubmission = async (id: string) => {
+    setRestoringId(id);
+    try {
+      const r = await fetch(`${base()}/api/submissions/${id}/restore`, { method: "POST", credentials: "include" });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || "Failed to restore");
+      // Move from deleted back to active
+      setDeletedSubmissions(prev => {
+        const item = prev.find(s => s.id === id);
+        if (item) setSubmissions(a => [{ ...item, deleted: false, deletedAt: null }, ...a]);
+        return prev.filter(s => s.id !== id);
+      });
+      toast.success("Submission restored successfully");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to restore submission");
+    }
+    setRestoringId(null);
+  };
+
+  const permanentlyDelete = async (id: string) => {
+    if (!window.confirm("⚠️ This will permanently erase this submission. This CANNOT be undone. Continue?")) return;
+    setPermDeletingId(id);
+    try {
+      const r = await fetch(`${base()}/api/submissions/${id}/permanent`, { method: "DELETE", credentials: "include" });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || "Failed to permanently delete");
+      setDeletedSubmissions(prev => prev.filter(s => s.id !== id));
+      toast.success("Submission permanently deleted");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to permanently delete submission");
+    }
+    setPermDeletingId(null);
+  };
+
   const renderDeletedCard = (submission: any) => (
-    <div key={submission.id} className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)]/60 p-4 opacity-70">
-      <div className="flex items-start gap-3">
-        <AnimalGlyph domain={submission.domain || "papers"} size={28} className="mt-1 shrink-0 text-[var(--ink-faint)]" />
-        <div className="flex-1 min-w-0">
-          <h3 className="font-display text-xl leading-tight text-[var(--ink-soft)] line-through">{submission.title || "Untitled"}</h3>
-          <p className="mt-1 font-ui text-xs text-[var(--muted)]">
-            {submission.type}
-            {submission.deletedAt
-              ? ` · Deleted ${new Date(submission.deletedAt).toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" })}`
-              : ""}
-          </p>
+    <div key={submission.id} className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)]/60 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          <AnimalGlyph domain={submission.domain || "papers"} size={28} className="mt-1 shrink-0 text-[var(--ink-faint)]" />
+          <div className="flex-1 min-w-0">
+            <h3 className="font-display text-xl leading-tight text-[var(--ink-soft)] line-through">{submission.title || "Untitled"}</h3>
+            <p className="mt-1 font-ui text-xs text-[var(--muted)]">
+              {submission.type}
+              {submission.deletedAt
+                ? ` · Deleted ${new Date(submission.deletedAt).toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" })}`
+                : ""}
+            </p>
+          </div>
         </div>
-        <span className="badge badge-draft shrink-0">Deleted</span>
+        <div className="flex flex-col items-end gap-2 shrink-0">
+          <span className="badge badge-draft">Deleted</span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => restoreSubmission(submission.id)}
+              disabled={restoringId === submission.id}
+              className="btn-ink px-2 py-1 text-[10px] text-[var(--sage)]"
+              title="Restore this submission"
+            >
+              <ArchiveRestore size={11} /> {restoringId === submission.id ? "Restoring…" : "Restore"}
+            </button>
+            <button
+              type="button"
+              onClick={() => permanentlyDelete(submission.id)}
+              disabled={permDeletingId === submission.id}
+              className="btn-ink px-2 py-1 text-[10px] text-[var(--terracotta)]"
+              title="Permanently delete — cannot be undone"
+            >
+              <Trash2 size={11} /> {permDeletingId === submission.id ? "Deleting…" : "Delete Forever"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

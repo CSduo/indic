@@ -482,5 +482,79 @@ router.delete("/submissions/:id", async (req, res) => {
   }
 });
 
+// POST /api/submissions/:id/restore — restore a soft-deleted submission
+router.post("/submissions/:id/restore", async (req, res) => {
+  try {
+    const auth = await getUserAuth(req);
+    if (!auth) return res.status(401).json({ error: "Unauthorized" });
+
+    const [existing] = await db.select().from(submissionsTable)
+      .where(eq(submissionsTable.id, req.params.id)).limit(1);
+    if (!existing) return res.status(404).json({ error: "Submission not found" });
+    if (existing.userId !== auth.userId) return res.status(403).json({ error: "Forbidden" });
+    if (!existing.deleted) return res.status(400).json({ error: "Submission is not deleted" });
+
+    const now = new Date();
+    const [restored] = await db.update(submissionsTable)
+      .set({ deleted: false, deletedAt: null, updatedAt: now })
+      .where(eq(submissionsTable.id, req.params.id))
+      .returning();
+
+    // Also restore any linked article
+    try {
+      const [bySubId] = await db.select({ id: articlesTable.id })
+        .from(articlesTable)
+        .where(eq(articlesTable.submissionId, existing.id))
+        .limit(1);
+      if (bySubId) {
+        await db.update(articlesTable)
+          .set({ deleted: false, deletedAt: null, updatedAt: now })
+          .where(eq(articlesTable.id, bySubId.id));
+      }
+    } catch {
+      // best effort
+    }
+
+    return res.json({ success: true, submission: restored });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed to restore submission" });
+  }
+});
+
+// DELETE /api/submissions/:id/permanent — permanently destroy a soft-deleted submission
+router.delete("/submissions/:id/permanent", async (req, res) => {
+  try {
+    const auth = await getUserAuth(req);
+    if (!auth) return res.status(401).json({ error: "Unauthorized" });
+
+    const [existing] = await db.select().from(submissionsTable)
+      .where(eq(submissionsTable.id, req.params.id)).limit(1);
+    if (!existing) return res.status(404).json({ error: "Submission not found" });
+    if (existing.userId !== auth.userId) return res.status(403).json({ error: "Forbidden" });
+    if (!existing.deleted) return res.status(400).json({ error: "Move submission to trash first before permanently deleting" });
+
+    // Hard-delete any linked article first (cascade won't help because we're deleting submission)
+    try {
+      const [bySubId] = await db.select({ id: articlesTable.id })
+        .from(articlesTable)
+        .where(eq(articlesTable.submissionId, existing.id))
+        .limit(1);
+      if (bySubId) {
+        await db.delete(articlesTable).where(eq(articlesTable.id, bySubId.id));
+      }
+    } catch {
+      // best effort
+    }
+
+    await db.delete(submissionsTable).where(eq(submissionsTable.id, req.params.id));
+
+    return res.json({ success: true });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed to permanently delete submission" });
+  }
+});
+
 export { UPLOADS_DIR };
 export default router;

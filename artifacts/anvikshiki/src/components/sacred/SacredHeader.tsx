@@ -78,10 +78,16 @@ export function SacredHeader() {
                     className="sacred-account-btn"
                     aria-expanded={accountOpen}
                   >
-                    <span className="sacred-account-avatar">
-                      <User size={13} />
-                    </span>
-                    {user.name?.split(" ")[0] || "Account"}
+                  <span className="sacred-account-avatar" style={{ overflow: "hidden", width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--terracotta-pale)", flexShrink: 0 }}>
+                    {user.avatarUrl ? (
+                      <img src={user.avatarUrl} alt={user.name || "Avatar"} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
+                    ) : (
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "var(--terracotta)", fontFamily: "var(--font-ui)", lineHeight: 1 }}>
+                        {(user.name || "A").charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </span>
+                  {user.name?.split(" ")[0] || "Account"}
                   </button>
 
                   {accountOpen ? (
@@ -89,6 +95,9 @@ export function SacredHeader() {
                       <div className="sacred-dropdown">
                         <Link href="/account" className="sacred-dropdown-item" onClick={() => setAccountOpen(false)}>
                           <User size={13} /> Account
+                        </Link>
+                        <Link href={`/profile/${user.id}`} className="sacred-dropdown-item" onClick={() => setAccountOpen(false)}>
+                          <User size={13} /> Public Profile
                         </Link>
                         <Link href="/saved" className="sacred-dropdown-item" onClick={() => setAccountOpen(false)}>
                           <BookMarked size={13} /> Saved Items
