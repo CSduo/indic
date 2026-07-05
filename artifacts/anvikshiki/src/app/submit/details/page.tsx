@@ -7,10 +7,10 @@ import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { SubmissionStepper } from "@/components/manuscript/SubmissionStepper";
 
-const DOMAINS = ["Philosophy", "History", "Psychology", "Sociology", "Science", "Geopolitics", "Civilizational Thought", "Aesthetics", "Sanskrit Studies", "Political Theory", "Other"];
+const DOMAINS = ["Philosophy", "History", "Psychology", "Sociology", "Science", "Geopolitics", "Civilizational Thought", "Aesthetics", "Sanskrit Studies", "Political Theory"];
 const LENGTHS = ["Short (< 3,000 words)", "Medium (3,000-7,000 words)", "Long (7,000-15,000 words)", "Extended (> 15,000 words)"];
 const AUDIENCES = ["Academic / Scholarly", "Informed General", "Interdisciplinary", "Open to All"];
-const LANGUAGES = ["English", "Sanskrit", "Hindi", "Bengali", "Tamil", "Telugu", "Other"];
+const LANGUAGES = ["English", "Sanskrit", "Hindi", "Bengali", "Tamil", "Telugu"];
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
 
 interface FormData {

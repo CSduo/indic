@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { BookMarked, LogOut, Menu, Search, User, X } from "lucide-react";
 import { toast } from "sonner";
-import { ThemeToggle } from "@/components/brand/ThemeToggle";
 import { GlobalSidebar } from "@/components/sacred/GlobalSidebar";
 import { useAuthContext } from "@/contexts/AuthContext";
 
@@ -114,7 +113,6 @@ export function SacredHeader() {
                 </Link>
               )}
 
-              <ThemeToggle />
             </div>
 
           </div>

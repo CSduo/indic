@@ -394,7 +394,11 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
               "civilizational-thought","aesthetics","sanskrit-studies","political-theory",
               "translations","multimedia","papers","archive",
             ];
-            if (knownSlugs.includes(rawDomain)) catSlug = rawDomain;
+            if (knownSlugs.includes(rawDomain)) {
+              catSlug = rawDomain;
+            } else {
+              catSlug = "archive";
+            }
           }
         }
 

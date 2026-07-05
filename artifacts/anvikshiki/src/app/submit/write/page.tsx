@@ -7,8 +7,8 @@ import { useAuth } from "@/hooks/useAuth";
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const STORAGE_KEY = "anvikshiki_write_draft";
 
-const DOMAINS = ["Philosophy","History","Psychology","Sociology","Science","Geopolitics","Civilizational Thought","Aesthetics","Sanskrit Studies","Political Theory","Economics","Other"];
-const LANGUAGES = ["English","Sanskrit","Hindi","Bengali","Tamil","Telugu","Other"];
+const DOMAINS = ["Philosophy","History","Psychology","Sociology","Science","Geopolitics","Civilizational Thought","Aesthetics","Sanskrit Studies","Political Theory","Economics"];
+const LANGUAGES = ["English","Sanskrit","Hindi","Bengali","Tamil","Telugu"];
 
 interface Draft {
   type: string;

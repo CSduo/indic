@@ -237,34 +237,6 @@ export default function HomePage() {
       {/* ─── WISDOM STRIP ─── */}
       <WisdomStrip />
 
-      {/* ─── FEATURED ESSAYS (API data only) ─── */}
-      {realEssays && (
-        <section className="home-v3-section">
-          <div className="container-anv">
-            <div className="home-v3-section-head">
-              <span className="home-v3-lotus-mark">✦</span>
-              <h2 className="home-v3-section-title">Featured Essays</h2>
-              <Link href="/browse" className="home-v3-view-all">View All <ArrowRight size={14} /></Link>
-            </div>
-            <div className="home-v3-essay-grid">
-              {realEssays.map(essay => (
-                <Link key={essay.title} href={essay.href} className="home-v3-essay-card">
-                  <div className="home-v3-essay-meta">
-                    <AnimalGlyph domain={essay.domain} size={34} />
-                    <span className="home-v3-essay-cat" style={{ color: essay.color }}>{essay.category}</span>
-                  </div>
-                  <h3 className="home-v3-essay-title">{essay.title}</h3>
-                  <div className="home-v3-essay-foot">
-                    <p className="home-v3-essay-author">{essay.author}</p>
-                    <span className="home-v3-read-time"><Clock3 size={12} /> {essay.minutes} min</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
       {/* ─── RECENTLY UPLOADED ─── */}
       {recentArticles.length > 0 && (
         <section className="home-v3-section">
@@ -308,6 +280,34 @@ export default function HomePage() {
                         </span>
                       )}
                     </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ─── FEATURED ESSAYS (API data only) ─── */}
+      {realEssays && (
+        <section className="home-v3-section">
+          <div className="container-anv">
+            <div className="home-v3-section-head">
+              <span className="home-v3-lotus-mark">✦</span>
+              <h2 className="home-v3-section-title">Featured Essays</h2>
+              <Link href="/browse" className="home-v3-view-all">View All <ArrowRight size={14} /></Link>
+            </div>
+            <div className="home-v3-essay-grid">
+              {realEssays.map(essay => (
+                <Link key={essay.title} href={essay.href} className="home-v3-essay-card">
+                  <div className="home-v3-essay-meta">
+                    <AnimalGlyph domain={essay.domain} size={34} />
+                    <span className="home-v3-essay-cat" style={{ color: essay.color }}>{essay.category}</span>
+                  </div>
+                  <h3 className="home-v3-essay-title">{essay.title}</h3>
+                  <div className="home-v3-essay-foot">
+                    <p className="home-v3-essay-author">{essay.author}</p>
+                    <span className="home-v3-read-time"><Clock3 size={12} /> {essay.minutes} min</span>
                   </div>
                 </Link>
               ))}
