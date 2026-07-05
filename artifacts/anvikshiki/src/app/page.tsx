@@ -141,11 +141,17 @@ function WisdomStrip() {
 
 export default function HomePage() {
   const [featuredEssays, setFeaturedEssays] = useState<any[]>([]);
+  const [recentArticles, setRecentArticles] = useState<any[]>([]);
 
   useEffect(() => {
     fetch(`${base}/api/articles?featured=true&limit=4`, { credentials: "include" })
       .then(r => r.json())
       .then(d => { if (d.articles?.length) setFeaturedEssays(d.articles); })
+      .catch(() => {});
+
+    fetch(`${base}/api/articles?limit=6`, { credentials: "include" })
+      .then(r => r.json())
+      .then(d => { if (d.articles?.length) setRecentArticles(d.articles); })
       .catch(() => {});
   }, []);
 
@@ -251,6 +257,57 @@ export default function HomePage() {
                   <div className="home-v3-essay-foot">
                     <p className="home-v3-essay-author">{essay.author}</p>
                     <span className="home-v3-read-time"><Clock3 size={12} /> {essay.minutes} min</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ─── RECENTLY UPLOADED ─── */}
+      {recentArticles.length > 0 && (
+        <section className="home-v3-section">
+          <div className="container-anv">
+            <div className="home-v3-section-head">
+              <span className="home-v3-lotus-mark">✦</span>
+              <h2 className="home-v3-section-title">Recently Uploaded</h2>
+              <Link href="/browse" className="home-v3-view-all">View All <ArrowRight size={14} /></Link>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "1.25rem" }}>
+              {recentArticles.map((a: any) => (
+                <Link key={a.id} href={`/articles/${a.slug}`} className="home-v3-essay-card" style={{ textDecoration: "none", display: "flex", flexDirection: "column" }}>
+                  {a.heroImageUrl && (
+                    <div style={{ borderRadius: "8px 8px 0 0", overflow: "hidden", height: 140, marginBottom: 0 }}>
+                      <img
+                        src={a.heroImageUrl}
+                        alt={a.heroImageAlt || a.title}
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      />
+                    </div>
+                  )}
+                  <div style={{ padding: "0.9rem 1rem", flex: 1, display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                    <div className="home-v3-essay-meta">
+                      <AnimalGlyph domain={a.categorySlug || "archive"} size={26} />
+                      <span className="home-v3-essay-cat" style={{ color: "var(--gold)" }}>
+                        {a.category?.name || a.categorySlug || "Essay"}
+                      </span>
+                    </div>
+                    <h3 className="home-v3-essay-title" style={{ fontSize: "0.95rem", marginBottom: "auto" }}>{a.title}</h3>
+                    {a.excerpt && (
+                      <p style={{ fontSize: "0.78rem", color: "var(--ink-faint)", lineHeight: 1.5, WebkitLineClamp: 2, display: "-webkit-box", WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                        {a.excerpt}
+                      </p>
+                    )}
+                    <div className="home-v3-essay-foot">
+                      <p className="home-v3-essay-author">{a.authorName || "Editorial"}</p>
+                      {a.publishedAt && (
+                        <span style={{ fontSize: "0.7rem", color: "var(--ink-faint)" }}>
+                          {new Date(a.publishedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </Link>
               ))}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, Link } from "wouter";
-import { Check, X, Trash2, Globe, ArchiveRestore, Download } from "lucide-react";
+import { Check, X, Trash2, Globe, ArchiveRestore, Download, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { AdminSidebar } from "@/components/sacred/AdminSidebar";
 import { LotusIcon } from "@/components/sacred/LotusIcon";
@@ -10,6 +10,23 @@ const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const STATUS_MAP: Record<string, string> = {
   approve: "ACCEPTED", reject: "REJECTED", publish: "PUBLISHED", unpublish: "ACCEPTED",
 };
+
+const CATEGORIES = [
+  { slug: "philosophy",            label: "Philosophy" },
+  { slug: "history",               label: "History" },
+  { slug: "psychology",            label: "Psychology" },
+  { slug: "sociology",             label: "Sociology" },
+  { slug: "science",               label: "Science" },
+  { slug: "geopolitics",           label: "Geopolitics" },
+  { slug: "civilizational-thought",label: "Civilizational Thought" },
+  { slug: "aesthetics",            label: "Aesthetics" },
+  { slug: "sanskrit-studies",      label: "Sanskrit Studies" },
+  { slug: "political-theory",      label: "Political Theory" },
+  { slug: "translations",          label: "Translations" },
+  { slug: "multimedia",            label: "Multimedia" },
+  { slug: "papers",                label: "Papers" },
+  { slug: "archive",               label: "Archive" },
+];
 
 function Confirm({ msg, onYes, onNo }: { msg: string; onYes: () => void; onNo: () => void }) {
   return (
@@ -34,12 +51,20 @@ function statusBadge(status: string) {
   return "draft";
 }
 
+/** Parse a Cloudinary URL or /api/uploads/... from notes */
+function extractCoverFromNotes(notes?: string | null): string | null {
+  if (!notes) return null;
+  const m = notes.match(/Cover(?:\s*image)?(?:\s*URL)?:\s*(https?:\/\/\S+|\/api\/uploads\/\S+)/i);
+  return m ? m[1].trim() : null;
+}
+
 export default function AdminSubmissionsPage() {
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [selected, setSelected] = useState<any | null>(null);
   const [confirm, setConfirm] = useState<{ msg: string; action: () => void } | null>(null);
+  const [publishCategory, setPublishCategory] = useState("philosophy");
   const [, navigate] = useLocation();
 
   const load = () => {
@@ -51,12 +76,13 @@ export default function AdminSubmissionsPage() {
 
   useEffect(() => { load(); }, []);
 
-  const patchAction = async (id: string, act: string) => {
+  const patchAction = async (id: string, act: string, extra?: Record<string, any>) => {
     const status = STATUS_MAP[act] || act.toUpperCase();
+    const body: Record<string, any> = { status, ...extra };
     const r = await fetch(`${base()}/api/admin/submissions/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(body),
       credentials: "include",
     });
     if (r.ok) {
@@ -113,7 +139,7 @@ export default function AdminSubmissionsPage() {
                 <button
                   key={s.id}
                   type="button"
-                  onClick={() => setSelected(s)}
+                  onClick={() => { setSelected(s); setPublishCategory("philosophy"); }}
                   className="w-full text-left px-4 py-3 transition-colors"
                   style={{ borderBottom: "1px solid var(--border)", background: selected?.id === s.id ? "rgba(201,152,58,0.07)" : "transparent" }}
                 >
@@ -131,7 +157,8 @@ export default function AdminSubmissionsPage() {
           {/* Detail panel */}
           <div className="lg:col-span-3">
             {selected ? (
-              <div className="card-sacred p-6" style={{ background: "var(--surface-2)", maxHeight: "75vh", overflowY: "auto" }}>
+              <div className="card-sacred p-6" style={{ background: "var(--surface-2)", maxHeight: "82vh", overflowY: "auto" }}>
+                {/* Header */}
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1 mr-3">
                     <h2 className="font-display text-xl mb-2 leading-tight" style={{ color: "var(--ink)" }}>{selected.title}</h2>
@@ -143,6 +170,22 @@ export default function AdminSubmissionsPage() {
                   <button type="button" onClick={() => setSelected(null)} className="font-ui text-sm shrink-0" style={{ color: "var(--muted)" }}>✕</button>
                 </div>
 
+                {/* Cover image */}
+                {(() => {
+                  const imgUrl = selected.coverImageUrl || extractCoverFromNotes(selected.notes);
+                  return imgUrl ? (
+                    <div className="mb-5 rounded-lg overflow-hidden" style={{ maxHeight: 220 }}>
+                      <img
+                        src={imgUrl.startsWith("/api/") ? `${base()}${imgUrl}` : imgUrl}
+                        alt={selected.title}
+                        style={{ width: "100%", objectFit: "cover", maxHeight: 220 }}
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      />
+                    </div>
+                  ) : null;
+                })()}
+
+                {/* Meta grid */}
                 <div className="grid grid-cols-2 gap-x-6 gap-y-2 mb-5">
                   {[["Author", selected.submitterName], ["Email", selected.submitterEmail], ["Institution", selected.institution || "—"], ["Submitted", selected.createdAt ? new Date(selected.createdAt).toLocaleString("en-IN") : "—"]].map(([k, v]) => (
                     <div key={k}>
@@ -152,24 +195,66 @@ export default function AdminSubmissionsPage() {
                   ))}
                 </div>
 
+                {/* Abstract */}
                 {selected.abstract && (
                   <div className="mb-4">
                     <div className="form-label mb-1">Abstract</div>
                     <div className="font-body text-sm leading-relaxed p-3 rounded-lg" style={{ background: "var(--surface-3)", color: "var(--ink-soft)" }}>{selected.abstract}</div>
                   </div>
                 )}
+
+                {/* Full body / essay content */}
+                {selected.body && (
+                  <div className="mb-4">
+                    <div className="form-label mb-1">Full Essay Content</div>
+                    <div
+                      className="font-body text-sm leading-relaxed p-3 rounded-lg"
+                      style={{ background: "var(--surface-3)", color: "var(--ink-soft)", maxHeight: 260, overflowY: "auto", whiteSpace: "pre-wrap" }}
+                    >
+                      {selected.body}
+                    </div>
+                  </div>
+                )}
+
+                {/* Notes */}
                 {selected.notes && (
                   <div className="mb-4">
                     <div className="form-label mb-1">Notes</div>
-                    <div className="font-body text-sm p-3 rounded-lg" style={{ background: "var(--surface-3)", color: "var(--ink-faint)" }}>{selected.notes}</div>
+                    <div className="font-body text-sm p-3 rounded-lg" style={{ background: "var(--surface-3)", color: "var(--ink-faint)", whiteSpace: "pre-wrap" }}>{selected.notes}</div>
                   </div>
                 )}
-                {selected.fileUrl && (
+
+                {/* Manuscript download */}
+                {(selected.manuscriptUrl || selected.fileUrl) && (
                   <div className="mb-4">
-                    <div className="form-label mb-1">Uploaded File</div>
-                    <a href={selected.fileUrl} target="_blank" rel="noopener noreferrer" className="btn-sacred btn-ghost text-xs inline-flex items-center gap-2">
+                    <div className="form-label mb-1">Manuscript</div>
+                    <a href={selected.manuscriptUrl || selected.fileUrl} target="_blank" rel="noopener noreferrer" className="btn-sacred btn-ghost text-xs inline-flex items-center gap-2">
                       <Download size={13} /> Download Manuscript
                     </a>
+                  </div>
+                )}
+
+                {/* Category selector — shown when about to publish */}
+                {selected.status === "ACCEPTED" && (
+                  <div className="mb-4 p-3 rounded-lg" style={{ background: "rgba(201,152,58,0.08)", border: "1px solid var(--border-gold)" }}>
+                    <div className="form-label mb-2" style={{ color: "var(--gold)" }}>Category for Publication</div>
+                    <p className="font-ui text-xs mb-2" style={{ color: "var(--muted)" }}>
+                      Choose the section where this article will appear on the website.
+                    </p>
+                    <div className="relative">
+                      <select
+                        id="publish-category-select"
+                        value={publishCategory}
+                        onChange={e => setPublishCategory(e.target.value)}
+                        className="input-sacred w-full pr-8 text-sm appearance-none"
+                        style={{ color: "var(--ink-soft)", background: "var(--surface-3)", cursor: "pointer" }}
+                      >
+                        {CATEGORIES.map(c => (
+                          <option key={c.slug} value={c.slug}>{c.label}</option>
+                        ))}
+                      </select>
+                      <ChevronDown size={14} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" style={{ color: "var(--muted)" }} />
+                    </div>
                   </div>
                 )}
 
@@ -184,8 +269,12 @@ export default function AdminSubmissionsPage() {
                     </button>
                   </>)}
                   {selected.status === "ACCEPTED" && (
-                    <button type="button" onClick={() => patchAction(selected.id, "publish")} className="btn-sacred btn-gold text-xs py-1.5 px-3 inline-flex items-center gap-1.5">
-                      <Globe size={12} /> Publish
+                    <button
+                      type="button"
+                      onClick={() => patchAction(selected.id, "publish", { categorySlug: publishCategory })}
+                      className="btn-sacred btn-gold text-xs py-1.5 px-3 inline-flex items-center gap-1.5"
+                    >
+                      <Globe size={12} /> Publish as Article
                     </button>
                   )}
                   {selected.status === "PUBLISHED" && (

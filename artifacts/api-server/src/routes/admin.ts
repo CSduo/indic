@@ -369,6 +369,7 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
       status: z.enum(["RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "ACCEPTED", "REJECTED", "PUBLISHED", "ARCHIVED"]).optional(),
       editorNotes: z.string().optional(),
       priority: z.enum(["LOW", "NORMAL", "HIGH", "URGENT"]).optional(),
+      categorySlug: z.string().optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
@@ -376,6 +377,75 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
     const [submission] = await db.update(submissionsTable).set({ ...parsed.data, updatedAt: new Date() })
       .where(eq(submissionsTable.id, req.params.id)).returning();
     if (!submission) return res.status(404).json({ error: "Not found" });
+
+    // Auto-create article in the public articles table when a submission is published
+    if (parsed.data.status === "PUBLISHED") {
+      try {
+        // Determine which category slug to use
+        let catSlug = parsed.data.categorySlug || "philosophy";
+
+        // Try to parse domain from notes (stored as "Domain: xxx")
+        if (!parsed.data.categorySlug && submission.notes) {
+          const domainMatch = submission.notes.match(/Domain:\s*([^\n]+)/i);
+          if (domainMatch) {
+            const rawDomain = domainMatch[1].trim().toLowerCase().replace(/\s+/g, "-");
+            const knownSlugs = [
+              "philosophy","history","psychology","sociology","science","geopolitics",
+              "civilizational-thought","aesthetics","sanskrit-studies","political-theory",
+              "translations","multimedia","papers","archive",
+            ];
+            if (knownSlugs.includes(rawDomain)) catSlug = rawDomain;
+          }
+        }
+
+        // Verify category exists in DB; fallback to first available
+        const [catRow] = await db.select().from(categoriesTable)
+          .where(eq(categoriesTable.slug, catSlug)).limit(1);
+        if (!catRow) {
+          const [fallback] = await db.select().from(categoriesTable)
+            .orderBy(categoriesTable.sortOrder).limit(1);
+          if (fallback) catSlug = fallback.slug;
+        }
+
+        // Build a unique slug
+        const baseSlug = submission.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+        const uniqueSlug = `${baseSlug}-${Date.now()}`;
+
+        // Extract cover image from submission or notes
+        let heroImageUrl: string | null = submission.coverImageUrl || null;
+        if (!heroImageUrl && submission.notes) {
+          const imgMatch = submission.notes.match(/Cover(?:\s*image)?(?:\s*URL)?:\s*(https?:\/\/\S+|\/api\/uploads\/\S+)/i);
+          if (imgMatch) heroImageUrl = imgMatch[1].trim();
+        }
+
+        // Only create if no article with this base slug already exists
+        const [existing] = await db.select({ id: articlesTable.id })
+          .from(articlesTable)
+          .where(eq(articlesTable.slug, baseSlug)).limit(1);
+
+        if (!existing) {
+          await db.insert(articlesTable).values({
+            slug: uniqueSlug,
+            title: submission.title,
+            subtitle: null,
+            excerpt: submission.abstract || "",
+            body: submission.body || submission.abstract || "",
+            categorySlug: catSlug,
+            tags: [],
+            authorName: submission.submitterName,
+            heroImageUrl,
+            heroImageAlt: submission.title,
+            keyTakeaways: [],
+            status: "PUBLISHED",
+            featured: false,
+            publishedAt: new Date(),
+          });
+        }
+      } catch (articleErr: any) {
+        req.log.warn({ err: articleErr }, "Failed to auto-create article from submission");
+      }
+    }
+
     return res.json({ submission });
   } catch (err) {
     req.log.error(err);
