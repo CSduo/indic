@@ -5,7 +5,7 @@ import pinoHttp from "pino-http";
 import { rateLimit } from "express-rate-limit";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { schedulePublishedSubmissionSync } from "./lib/publication-sync";
+import { syncPublishedSubmissions } from "./lib/publication-sync";
 import { UPLOADS_DIR } from "./routes/submissions";
 import path from "path";
 
@@ -70,6 +70,22 @@ app.use((req, res, next) => {
   next();
 });
 
+let publicationInitialization: Promise<unknown> | null = null;
+
+app.use(async (req, res, next) => {
+  publicationInitialization ||= syncPublishedSubmissions();
+  try {
+    await publicationInitialization;
+    next();
+  } catch (err) {
+    publicationInitialization = null;
+    req.log.error({ err }, "Failed to initialize publication data");
+    res.status(500).json({
+      error: "The publication archive could not be initialized. Please try again.",
+    });
+  }
+});
+
 // Rate limiting on auth endpoints
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -92,7 +108,5 @@ app.use("/api/uploads", express.static(UPLOADS_DIR, {
 }));
 
 app.use("/api", router);
-
-schedulePublishedSubmissionSync(logger);
 
 export default app;
