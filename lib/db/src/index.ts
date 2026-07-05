@@ -8,9 +8,15 @@ const isVercel = Boolean(process.env.VERCEL);
 const isProduction = process.env.NODE_ENV === "production";
 
 if (!process.env.DATABASE_URL) {
-  console.warn(
-    "DATABASE_URL is not set. Database queries will fail. Ensure environment variables are configured correctly."
-  );
+  if (isProduction || isVercel) {
+    console.error(
+      "DATABASE_URL environment variable is missing on Vercel. API routes will return a configuration error until it is set.",
+    );
+  } else {
+    console.warn(
+      "DATABASE_URL is not set. Did you forget to configure environment variables? Database queries will fail."
+    );
+  }
 }
 
 const maxConnections = Number(

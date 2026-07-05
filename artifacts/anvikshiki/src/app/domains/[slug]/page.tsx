@@ -12,6 +12,16 @@ import { DOMAIN_META, getDomainMeta, normalizeDomainKey } from "@/lib/domainMeta
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
 
+type PublicWork = {
+  id: string;
+  kind: "article" | "paper";
+  slug: string;
+  title: string;
+  summary?: string;
+  authorName?: string;
+  publishedAt?: string;
+};
+
 export default function DomainPage() {
   const [, params] = useRoute("/domains/:slug");
   const [, legacyParams] = useRoute("/categories/:slug");
@@ -19,7 +29,7 @@ export default function DomainPage() {
   const key = normalizeDomainKey(slug);
   const meta = getDomainMeta(key);
   const known = Boolean(slug && (slug in DOMAIN_META || slug === "civilizations" || slug === "civilisation"));
-  const [articles, setArticles] = useState<any[]>([]);
+  const [publications, setPublications] = useState<PublicWork[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -27,17 +37,42 @@ export default function DomainPage() {
     if (!slug) return;
     setLoading(true);
     setError(false);
-    fetch(`${base()}/api/articles?category=${encodeURIComponent(slug)}&limit=24`)
-      .then((response) => response.json())
+    fetch(`${base()}/api/categories/${encodeURIComponent(key)}`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not load domain");
+        return response.json();
+      })
       .then((data) => {
-        setArticles(data.articles || []);
+        const articles: PublicWork[] = (data.articles || []).map((article: any) => ({
+          id: article.id,
+          kind: "article",
+          slug: article.slug,
+          title: article.title,
+          summary: article.excerpt,
+          authorName: article.authorName,
+          publishedAt: article.publishedAt || article.createdAt,
+        }));
+        const papers: PublicWork[] = (data.papers || []).map((paper: any) => ({
+          id: paper.id,
+          kind: "paper",
+          slug: paper.slug,
+          title: paper.title,
+          summary: paper.abstract,
+          authorName: paper.authorName,
+          publishedAt: paper.publishedAt || paper.createdAt,
+        }));
+        setPublications(
+          [...articles, ...papers].sort(
+            (a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime(),
+          ),
+        );
         setLoading(false);
       })
       .catch(() => {
         setError(true);
         setLoading(false);
       });
-  }, [slug]);
+  }, [key, slug]);
 
   if (!known && !loading) {
     return (
@@ -100,7 +135,7 @@ export default function DomainPage() {
             description="There was an error loading articles for this domain. Please try again."
             action={<button className="btn-ink" onClick={() => window.location.reload()} type="button">Retry</button>}
           />
-        ) : articles.length === 0 ? (
+        ) : publications.length === 0 ? (
           <ParchmentCard className="mx-auto max-w-2xl p-8 text-center">
             <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full border border-[var(--border-gold)]" style={{ color: meta.color }}>
               <AnimalGlyph domain={key} size={42} />
@@ -116,14 +151,20 @@ export default function DomainPage() {
           </ParchmentCard>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {articles.map((article) => (
-              <Link key={article.id} href={`/articles/${article.slug || article.id}`}>
+            {publications.map((publication) => (
+              <Link
+                key={`${publication.kind}-${publication.id}`}
+                href={`/${publication.kind === "paper" ? "papers" : "articles"}/${publication.slug || publication.id}`}
+              >
                 <ParchmentCard className="flex h-full min-h-56 flex-col p-5">
-                  <GlyphTag domain={key} className="mb-4 w-fit" />
-                  <h3 className="font-display text-2xl leading-tight text-[var(--ink)]">{article.title}</h3>
-                  {article.excerpt ? <p className="mt-3 line-clamp-3 font-body text-sm leading-6 text-[var(--ink-soft)]">{article.excerpt}</p> : null}
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <GlyphTag domain={key} className="w-fit" />
+                    <span className="badge badge-received">{publication.kind === "paper" ? "Paper" : "Essay"}</span>
+                  </div>
+                  <h3 className="font-display text-2xl leading-tight text-[var(--ink)]">{publication.title}</h3>
+                  {publication.summary ? <p className="mt-3 line-clamp-3 font-body text-sm leading-6 text-[var(--ink-soft)]">{publication.summary}</p> : null}
                   <div className="mt-auto flex items-center justify-between border-t border-[var(--border)] pt-4">
-                    <span className="font-ui text-xs text-[var(--ink-faint)]">{article.authorName || "Editorial"}</span>
+                    <span className="font-ui text-xs text-[var(--ink-faint)]">{publication.authorName || "Editorial"}</span>
                     <ArrowRight size={14} className="text-[var(--gold)]" />
                   </div>
                 </ParchmentCard>

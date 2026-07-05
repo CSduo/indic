@@ -3,6 +3,16 @@ import { getAdminAuth } from "../lib/auth";
 
 const router = Router();
 
+type NeonBranch = {
+  id?: string;
+  name?: string;
+};
+
+type NeonBranchResponse = {
+  branch?: NeonBranch;
+  branches?: NeonBranch[];
+};
+
 async function requireAdmin(req: any, res: any, next: any) {
   const auth = await getAdminAuth(req);
   if (!auth) return res.status(401).json({ error: "Unauthorized" });
@@ -50,7 +60,7 @@ router.post("/admin/trigger-backup", requireAdmin, async (req: any, res) => {
       return res.status(500).json({ success: false, error: "Backup failed", detail: err });
     }
 
-    const data = (await response.json()) as any;
+    const data = await response.json() as NeonBranchResponse;
     req.log.info({ branchName, branchId: data.branch?.id }, "Database backup branch created successfully");
 
     return res.json({
@@ -84,9 +94,9 @@ router.get("/admin/backups", requireAdmin, async (req: any, res) => {
 
     if (!response.ok) return res.status(500).json({ error: "Failed to fetch branches" });
 
-    const data = (await response.json()) as any;
+    const data = await response.json() as NeonBranchResponse;
     // Only return branches whose names start with "backup-"
-    const backups = (data.branches || []).filter((b: any) => b.name?.startsWith("backup-"));
+    const backups = (data.branches || []).filter((branch) => branch.name?.startsWith("backup-"));
 
     return res.json({ branches: backups });
   } catch (err: any) {

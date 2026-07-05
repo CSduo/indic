@@ -187,7 +187,7 @@ export default function SubmitWritePage() {
           body: JSON.stringify({
             type, submitterName: draft.fullName, submitterEmail: draft.email,
             title: draft.title || "Untitled draft", abstract: draft.abstract, body: draft.body,
-            notes: buildNotes(imageUrl), status: "DRAFT",
+            domain: draft.domain, notes: buildNotes(imageUrl), status: "DRAFT",
           }),
         });
         const data = await r.json();
@@ -200,7 +200,7 @@ export default function SubmitWritePage() {
           body: JSON.stringify({
             type, submitterName: draft.fullName || user.name || "Draft author", submitterEmail: draft.email || user.email,
             title: draft.title || "Untitled draft", abstract: draft.abstract, body: draft.body,
-            notes: buildNotes(imageUrl), status: "DRAFT",
+            domain: draft.domain, notes: buildNotes(imageUrl), status: "DRAFT",
           }),
         });
         const data = await r.json();
@@ -238,7 +238,7 @@ export default function SubmitWritePage() {
           body: JSON.stringify({
             type, submitterName: draft.fullName, submitterEmail: draft.email,
             title: draft.title, abstract: draft.abstract || "See essay body.", body: draft.body,
-            notes, consent: true, status: "RECEIVED",
+            domain: draft.domain, notes, consent: true, status: "RECEIVED",
           }),
         });
       } else {
@@ -249,7 +249,7 @@ export default function SubmitWritePage() {
           body: JSON.stringify({
             type, submitterName: draft.fullName, submitterEmail: draft.email,
             title: draft.title, abstract: draft.abstract || "See essay body.", body: draft.body,
-            notes, consent: true,
+            domain: draft.domain, notes, consent: true,
           }),
         });
       }

@@ -62,6 +62,10 @@ router.get("/health", async (_req, res) => {
 });
 
 router.get("/health/debug-user", async (_req, res) => {
+  if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
+    return res.status(404).json({ error: "Not found" });
+  }
+
   try {
     const { articlesTable, papersTable, categoriesTable } = await import("@workspace/db");
     const { eq } = await import("drizzle-orm");

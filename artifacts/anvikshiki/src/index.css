@@ -2945,6 +2945,102 @@ body:has(.sacred-drawer) {
 .home-v3-view-all:hover { gap: 0.55rem; }
 
 /* ── Featured Essays ── */
+.home-recent-actions,
+.home-recent-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.home-recent-nav button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--border-gold);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color var(--motion-fast), color var(--motion-fast), background var(--motion-fast);
+}
+
+.home-recent-nav button:hover {
+  border-color: var(--gold);
+  background: var(--gold-pale);
+  color: var(--terracotta);
+}
+
+.home-recent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+}
+
+.home-recent-track {
+  display: flex;
+  gap: 1.25rem;
+  overflow-x: auto;
+  padding: 0.25rem 0.15rem 1rem;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.home-recent-track::-webkit-scrollbar {
+  display: none;
+}
+
+.home-recent-card {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.home-recent-track .home-recent-card {
+  flex: 0 0 clamp(260px, 29vw, 330px);
+  scroll-snap-align: start;
+}
+
+.home-recent-image {
+  height: 140px;
+  overflow: hidden;
+}
+
+.home-recent-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-recent-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.9rem 1rem;
+}
+
+.home-recent-title {
+  margin-bottom: auto;
+  font-size: 0.95rem;
+}
+
+.home-recent-summary {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--ink-faint);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.home-recent-date {
+  color: var(--ink-faint);
+  font-size: 0.7rem;
+}
+
 .home-v3-essay-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -2956,6 +3052,20 @@ body:has(.sacred-drawer) {
 }
 @media (max-width: 540px) {
   .home-v3-essay-grid { grid-template-columns: 1fr; }
+
+  .home-v3-section-head {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .home-recent-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .home-recent-track .home-recent-card {
+    flex-basis: min(84vw, 310px);
+  }
 }
 
 .home-v3-essay-card {

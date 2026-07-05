@@ -5,6 +5,7 @@ import pinoHttp from "pino-http";
 import { rateLimit } from "express-rate-limit";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { schedulePublishedSubmissionSync } from "./lib/publication-sync";
 import { UPLOADS_DIR } from "./routes/submissions";
 import path from "path";
 
@@ -61,8 +62,8 @@ app.use(cookieParser());
 // Validate database configuration
 app.use((req, res, next) => {
   if (!process.env.DATABASE_URL) {
-    res.status(500).json({
-      error: "DATABASE_URL environment variable is missing on the server. Please add DATABASE_URL as a Replit Secret (Tools -> Secrets)."
+    res.status(503).json({
+      error: "DATABASE_URL environment variable is missing on the server. Add DATABASE_URL in Vercel Environment Variables and redeploy."
     });
     return;
   }
@@ -92,14 +93,6 @@ app.use("/api/uploads", express.static(UPLOADS_DIR, {
 
 app.use("/api", router);
 
-// Non-blocking database synchronization on startup
-import("./lib/publishHelper").then(({ syncPublishedArchives }) => {
-  console.log("Starting background archive sync...");
-  syncPublishedArchives()
-    .then((count) => console.log(`Background sync successfully completed. Restored ${count} publications.`))
-    .catch((err) => console.error("Background sync failed:", err));
-}).catch((err) => {
-  console.error("Failed to import publishHelper for background sync:", err);
-});
+schedulePublishedSubmissionSync(logger);
 
 export default app;

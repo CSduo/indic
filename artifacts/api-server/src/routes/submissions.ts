@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { submissionsTable, articlesTable, papersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { getUserAuth } from "../lib/auth";
+import { normalizeCategorySlug } from "../lib/publication-sync";
 import { z } from "zod";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
@@ -69,6 +70,7 @@ const submissionSchema = z.object({
   submitterName: z.string().min(1).max(160),
   submitterEmail: z.string().email(),
   title: z.string().min(1).max(500),
+  domain: z.string().max(160).optional(),
   abstract: z.string().min(1).max(5000),
   notes: z.string().max(2000).optional(),
   consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).transform(v => v === true || v === "true"),
@@ -91,6 +93,7 @@ router.post("/submissions", async (req, res) => {
       submitterEmail: data.submitterEmail,
       type: data.type,
       title: data.title,
+      domain: data.domain ? normalizeCategorySlug(data.domain) : null,
       abstract: data.abstract,
       notes: data.notes,
       consent: true,
@@ -173,6 +176,7 @@ router.post(
       const submitterName = (req.body.submitterName || "").trim();
       const submitterEmail = (req.body.submitterEmail || "").trim();
       const title = (req.body.title || "").trim();
+      const domain = req.body.domain ? normalizeCategorySlug(String(req.body.domain)) : null;
       const abstract = (req.body.abstract || "Submitted via upload form").trim();
       const typeRaw = (req.body.type || "ESSAY").toUpperCase();
       const validTypes = ["ESSAY", "PAPER", "REVIEW", "COMMENTARY"];
@@ -216,7 +220,7 @@ router.post(
       const noteLines = [
         manuscriptUrl ? `Manuscript URL: ${manuscriptUrl}` : null,
         coverImageUrl ? `Cover URL: ${coverImageUrl}` : null,
-        req.body.domain ? `Domain: ${req.body.domain}` : null,
+        domain ? `Domain: ${domain}` : null,
         req.body.keywords ? `Keywords: ${req.body.keywords}` : null,
         req.body.notes ? `Notes: ${req.body.notes}` : null,
       ].filter(Boolean).join("\n");
@@ -229,9 +233,9 @@ router.post(
         submitterEmail,
         type,
         title,
+        domain,
         abstract,
         notes: noteLines || null,
-        domain: req.body.domain || null,
         consent: true,
         manuscriptUrl,
         manuscriptPublicId,
@@ -271,10 +275,10 @@ router.post("/submissions/write", async (req, res) => {
       submitterName: z.string().min(1).max(160),
       submitterEmail: z.string().email(),
       title: z.string().min(1).max(500),
+      domain: z.string().max(160).optional(),
       abstract: z.string().max(10000).optional().default(""),
       body: z.string().optional().default(""),
       notes: z.string().max(5000).optional(),
-      domain: z.string().optional(),
       consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).optional().transform(v => v === true || v === "true"),
       status: z.enum(["DRAFT", "RECEIVED"]).optional().default("RECEIVED"),
     });
@@ -301,10 +305,10 @@ router.post("/submissions/write", async (req, res) => {
       submitterEmail: data.submitterEmail,
       type: data.type,
       title: data.title,
+      domain: data.domain ? normalizeCategorySlug(data.domain) : null,
       abstract: data.abstract || "",
       body: data.body || "",
       notes: data.notes || null,
-      domain: data.domain || null,
       consent: !isDraft,
       status: isDraft ? "DRAFT" : "RECEIVED",
     }).returning();
@@ -383,10 +387,10 @@ router.put("/submissions/:id", async (req, res) => {
       submitterName: z.string().min(1).max(160).optional(),
       submitterEmail: z.string().email().optional(),
       title: z.string().min(1).max(500).optional(),
+      domain: z.string().max(160).optional(),
       abstract: z.string().max(10000).optional(),
       body: z.string().optional(),
       notes: z.string().max(5000).optional(),
-      domain: z.string().optional(),
       consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).optional(),
       status: z.enum(["DRAFT", "RECEIVED"]).optional(),
     });
@@ -409,6 +413,7 @@ router.put("/submissions/:id", async (req, res) => {
     if (data.submitterName !== undefined) updates.submitterName = data.submitterName;
     if (data.submitterEmail !== undefined) updates.submitterEmail = data.submitterEmail;
     if (data.title !== undefined) updates.title = data.title;
+    if (data.domain !== undefined) updates.domain = data.domain ? normalizeCategorySlug(data.domain) : null;
     if (data.abstract !== undefined) updates.abstract = data.abstract;
     if (data.body !== undefined) updates.body = data.body;
     if (data.notes !== undefined) updates.notes = data.notes;
@@ -455,7 +460,6 @@ router.delete("/submissions/:id", async (req, res) => {
 
     // Also soft-delete any linked article or paper (by submissionId or title match fallback)
     try {
-      // Soft-delete by submissionId first
       await db.update(articlesTable)
         .set({ deleted: true, deletedAt: now, updatedAt: now })
         .where(eq(articlesTable.submissionId, existing.id));
@@ -464,7 +468,6 @@ router.delete("/submissions/:id", async (req, res) => {
         .set({ deleted: true, deletedAt: now, updatedAt: now })
         .where(eq(papersTable.submissionId, existing.id));
 
-      // Title fallbacks (for older records where submissionId was null)
       if (existing.title) {
         await db.update(articlesTable)
           .set({ deleted: true, deletedAt: now, updatedAt: now })
@@ -475,7 +478,7 @@ router.delete("/submissions/:id", async (req, res) => {
           .where(and(eq(papersTable.title, existing.title), eq(papersTable.deleted, false)));
       }
     } catch {
-      // Non-fatal
+      // Non-fatal: public document soft-delete is best-effort
     }
 
     return res.json({ success: true });

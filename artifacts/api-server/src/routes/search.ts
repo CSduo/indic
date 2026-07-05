@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { articlesTable, papersTable, categoriesTable } from "@workspace/db";
-import { eq, and, ilike, or } from "drizzle-orm";
+import { eq, and, ilike, or, sql } from "drizzle-orm";
 
 const router = Router();
 
@@ -24,24 +24,24 @@ router.get("/search", async (req, res) => {
       db.select({ article: articlesTable, category: categoriesTable })
         .from(articlesTable)
         .leftJoin(categoriesTable, eq(articlesTable.categorySlug, categoriesTable.slug))
-        .where(and(eq(articlesTable.status, "PUBLISHED"), or(
+        .where(and(eq(articlesTable.status, "PUBLISHED"), eq(articlesTable.deleted, false), or(
           ilike(articlesTable.title, st),
-          ilike(articlesTable.subtitle || "", st),
-          ilike(articlesTable.excerpt || "", st),
+          sql`coalesce(${articlesTable.subtitle}, '') ilike ${st}`,
+          sql`coalesce(${articlesTable.excerpt}, '') ilike ${st}`,
         )!))
         .limit(10),
       db.select({ paper: papersTable, category: categoriesTable })
         .from(papersTable)
         .leftJoin(categoriesTable, eq(papersTable.categorySlug, categoriesTable.slug))
-        .where(and(eq(papersTable.status, "PUBLISHED"), or(
+        .where(and(eq(papersTable.status, "PUBLISHED"), eq(papersTable.deleted, false), or(
           ilike(papersTable.title, st),
-          ilike(papersTable.abstract || "", st),
+          sql`coalesce(${papersTable.abstract}, '') ilike ${st}`,
         )!))
         .limit(10),
       db.select().from(categoriesTable)
         .where(and(eq(categoriesTable.visible, true), or(
           ilike(categoriesTable.name, st),
-          ilike(categoriesTable.description || "", st),
+          sql`coalesce(${categoriesTable.description}, '') ilike ${st}`,
         )!))
         .limit(8),
     ]);

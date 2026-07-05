@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { ArrowRight, BookOpen, Clock3, Compass, Feather, Globe, Layers, Send, Users } from "lucide-react";
+import { ArrowRight, BookOpen, ChevronLeft, ChevronRight, Clock3, Compass, Feather, Globe, Layers, Send, Users } from "lucide-react";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { FloralBorder } from "@/components/sacred/FloralDecor";
@@ -8,6 +8,20 @@ import { PrismaticBurst, YantraPattern } from "@/components/sacred/ColorfulDecor
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (p: string) => `${base}${p.startsWith("/") ? p : `/${p}`}`;
+
+type RecentPublication = {
+  id: string;
+  kind: "article" | "paper";
+  slug: string;
+  title: string;
+  summary?: string;
+  imageUrl?: string;
+  imageAlt?: string;
+  categorySlug?: string;
+  categoryName?: string;
+  authorName?: string;
+  publishedAt?: string;
+};
 
 /* ── Decorative mandala ring for section headers ── */
 function SectionMandala({ size = 52, color = "currentColor" }: { size?: number; color?: string }) {
@@ -141,7 +155,8 @@ function WisdomStrip() {
 
 export default function HomePage() {
   const [featuredEssays, setFeaturedEssays] = useState<any[]>([]);
-  const [recentArticles, setRecentArticles] = useState<any[]>([]);
+  const [recentPublications, setRecentPublications] = useState<RecentPublication[]>([]);
+  const recentTrackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch(`${base}/api/articles?featured=true&limit=4`, { credentials: "include" })
@@ -149,11 +164,69 @@ export default function HomePage() {
       .then(d => { if (d.articles?.length) setFeaturedEssays(d.articles); })
       .catch(() => {});
 
-    fetch(`${base}/api/articles?limit=6`, { credentials: "include" })
-      .then(r => r.json())
-      .then(d => { if (d.articles?.length) setRecentArticles(d.articles); })
+    Promise.all([
+      fetch(`${base}/api/articles?limit=12`, { credentials: "include" }).then(r => r.json()),
+      fetch(`${base}/api/papers?limit=12`, { credentials: "include" }).then(r => r.json()),
+    ])
+      .then(([articleData, paperData]) => {
+        const articles: RecentPublication[] = (articleData.articles || []).map((article: any) => ({
+          id: article.id,
+          kind: "article",
+          slug: article.slug,
+          title: article.title,
+          summary: article.excerpt,
+          imageUrl: article.heroImageUrl,
+          imageAlt: article.heroImageAlt,
+          categorySlug: article.categorySlug,
+          categoryName: article.category?.name,
+          authorName: article.authorName,
+          publishedAt: article.publishedAt || article.createdAt,
+        }));
+        const papers: RecentPublication[] = (paperData.papers || []).map((paper: any) => ({
+          id: paper.id,
+          kind: "paper",
+          slug: paper.slug,
+          title: paper.title,
+          summary: paper.abstract,
+          imageUrl: paper.coverImageUrl,
+          imageAlt: paper.title,
+          categorySlug: paper.categorySlug,
+          categoryName: paper.category?.name,
+          authorName: paper.authorName,
+          publishedAt: paper.publishedAt || paper.createdAt,
+        }));
+
+        setRecentPublications(
+          [...articles, ...papers]
+            .sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime())
+            .slice(0, 12),
+        );
+      })
       .catch(() => {});
   }, []);
+
+  const moveRecentPublications = useCallback((direction: -1 | 1) => {
+    const track = recentTrackRef.current;
+    if (!track) return;
+    const firstCard = track.firstElementChild as HTMLElement | null;
+    const distance = (firstCard?.offsetWidth || 300) + 20;
+    const atStart = track.scrollLeft <= 8;
+    const atEnd = track.scrollLeft + track.clientWidth >= track.scrollWidth - 8;
+
+    if (direction === 1 && atEnd) {
+      track.scrollTo({ left: 0, behavior: "smooth" });
+    } else if (direction === -1 && atStart) {
+      track.scrollTo({ left: track.scrollWidth, behavior: "smooth" });
+    } else {
+      track.scrollBy({ left: direction * distance, behavior: "smooth" });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (recentPublications.length < 6) return;
+    const timer = window.setInterval(() => moveRecentPublications(1), 4500);
+    return () => window.clearInterval(timer);
+  }, [moveRecentPublications, recentPublications.length]);
 
   const realEssays = featuredEssays.length > 0
     ? featuredEssays.map((a: any) => ({
@@ -238,45 +311,61 @@ export default function HomePage() {
       <WisdomStrip />
 
       {/* ─── RECENTLY UPLOADED ─── */}
-      {recentArticles.length > 0 && (
+      {recentPublications.length > 0 && (
         <section className="home-v3-section">
           <div className="container-anv">
             <div className="home-v3-section-head">
               <span className="home-v3-lotus-mark">✦</span>
-              <h2 className="home-v3-section-title">Recently Uploaded</h2>
-              <Link href="/browse" className="home-v3-view-all">View All <ArrowRight size={14} /></Link>
+              <h2 className="home-v3-section-title">Recently Submitted</h2>
+              <div className="home-recent-actions">
+                {recentPublications.length >= 6 && (
+                  <div className="home-recent-nav" aria-label="Recently submitted navigation">
+                    <button type="button" onClick={() => moveRecentPublications(-1)} aria-label="Previous submissions" title="Previous submissions">
+                      <ChevronLeft size={17} />
+                    </button>
+                    <button type="button" onClick={() => moveRecentPublications(1)} aria-label="Next submissions" title="Next submissions">
+                      <ChevronRight size={17} />
+                    </button>
+                  </div>
+                )}
+                <Link href="/browse" className="home-v3-view-all">View All <ArrowRight size={14} /></Link>
+              </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "1.25rem" }}>
-              {recentArticles.map((a: any) => (
-                <Link key={a.id} href={`/articles/${a.slug}`} className="home-v3-essay-card" style={{ textDecoration: "none", display: "flex", flexDirection: "column" }}>
-                  {a.heroImageUrl && (
-                    <div style={{ borderRadius: "8px 8px 0 0", overflow: "hidden", height: 140, marginBottom: 0 }}>
+            <div
+              ref={recentPublications.length >= 6 ? recentTrackRef : undefined}
+              className={recentPublications.length >= 6 ? "home-recent-track" : "home-recent-grid"}
+            >
+              {recentPublications.map((publication) => (
+                <Link
+                  key={`${publication.kind}-${publication.id}`}
+                  href={`/${publication.kind === "paper" ? "papers" : "articles"}/${publication.slug}`}
+                  className="home-v3-essay-card home-recent-card"
+                >
+                  {publication.imageUrl && (
+                    <div className="home-recent-image">
                       <img
-                        src={a.heroImageUrl}
-                        alt={a.heroImageAlt || a.title}
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        src={publication.imageUrl}
+                        alt={publication.imageAlt || publication.title}
                         onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                       />
                     </div>
                   )}
-                  <div style={{ padding: "0.9rem 1rem", flex: 1, display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                  <div className="home-recent-content">
                     <div className="home-v3-essay-meta">
-                      <AnimalGlyph domain={a.categorySlug || "archive"} size={26} />
+                      <AnimalGlyph domain={publication.categorySlug || (publication.kind === "paper" ? "papers" : "archive")} size={26} />
                       <span className="home-v3-essay-cat" style={{ color: "var(--gold)" }}>
-                        {a.category?.name || a.categorySlug || "Essay"}
+                        {publication.categoryName || publication.categorySlug || (publication.kind === "paper" ? "Paper" : "Essay")}
                       </span>
                     </div>
-                    <h3 className="home-v3-essay-title" style={{ fontSize: "0.95rem", marginBottom: "auto" }}>{a.title}</h3>
-                    {a.excerpt && (
-                      <p style={{ fontSize: "0.78rem", color: "var(--ink-faint)", lineHeight: 1.5, WebkitLineClamp: 2, display: "-webkit-box", WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                        {a.excerpt}
-                      </p>
+                    <h3 className="home-v3-essay-title home-recent-title">{publication.title}</h3>
+                    {publication.summary && (
+                      <p className="home-recent-summary">{publication.summary}</p>
                     )}
                     <div className="home-v3-essay-foot">
-                      <p className="home-v3-essay-author">{a.authorName || "Editorial"}</p>
-                      {a.publishedAt && (
-                        <span style={{ fontSize: "0.7rem", color: "var(--ink-faint)" }}>
-                          {new Date(a.publishedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                      <p className="home-v3-essay-author">{publication.authorName || "Editorial"}</p>
+                      {publication.publishedAt && (
+                        <span className="home-recent-date">
+                          {new Date(publication.publishedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                         </span>
                       )}
                     </div>

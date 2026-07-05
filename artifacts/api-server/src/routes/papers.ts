@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { papersTable, categoriesTable } from "@workspace/db";
-import { eq, and, desc, ilike, or, sql } from "drizzle-orm";
+import { eq, and, desc, ilike, inArray, or, sql } from "drizzle-orm";
+import { categorySlugCandidates } from "../lib/publication-sync";
 
 const router = Router();
 
@@ -14,19 +15,18 @@ router.get("/papers", async (req, res) => {
 
     const conditions = [
       eq(papersTable.status, "PUBLISHED"),
-      eq(papersTable.deleted, false)
+      eq(papersTable.deleted, false),
     ];
-
     if (category) {
-      const target = String(category).trim().toLowerCase().replace(/_/g, "-").replace(/\s+/g, "-");
-      conditions.push(sql`lower(replace(replace(${papersTable.categorySlug}, ' ', '-'), '_', '-')) = ${target}`);
+      const normalizedCategory = sql<string>`trim(both '-' from lower(regexp_replace(replace(${papersTable.categorySlug}, '_', '-'), '[^a-z0-9]+', '-', 'g')))`;
+      conditions.push(inArray(normalizedCategory, categorySlugCandidates(String(category))));
     }
     if (peerReviewed === "true") conditions.push(eq(papersTable.peerReviewed, true));
     if (q) {
       const searchTerm = `%${q}%`;
       conditions.push(or(
         ilike(papersTable.title, searchTerm),
-        ilike(papersTable.abstract || "", searchTerm),
+        ilike(papersTable.abstract, searchTerm),
       )!);
     }
 
@@ -59,11 +59,7 @@ router.get("/papers/:slug", async (req, res) => {
       .select({ paper: papersTable, category: categoriesTable })
       .from(papersTable)
       .leftJoin(categoriesTable, eq(papersTable.categorySlug, categoriesTable.slug))
-      .where(and(
-        eq(papersTable.slug, slug),
-        eq(papersTable.status, "PUBLISHED"),
-        eq(papersTable.deleted, false)
-      ))
+      .where(and(eq(papersTable.slug, slug), eq(papersTable.status, "PUBLISHED"), eq(papersTable.deleted, false)))
       .limit(1);
 
     if (!row) return res.status(404).json({ error: "Paper not found" });

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { articlesTable, papersTable, submissionsTable, usersTable } from "@workspace/db";
+import { and, desc, eq, ilike, or } from "drizzle-orm";
 import {
   hashPassword, comparePassword, createUserToken,
   getUserAuth, setUserCookie, clearUserCookie
@@ -56,12 +56,15 @@ router.post("/auth/login", async (req, res) => {
     }
     const { email, password } = parsed.data;
     const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
-    if (!user || !user.password) {
-      return res.status(401).json({ error: "Invalid credentials" });
+    if (!user) {
+      return res.status(404).json({ error: "This user does not exist", code: "USER_NOT_FOUND" });
+    }
+    if (!user.password) {
+      return res.status(401).json({ error: "This account does not have a password", code: "PASSWORD_NOT_SET" });
     }
     const valid = await comparePassword(password, user.password);
     if (!valid) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res.status(401).json({ error: "Incorrect password", code: "INVALID_PASSWORD" });
     }
     const token = await createUserToken(user.id, user.email);
     setUserCookie(res, token);
@@ -227,65 +230,49 @@ router.get("/users/:userId/profile", async (req, res) => {
 
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    // Fetch published articles and papers authored by this user
-    const { articlesTable, papersTable, submissionsTable } = await import("@workspace/db");
-    const { eq: eqOp, and: andOp, or: orOp, ilike: ilikeOp } = await import("drizzle-orm");
+    const articles = await db.select({
+      id: articlesTable.id,
+      slug: articlesTable.slug,
+      title: articlesTable.title,
+      excerpt: articlesTable.excerpt,
+      heroImageUrl: articlesTable.heroImageUrl,
+      categorySlug: articlesTable.categorySlug,
+      publishedAt: articlesTable.publishedAt,
+    }).from(articlesTable)
+      .leftJoin(submissionsTable, eq(articlesTable.submissionId, submissionsTable.id))
+      .where(and(
+        eq(articlesTable.status, "PUBLISHED"),
+        eq(articlesTable.deleted, false),
+        or(
+          eq(submissionsTable.userId, userId),
+          ilike(articlesTable.authorName, user.name || "__no_author_name__")
+        )
+      ))
+      .orderBy(desc(articlesTable.publishedAt))
+      .limit(20);
 
-    const [articlesList, papersList] = await Promise.all([
-      db.select({
-        id: articlesTable.id,
-        slug: articlesTable.slug,
-        title: articlesTable.title,
-        excerpt: articlesTable.excerpt,
-        heroImageUrl: articlesTable.heroImageUrl,
-        categorySlug: articlesTable.categorySlug,
-        publishedAt: articlesTable.publishedAt,
-      }).from(articlesTable)
-        .leftJoin(submissionsTable, eqOp(articlesTable.submissionId, submissionsTable.id))
-        .where(andOp(
-          eqOp(articlesTable.status, "PUBLISHED"),
-          eqOp(articlesTable.deleted, false),
-          orOp(
-            eqOp(submissionsTable.userId, userId),
-            ilikeOp(articlesTable.authorName, user.name || "")
-          )
-        ))
-        .orderBy(articlesTable.publishedAt)
-        .limit(25),
+    const papers = await db.select({
+      id: papersTable.id,
+      slug: papersTable.slug,
+      title: papersTable.title,
+      abstract: papersTable.abstract,
+      coverImageUrl: papersTable.coverImageUrl,
+      categorySlug: papersTable.categorySlug,
+      publishedAt: papersTable.publishedAt,
+    }).from(papersTable)
+      .leftJoin(submissionsTable, eq(papersTable.submissionId, submissionsTable.id))
+      .where(and(
+        eq(papersTable.status, "PUBLISHED"),
+        eq(papersTable.deleted, false),
+        or(
+          eq(submissionsTable.userId, userId),
+          ilike(papersTable.authorName, user.name || "__no_author_name__")
+        )
+      ))
+      .orderBy(desc(papersTable.publishedAt))
+      .limit(20);
 
-      db.select({
-        id: papersTable.id,
-        slug: papersTable.slug,
-        title: papersTable.title,
-        excerpt: papersTable.abstract,
-        heroImageUrl: papersTable.coverImageUrl,
-        categorySlug: papersTable.categorySlug,
-        publishedAt: papersTable.publishedAt,
-      }).from(papersTable)
-        .leftJoin(submissionsTable, eqOp(papersTable.submissionId, submissionsTable.id))
-        .where(andOp(
-          eqOp(papersTable.status, "PUBLISHED"),
-          eqOp(papersTable.deleted, false),
-          orOp(
-            eqOp(submissionsTable.userId, userId),
-            ilikeOp(papersTable.authorName, user.name || "")
-          )
-        ))
-        .orderBy(papersTable.publishedAt)
-        .limit(25)
-    ]);
-
-    // Unify both types of publications, tagging papers
-    const unifiedWorks = [
-      ...articlesList.map(a => ({ ...a, isPaper: false })),
-      ...papersList.map(p => ({ ...p, isPaper: true }))
-    ].sort((a, b) => {
-      const dateA = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
-      const dateB = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
-      return dateB - dateA;
-    });
-
-    return res.json({ user, articles: unifiedWorks });
+    return res.json({ user, articles, papers });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed to fetch profile" });

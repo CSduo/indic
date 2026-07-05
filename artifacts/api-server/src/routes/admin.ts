@@ -9,7 +9,11 @@ import {
   hashPassword, comparePassword, createAdminToken,
   getAdminAuth, setAdminCookie, clearAdminCookie
 } from "../lib/auth";
-import { publishSubmission } from "../lib/publishHelper";
+import {
+  ensurePublicPublicationForSubmission,
+  normalizeCategorySlug,
+  syncPublishedSubmissions,
+} from "../lib/publication-sync";
 import { z } from "zod";
 
 const router = Router();
@@ -367,6 +371,17 @@ router.get("/admin/submissions", requireAdmin, async (req, res) => {
   }
 });
 
+// POST /api/admin/submissions/sync-public
+router.post("/admin/submissions/sync-public", requireAdmin, async (req, res) => {
+  try {
+    const summary = await syncPublishedSubmissions();
+    return res.json({ success: true, summary });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed to sync public submissions" });
+  }
+});
+
 // PATCH /api/admin/submissions/:id
 router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
   try {
@@ -375,20 +390,37 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
       editorNotes: z.string().optional(),
       priority: z.enum(["LOW", "NORMAL", "HIGH", "URGENT"]).optional(),
       categorySlug: z.string().optional(),
+      domain: z.string().optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
 
-    const [submission] = await db.update(submissionsTable).set({ ...parsed.data, updatedAt: new Date() })
+    const now = new Date();
+    const { categorySlug, ...submissionPatch } = parsed.data;
+    const updates: Record<string, any> = {
+      ...submissionPatch,
+      updatedAt: now,
+    };
+    if (updates.domain) updates.domain = normalizeCategorySlug(updates.domain);
+    if (parsed.data.status === "PUBLISHED") updates.publishedAt = now;
+
+    const [submission] = await db.update(submissionsTable).set(updates)
       .where(eq(submissionsTable.id, req.params.id)).returning();
     if (!submission) return res.status(404).json({ error: "Not found" });
 
-    // Auto-create article or paper in the public archives when a submission is published
     if (parsed.data.status === "PUBLISHED") {
       try {
-        await publishSubmission(submission.id, parsed.data.categorySlug);
-      } catch (articleErr: any) {
-        req.log.warn({ err: articleErr }, "Failed to auto-publish submission to public archives");
+        const publication = await ensurePublicPublicationForSubmission(submission, {
+          categorySlug,
+          publishedAt: submission.publishedAt || now,
+        });
+        return res.json({ submission, publication });
+      } catch (publicationErr: any) {
+        req.log.error({ err: publicationErr }, "Failed to auto-create public document from submission");
+        return res.status(500).json({
+          error: "Submission was marked published, but its public page could not be created. Retry publishing or run the public sync.",
+          submission,
+        });
       }
     }
 
@@ -411,7 +443,7 @@ router.delete("/admin/submissions/:id", requireAdmin, async (req, res) => {
       .set({ deleted: true, deletedAt: now, updatedAt: now })
       .where(eq(submissionsTable.id, req.params.id));
 
-    // Also soft-delete any linked article (by submissionId or matching title)
+    // Also soft-delete any linked public article/paper.
     try {
       const [bySubId] = await db.select({ id: articlesTable.id })
         .from(articlesTable)
@@ -431,6 +463,16 @@ router.delete("/admin/submissions/:id", requireAdmin, async (req, res) => {
             .set({ deleted: true, deletedAt: now, updatedAt: now })
             .where(eq(articlesTable.id, byTitle.id));
         }
+      }
+
+      const [paperBySubId] = await db.select({ id: papersTable.id })
+        .from(papersTable)
+        .where(eq(papersTable.submissionId, existing.id))
+        .limit(1);
+      if (paperBySubId) {
+        await db.update(papersTable)
+          .set({ deleted: true, deletedAt: now, updatedAt: now })
+          .where(eq(papersTable.id, paperBySubId.id));
       }
     } catch {
       // Best effort

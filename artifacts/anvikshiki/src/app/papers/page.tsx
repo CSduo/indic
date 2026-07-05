@@ -30,7 +30,11 @@ export default function PapersPage() {
   }, []);
 
   const filtered = papers.filter((paper) => {
-    const matchDiscipline = discipline === "All" || paper.discipline === discipline || paper.categoryId === discipline;
+    const selectedDiscipline = discipline.toLowerCase().replace(/\s+/g, "-");
+    const paperDiscipline = String(
+      paper.categorySlug || paper.category?.slug || paper.category?.name || paper.discipline || paper.categoryId || "",
+    ).toLowerCase().replace(/\s+/g, "-");
+    const matchDiscipline = discipline === "All" || paperDiscipline === selectedDiscipline;
     const matchQuery = !query || paper.title?.toLowerCase().includes(query.toLowerCase()) || paper.authorName?.toLowerCase().includes(query.toLowerCase());
     return matchDiscipline && matchQuery;
   });

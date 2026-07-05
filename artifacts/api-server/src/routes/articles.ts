@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { articlesTable, categoriesTable } from "@workspace/db";
-import { eq, and, desc, ilike, or, sql } from "drizzle-orm";
+import { eq, and, desc, ilike, inArray, or, sql } from "drizzle-orm";
+import { categorySlugCandidates } from "../lib/publication-sync";
 
 const router = Router();
 
@@ -17,16 +18,16 @@ router.get("/articles", async (req, res) => {
       eq(articlesTable.deleted, false),
     ];
     if (category) {
-      const target = String(category).trim().toLowerCase().replace(/_/g, "-").replace(/\s+/g, "-");
-      conditions.push(sql`lower(replace(replace(${articlesTable.categorySlug}, ' ', '-'), '_', '-')) = ${target}`);
+      const normalizedCategory = sql<string>`trim(both '-' from lower(regexp_replace(replace(${articlesTable.categorySlug}, '_', '-'), '[^a-z0-9]+', '-', 'g')))`;
+      conditions.push(inArray(normalizedCategory, categorySlugCandidates(String(category))));
     }
     if (featured === "true") conditions.push(eq(articlesTable.featured, true));
     if (q) {
       const searchTerm = `%${q}%`;
       conditions.push(or(
         ilike(articlesTable.title, searchTerm),
-        ilike(articlesTable.subtitle || "", searchTerm),
-        ilike(articlesTable.excerpt || "", searchTerm),
+        ilike(articlesTable.subtitle, searchTerm),
+        ilike(articlesTable.excerpt, searchTerm),
       )!);
     }
 
