@@ -28,6 +28,7 @@ export default function AccountPage() {
   const [, navigate] = useLocation();
   const { user, logout, refresh } = useAuthContext();
   const [submissions, setSubmissions] = useState<any[]>([]);
+  const [deletedSubmissions, setDeletedSubmissions] = useState<any[]>([]);
   const [loadingPage, setLoadingPage] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
@@ -35,9 +36,14 @@ export default function AccountPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadSubmissions = () => {
-    fetch(`${base()}/api/submissions`, { credentials: "include" })
-      .then((response) => response.json())
-      .then((data) => setSubmissions(data.submissions || []))
+    Promise.all([
+      fetch(`${base()}/api/submissions`, { credentials: "include" }).then((r) => r.json()),
+      fetch(`${base()}/api/submissions?deleted=true`, { credentials: "include" }).then((r) => r.json()),
+    ])
+      .then(([active, deleted]) => {
+        setSubmissions(active.submissions || []);
+        setDeletedSubmissions(deleted.submissions || []);
+      })
       .catch(() => {})
       .finally(() => setLoadingPage(false));
   };
@@ -100,14 +106,19 @@ export default function AccountPage() {
   };
 
   const deleteSubmission = async (id: string) => {
-    if (!window.confirm("Delete this submission permanently? This cannot be undone.")) return;
+    if (!window.confirm("Delete this submission? It will be moved to your Deleted items.")) return;
     setDeletingId(id);
     try {
       const r = await fetch(`${base()}/api/submissions/${id}`, { method: "DELETE", credentials: "include" });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || "Failed to delete");
-      setSubmissions((prev) => prev.filter((s) => s.id !== id));
-      toast.success("Submission deleted");
+      // Move item from active to deleted list
+      setSubmissions((prev) => {
+        const item = prev.find((s) => s.id === id);
+        if (item) setDeletedSubmissions((d) => [{ ...item, deleted: true, deletedAt: new Date().toISOString() }, ...d]);
+        return prev.filter((s) => s.id !== id);
+      });
+      toast.success("Submission moved to Deleted");
     } catch (err: any) {
       toast.error(err.message || "Failed to delete submission");
     }
@@ -166,6 +177,24 @@ export default function AccountPage() {
       </div>
     );
   };
+
+  const renderDeletedCard = (submission: any) => (
+    <div key={submission.id} className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)]/60 p-4 opacity-70">
+      <div className="flex items-start gap-3">
+        <AnimalGlyph domain={submission.domain || "papers"} size={28} className="mt-1 shrink-0 text-[var(--ink-faint)]" />
+        <div className="flex-1 min-w-0">
+          <h3 className="font-display text-xl leading-tight text-[var(--ink-soft)] line-through">{submission.title || "Untitled"}</h3>
+          <p className="mt-1 font-ui text-xs text-[var(--muted)]">
+            {submission.type}
+            {submission.deletedAt
+              ? ` · Deleted ${new Date(submission.deletedAt).toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" })}`
+              : ""}
+          </p>
+        </div>
+        <span className="badge badge-draft shrink-0">Deleted</span>
+      </div>
+    </div>
+  );
 
   return (
     <div className="bg-[var(--bg)]">
@@ -271,6 +300,19 @@ export default function AccountPage() {
                 <div className="space-y-3">{published.map((s) => renderCard(s, false))}</div>
               )}
             </ParchmentCard>
+
+            {deletedSubmissions.length > 0 ? (
+              <ParchmentCard className="p-6">
+                <div className="mb-4">
+                  <p className="type-section-label mb-2">Removed from Journal</p>
+                  <h2 className="font-display text-3xl text-[var(--ink-soft)]">Deleted Submissions</h2>
+                  <p className="mt-2 font-body text-sm text-[var(--muted)]">
+                    These submissions have been soft-deleted and are no longer visible on the journal. They cannot be restored.
+                  </p>
+                </div>
+                <div className="space-y-3">{deletedSubmissions.map((s) => renderDeletedCard(s))}</div>
+              </ParchmentCard>
+            ) : null}
           </main>
         </div>
       </section>

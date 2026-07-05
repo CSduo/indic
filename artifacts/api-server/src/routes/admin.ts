@@ -349,8 +349,12 @@ router.delete("/admin/papers/:id", requireAdmin, async (req, res) => {
 // of the requested status filter.
 router.get("/admin/submissions", requireAdmin, async (req, res) => {
   try {
-    const { status } = req.query;
-    const conditions = [ne(submissionsTable.status, "DRAFT")];
+    const { status, deleted } = req.query;
+    const showDeleted = deleted === "true";
+    const conditions = [
+      ne(submissionsTable.status, "DRAFT"),
+      eq(submissionsTable.deleted, showDeleted)
+    ];
     if (status && status !== "DRAFT") conditions.push(eq(submissionsTable.status, status as any));
     const submissions = await db.select().from(submissionsTable)
       .where(and(...conditions))
@@ -443,6 +447,7 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
             status: "PUBLISHED",
             featured: false,
             publishedAt: new Date(),
+            submissionId: submission.id,
           });
         }
       } catch (articleErr: any) {
@@ -457,10 +462,43 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
   }
 });
 
-// DELETE /api/admin/submissions/:id
+// DELETE /api/admin/submissions/:id — admin soft-deletes a submission
 router.delete("/admin/submissions/:id", requireAdmin, async (req, res) => {
   try {
-    await db.delete(submissionsTable).where(eq(submissionsTable.id, req.params.id));
+    const [existing] = await db.select().from(submissionsTable)
+      .where(eq(submissionsTable.id, req.params.id)).limit(1);
+    if (!existing) return res.status(404).json({ error: "Submission not found" });
+
+    const now = new Date();
+    await db.update(submissionsTable)
+      .set({ deleted: true, deletedAt: now, updatedAt: now })
+      .where(eq(submissionsTable.id, req.params.id));
+
+    // Also soft-delete any linked article (by submissionId or matching title)
+    try {
+      const [bySubId] = await db.select({ id: articlesTable.id })
+        .from(articlesTable)
+        .where(eq(articlesTable.submissionId, existing.id))
+        .limit(1);
+      if (bySubId) {
+        await db.update(articlesTable)
+          .set({ deleted: true, deletedAt: now, updatedAt: now })
+          .where(eq(articlesTable.id, bySubId.id));
+      } else {
+        const [byTitle] = await db.select({ id: articlesTable.id })
+          .from(articlesTable)
+          .where(eq(articlesTable.title, existing.title))
+          .limit(1);
+        if (byTitle) {
+          await db.update(articlesTable)
+            .set({ deleted: true, deletedAt: now, updatedAt: now })
+            .where(eq(articlesTable.id, byTitle.id));
+        }
+      }
+    } catch {
+      // Best effort
+    }
+
     return res.json({ success: true });
   } catch (err) {
     req.log.error(err);

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { submissionsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { submissionsTable, articlesTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 import { getUserAuth } from "../lib/auth";
 import { z } from "zod";
 import multer from "multer";
@@ -315,13 +315,20 @@ router.post("/submissions/write", async (req, res) => {
 });
 
 // GET /api/submissions (user's own — includes drafts, never shown to admin)
+// ?deleted=true returns only soft-deleted submissions; otherwise excludes them
 router.get("/submissions", async (req, res) => {
   try {
     const auth = await getUserAuth(req);
     if (!auth) return res.status(401).json({ error: "Unauthorized" });
 
+    const showDeleted = req.query.deleted === "true";
+    const conditions = [
+      eq(submissionsTable.userId, auth.userId),
+      eq(submissionsTable.deleted, showDeleted),
+    ];
+
     const submissions = await db.select().from(submissionsTable)
-      .where(eq(submissionsTable.userId, auth.userId))
+      .where(and(...conditions))
       .orderBy(submissionsTable.createdAt);
 
     return res.json({ submissions });
@@ -421,7 +428,7 @@ router.put("/submissions/:id", async (req, res) => {
   }
 });
 
-// DELETE /api/submissions/:id — owner can delete their own submission/draft
+// DELETE /api/submissions/:id — owner soft-deletes their own submission/draft
 // as long as it has not yet been accepted/published by an admin.
 router.delete("/submissions/:id", async (req, res) => {
   try {
@@ -436,7 +443,39 @@ router.delete("/submissions/:id", async (req, res) => {
       return res.status(403).json({ error: "This submission has already been approved and can no longer be deleted" });
     }
 
-    await db.delete(submissionsTable).where(eq(submissionsTable.id, req.params.id));
+    const now = new Date();
+    // Soft-delete the submission
+    await db.update(submissionsTable)
+      .set({ deleted: true, deletedAt: now, updatedAt: now })
+      .where(eq(submissionsTable.id, req.params.id));
+
+    // Also soft-delete any linked article (by submissionId or matching title)
+    try {
+      // Try by submissionId first
+      const [bySubId] = await db.select({ id: articlesTable.id })
+        .from(articlesTable)
+        .where(eq(articlesTable.submissionId, existing.id))
+        .limit(1);
+      if (bySubId) {
+        await db.update(articlesTable)
+          .set({ deleted: true, deletedAt: now, updatedAt: now })
+          .where(eq(articlesTable.id, bySubId.id));
+      } else {
+        // Fallback: find by matching title
+        const [byTitle] = await db.select({ id: articlesTable.id })
+          .from(articlesTable)
+          .where(eq(articlesTable.title, existing.title))
+          .limit(1);
+        if (byTitle) {
+          await db.update(articlesTable)
+            .set({ deleted: true, deletedAt: now, updatedAt: now })
+            .where(eq(articlesTable.id, byTitle.id));
+        }
+      }
+    } catch {
+      // Non-fatal: article soft-delete is best-effort
+    }
+
     return res.json({ success: true });
   } catch (err) {
     req.log.error(err);

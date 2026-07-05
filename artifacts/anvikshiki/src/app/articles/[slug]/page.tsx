@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link, useRoute } from "wouter";
-import { ArrowLeft, Clock, Eye } from "lucide-react";
+import { ArrowLeft, Clock, Eye, MessageSquare } from "lucide-react";
 import { ArticleActionBar } from "@/components/manuscript/ArticleActionBar";
 import { GlyphTag } from "@/components/manuscript/GlyphTag";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { ReadingProgress } from "@/components/manuscript/ReadingProgress";
 import { EmptyState } from "@/components/sacred/EmptyState";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
@@ -19,6 +21,21 @@ export default function ArticlePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
+  // Comments state
+  const { user } = useAuthContext();
+  const [comments, setComments] = useState<any[]>([]);
+  const [authorName, setAuthorName] = useState("");
+  const [authorEmail, setAuthorEmail] = useState("");
+  const [content, setContent] = useState("");
+  const [submittingComment, setSubmittingComment] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setAuthorName(user.name || "");
+      setAuthorEmail(user.email || "");
+    }
+  }, [user]);
+
   useEffect(() => {
     if (!slug) return;
     fetch(`${base()}/api/articles/${slug}`)
@@ -27,14 +44,60 @@ export default function ArticlePage() {
         return response.json();
       })
       .then((data) => {
-        setArticle(data.article || data);
+        const art = data.article || data;
+        setArticle(art);
         setLoading(false);
+        // Load comments
+        if (art.id) {
+          fetch(`${base()}/api/articles/${art.id}/comments`)
+            .then(r => r.json())
+            .then(d => setComments(d.comments || []))
+            .catch(() => {});
+        }
       })
       .catch(() => {
         setError(true);
         setLoading(false);
       });
   }, [slug]);
+
+  const handleCommentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!content.trim()) return;
+    if (!user && !authorName.trim()) {
+      toast.error("Please enter your name");
+      return;
+    }
+
+    setSubmittingComment(true);
+    try {
+      const response = await fetch(`${base()}/api/articles/${article.id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          authorName: user ? user.name : authorName.trim(),
+          authorEmail: user ? user.email : (authorEmail.trim() || undefined),
+          content: content.trim(),
+        }),
+        credentials: "include",
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to submit comment");
+
+      if (data.autoApproved) {
+        setComments(prev => [data.comment, ...prev]);
+        toast.success("Comment posted successfully");
+      } else {
+        toast.success("Comment submitted! It will appear after approval.");
+      }
+      setContent("");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to submit comment");
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -100,7 +163,7 @@ export default function ArticlePage() {
                 <ul className="space-y-2 font-ui text-xs text-[var(--ink-faint)]">
                   <li>The Inquiry</li>
                   <li>Text and Context</li>
-                  <li>Notes</li>
+                  <li>Discussion</li>
                 </ul>
               </ParchmentCard>
             </div>
@@ -118,7 +181,114 @@ export default function ArticlePage() {
                 <p className="mt-3 font-body text-[var(--ink-soft)]">The editorial team has not yet released the complete article body.</p>
               </ParchmentCard>
             )}
+
             <OrnamentDivider className="my-10" />
+
+            {/* ─── DISCUSSION SECTION ─── */}
+            <div className="mt-12 space-y-8" id="discussion">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="text-[var(--gold)]" size={20} />
+                <h2 className="font-display text-2xl text-[var(--ink)]">Scholarly Discussion</h2>
+                <span className="font-ui text-xs px-2 py-0.5 rounded bg-[var(--surface-soft)] text-[var(--muted)]">
+                  {comments.length}
+                </span>
+              </div>
+
+              {/* Comment submission form */}
+              <ParchmentCard className="p-5" style={{ background: "var(--surface-2)" }}>
+                <form onSubmit={handleCommentSubmit} className="space-y-4">
+                  <p className="font-ui text-xs text-[var(--gold)] font-semibold uppercase tracking-wider">
+                    Add to the Discussion
+                  </p>
+
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="form-label mb-1" htmlFor="comment-author-name">Name</label>
+                      <input
+                        id="comment-author-name"
+                        className="input-sacred"
+                        type="text"
+                        placeholder="Your public name"
+                        value={user ? user.name || "" : authorName}
+                        onChange={e => setAuthorName(e.target.value)}
+                        disabled={!!user}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label mb-1" htmlFor="comment-author-email">Email (will not be public)</label>
+                      <input
+                        id="comment-author-email"
+                        className="input-sacred"
+                        type="email"
+                        placeholder="Your email address"
+                        value={user ? user.email || "" : authorEmail}
+                        onChange={e => setAuthorEmail(e.target.value)}
+                        disabled={!!user}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="form-label mb-1" htmlFor="comment-content">Contribution</label>
+                    <textarea
+                      id="comment-content"
+                      className="input-sacred min-h-[110px] resize-y text-sm"
+                      placeholder="Share your thoughts or inquiry on this text..."
+                      value={content}
+                      onChange={e => setContent(e.target.value)}
+                      maxLength={3000}
+                      required
+                    />
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <p className="font-ui text-[10px] text-[var(--muted)]">
+                      {!user && "🔒 Contributions undergo review before public display."}
+                    </p>
+                    <button type="submit" disabled={submittingComment} className="btn-terracotta text-xs py-1.5 px-4">
+                      {submittingComment ? "Posting..." : "Post Contribution"}
+                    </button>
+                  </div>
+                </form>
+              </ParchmentCard>
+
+              {/* Comments list */}
+              <div className="space-y-4">
+                {comments.length === 0 ? (
+                  <p className="font-body text-sm text-[var(--ink-faint)] italic">
+                    No contributions to this discussion yet. Be the first to share an inquiry.
+                  </p>
+                ) : (
+                  comments.map((comment) => (
+                    <div
+                      key={comment.id}
+                      className="p-4 rounded-lg border border-[var(--border)]"
+                      style={{ background: "var(--surface)" }}
+                    >
+                      <div className="flex justify-between items-start mb-2 flex-wrap gap-2">
+                        <span className="font-ui text-sm font-semibold text-[var(--gold-bright)]">
+                          {comment.authorName}
+                        </span>
+                        <span className="font-ui text-[10px] text-[var(--muted)]">
+                          {new Date(comment.createdAt).toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      </div>
+                      <p className="font-body text-sm text-[var(--ink-soft)] leading-relaxed whitespace-pre-wrap">
+                        {comment.content}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <OrnamentDivider className="my-10" />
+
             <div className="flex flex-wrap items-center justify-between gap-3">
               <Link href="/browse" className="btn-ink"><ArrowLeft size={14} /> More Essays</Link>
               <Link href={`/domains/${domain}`} className="btn-terracotta">More in this Domain</Link>

@@ -16,6 +16,7 @@ import notificationsRouter from "./notifications";
 import contactRouter from "./contact";
 import mediaRouter from "./media";
 import extractUrlRouter from "./extract-url";
+import commentsRouter from "./comments";
 
 const router: IRouter = Router();
 
@@ -36,5 +37,6 @@ router.use(notificationsRouter);
 router.use(contactRouter);
 router.use(mediaRouter);
 router.use(extractUrlRouter);
+router.use(commentsRouter);
 
 export default router;

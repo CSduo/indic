@@ -12,15 +12,10 @@ router.get("/articles", async (req, res) => {
     const limit = Math.min(parseInt(String(lim || "20")), 50);
     const offset = parseInt(String(off || "0"));
 
-    let query = db
-      .select({ article: articlesTable, category: categoriesTable })
-      .from(articlesTable)
-      .leftJoin(categoriesTable, eq(articlesTable.categorySlug, categoriesTable.slug))
-      .where(eq(articlesTable.status, "PUBLISHED"))
-      .orderBy(desc(articlesTable.featured), desc(articlesTable.publishedAt))
-      .limit(limit).offset(offset);
-
-    const conditions = [eq(articlesTable.status, "PUBLISHED")];
+    const conditions = [
+      eq(articlesTable.status, "PUBLISHED"),
+      eq(articlesTable.deleted, false),
+    ];
     if (category) conditions.push(eq(articlesTable.categorySlug, String(category)));
     if (featured === "true") conditions.push(eq(articlesTable.featured, true));
     if (q) {
@@ -65,6 +60,8 @@ router.get("/articles/:slug", async (req, res) => {
       .limit(1);
 
     if (!row) return res.status(404).json({ error: "Article not found" });
+    // Filter out soft-deleted articles
+    if (row.article.deleted) return res.status(404).json({ error: "Article not found" });
     return res.json({ article: { ...row.article, category: row.category } });
   } catch (err) {
     req.log.error(err);
