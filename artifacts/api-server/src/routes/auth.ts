@@ -293,7 +293,12 @@ router.post("/auth/google", async (req, res) => {
       return res.status(401).json({ error: "Invalid Google credential" });
     }
 
-    const payload = await googleVerifyRes.json();
+    const payload = await googleVerifyRes.json() as {
+      email?: string;
+      name?: string;
+      picture?: string;
+      aud?: string;
+    };
     
     // Safety check: Validate client ID if configured
     const expectedClientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID;
@@ -302,12 +307,12 @@ router.post("/auth/google", async (req, res) => {
     }
 
     const email = payload.email;
-    const name = payload.name || email.split("@")[0];
-    const avatarUrl = payload.picture || null;
-
     if (!email) {
       return res.status(400).json({ error: "Email not provided by Google account" });
     }
+
+    const name = payload.name || email.split("@")[0];
+    const avatarUrl = payload.picture || null;
 
     // Check if user exists
     let [user] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
