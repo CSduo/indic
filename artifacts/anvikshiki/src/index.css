@@ -3362,15 +3362,32 @@ body:has(.sacred-drawer) {
     background: var(--bg);
   }
 
+  /* Make the wrap a positioned container so the img can fill it with absolute positioning */
   .home-v3-video-wrap {
     position: relative;
-    height: 48vh;
-    min-height: 280px;
+    height: 52vw;
+    min-height: 260px;
+    max-height: 420px;
     width: 100%;
+    overflow: hidden;
+    flex-shrink: 0;
   }
 
+  /* Absolutely position the image so height: 100% resolves correctly on all mobile browsers */
   .home-v3-video {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
     object-fit: cover !important;
+    object-position: center top !important;
+    display: block !important;
+  }
+
+  /* Lighter overlay on mobile — don't hide the image */
+  .home-v3-video-wrap::after {
+    background:
+      linear-gradient(to bottom, transparent 50%, rgba(22, 14, 6, 0.35) 100%);
   }
 
   .home-v3-hero-inner {
