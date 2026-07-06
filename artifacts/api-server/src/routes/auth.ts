@@ -279,5 +279,75 @@ router.get("/users/:userId/profile", async (req, res) => {
   }
 });
 
+// POST /api/auth/google — Verify Google ID Token and login/signup
+router.post("/auth/google", async (req, res) => {
+  try {
+    const { credential } = req.body;
+    if (!credential) {
+      return res.status(400).json({ error: "Google credential is required" });
+    }
+
+    // Verify token with Google's tokeninfo API
+    const googleVerifyRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`);
+    if (!googleVerifyRes.ok) {
+      return res.status(401).json({ error: "Invalid Google credential" });
+    }
+
+    const payload = await googleVerifyRes.json();
+    
+    // Safety check: Validate client ID if configured
+    const expectedClientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID;
+    if (expectedClientId && payload.aud !== expectedClientId) {
+      return res.status(400).json({ error: "Audience mismatch (Client ID does not match)" });
+    }
+
+    const email = payload.email;
+    const name = payload.name || email.split("@")[0];
+    const avatarUrl = payload.picture || null;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email not provided by Google account" });
+    }
+
+    // Check if user exists
+    let [user] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
+
+    if (!user) {
+      // Auto-signup the user
+      [user] = await db.insert(usersTable).values({
+        name,
+        email,
+        avatarUrl,
+        // Since they log in with Google, we don't set a password (it remains null/empty)
+      }).returning();
+    } else if (!user.avatarUrl && avatarUrl) {
+      // Update avatar if not already set
+      const [updatedUser] = await db.update(usersTable)
+        .set({ avatarUrl, updatedAt: new Date() })
+        .where(eq(usersTable.id, user.id))
+        .returning();
+      user = updatedUser;
+    }
+
+    // Log the user in
+    const token = await createUserToken(user.id, user.email);
+    setUserCookie(res, token);
+
+    return res.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        avatarUrl: user.avatarUrl
+      }
+    });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Google authentication failed" });
+  }
+});
+
 export default router;
 

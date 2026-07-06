@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Eye, EyeOff, Globe } from "lucide-react";
 import { toast } from "sonner";
@@ -23,6 +23,53 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const google = (window as any).google;
+    // Default fallback client id to let them test immediately or use their own once configured
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "1016629737976-7hgl4ooh8v4q7mve1c8b3u9a19m257h6.apps.googleusercontent.com";
+
+    if (google && google.accounts && google.accounts.id) {
+      google.accounts.id.initialize({
+        client_id: clientId,
+        callback: async (response: any) => {
+          setLoading(true);
+          setError("");
+          try {
+            const res = await fetch(`${base()}/api/auth/google`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ credential: response.credential }),
+              credentials: "include",
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              throw new Error(data.error || "Google authentication failed");
+            }
+            login(data.user);
+            toast.success("Signed in successfully via Google");
+            navigate("/account");
+          } catch (err: any) {
+            setError(err.message || "Google authentication failed");
+            toast.error(err.message || "Google authentication failed");
+          } finally {
+            setLoading(false);
+          }
+        },
+      });
+
+      google.accounts.id.renderButton(
+        document.getElementById("google-login-button"),
+        {
+          theme: "outline",
+          size: "large",
+          width: 350,
+          text: "continue_with",
+          shape: "rectangular",
+        }
+      );
+    }
+  }, [tab, login, navigate]);
 
   const validate = () => {
     if (!email.trim() || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
@@ -120,9 +167,7 @@ export default function LoginPage() {
             ))}
           </div>
 
-          <button type="button" className="btn-ink mb-5 w-full justify-center" onClick={() => toast.info("Google login will be available soon.")}>
-            <Globe size={16} /> Continue with Google
-          </button>
+          <div id="google-login-button" className="mb-5 flex justify-center w-full"></div>
 
           <OrnamentDivider variant="minimal" className="mb-5" />
 
