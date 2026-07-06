@@ -1,2 +1,4 @@
 User-agent: *
 Allow: /
+
+Sitemap: https://anvikshikijournal.in/sitemap.xml
