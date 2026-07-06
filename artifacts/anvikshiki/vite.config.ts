@@ -44,6 +44,27 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    chunkSizeWarningLimit: 2500,
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          // Split pdfjs into its own chunk (it's inherently large)
+          if (id.includes("pdfjs-dist")) return "pdf";
+          // Split mammoth (docx parser) into its own chunk
+          if (id.includes("mammoth")) return "mammoth";
+          // Group recharts with its d3 dependencies
+          if (id.includes("recharts") || id.includes("d3-") || id.includes("victory-vendor")) return "charts";
+          // Group all Radix UI primitives together
+          if (id.includes("@radix-ui")) return "radix";
+          // Group framer-motion
+          if (id.includes("framer-motion")) return "animation";
+          // Core React runtime
+          if (id.includes("/react/") || id.includes("/react-dom/") || id.includes("scheduler")) return "react-core";
+          // Everything else from node_modules is general vendor
+          if (id.includes("node_modules")) return "vendor";
+        },
+      },
+    },
   },
   server: {
     port,

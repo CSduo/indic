@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { Link, useParams } from "wouter";
 import { ArrowLeft, BookOpen, Building2, Mail, MessageSquare, User, X } from "lucide-react";
