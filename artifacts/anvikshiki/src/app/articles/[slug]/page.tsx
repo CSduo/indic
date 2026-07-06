@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link, useRoute } from "wouter";
-import { ArrowLeft, Clock, Eye, MessageSquare } from "lucide-react";
+import { ArrowLeft, Clock, Eye, MessageSquare, Play, Pause, Volume2 } from "lucide-react";
 import { ArticleActionBar } from "@/components/manuscript/ArticleActionBar";
 import { GlyphTag } from "@/components/manuscript/GlyphTag";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
@@ -20,6 +20,46 @@ export default function ArticlePage() {
   const [article, setArticle] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+
+  // Voice note player states
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const togglePlay = () => {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  const handleTimeUpdate = () => {
+    if (!audioRef.current) return;
+    setCurrentTime(audioRef.current.currentTime);
+  };
+
+  const handleLoadedMetadata = () => {
+    if (!audioRef.current) return;
+    setDuration(audioRef.current.duration);
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!audioRef.current) return;
+    const val = Number(e.target.value);
+    audioRef.current.currentTime = val;
+    setCurrentTime(val);
+  };
+
+  const formatTime = (time: number) => {
+    if (isNaN(time)) return "0:00";
+    const mins = Math.floor(time / 60);
+    const secs = Math.floor(time % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
 
   // Comments state
   const { user } = useAuthContext();
@@ -160,70 +200,119 @@ export default function ArticlePage() {
     <div className="bg-[var(--bg)]">
       <ReadingProgress />
 
-      <section className="container-anv py-6 md:py-10">
-        <nav className="mb-4 flex items-center gap-2 font-ui text-xs font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]" aria-label="Breadcrumb">
+      <section className="container-anv py-8 md:py-16 text-center max-w-4xl mx-auto">
+        <nav className="mb-6 flex items-center justify-center gap-2 font-ui text-xs font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]" aria-label="Breadcrumb">
           <Link href="/browse" className="inline-flex items-center gap-1 hover:text-[var(--terracotta)]"><ArrowLeft size={13} /> Journal</Link>
           <span>/</span>
           <span className="text-[var(--terracotta)]">Essay</span>
         </nav>
 
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(360px,480px)] lg:items-center">
-          <div>
-            <GlyphTag domain={domain} className="mb-5" />
-            <h1 className="font-display text-[clamp(2.4rem,6vw,5.4rem)] leading-[.95] text-[var(--ink)]">{article.title}</h1>
-            {article.excerpt ? <p className="mt-5 max-w-2xl font-display text-2xl leading-snug text-[var(--terracotta)]">{article.excerpt}</p> : null}
-            <OrnamentDivider variant="minimal" className="my-7 justify-start" />
-            <div className="flex flex-wrap items-center gap-4 font-ui text-xs uppercase tracking-[0.08em] text-[var(--ink-faint)]">
-              {article.authorName ? <span>By {article.authorName}</span> : null}
-              {article.publishedAt ? <span>{new Date(article.publishedAt).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })}</span> : null}
-              <span className="inline-flex items-center gap-1"><Clock size={13} /> {article.readingTime || 8} min read</span>
-              {article.viewCount ? <span className="inline-flex items-center gap-1"><Eye size={13} /> {article.viewCount} reads</span> : null}
-            </div>
-            <ArticleActionBar title={article.title} downloadUrl={article.pdfUrl || article.fileUrl} className="mt-7 hidden md:block" />
+        <div className="space-y-6">
+          <div className="flex justify-center">
+            <GlyphTag domain={domain} />
           </div>
+          <h1 className="font-display text-[clamp(2.4rem,6vw,4.8rem)] leading-[1.05] text-[var(--ink)] max-w-3xl mx-auto">{article.title}</h1>
+          {article.excerpt ? <p className="max-w-2xl font-display text-xl leading-relaxed text-[var(--terracotta)] mx-auto">{article.excerpt}</p> : null}
+          <OrnamentDivider variant="minimal" className="my-5 justify-center mx-auto" />
+          <div className="flex flex-wrap items-center justify-center gap-4 font-ui text-xs uppercase tracking-[0.08em] text-[var(--ink-faint)]">
+            {article.authorName ? <span>By {article.authorName}</span> : null}
+            {article.publishedAt ? <span>{new Date(article.publishedAt).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })}</span> : null}
+            <span className="inline-flex items-center gap-1"><Clock size={13} /> {article.readingTime || 8} min read</span>
+            {article.viewCount ? <span className="inline-flex items-center gap-1"><Eye size={13} /> {article.viewCount} reads</span> : null}
+          </div>
+        </div>
 
+        {/* Cover image in center */}
+        <div className="max-w-3xl mx-auto mt-10">
           <ParchmentCard className="overflow-hidden p-2" corners={false}>
-            <img src={image} alt={article.title} className="h-[320px] w-full rounded-[6px] object-cover md:h-[460px]" />
+            <img src={image} alt={article.title} className="max-h-[500px] w-full rounded-[6px] object-cover" />
           </ParchmentCard>
+        </div>
+
+        {/* Action bar below cover image */}
+        <div className="flex justify-center mt-6">
+          <ArticleActionBar title={article.title} downloadUrl={article.pdfUrl || article.fileUrl} />
         </div>
       </section>
 
-      <section className="container-anv pb-16">
-        <div className="grid gap-8 xl:grid-cols-[220px_minmax(0,760px)_220px] xl:items-start xl:justify-center">
-          <aside className="hidden xl:block">
-            <div className="sticky top-28 space-y-3">
-              <ParchmentCard className="p-4">
-                <p className="type-section-label mb-3">Actions</p>
-                <ArticleActionBar title={article.title} downloadUrl={article.pdfUrl || article.fileUrl} vertical />
-              </ParchmentCard>
-              <ParchmentCard className="p-4">
-                <p className="type-section-label mb-3">On this page</p>
-                <ul className="space-y-2 font-ui text-xs text-[var(--ink-faint)]">
-                  <li>The Inquiry</li>
-                  <li>Text and Context</li>
-                  <li>Discussion</li>
-                </ul>
-              </ParchmentCard>
-            </div>
-          </aside>
-
-          <article className="mx-auto w-full max-w-[var(--max-reader)]">
-            <OrnamentDivider className="mb-8" />
-            {article.body ? (
-              <div className="prose-anv whitespace-pre-wrap">
-                {article.body}
+      <section className="container-anv pb-16 max-w-2xl mx-auto">
+        <article className="w-full">
+          <OrnamentDivider className="mb-8" />
+          
+          {/* Custom Voice Note player in the middle */}
+          {article.audioUrl && (
+            <div className="card-sacred p-5 mb-8 space-y-3" style={{ background: "linear-gradient(135deg, rgba(201,152,58,0.03) 0%, rgba(201,152,58,0.08) 100%)" }}>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={togglePlay}
+                  className="h-10 w-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 shrink-0 animate-pulse"
+                  style={{ background: "var(--gold-bright)", color: "var(--bg)" }}
+                >
+                  {isPlaying ? <Pause size={16} fill="var(--bg)" /> : <Play size={16} fill="var(--bg)" className="ml-0.5" />}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <p className="font-ui text-xs font-bold text-[var(--gold-soft)] uppercase tracking-wider">Listen to the Author</p>
+                  <p className="font-body text-xs text-[var(--ink-faint)] truncate">Reading: {article.title}</p>
+                </div>
+                <Volume2 size={16} className="text-[var(--ink-faint)] shrink-0" />
               </div>
-            ) : (
-              <ParchmentCard className="p-8 text-center">
-                <h2 className="font-display text-3xl text-[var(--ink)]">Full text coming soon.</h2>
-                <p className="mt-3 font-body text-[var(--ink-soft)]">The editorial team has not yet released the complete article body.</p>
-              </ParchmentCard>
-            )}
 
-            <OrnamentDivider className="my-10" />
+              <div className="flex items-center gap-3">
+                <span className="font-ui text-[10px] text-[var(--ink-faint)]">{formatTime(currentTime)}</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={duration || 0}
+                  value={currentTime}
+                  onChange={handleSeek}
+                  className="flex-1 h-1 bg-[var(--border)] rounded-lg appearance-none cursor-pointer accent-[var(--gold)]"
+                  style={{ background: "rgba(255,255,255,0.05)" }}
+                />
+                <span className="font-ui text-[10px] text-[var(--ink-faint)]">{formatTime(duration)}</span>
+              </div>
+              
+              <audio
+                ref={audioRef}
+                src={article.audioUrl}
+                onTimeUpdate={handleTimeUpdate}
+                onLoadedMetadata={handleLoadedMetadata}
+                onEnded={() => setIsPlaying(false)}
+                className="hidden"
+              />
+            </div>
+          )}
 
-            {/* ─── DISCUSSION SECTION ─── */}
-            <div className="mt-12 space-y-8" id="discussion">
+          {article.body ? (
+            <div className="prose-anv whitespace-pre-wrap">
+              {article.body}
+            </div>
+          ) : (
+            <ParchmentCard className="p-8 text-center">
+              <h2 className="font-display text-3xl text-[var(--ink)]">Full text coming soon.</h2>
+              <p className="mt-3 font-body text-[var(--ink-soft)]">The editorial team has not yet released the complete article body.</p>
+            </ParchmentCard>
+          )}
+
+          {/* Author profile card at the end of the text */}
+          <div className="card-sacred p-6 mt-12 flex flex-col md:flex-row items-center gap-5" style={{ borderLeft: "3px solid var(--gold)" }}>
+            <div className="h-14 w-14 rounded-full overflow-hidden bg-[var(--terracotta-pale)] flex items-center justify-center border border-[var(--border-gold)] shrink-0">
+              <span className="font-display text-lg font-bold text-[var(--terracotta)]">
+                {(article.authorName || "A").charAt(0).toUpperCase()}
+              </span>
+            </div>
+            <div className="text-center md:text-left space-y-1">
+              <h4 className="font-ui text-sm font-bold text-[var(--gold-bright)]">{article.authorName}</h4>
+              <p className="font-ui text-[10px] text-[var(--ink-faint)]">Contributor · Anvikshiki Journal</p>
+              <p className="font-body text-xs text-[var(--ink-soft)] leading-relaxed mt-2">
+                This contribution is part of Anvikshiki's ongoing dedication to independent civilizational dialogue, multidisciplinary analysis, and rigorous philosophical inquiry.
+              </p>
+            </div>
+          </div>
+
+          <OrnamentDivider className="my-10" />
+
+          {/* ─── DISCUSSION SECTION ─── */}
+          <div className="mt-12 space-y-8" id="discussion">
               <div className="flex items-center gap-2">
                 <MessageSquare className="text-[var(--gold)]" size={20} />
                 <h2 className="font-display text-2xl text-[var(--ink)]">Scholarly Discussion</h2>
@@ -400,23 +489,20 @@ export default function ArticlePage() {
 
             <OrnamentDivider className="my-10" />
 
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 mt-8">
               <Link href="/browse" className="btn-ink"><ArrowLeft size={14} /> More Essays</Link>
               <Link href={`/domains/${domain}`} className="btn-terracotta">More in this Domain</Link>
             </div>
-          </article>
 
-          <aside className="hidden xl:block">
-            <div className="sticky top-28">
-              <ParchmentCard className="p-4">
-                <p className="type-section-label mb-3">Citation Note</p>
-                <p className="font-body text-sm leading-6 text-[var(--ink-soft)]">
+            <div className="mt-10">
+              <ParchmentCard className="p-4 text-center">
+                <p className="type-section-label mb-2">Citation Note</p>
+                <p className="font-body text-xs leading-normal text-[var(--ink-soft)] max-w-lg mx-auto">
                   Cite this essay with the copied citation action. Include the access date for web references.
                 </p>
               </ParchmentCard>
             </div>
-          </aside>
-        </div>
+          </article>
       </section>
 
       <div className="fixed inset-x-4 bottom-4 z-40 rounded-full border border-[var(--border-gold)] bg-[var(--surface)]/95 px-4 py-3 shadow-[var(--shadow-lg)] backdrop-blur md:hidden">

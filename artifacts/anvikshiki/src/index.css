@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  --font-display: "Cormorant Garamond", "Noto Serif Devanagari", Georgia, serif;
-  --font-body: "EB Garamond", "Noto Serif Devanagari", Georgia, serif;
+  --font-display: "Cormorant Garamond", "Noto Serif Devanagari", "Noto Serif Sharada", "Noto Serif Tamil", "Noto Serif Telugu", "Noto Serif Grantha", "Noto Serif Kannada", "Noto Serif Malayalam", "Noto Serif Bengali", "Noto Serif Gurmukhi", Georgia, serif;
+  --font-body: "EB Garamond", "Noto Serif Devanagari", "Noto Serif Sharada", "Noto Serif Tamil", "Noto Serif Telugu", "Noto Serif Grantha", "Noto Serif Kannada", "Noto Serif Malayalam", "Noto Serif Bengali", "Noto Serif Gurmukhi", Georgia, serif;
   --font-ui: "DM Sans", Inter, system-ui, sans-serif;
 }
 
@@ -4310,4 +4310,42 @@ input[type="search"]::-webkit-search-decoration {
   transform: translateY(-2px) scale(1.04);
   box-shadow: 0 4px 12px rgba(0,0,0,0.12);
 }
+
+/* ── Premium Sacred Table Styles ─────────────────────────────────────── */
+.sacred-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+}
+
+.sacred-table th {
+  padding: 1rem 1.25rem;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--gold-soft);
+  border-bottom: 2px solid var(--border-gold);
+}
+
+.sacred-table td {
+  padding: 1rem 1.25rem;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+.sacred-table tr:hover td {
+  background: var(--surface-soft);
+  color: var(--ink);
+}
+
+.sacred-table tr:last-child td {
+  border-bottom: none;
+}
+
 

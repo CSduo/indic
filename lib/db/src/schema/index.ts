@@ -140,6 +140,8 @@ export const submissionsTable = pgTable("submissions", {
   coverImageUrl: text("cover_image_url"),
   coverImagePublicId: text("cover_image_public_id"),
   coverImageResourceType: text("cover_image_resource_type"),
+  audioUrl: text("audio_url"),
+  audioPublicId: text("audio_public_id"),
   consent: boolean("consent").notNull().default(false),
   status: submissionStatusEnum("status").notNull().default("RECEIVED"),
   priority: priorityEnum("priority").notNull().default("NORMAL"),

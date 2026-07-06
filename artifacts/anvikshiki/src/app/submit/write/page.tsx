@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, Link, useSearch } from "wouter";
-import { ArrowLeft, Image as ImageIcon, X, CheckCircle, AlertCircle, Lock, Cloud, Save, FileText } from "lucide-react";
+import { ArrowLeft, Image as ImageIcon, X, CheckCircle, AlertCircle, Lock, Cloud, Save, FileText, Mic, Square, Play, Pause, Trash2, Volume2 } from "lucide-react";
 import { LotusIcon, LotusDivider } from "@/components/sacred/LotusIcon";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -8,7 +8,7 @@ const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const STORAGE_KEY = "anvikshiki_write_draft";
 
 const DOMAINS = ["Philosophy","History","Psychology","Sociology","Science","Geopolitics","Civilizational Thought","Aesthetics","Sanskrit Studies","Political Theory"];
-const LANGUAGES = ["English","Sanskrit","Hindi","Bengali","Tamil","Telugu"];
+const LANGUAGES = ["English", "Sanskrit", "Hindi", "Bengali", "Tamil", "Telugu", "Kannada", "Malayalam", "Gujarati", "Marathi", "Odia", "Punjabi", "Assamese", "Urdu", "Nepali", "Maithili", "Dogri", "Konkani", "Santhali", "Bodo", "Sindhi", "Manipuri", "Kashmiri", "Sharada Script", "Grantha Script"];
 
 interface Draft {
   type: string;
@@ -22,11 +22,14 @@ interface Draft {
   keywords: string;
   body: string;
   notes: string;
+  audioUrl?: string | null;
+  audioPublicId?: string | null;
 }
 
 const EMPTY: Draft = {
   type: "", fullName: "", email: "", institution: "", language: "English",
   title: "", domain: "", abstract: "", keywords: "", body: "", notes: "",
+  audioUrl: null, audioPublicId: null,
 };
 
 function loadDraft(): Draft {
@@ -58,6 +61,89 @@ export default function SubmitWritePage() {
   const [imgDragging, setImgDragging] = useState(false);
   const [declared, setDeclared] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Voice note recording states
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [audioPreview, setAudioPreview] = useState<string>("");
+  const [recording, setRecording] = useState(false);
+  const [recordTime, setRecordTime] = useState(0);
+  const [uploadingAudio, setUploadingAudio] = useState(false);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<any>(null);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // Choose supported mimetype
+      let mimeType = "audio/webm";
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = "audio/ogg";
+      }
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = ""; // Browser default fallback
+      }
+
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+      
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        const ext = mimeType.includes("ogg") ? "ogg" : "webm";
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType || "audio/webm" });
+        const file = new File([audioBlob], `voice-note-${Date.now()}.${ext}`, { type: mimeType || "audio/webm" });
+        setAudioFile(file);
+        setAudioPreview(URL.createObjectURL(file));
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      recorder.start();
+      setRecording(true);
+      setRecordTime(0);
+
+      timerRef.current = setInterval(() => {
+        setRecordTime(prev => {
+          if (prev >= 300) { // 5-minute cap
+            stopRecording();
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+      setError("");
+    } catch (err: any) {
+      setError("Microphone access denied or not supported on your browser/device.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    setRecording(false);
+  };
+
+  const deleteRecording = () => {
+    setAudioFile(null);
+    setAudioPreview("");
+    setRecordTime(0);
+    setDraft(prev => {
+      const next = { ...prev, audioUrl: null, audioPublicId: null };
+      saveDraft(next);
+      return next;
+    });
+  };
   const [error, setError] = useState("");
   const [errors, setErrors] = useState<Partial<Record<keyof Draft, string>>>({});
   const imgRef = useRef<HTMLInputElement>(null);
@@ -170,6 +256,29 @@ export default function SubmitWritePage() {
     return "";
   };
 
+  const uploadAudioIfNeeded = async (): Promise<{ url: string; publicId: string } | null> => {
+    if (draft.audioUrl && draft.audioPublicId) {
+      return { url: draft.audioUrl, publicId: draft.audioPublicId };
+    }
+    if (!audioFile) return null;
+    setUploadingAudio(true);
+    const fd = new FormData();
+    fd.append("file", audioFile);
+    fd.append("context", "voice_note");
+    try {
+      const audioRes = await fetch(`${base()}/api/media/upload`, { method: "POST", credentials: "include", body: fd });
+      if (audioRes.ok) {
+        const d = await audioRes.json();
+        return { url: d.url, publicId: d.mediaAsset?.storageKey || "" };
+      }
+    } catch (err) {
+      console.error("Audio upload error:", err);
+    } finally {
+      setUploadingAudio(false);
+    }
+    return null;
+  };
+
   const saveDraftToServer = async () => {
     if (!user) { setError("Please sign in to save a draft."); return; }
     if (!draft.title.trim() && !draft.body.trim()) { setError("Write a title or some content before saving a draft."); return; }
@@ -178,6 +287,10 @@ export default function SubmitWritePage() {
       const typeMap: Record<string, string> = { essay: "ESSAY", paper: "PAPER", review: "REVIEW", commentary: "COMMENTARY", "book-review": "COMMENTARY", translation: "ESSAY" };
       const type = typeMap[(draft.type || "essay").toLowerCase()] || "ESSAY";
       const imageUrl = await uploadCoverIfNeeded();
+      const audioResult = await uploadAudioIfNeeded();
+
+      const audioUrlVal = audioResult ? audioResult.url : draft.audioUrl || null;
+      const audioPublicIdVal = audioResult ? audioResult.publicId : draft.audioPublicId || null;
 
       if (serverDraftId) {
         const r = await fetch(`${base()}/api/submissions/${serverDraftId}`, {
@@ -188,6 +301,7 @@ export default function SubmitWritePage() {
             type, submitterName: draft.fullName, submitterEmail: draft.email,
             title: draft.title || "Untitled draft", abstract: draft.abstract, body: draft.body,
             domain: draft.domain, notes: buildNotes(imageUrl), status: "DRAFT",
+            audioUrl: audioUrlVal, audioPublicId: audioPublicIdVal,
           }),
         });
         const data = await r.json();
@@ -201,12 +315,22 @@ export default function SubmitWritePage() {
             type, submitterName: draft.fullName || user.name || "Draft author", submitterEmail: draft.email || user.email,
             title: draft.title || "Untitled draft", abstract: draft.abstract, body: draft.body,
             domain: draft.domain, notes: buildNotes(imageUrl), status: "DRAFT",
+            audioUrl: audioUrlVal, audioPublicId: audioPublicIdVal,
           }),
         });
         const data = await r.json();
         if (!r.ok) throw new Error(data.error || "Could not save draft");
         setServerDraftId(data.submission?.id || null);
       }
+
+      if (audioResult) {
+        setDraft(prev => {
+          const next = { ...prev, audioUrl: audioResult.url, audioPublicId: audioResult.publicId };
+          sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+          return next;
+        });
+      }
+
       setSaveStatus("saved");
     } catch (err: any) {
       setError(err.message || "Could not save draft. Please try again.");
@@ -223,9 +347,12 @@ export default function SubmitWritePage() {
       const typeMap: Record<string, string> = { essay: "ESSAY", paper: "PAPER", review: "REVIEW", commentary: "COMMENTARY", "book-review": "COMMENTARY", translation: "ESSAY" };
       const type = typeMap[(draft.type || "essay").toLowerCase()] || "ESSAY";
 
-      // If there's an image, upload it first via the media upload endpoint,
-      // then submit the write form with the image URL in notes.
+      // Upload files
       const imageUrl = await uploadCoverIfNeeded();
+      const audioResult = await uploadAudioIfNeeded();
+
+      const audioUrlVal = audioResult ? audioResult.url : draft.audioUrl || null;
+      const audioPublicIdVal = audioResult ? audioResult.publicId : draft.audioPublicId || null;
 
       const notes = buildNotes(imageUrl);
 
@@ -239,6 +366,7 @@ export default function SubmitWritePage() {
             type, submitterName: draft.fullName, submitterEmail: draft.email,
             title: draft.title, abstract: draft.abstract || "See essay body.", body: draft.body,
             domain: draft.domain, notes, consent: true, status: "RECEIVED",
+            audioUrl: audioUrlVal, audioPublicId: audioPublicIdVal,
           }),
         });
       } else {
@@ -250,6 +378,7 @@ export default function SubmitWritePage() {
             type, submitterName: draft.fullName, submitterEmail: draft.email,
             title: draft.title, abstract: draft.abstract || "See essay body.", body: draft.body,
             domain: draft.domain, notes, consent: true,
+            audioUrl: audioUrlVal, audioPublicId: audioPublicIdVal,
           }),
         });
       }
@@ -375,6 +504,85 @@ export default function SubmitWritePage() {
                   <ImageIcon size={24} style={{ color: "var(--gold)", opacity: 0.5, margin: "0 auto 8px" }} />
                   <p className="font-ui text-xs text-center" style={{ color: "var(--ink-faint)" }}>Drop or click to upload</p>
                   <p className="font-ui text-[10px] text-center mt-1" style={{ color: "var(--ink-faint)", opacity: 0.6 }}>JPG, PNG, WEBP · Max 20 MB</p>
+                </div>
+              )}
+            </div>
+
+            {/* Voice note recorder */}
+            <div className="card-sacred p-5 space-y-4">
+              <div className="section-label mb-1">Voice Note / Audio Reading</div>
+              <p className="font-body text-[11px]" style={{ color: "var(--ink-faint)", lineHeight: 1.5 }}>
+                Optional — Record or upload a voice note (up to 5 minutes) reading your essay so listeners can hear it in your voice.
+              </p>
+
+              {audioPreview ? (
+                <div className="p-4 rounded-lg space-y-3" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-gold)" }}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-ui text-xs font-semibold" style={{ color: "var(--gold-soft)" }}>Voice Note Recorded</span>
+                    <button
+                      type="button"
+                      onClick={deleteRecording}
+                      className="p-1.5 rounded-full hover:bg-rose-500/10 transition-colors"
+                      style={{ color: "var(--lotus)" }}
+                      title="Delete recording"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                  <audio src={audioPreview} controls className="w-full" style={{ filter: "sepia(0.3) invert(0.9)" }} />
+                  {uploadingAudio && (
+                    <p className="font-ui text-[10px] text-center" style={{ color: "var(--gold-bright)" }}>Uploading audio file…</p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {recording ? (
+                    <div className="flex flex-col items-center justify-center p-4 rounded-lg border border-dashed" style={{ borderColor: "var(--lotus)", background: "rgba(139,26,74,0.02)" }}>
+                      <div className="w-3 h-3 rounded-full bg-rose-600 animate-pulse mb-2" />
+                      <div className="font-ui text-xs font-semibold mb-3" style={{ color: "var(--ink)" }}>
+                        Recording: {Math.floor(recordTime / 60)}:{(recordTime % 60).toString().padStart(2, "0")} / 5:00
+                      </div>
+                      <button
+                        type="button"
+                        onClick={stopRecording}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-full font-ui text-[11px] font-bold tracking-wider"
+                        style={{ background: "var(--lotus)", color: "var(--surface)" }}
+                      >
+                        <Square size={12} /> STOP RECORDING
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={startRecording}
+                        className="flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-all hover:bg-white/5"
+                        style={{ borderColor: "rgba(201,152,58,0.3)", color: "var(--gold-bright)" }}
+                      >
+                        <Mic size={14} />
+                        <span className="font-ui text-xs font-semibold">Record Mic</span>
+                      </button>
+                      <label
+                        className="flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border cursor-pointer transition-all hover:bg-white/5"
+                        style={{ borderColor: "rgba(201,152,58,0.3)", color: "var(--ink-soft)" }}
+                      >
+                        <input
+                          type="file"
+                          accept="audio/*"
+                          className="sr-only"
+                          onChange={e => {
+                            const f = e.target.files?.[0];
+                            if (f) {
+                              if (f.size > 30 * 1024 * 1024) { setError("Audio must be under 30 MB"); return; }
+                              setAudioFile(f);
+                              setAudioPreview(URL.createObjectURL(f));
+                            }
+                          }}
+                        />
+                        <span className="font-ui text-xs font-semibold">Upload Audio</span>
+                      </label>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

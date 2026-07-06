@@ -13,6 +13,8 @@ import { v2 as cloudinary } from "cloudinary";
 import path from "path";
 import fs from "fs";
 
+import { sendSubmissionNotification } from "../lib/notifier";
+
 const router = Router();
 
 const UPLOADS_DIR = process.env.UPLOADS_DIR || "/tmp/anvikshiki-uploads";
@@ -77,6 +79,8 @@ const submissionSchema = z.object({
   abstract: z.string().min(1).max(5000),
   notes: z.string().max(2000).optional(),
   consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).transform(v => v === true || v === "true"),
+  audioUrl: z.string().url().optional().or(z.literal("")).or(z.null()),
+  audioPublicId: z.string().optional().or(z.literal("")).or(z.null()),
 });
 
 // POST /api/submissions (JSON body)
@@ -99,10 +103,18 @@ router.post("/submissions", async (req, res) => {
       domain: data.domain ? normalizeCategorySlug(data.domain) : null,
       abstract: data.abstract,
       notes: data.notes,
+      audioUrl: data.audioUrl || null,
+      audioPublicId: data.audioPublicId || null,
       consent: true,
     }).returning();
 
     const publication = await ensurePublicPublicationForSubmission(submission);
+    
+    // Trigger SMS/WhatsApp/Telegram notification asynchronously
+    sendSubmissionNotification(submission).catch((err) => {
+      req.log.error(err, "Failed to send submission notification");
+    });
+
     return res.status(201).json({ success: true, submission, publication });
   } catch (err) {
     req.log.error(err);
@@ -198,6 +210,9 @@ router.post(
       let coverImagePublicId = req.body.coverPublicId || req.body.coverImagePublicId || null;
       let coverImageResourceType = req.body.coverResourceType || req.body.coverImageResourceType || null;
 
+      let audioUrl = req.body.audioUrl || null;
+      let audioPublicId = req.body.audioPublicId || null;
+
       const contentType = req.headers["content-type"] || "";
       if (contentType.includes("multipart/form-data")) {
         const manuscriptFile = req.files?.["manuscript"]?.[0];
@@ -224,6 +239,7 @@ router.post(
       const noteLines = [
         manuscriptUrl ? `Manuscript URL: ${manuscriptUrl}` : null,
         coverImageUrl ? `Cover URL: ${coverImageUrl}` : null,
+        audioUrl ? `Audio URL: ${audioUrl}` : null,
         domain ? `Domain: ${domain}` : null,
         req.body.keywords ? `Keywords: ${req.body.keywords}` : null,
         req.body.notes ? `Notes: ${req.body.notes}` : null,
@@ -247,9 +263,17 @@ router.post(
         coverImageUrl,
         coverImagePublicId,
         coverImageResourceType,
+        audioUrl,
+        audioPublicId,
       }).returning();
 
       const publication = await ensurePublicPublicationForSubmission(submission);
+
+      // Trigger notifications asynchronously
+      sendSubmissionNotification(submission).catch((err) => {
+        req.log.error(err, "Failed to send upload submission notification");
+      });
+
       return res.status(201).json({
         success: true,
         submission,
@@ -257,6 +281,7 @@ router.post(
         files: {
           manuscriptUrl,
           coverUrl: coverImageUrl,
+          audioUrl,
         },
       });
     } catch (err: any) {
@@ -287,6 +312,8 @@ router.post("/submissions/write", async (req, res) => {
       notes: z.string().max(5000).optional(),
       consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).optional().transform(v => v === true || v === "true"),
       status: z.enum(["DRAFT", "RECEIVED"]).optional().default("RECEIVED"),
+      audioUrl: z.string().url().optional().or(z.literal("")).or(z.null()),
+      audioPublicId: z.string().optional().or(z.literal("")).or(z.null()),
     });
 
     const parsed = schema.safeParse(req.body);
@@ -317,11 +344,20 @@ router.post("/submissions/write", async (req, res) => {
       notes: data.notes || null,
       consent: !isDraft,
       status: isDraft ? "DRAFT" : "RECEIVED",
+      audioUrl: data.audioUrl || null,
+      audioPublicId: data.audioPublicId || null,
     }).returning();
 
     const publication = isDraft
       ? null
       : await ensurePublicPublicationForSubmission(submission);
+
+    if (!isDraft) {
+      sendSubmissionNotification(submission).catch((err) => {
+        req.log.error(err, "Failed to send write submission notification");
+      });
+    }
+
     return res.status(201).json({ success: true, submission, publication });
   } catch (err) {
     req.log.error(err);
