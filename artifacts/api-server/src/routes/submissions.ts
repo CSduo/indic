@@ -182,6 +182,7 @@ router.post(
       upload.fields([
         { name: "manuscript", maxCount: 1 },
         { name: "coverImage", maxCount: 1 },
+        { name: "audio", maxCount: 1 },
       ])(req, res, next);
       return;
     }
@@ -217,6 +218,7 @@ router.post(
       if (contentType.includes("multipart/form-data")) {
         const manuscriptFile = req.files?.["manuscript"]?.[0];
         const coverFile = req.files?.["coverImage"]?.[0];
+        const audioFile = req.files?.["audio"]?.[0];
 
         try {
           if (manuscriptFile) {
@@ -224,6 +226,9 @@ router.post(
           }
           if (coverFile) {
             coverImageUrl = await saveFile(coverFile, "covers");
+          }
+          if (audioFile) {
+            audioUrl = await saveFile(audioFile, "voice-notes");
           }
         } catch (err: any) {
           if (err?.message === "BLOB_STORAGE_MISSING") {

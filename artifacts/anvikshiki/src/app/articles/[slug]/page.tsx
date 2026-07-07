@@ -283,9 +283,10 @@ export default function ArticlePage() {
           )}
 
           {article.body ? (
-            <div className="prose-anv whitespace-pre-wrap">
-              {article.body}
-            </div>
+            <div
+              className="prose-anv prose-editor-content"
+              dangerouslySetInnerHTML={{ __html: article.body }}
+            />
           ) : (
             <ParchmentCard className="p-8 text-center">
               <h2 className="font-display text-3xl text-[var(--ink)]">Full text coming soon.</h2>

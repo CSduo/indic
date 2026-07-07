@@ -148,7 +148,57 @@ export default function SubmitWritePage() {
   const [errors, setErrors] = useState<Partial<Record<keyof Draft, string>>>({});
   const imgRef = useRef<HTMLInputElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const inlineImgInputRef = useRef<HTMLInputElement>(null);
+  const [insertingImage, setInsertingImage] = useState(false);
+
+  const execCmd = (command: string, value: string = "") => {
+    document.execCommand(command, false, value);
+    if (editorRef.current) {
+      set("body", editorRef.current.innerHTML);
+    }
+  };
+
+  const handleInlineImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 20 * 1024 * 1024) {
+      setError("Inline image must be under 20 MB");
+      return;
+    }
+
+    setInsertingImage(true);
+    setError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      
+      const res = await fetch(`${base()}/api/media/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to upload inline image");
+      }
+
+      const data = await res.json();
+      const imageUrl = data.url;
+
+      if (editorRef.current) {
+        editorRef.current.focus();
+        execCmd("insertImage", imageUrl);
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to insert image. Please try again.");
+    } finally {
+      setInsertingImage(false);
+      if (inlineImgInputRef.current) inlineImgInputRef.current.value = "";
+    }
+  };
 
   // Resume an existing server-saved draft when arriving via ?draftId=
   useEffect(() => {
@@ -190,13 +240,12 @@ export default function SubmitWritePage() {
     return () => { cancelled = true; };
   }, [draftIdParam]);
 
-  // Auto-grow textarea
+  // Sync editor content on first load or when draft parameter loads
   useEffect(() => {
-    const ta = bodyRef.current;
-    if (!ta) return;
-    ta.style.height = "auto";
-    ta.style.height = Math.max(400, ta.scrollHeight) + "px";
-  }, [draft.body]);
+    if (editorRef.current && draft.body && editorRef.current.innerHTML !== draft.body) {
+      editorRef.current.innerHTML = draft.body;
+    }
+  }, [loadingDraft]);
 
   const saveDraft = useCallback((d: Draft) => {
     setSaveStatus("saving");
@@ -396,8 +445,9 @@ export default function SubmitWritePage() {
     }
   };
 
-  const wordCount = draft.body.trim() ? draft.body.trim().split(/\s+/).length : 0;
-  const charCount = draft.body.length;
+  const cleanBodyText = draft.body.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  const wordCount = cleanBodyText ? cleanBodyText.split(/\s+/).length : 0;
+  const charCount = cleanBodyText.length;
 
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
@@ -632,26 +682,125 @@ export default function SubmitWritePage() {
                   <p className="font-ui text-xs" style={{ color: "var(--lotus)" }}>{errors.body}</p>
                 </div>
               )}
-              <textarea
-                ref={bodyRef}
-                value={draft.body}
-                onChange={e => set("body", e.target.value)}
-                placeholder={`Begin your essay here…\n\nYour draft is saved automatically after every keystroke. Take your time — nothing will be lost.\n\nYou can write plain text or use basic HTML for structure:\n  <h2>Section Heading</h2>\n  <p>Paragraph text here.</p>\n  <em>italic</em>, <strong>bold</strong>`}
-                style={{
-                  width: "100%",
-                  minHeight: 400,
-                  padding: "1.5rem",
-                  background: "transparent",
-                  border: "none",
-                  outline: "none",
-                  resize: "none",
-                  fontFamily: "var(--font-body)",
-                  fontSize: "0.95rem",
-                  lineHeight: 1.85,
-                  color: "var(--ink)",
-                  display: "block",
-                  boxSizing: "border-box",
-                }}
+
+              {/* Rich Text Toolbar */}
+              <div className="flex flex-wrap items-center gap-2 p-2 bg-[var(--surface-elevated)] border-b border-[rgba(201,152,58,0.15)] select-none">
+                {/* Font Selector */}
+                <select
+                  className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
+                  onChange={e => execCmd("fontName", e.target.value)}
+                  defaultValue="Garamond"
+                >
+                  <option value="Garamond">Garamond (Default)</option>
+                  <option value="'Noto Serif Devanagari', serif">Devanagari</option>
+                  <option value="'Noto Serif Sharada', serif">Sharada</option>
+                  <option value="'Noto Serif Tamil', serif">Tamil</option>
+                  <option value="'Noto Serif Telugu', serif">Telugu</option>
+                  <option value="'Noto Serif Gurmukhi', serif">Gurmukhi</option>
+                </select>
+
+                {/* Block Format */}
+                <select
+                  className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
+                  onChange={e => execCmd("formatBlock", e.target.value)}
+                  defaultValue="p"
+                >
+                  <option value="p">Paragraph</option>
+                  <option value="h2">Heading 2</option>
+                  <option value="h3">Heading 3</option>
+                  <option value="blockquote">Quote block</option>
+                </select>
+
+                <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+
+                {/* Basic styles */}
+                <button
+                  type="button"
+                  onClick={() => execCmd("bold")}
+                  className="p-1 px-2.5 rounded hover:bg-white/5 font-bold text-xs"
+                  style={{ color: "var(--ink-soft)" }}
+                  title="Bold"
+                >
+                  B
+                </button>
+                <button
+                  type="button"
+                  onClick={() => execCmd("italic")}
+                  className="p-1 px-2.5 rounded hover:bg-white/5 italic text-xs"
+                  style={{ color: "var(--ink-soft)" }}
+                  title="Italic"
+                >
+                  I
+                </button>
+                <button
+                  type="button"
+                  onClick={() => execCmd("underline")}
+                  className="p-1 px-2.5 rounded hover:bg-white/5 underline text-xs"
+                  style={{ color: "var(--ink-soft)" }}
+                  title="Underline"
+                >
+                  U
+                </button>
+
+                <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+
+                {/* Colors */}
+                <select
+                  className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
+                  onChange={e => execCmd("foreColor", e.target.value)}
+                  defaultValue=""
+                >
+                  <option value="">Text Color</option>
+                  <option value="#C9983A">Gold</option>
+                  <option value="#8B1A4A">Terracotta</option>
+                  <option value="#ffffff">White</option>
+                  <option value="#a3a3a3">Muted Gray</option>
+                </select>
+
+                {/* Highlights */}
+                <select
+                  className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
+                  onChange={e => execCmd("hiliteColor", e.target.value)}
+                  defaultValue=""
+                >
+                  <option value="">Highlight</option>
+                  <option value="rgba(201,152,58,0.25)">Gold glow</option>
+                  <option value="rgba(139,26,74,0.25)">Terracotta glow</option>
+                  <option value="transparent">None</option>
+                </select>
+
+                <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+
+                {/* Image upload inline */}
+                <input
+                  type="file"
+                  ref={inlineImgInputRef}
+                  onChange={handleInlineImageUpload}
+                  accept="image/*"
+                  className="sr-only"
+                />
+                <button
+                  type="button"
+                  onClick={() => inlineImgInputRef.current?.click()}
+                  disabled={insertingImage}
+                  className="flex items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent"
+                  style={{ color: "var(--gold-soft)" }}
+                  title="Insert Inline Image"
+                >
+                  <ImageIcon size={13} />
+                  <span>{insertingImage ? "Uploading…" : "Add Image"}</span>
+                </button>
+              </div>
+
+              {/* Editable area */}
+              <div
+                ref={editorRef}
+                contentEditable
+                onInput={e => set("body", e.currentTarget.innerHTML)}
+                onBlur={e => set("body", e.currentTarget.innerHTML)}
+                className="w-full p-6 min-h-[450px] outline-none bg-transparent text-[var(--ink)] font-body leading-[1.85] overflow-y-auto prose-editor"
+                placeholder="Begin writing your sacred manuscript here..."
+                style={{ boxSizing: "border-box" }}
               />
             </div>
 

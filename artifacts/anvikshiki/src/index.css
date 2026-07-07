@@ -4348,4 +4348,81 @@ input[type="search"]::-webkit-search-decoration {
   border-bottom: none;
 }
 
+/* Custom Rich Text Editor & Article Body Styling */
+.prose-editor {
+  min-height: 450px;
+}
+
+[contenteditable]:empty:before {
+  content: attr(placeholder);
+  color: var(--ink-faint);
+  opacity: 0.55;
+  pointer-events: none;
+  display: block;
+}
+
+/* Inline images centered with luxury gold borders & soft shadows */
+.prose-editor-content img,
+.prose-editor img {
+  max-width: 95%;
+  max-height: 520px;
+  height: auto;
+  margin: 2.5rem auto;
+  border-radius: 8px;
+  border: 1px solid var(--border-gold);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+  display: block;
+  object-fit: cover;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.prose-editor-content img:hover {
+  transform: scale(1.01);
+}
+
+/* Academic blockquote callouts for quotes */
+.prose-editor-content blockquote {
+  margin: 2.25rem 0;
+  padding: 0.75rem 1.5rem;
+  border-left: 3px solid var(--gold);
+  font-family: var(--font-display);
+  font-size: 1.18rem;
+  font-style: italic;
+  line-height: 1.65;
+  color: var(--gold-bright);
+  background: rgba(201, 152, 58, 0.02);
+  border-radius: 0 8px 8px 0;
+}
+
+.prose-editor-content h2 {
+  font-family: var(--font-display);
+  color: var(--gold-bright);
+  font-size: 1.85rem;
+  margin-top: 2.5rem;
+  margin-bottom: 1.25rem;
+  letter-spacing: 0.05em;
+  border-bottom: 1px dashed rgba(201, 152, 58, 0.15);
+  padding-bottom: 0.5rem;
+}
+
+.prose-editor-content h3 {
+  font-family: var(--font-display);
+  color: var(--gold-soft);
+  font-size: 1.45rem;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  letter-spacing: 0.04em;
+}
+
+.prose-editor-content p {
+  margin-bottom: 1.6rem;
+  line-height: 1.9;
+  color: var(--ink-soft);
+}
+
+.prose-editor-content [font-family],
+.prose-editor-content [style*="font-family"] {
+  line-height: 1.95 !important;
+}
+
 
