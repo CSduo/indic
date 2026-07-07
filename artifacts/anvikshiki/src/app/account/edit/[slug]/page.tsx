@@ -127,7 +127,8 @@ export default function EditArticlePage() {
             </label>
             <textarea
               id="edit-excerpt"
-              className="input-sacred w-full min-h-[90px] resize-y text-sm"
+              className="textarea-sacred w-full text-sm"
+              style={{ minHeight: "120px" }}
               value={excerpt}
               onChange={e => setExcerpt(e.target.value)}
               maxLength={1000}
@@ -142,12 +143,14 @@ export default function EditArticlePage() {
             </label>
             <textarea
               id="edit-body"
-              className="input-sacred w-full min-h-[320px] resize-y text-sm font-mono leading-relaxed"
+              className="textarea-sacred w-full text-sm font-mono leading-relaxed"
+              style={{ minHeight: "380px" }}
               value={body}
               onChange={e => setBody(e.target.value)}
               placeholder="Your article content…"
             />
           </div>
+
 
           {/* Actions */}
           <div className="flex items-center justify-between pt-2 border-t border-[var(--border)]">
