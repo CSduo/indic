@@ -144,6 +144,132 @@ export default function SubmitWritePage() {
       return next;
     });
   };
+
+  // Inline Voice Note recording states
+  const [inlineRecording, setInlineRecording] = useState(false);
+  const [inlineRecordTime, setInlineRecordTime] = useState(0);
+  const [showInlineVNRecorder, setShowInlineVNRecorder] = useState(false);
+  const [uploadingInlineAudio, setUploadingInlineAudio] = useState(false);
+  
+  const inlineMediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const inlineAudioChunksRef = useRef<Blob[]>([]);
+  const inlineTimerRef = useRef<any>(null);
+  const inlineAudioInputRef = useRef<HTMLInputElement>(null);
+
+  const startInlineRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      let mimeType = "audio/webm";
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = "audio/ogg";
+      }
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = ""; // Browser default fallback
+      }
+
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      inlineMediaRecorderRef.current = recorder;
+      inlineAudioChunksRef.current = [];
+      
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          inlineAudioChunksRef.current.push(e.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const ext = mimeType.includes("ogg") ? "ogg" : "webm";
+        const audioBlob = new Blob(inlineAudioChunksRef.current, { type: mimeType || "audio/webm" });
+        const file = new File([audioBlob], `inline-voice-note-${Date.now()}.${ext}`, { type: mimeType || "audio/webm" });
+        
+        await uploadAndInsertInlineAudio(file);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      recorder.start();
+      setInlineRecording(true);
+      setInlineRecordTime(0);
+
+      inlineTimerRef.current = setInterval(() => {
+        setInlineRecordTime(prev => {
+          if (prev >= 300) { // 5-minute cap
+            stopInlineRecording();
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+      setError("");
+    } catch (err: any) {
+      setError("Microphone access denied or not supported on your browser/device.");
+    }
+  };
+
+  const stopInlineRecording = () => {
+    if (inlineMediaRecorderRef.current && inlineMediaRecorderRef.current.state !== "inactive") {
+      inlineMediaRecorderRef.current.stop();
+    }
+    if (inlineTimerRef.current) {
+      clearInterval(inlineTimerRef.current);
+    }
+    setInlineRecording(false);
+  };
+
+  const uploadAndInsertInlineAudio = async (file: File) => {
+    if (file.size > 30 * 1024 * 1024) {
+      setError("Audio file must be under 30 MB");
+      return;
+    }
+
+    setUploadingInlineAudio(true);
+    setError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("context", "voice_note");
+
+      const res = await fetch(`${base()}/api/media/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to upload voice note");
+      }
+
+      const data = await res.json();
+      const audioUrl = data.url;
+
+      if (editorRef.current) {
+        editorRef.current.focus();
+        const audioHtml = `<audio src="${audioUrl}" controls class="article-body-audio" style="width: 100%; max-width: 500px; margin: 1.5rem auto; display: block;" data-vn-id="${data.mediaAsset?.storageKey || ''}"></audio><p><br></p>`;
+        document.execCommand("insertHTML", false, audioHtml);
+        set("body", editorRef.current.innerHTML);
+      }
+      setShowInlineVNRecorder(false);
+    } catch (err: any) {
+      setError(err.message || "Failed to insert voice note. Please try again.");
+    } finally {
+      setUploadingInlineAudio(false);
+    }
+  };
+
+  const handleInlineAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await uploadAndInsertInlineAudio(file);
+    if (inlineAudioInputRef.current) inlineAudioInputRef.current.value = "";
+  };
+
+  useEffect(() => {
+    return () => {
+      if (inlineTimerRef.current) clearInterval(inlineTimerRef.current);
+    };
+  }, []);
+
   const [error, setError] = useState("");
   const [errors, setErrors] = useState<Partial<Record<keyof Draft, string>>>({});
   const imgRef = useRef<HTMLInputElement>(null);
@@ -241,11 +367,13 @@ export default function SubmitWritePage() {
   }, [draftIdParam]);
 
   // Sync editor content on first load or when draft parameter loads
+  const editorInitializedRef = useRef(false);
   useEffect(() => {
-    if (editorRef.current && draft.body && editorRef.current.innerHTML !== draft.body) {
-      editorRef.current.innerHTML = draft.body;
+    if (editorRef.current && !editorInitializedRef.current && !loadingDraft) {
+      editorRef.current.innerHTML = draft.body || "";
+      editorInitializedRef.current = true;
     }
-  }, [loadingDraft]);
+  }, [loadingDraft, draft.body]);
 
   const saveDraft = useCallback((d: Draft) => {
     setSaveStatus("saving");
@@ -683,8 +811,84 @@ export default function SubmitWritePage() {
                 </div>
               )}
 
-              {/* Rich Text Toolbar */}
-              <div className="flex flex-wrap items-center gap-2 p-2 bg-[var(--surface-elevated)] border-b border-[rgba(201,152,58,0.15)] select-none">
+              {/* Editable area */}
+              <div
+                ref={editorRef}
+                contentEditable
+                onInput={e => set("body", e.currentTarget.innerHTML)}
+                onBlur={e => set("body", e.currentTarget.innerHTML)}
+                className="w-full p-6 min-h-[450px] outline-none bg-transparent text-[var(--ink)] font-body leading-[1.85] overflow-y-auto prose-editor"
+                data-placeholder="Begin writing your sacred manuscript here..."
+                style={{ boxSizing: "border-box" }}
+              />
+
+              {/* Inline Audio Upload Hidden Input */}
+              <input
+                type="file"
+                ref={inlineAudioInputRef}
+                onChange={handleInlineAudioUpload}
+                accept="audio/*"
+                className="sr-only"
+              />
+
+              {/* Inline VN Recorder Strip */}
+              {showInlineVNRecorder && (
+                <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[var(--surface-elevated)] border-t border-[rgba(201,152,58,0.15)]">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${inlineRecording ? 'bg-rose-500 animate-pulse' : 'bg-[var(--gold)]'}`} />
+                    <span className="font-ui text-xs text-[var(--ink-soft)]">
+                      {inlineRecording 
+                        ? `Recording: ${Math.floor(inlineRecordTime / 60)}:${(inlineRecordTime % 60).toString().padStart(2, '0')} / 5:00` 
+                        : uploadingInlineAudio 
+                        ? 'Uploading voice note…' 
+                        : 'Record or upload a voice note to insert at cursor'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {!inlineRecording && !uploadingInlineAudio && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={startInlineRecording}
+                          className="px-2.5 py-1 rounded bg-[rgba(201,152,58,0.15)] hover:bg-[rgba(201,152,58,0.25)] text-xs text-[var(--gold-bright)] font-ui font-semibold cursor-pointer border-none"
+                        >
+                          Record
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => inlineAudioInputRef.current?.click()}
+                          className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-xs text-[var(--ink-soft)] font-ui font-semibold cursor-pointer border-none"
+                        >
+                          Upload File
+                        </button>
+                      </>
+                    )}
+                    {inlineRecording && (
+                      <button
+                        type="button"
+                        onClick={stopInlineRecording}
+                        className="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-700 text-xs text-white font-ui font-semibold animate-pulse cursor-pointer border-none"
+                      >
+                        Stop & Insert
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (inlineRecording) stopInlineRecording();
+                        setShowInlineVNRecorder(false);
+                      }}
+                      disabled={uploadingInlineAudio}
+                      className="px-2.5 py-1 rounded hover:bg-white/5 text-xs text-[var(--ink-faint)] font-ui cursor-pointer border-none bg-transparent"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Rich Text Toolbar (placed at the bottom) */}
+              <div className="flex flex-wrap items-center gap-2 p-2 bg-[var(--surface-elevated)] border-t border-[rgba(201,152,58,0.15)] select-none">
                 {/* Font Selector */}
                 <select
                   className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
@@ -717,7 +921,7 @@ export default function SubmitWritePage() {
                 <button
                   type="button"
                   onClick={() => execCmd("bold")}
-                  className="p-1 px-2.5 rounded hover:bg-white/5 font-bold text-xs"
+                  className="p-1 px-2.5 rounded hover:bg-white/5 font-bold text-xs border-none bg-transparent cursor-pointer"
                   style={{ color: "var(--ink-soft)" }}
                   title="Bold"
                 >
@@ -726,7 +930,7 @@ export default function SubmitWritePage() {
                 <button
                   type="button"
                   onClick={() => execCmd("italic")}
-                  className="p-1 px-2.5 rounded hover:bg-white/5 italic text-xs"
+                  className="p-1 px-2.5 rounded hover:bg-white/5 italic text-xs border-none bg-transparent cursor-pointer"
                   style={{ color: "var(--ink-soft)" }}
                   title="Italic"
                 >
@@ -735,7 +939,7 @@ export default function SubmitWritePage() {
                 <button
                   type="button"
                   onClick={() => execCmd("underline")}
-                  className="p-1 px-2.5 rounded hover:bg-white/5 underline text-xs"
+                  className="p-1 px-2.5 rounded hover:bg-white/5 underline text-xs border-none bg-transparent cursor-pointer"
                   style={{ color: "var(--ink-soft)" }}
                   title="Underline"
                 >
@@ -790,18 +994,20 @@ export default function SubmitWritePage() {
                   <ImageIcon size={13} />
                   <span>{insertingImage ? "Uploading…" : "Add Image"}</span>
                 </button>
-              </div>
 
-              {/* Editable area */}
-              <div
-                ref={editorRef}
-                contentEditable
-                onInput={e => set("body", e.currentTarget.innerHTML)}
-                onBlur={e => set("body", e.currentTarget.innerHTML)}
-                className="w-full p-6 min-h-[450px] outline-none bg-transparent text-[var(--ink)] font-body leading-[1.85] overflow-y-auto prose-editor"
-                placeholder="Begin writing your sacred manuscript here..."
-                style={{ boxSizing: "border-box" }}
-              />
+                {/* Voice Note inline recorder toggle */}
+                <button
+                  type="button"
+                  onClick={() => setShowInlineVNRecorder(v => !v)}
+                  disabled={uploadingInlineAudio}
+                  className="flex items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent"
+                  style={{ color: "var(--gold-soft)" }}
+                  title="Insert Voice Note"
+                >
+                  <Mic size={13} />
+                  <span>{uploadingInlineAudio ? "Uploading…" : "Add VN"}</span>
+                </button>
+              </div>
             </div>
 
             {/* Declaration + Submit */}

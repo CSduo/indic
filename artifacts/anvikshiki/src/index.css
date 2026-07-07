@@ -4354,7 +4354,7 @@ input[type="search"]::-webkit-search-decoration {
 }
 
 [contenteditable]:empty:before {
-  content: attr(placeholder);
+  content: attr(data-placeholder);
   color: var(--ink-faint);
   opacity: 0.55;
   pointer-events: none;
@@ -4423,6 +4423,29 @@ input[type="search"]::-webkit-search-decoration {
 .prose-editor-content [font-family],
 .prose-editor-content [style*="font-family"] {
   line-height: 1.95 !important;
+}
+
+/* Inline audio players style inside content and editor */
+.prose-editor-content audio,
+.prose-editor audio {
+  display: block;
+  width: 100%;
+  max-width: 500px;
+  margin: 2rem auto;
+  border-radius: 30px;
+  border: 1px solid var(--border-gold);
+  box-shadow: 0 4px 20px rgba(201, 152, 58, 0.15);
+  background: var(--surface-elevated);
+  filter: sepia(0.35) invert(0.95) hue-rotate(180deg);
+  opacity: 0.85;
+  transition: opacity 0.3s, transform 0.3s, box-shadow 0.3s;
+}
+
+.prose-editor-content audio:hover,
+.prose-editor audio:hover {
+  opacity: 1;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 25px rgba(201, 152, 58, 0.25);
 }
 
 
