@@ -121,15 +121,69 @@ router.post("/articles/:articleId/comments", async (req, res) => {
   }
 });
 
-// DELETE /api/comments/:id — admin only, soft-delete
-router.delete("/comments/:id", requireAdmin, async (req, res) => {
+// PATCH /api/comments/:id — edit comment (owner or admin)
+router.patch("/comments/:id", async (req, res) => {
   try {
-    const [comment] = await db.update(commentsTable)
-      .set({ deleted: true, updatedAt: new Date() })
-      .where(eq(commentsTable.id, req.params.id))
-      .returning();
+    const { id } = req.params;
+    const schema = z.object({
+      content: z.string().min(1).max(5000),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid content" });
+
+    const [comment] = await db.select()
+      .from(commentsTable)
+      .where(eq(commentsTable.id, id))
+      .limit(1);
+
     if (!comment) return res.status(404).json({ error: "Comment not found" });
-    return res.json({ success: true, comment });
+
+    const auth = await getUserAuth(req);
+    const isAdmin = Boolean(await getAdminAuth(req));
+    const isOwner = Boolean(auth && comment.userId === auth.userId);
+
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ error: "You are not authorized to edit this comment" });
+    }
+
+    const [updatedComment] = await db.update(commentsTable)
+      .set({ content: parsed.data.content, updatedAt: new Date() })
+      .where(eq(commentsTable.id, id))
+      .returning();
+
+    return res.json({ success: true, comment: updatedComment });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed to edit comment" });
+  }
+});
+
+// DELETE /api/comments/:id — delete comment (owner or admin)
+router.delete("/comments/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [comment] = await db.select()
+      .from(commentsTable)
+      .where(eq(commentsTable.id, id))
+      .limit(1);
+
+    if (!comment) return res.status(404).json({ error: "Comment not found" });
+
+    const auth = await getUserAuth(req);
+    const isAdmin = Boolean(await getAdminAuth(req));
+    const isOwner = Boolean(auth && comment.userId === auth.userId);
+
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ error: "You are not authorized to delete this comment" });
+    }
+
+    const [deletedComment] = await db.update(commentsTable)
+      .set({ deleted: true, updatedAt: new Date() })
+      .where(eq(commentsTable.id, id))
+      .returning();
+
+    return res.json({ success: true, comment: deletedComment });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed to delete comment" });

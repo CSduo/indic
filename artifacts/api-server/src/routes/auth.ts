@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { articlesTable, papersTable, submissionsTable, usersTable } from "@workspace/db";
+import { articlesTable, papersTable, submissionsTable, usersTable, adminsTable } from "@workspace/db";
 import { and, desc, eq, ilike, or } from "drizzle-orm";
 import {
   hashPassword, comparePassword, createUserToken,
@@ -9,6 +9,38 @@ import {
 import { z } from "zod";
 
 const router = Router();
+
+// GET /api/auth/make-admin - promote Chaitanya Gaikwad to admin
+router.get("/auth/make-admin", async (req, res) => {
+  try {
+    const users = await db.select().from(usersTable).where(ilike(usersTable.name, "%Chaitanya%"));
+    if (users.length === 0) {
+      return res.status(404).json({ error: "No users found with Chaitanya in their name" });
+    }
+
+    const promoted = [];
+    for (const user of users) {
+      // 1. Update user's role to ADMIN
+      await db.update(usersTable).set({ role: "ADMIN" as any }).where(eq(usersTable.id, user.id));
+
+      // 2. Upsert into adminsTable so they can log into the /admin panel
+      const [existingAdmin] = await db.select().from(adminsTable).where(eq(adminsTable.email, user.email));
+      if (!existingAdmin) {
+        await db.insert(adminsTable).values({
+          email: user.email,
+          name: user.name || "Admin User",
+          password: user.password || "", // keep same password hash
+          role: "ADMIN" as any
+        });
+      }
+      promoted.push({ id: user.id, name: user.name, email: user.email });
+    }
+
+    return res.json({ success: true, message: "Promoted to ADMIN successfully", promoted });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || "Failed to promote user to admin" });
+  }
+});
 
 const loginSchema = z.object({
   email: z.string().email(),

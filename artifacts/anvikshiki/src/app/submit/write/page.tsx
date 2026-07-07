@@ -405,8 +405,8 @@ export default function SubmitWritePage() {
     if (!draft.email.trim() || !/^[^@]+@[^@]+\.[^@]+$/.test(draft.email)) e.email = "Valid email required";
     if (!draft.title.trim()) e.title = "Title is required";
     if (!draft.domain) e.domain = "Domain is required";
-    if (!draft.abstract.trim() || draft.abstract.length < 30) e.abstract = "Please write a brief abstract (30+ characters)";
-    if (!draft.body.trim() || draft.body.length < 100) e.body = "Essay body must be at least 100 characters";
+    // abstract and body no longer have strict character limits
+    if (!draft.body.trim()) e.body = "Essay content is required";
     setErrors(e);
     return Object.keys(e).length === 0;
   };

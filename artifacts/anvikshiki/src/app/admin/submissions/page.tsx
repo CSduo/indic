@@ -208,11 +208,10 @@ export default function AdminSubmissionsPage() {
                   <div className="mb-4">
                     <div className="form-label mb-1">Full Essay Content</div>
                     <div
-                      className="font-body text-sm leading-relaxed p-3 rounded-lg"
-                      style={{ background: "var(--surface-3)", color: "var(--ink-soft)", maxHeight: 260, overflowY: "auto", whiteSpace: "pre-wrap" }}
-                    >
-                      {selected.body}
-                    </div>
+                      className="font-body text-sm leading-relaxed p-3 rounded-lg prose-editor-content"
+                      style={{ background: "var(--surface-3)", color: "var(--ink-soft)", maxHeight: 400, overflowY: "auto" }}
+                      dangerouslySetInnerHTML={{ __html: selected.body }}
+                    />
                   </div>
                 )}
 

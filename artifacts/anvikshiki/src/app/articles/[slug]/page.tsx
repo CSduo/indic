@@ -13,6 +13,18 @@ import { toast } from "sonner";
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
 
+const getReadingTime = (bodyHtml: string) => {
+  if (!bodyHtml) return "1 min read";
+  const text = bodyHtml.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  const wordCount = text ? text.split(/\s+/).length : 0;
+  if (wordCount < 100) {
+    const seconds = Math.max(5, Math.round((wordCount / 200) * 60));
+    return `${seconds} sec read`;
+  }
+  const minutes = Math.max(1, Math.round(wordCount / 200));
+  return `${minutes} min read`;
+};
+
 export default function ArticlePage() {
   const [, articlesParams] = useRoute("/articles/:slug");
   const [, essaysParams] = useRoute("/essays/:slug");
@@ -68,9 +80,11 @@ export default function ArticlePage() {
   const [authorEmail, setAuthorEmail] = useState("");
   const [content, setContent] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
-  const [replyingTo, setReplyingTo] = useState<string | null>(null); // parentId of comment being replied to
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState("");
   const [submittingReply, setSubmittingReply] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentContent, setEditingCommentContent] = useState("");
 
   useEffect(() => {
     if (user) {
@@ -177,6 +191,69 @@ export default function ArticlePage() {
     }
   };
 
+  const handleCommentEdit = async (commentId: string, parentId?: string) => {
+    try {
+      const res = await fetch(`${base()}/api/comments/${commentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: editingCommentContent }),
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to edit comment");
+
+      setComments(prev => prev.map(c => {
+        if (!parentId) {
+          if (c.id === commentId) return { ...c, content: editingCommentContent };
+          return c;
+        } else {
+          if (c.id === parentId) {
+            return {
+              ...c,
+              replies: (c.replies || []).map((r: any) => r.id === commentId ? { ...r, content: editingCommentContent } : r)
+            };
+          }
+          return c;
+        }
+      }));
+      setEditingCommentId(null);
+      toast.success("Comment updated");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update comment");
+    }
+  };
+
+  const handleCommentDelete = async (commentId: string, parentId?: string) => {
+    if (!confirm("Are you sure you want to delete this comment?")) return;
+    try {
+      const res = await fetch(`${base()}/api/comments/${commentId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete comment");
+
+      setComments(prev => {
+        if (!parentId) {
+          return prev.filter(c => c.id !== commentId);
+        } else {
+          return prev.map(c => {
+            if (c.id === parentId) {
+              return {
+                ...c,
+                replies: (c.replies || []).filter((r: any) => r.id !== commentId)
+              };
+            }
+            return c;
+          });
+        }
+      });
+      toast.success("Comment deleted");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete comment");
+    }
+  };
+
   if (loading) {
     return (
       <div className="grid min-h-[60vh] place-items-center bg-[var(--bg)]">
@@ -194,7 +271,6 @@ export default function ArticlePage() {
   }
 
   const domain = article.categorySlug || article.categoryId || "philosophy";
-  const image = article.featuredImage || article.coverImage || asset("/images/heroes/article-default.jpg");
 
   return (
     <div className="bg-[var(--bg)]">
@@ -217,25 +293,27 @@ export default function ArticlePage() {
           <div className="flex flex-wrap items-center justify-center gap-4 font-ui text-xs uppercase tracking-[0.08em] text-[var(--ink-faint)]">
             {article.authorName ? <span>By {article.authorName}</span> : null}
             {article.publishedAt ? <span>{new Date(article.publishedAt).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })}</span> : null}
-            <span className="inline-flex items-center gap-1"><Clock size={13} /> {article.readingTime || 8} min read</span>
+            <span className="inline-flex items-center gap-1"><Clock size={13} /> {getReadingTime(article.body)}</span>
             {article.viewCount ? <span className="inline-flex items-center gap-1"><Eye size={13} /> {article.viewCount} reads</span> : null}
           </div>
         </div>
 
-        {/* Cover image in center */}
-        <div className="max-w-3xl mx-auto mt-10">
-          <ParchmentCard className="overflow-hidden p-2" corners={false}>
-            <img src={image} alt={article.title} className="max-h-[500px] w-full rounded-[6px] object-cover" />
-          </ParchmentCard>
-        </div>
+        {/* Cover image in center (only if uploaded) */}
+        {(article.featuredImage || article.coverImage) && (
+          <div className="max-w-3xl mx-auto mt-10">
+            <ParchmentCard className="overflow-hidden p-2" corners={false}>
+              <img src={article.featuredImage || article.coverImage} alt={article.title} className="max-h-[500px] w-full rounded-[6px] object-cover" />
+            </ParchmentCard>
+          </div>
+        )}
 
         {/* Action bar below cover image */}
         <div className="flex justify-center mt-6">
-          <ArticleActionBar title={article.title} downloadUrl={article.pdfUrl || article.fileUrl} />
+          <ArticleActionBar articleId={article.id} title={article.title} downloadUrl={article.pdfUrl || article.fileUrl} />
         </div>
       </section>
 
-      <section className="container-anv pb-16 max-w-2xl mx-auto">
+      <section className="px-4 pb-16 max-w-3xl mx-auto">
         <article className="w-full">
           <OrnamentDivider className="mb-8" />
           
@@ -417,14 +495,71 @@ export default function ArticlePage() {
                                 {new Date(comment.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                               </span>
                             </div>
-                            <p className="font-body text-sm text-[var(--ink-soft)] leading-relaxed whitespace-pre-wrap">{comment.content}</p>
-                            <button
-                              type="button"
-                              onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
-                              className="mt-2 flex items-center gap-1 font-ui text-[10px] text-[var(--muted)] hover:text-[var(--terracotta)] transition-colors"
-                            >
-                              <MessageSquare size={11} /> {replyingTo === comment.id ? "Cancel" : `Reply${comment.replies?.length ? ` (${comment.replies.length})` : ""}`}
-                            </button>
+
+                            {editingCommentId === comment.id ? (
+                              <div className="mt-2 space-y-2">
+                                <textarea
+                                  className="input-sacred w-full min-h-[85px] text-sm resize-y"
+                                  value={editingCommentContent}
+                                  onChange={e => setEditingCommentContent(e.target.value)}
+                                  maxLength={3000}
+                                />
+                                <div className="flex gap-2 justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingCommentId(null)}
+                                    className="btn-ink px-2.5 py-1 text-[10px]"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCommentEdit(comment.id)}
+                                    disabled={!editingCommentContent.trim()}
+                                    className="btn-terracotta px-2.5 py-1 text-[10px]"
+                                  >
+                                    Save
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="font-body text-sm text-[var(--ink-soft)] leading-relaxed whitespace-pre-wrap">{comment.content}</p>
+                            )}
+
+                            <div className="mt-2 flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
+                                className="flex items-center gap-1 font-ui text-[10px] text-[var(--muted)] hover:text-[var(--terracotta)] transition-colors"
+                              >
+                                <MessageSquare size={11} /> {replyingTo === comment.id ? "Cancel" : `Reply${comment.replies?.length ? ` (${comment.replies.length})` : ""}`}
+                              </button>
+
+                              {/* Edit/Delete actions for Owner or Admin */}
+                              {user && (user.id === comment.userId || user.role === "ADMIN") && (
+                                <>
+                                  <span className="text-[var(--border)] text-[10px]">•</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingCommentId(comment.id);
+                                      setEditingCommentContent(comment.content);
+                                    }}
+                                    className="font-ui text-[10px] text-[var(--muted)] hover:text-[var(--gold)] transition-colors"
+                                  >
+                                    Edit
+                                  </button>
+                                  <span className="text-[var(--border)] text-[10px]">•</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCommentDelete(comment.id)}
+                                    className="font-ui text-[10px] text-[var(--muted)] hover:text-red-400 transition-colors"
+                                  >
+                                    Delete
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
 
@@ -475,7 +610,59 @@ export default function ArticlePage() {
                                       {new Date(reply.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                                     </span>
                                   </div>
-                                  <p className="font-body text-sm text-[var(--ink-soft)] leading-relaxed whitespace-pre-wrap">{reply.content}</p>
+
+                                  {editingCommentId === reply.id ? (
+                                    <div className="mt-1 space-y-2">
+                                      <textarea
+                                        className="input-sacred w-full min-h-[70px] text-xs resize-y"
+                                        value={editingCommentContent}
+                                        onChange={e => setEditingCommentContent(e.target.value)}
+                                        maxLength={2000}
+                                      />
+                                      <div className="flex gap-2 justify-end">
+                                        <button
+                                          type="button"
+                                          onClick={() => setEditingCommentId(null)}
+                                          className="btn-ink px-2 py-0.5 text-[9px]"
+                                        >
+                                          Cancel
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleCommentEdit(reply.id, comment.id)}
+                                          disabled={!editingCommentContent.trim()}
+                                          className="btn-terracotta px-2 py-0.5 text-[9px]"
+                                        >
+                                          Save
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <p className="font-body text-sm text-[var(--ink-soft)] leading-relaxed whitespace-pre-wrap">{reply.content}</p>
+                                  )}
+
+                                  {user && (user.id === reply.userId || user.role === "ADMIN") && (
+                                    <div className="mt-1 flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingCommentId(reply.id);
+                                          setEditingCommentContent(reply.content);
+                                        }}
+                                        className="font-ui text-[9px] text-[var(--muted)] hover:text-[var(--gold)] transition-colors"
+                                      >
+                                        Edit
+                                      </button>
+                                      <span className="text-[var(--border)] text-[9px]">•</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCommentDelete(reply.id, comment.id)}
+                                        className="font-ui text-[9px] text-[var(--muted)] hover:text-red-400 transition-colors"
+                                      >
+                                        Delete
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             ))}
