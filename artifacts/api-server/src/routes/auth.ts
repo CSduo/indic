@@ -8,6 +8,7 @@ import {
   createAdminToken, setAdminCookie
 } from "../lib/auth";
 import { z } from "zod";
+import { sendNewMemberNotification } from "../lib/notifier";
 
 const router = Router();
 
@@ -191,6 +192,7 @@ router.post("/auth/signup", async (req, res) => {
     const [user] = await db.insert(usersTable).values({ name, email, password: hashedPassword }).returning();
     const token = await createUserToken(user.id, user.email);
     setUserCookie(res, token);
+    sendNewMemberNotification(user.name || name, user.email).catch(() => {});
     return res.json({ success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
   } catch (err: any) {
     req.log.error(err);
@@ -240,6 +242,7 @@ router.post("/auth/register", async (req, res) => {
     const [user] = await db.insert(usersTable).values({ name, email, password: hashedPassword }).returning();
     const token = await createUserToken(user.id, user.email);
     setUserCookie(res, token);
+    sendNewMemberNotification(user.name || name, user.email).catch(() => {});
     return res.json({ success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
   } catch (err: any) {
     req.log.error(err);
@@ -425,6 +428,7 @@ router.post("/auth/google", async (req, res) => {
         avatarUrl,
         // Since they log in with Google, we don't set a password (it remains null/empty)
       }).returning();
+      sendNewMemberNotification(user.name || name, user.email).catch(() => {});
     } else if (!user.avatarUrl && avatarUrl) {
       // Update avatar if not already set
       const [updatedUser] = await db.update(usersTable)

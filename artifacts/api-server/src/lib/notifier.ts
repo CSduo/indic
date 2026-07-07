@@ -1,3 +1,4 @@
+import nodemailer from "nodemailer";
 import { logger } from "./logger";
 
 interface SubmissionNotificationData {
@@ -110,5 +111,66 @@ export async function sendSubmissionNotification(sub: SubmissionNotificationData
     } catch (err: any) {
       logger.error({ error: err.message }, "Failed to send Twilio notification");
     }
+  }
+
+  // 4. CallMeBot WhatsApp (Free public WhatsApp API)
+  const callmebotPhone = process.env.WHATSAPP_PHONE || "918828051561";
+  const callmebotApiKey = process.env.CALLMEBOT_API_KEY;
+
+  if (callmebotApiKey) {
+    try {
+      const url = `https://api.callmebot.com/whatsapp.php?phone=${callmebotPhone}&text=${encodeURIComponent(messageText)}&apikey=${callmebotApiKey}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`CallMeBot API returned status ${res.status}`);
+      }
+      logger.info("CallMeBot WhatsApp notification sent successfully");
+    } catch (err: any) {
+      logger.error({ error: err.message }, "Failed to send CallMeBot WhatsApp notification");
+    }
+  } else {
+    logger.warn("CALLMEBOT_API_KEY env variable is not set. CallMeBot WhatsApp notification skipped.");
+  }
+}
+
+export async function sendNewMemberNotification(memberName: string, memberEmail: string): Promise<void> {
+  const adminEmail = "xiyatosaanvi@gmail.com";
+  const subject = `✨ Anvikshiki: New Community Member Joined!`;
+  const textContent = `Hello Admin,\n\nA new member has signed up for the Anvikshiki community:\n\n👤 Name: ${memberName}\n✉️ Email: ${memberEmail}\n\nBest regards,\nAnvikshiki Journal Server`;
+  
+  logger.info({ memberName, memberEmail }, "Triggering new member email notification...");
+
+  if (
+    process.env.SMTP_HOST &&
+    process.env.SMTP_PORT &&
+    process.env.SMTP_USER &&
+    process.env.SMTP_PASS
+  ) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT),
+        secure: Number(process.env.SMTP_PORT) === 465,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || `"Anvikshiki Server" <${process.env.SMTP_USER}>`,
+        to: adminEmail,
+        subject,
+        text: textContent,
+      });
+
+      logger.info("New member email notification sent successfully via SMTP.");
+    } catch (err: any) {
+      logger.error({ error: err.message }, "Failed to send new member email notification via SMTP");
+    }
+  } else {
+    logger.warn(
+      "EMAIL NOTIFICATION WARNING: SMTP credentials (SMTP_HOST, SMTP_USER, etc.) are not configured in Vercel environment variables. Could not send new member email notification."
+    );
   }
 }

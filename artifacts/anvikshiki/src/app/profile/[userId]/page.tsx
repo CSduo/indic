@@ -115,47 +115,20 @@ export default function PublicProfilePage() {
         <ParchmentCard className="p-8 mb-8">
           <div className="flex items-start gap-6">
             {/* Avatar (Clickable for close-up preview) */}
-            <div 
+            <button
+              type="button"
               onClick={() => profile.avatarUrl && setShowLightbox(true)}
-              className={`shrink-0 h-20 w-20 rounded-full overflow-hidden border-2 border-[var(--border-gold)] bg-[var(--terracotta-pale)] flex items-center justify-center ${profile.avatarUrl ? "cursor-zoom-in hover:scale-105 transition-transform" : ""}`}
+              className={`shrink-0 h-20 w-20 rounded-full overflow-hidden border-2 border-[var(--border-gold)] bg-[var(--terracotta-pale)] flex items-center justify-center focus:outline-none ${profile.avatarUrl ? "cursor-zoom-in" : "cursor-default"}`}
               title={profile.avatarUrl ? "Click for close-up" : ""}
+              disabled={!profile.avatarUrl}
+              style={{ transform: "none" }}
             >
               {profile.avatarUrl ? (
                 <img src={profile.avatarUrl} alt={profile.name} className="h-full w-full object-cover" />
               ) : (
                 <span className="font-display text-2xl font-bold text-[var(--terracotta)]">{initials}</span>
               )}
-            </div>
-
-            {/* Lightbox Close-up Modal */}
-            {showLightbox && profile.avatarUrl && (
-              <div 
-                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in"
-                onClick={() => setShowLightbox(false)}
-              >
-                <div 
-                  className="relative max-w-md w-full bg-[var(--bg-alt)] border border-[var(--border-gold)] rounded-2xl p-6 shadow-2xl animate-scale-up"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <button 
-                    onClick={() => setShowLightbox(false)}
-                    className="absolute top-4 right-4 text-[var(--muted)] hover:text-[var(--ink)] transition-colors p-1"
-                    aria-label="Close preview"
-                  >
-                    <X size={20} />
-                  </button>
-                  <div className="flex flex-col items-center">
-                    <div className="h-64 w-64 rounded-full overflow-hidden border-4 border-[var(--border-gold)] shadow-xl mb-4">
-                      <img src={profile.avatarUrl} alt={profile.name} className="h-full w-full object-cover" />
-                    </div>
-                    <h3 className="font-display text-2xl text-[var(--ink)] font-semibold">{profile.name}</h3>
-                    {profile.institution && (
-                      <p className="font-ui text-sm text-[var(--muted)] mt-1">{profile.institution}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
+            </button>
 
             {/* Info */}
             <div className="flex-1 min-w-0">
@@ -227,6 +200,38 @@ export default function PublicProfilePage() {
           )}
         </section>
       </div>
+
+      {/* Lightbox Close-up Modal — rendered at page root to prevent flicker */}
+      {showLightbox && profile.avatarUrl && (
+        <div
+          className="fixed inset-0 z-[999] flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.82)", backdropFilter: "blur(8px)" }}
+          onClick={() => setShowLightbox(false)}
+        >
+          <div
+            className="relative max-w-md w-full border border-[var(--border-gold)] rounded-2xl p-6 shadow-2xl"
+            style={{ background: "var(--bg-alt, var(--bg))" }}
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowLightbox(false)}
+              className="absolute top-4 right-4 text-[var(--muted)] hover:text-[var(--ink)] transition-colors p-1 rounded-full"
+              aria-label="Close preview"
+            >
+              <X size={20} />
+            </button>
+            <div className="flex flex-col items-center">
+              <div className="h-64 w-64 rounded-full overflow-hidden border-4 border-[var(--border-gold)] shadow-xl mb-4">
+                <img src={profile.avatarUrl} alt={profile.name} className="h-full w-full object-cover" loading="eager" />
+              </div>
+              <h3 className="font-display text-2xl text-[var(--ink)] font-semibold text-center">{profile.name}</h3>
+              {profile.institution && (
+                <p className="font-ui text-sm text-[var(--muted)] mt-1 text-center">{profile.institution}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

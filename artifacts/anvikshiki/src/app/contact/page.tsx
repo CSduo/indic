@@ -117,7 +117,7 @@ export default function ContactPage() {
                   </button>
                   {status === "err" && (
                     <p className="font-ui text-xs text-[var(--lotus)] text-center">
-                      Submission failed. Email us directly at <a href="mailto:journal@anvikshiki.in" className="underline">journal@anvikshiki.in</a>
+                      Submission failed. Email us directly at <a href="mailto:xiyatosaanvi@gmail.com" className="underline">xiyatosaanvi@gmail.com</a>
                     </p>
                   )}
                 </form>
@@ -132,8 +132,8 @@ export default function ContactPage() {
                 <Mail size={18} className="text-[var(--gold)]" />
                 <h3 className="font-display text-xl text-[var(--ink)]">Editorial</h3>
               </div>
-              <a href="mailto:journal@anvikshiki.in" className="font-ui text-sm text-[var(--gold)] hover:underline">
-                journal@anvikshiki.in
+              <a href="mailto:xiyatosaanvi@gmail.com" className="font-ui text-sm text-[var(--gold)] hover:underline">
+                xiyatosaanvi@gmail.com
               </a>
               <p className="mt-2 font-body text-xs leading-5 text-[var(--muted)]">
                 For submissions, editorial queries, and review-related correspondence.
