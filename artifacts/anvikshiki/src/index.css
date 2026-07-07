@@ -4535,4 +4535,55 @@ input[type="search"]::-webkit-search-decoration {
   box-shadow: 0 6px 25px rgba(201, 152, 58, 0.25);
 }
 
+/* Premium Mobile Action Bar Styles */
+.action-bar-container {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 0.35rem;
+  width: 100%;
+  max-width: 100%;
+  justify-content: space-between;
+}
+
+@media (max-width: 480px) {
+  .action-bar-container {
+    gap: 0.25rem;
+  }
+}
+
+.btn-action-bar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: auto !important;
+  padding: 0.35rem 0.5rem !important;
+  font-family: var(--font-ui);
+  font-size: 0.65rem !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-ink) !important;
+  color: var(--ink) !important;
+  background: transparent !important;
+  white-space: nowrap;
+  flex: 1;
+  cursor: pointer;
+}
+
+.btn-action-bar:hover {
+  background: var(--ink-wash) !important;
+  border-color: var(--border-strong) !important;
+}
+
+@media (max-width: 480px) {
+  .btn-action-bar {
+    padding: 0.3rem 0.35rem !important;
+    font-size: 0.58rem !important;
+    gap: 0.2rem;
+  }
+}
+
+
 

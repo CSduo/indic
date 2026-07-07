@@ -107,11 +107,11 @@ export function ArticleActionBar({ articleId, title, downloadUrl, className, ver
     }
   };
 
-  const buttonClass = "btn-ink min-h-0 px-2 sm:px-3 py-1.5 text-[9px] sm:text-[0.65rem] whitespace-nowrap flex items-center justify-center gap-1.5 flex-1 sm:flex-initial";
+  const buttonClass = "btn-action-bar";
 
   return (
-    <div className={className}>
-      <div className={vertical ? "flex flex-col gap-1.5" : "flex flex-row flex-nowrap gap-1.5 sm:gap-2 w-full justify-between sm:justify-start"}>
+    <div className={className} style={{ width: "100%", maxWidth: "100%" }}>
+      <div className={vertical ? "flex flex-col gap-1.5" : "action-bar-container"}>
         <button
           type="button"
           className={buttonClass}
