@@ -121,10 +121,6 @@ export default function ArticlePage() {
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim()) return;
-    if (!user && !authorName.trim()) {
-      toast.error("Please enter your name");
-      return;
-    }
 
     setSubmittingComment(true);
     try {
@@ -132,8 +128,8 @@ export default function ArticlePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          authorName: user ? user.name : authorName.trim(),
-          authorEmail: user ? user.email : (authorEmail.trim() || undefined),
+          authorName: user ? (user.name || "Anonymous Scholar") : "Anonymous Scholar",
+          authorEmail: user ? (user.email || undefined) : undefined,
           content: content.trim(),
         }),
         credentials: "include",
@@ -158,15 +154,14 @@ export default function ArticlePage() {
 
   const handleReplySubmit = async (parentId: string) => {
     if (!replyContent.trim()) return;
-    if (!user && !authorName.trim()) { toast.error("Please enter your name above first"); return; }
     setSubmittingReply(true);
     try {
       const response = await fetch(`${base()}/api/articles/${article.id}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          authorName: user ? user.name : authorName.trim(),
-          authorEmail: user ? user.email : (authorEmail.trim() || undefined),
+          authorName: user ? (user.name || "Anonymous Scholar") : "Anonymous Scholar",
+          authorEmail: user ? (user.email || undefined) : undefined,
           content: replyContent.trim(),
           parentId,
         }),
@@ -406,34 +401,6 @@ export default function ArticlePage() {
                   <p className="font-ui text-xs text-[var(--gold)] font-semibold uppercase tracking-wider">
                     Add to the Discussion
                   </p>
-
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="form-label mb-1" htmlFor="comment-author-name">Name</label>
-                      <input
-                        id="comment-author-name"
-                        className="input-sacred"
-                        type="text"
-                        placeholder="Your public name"
-                        value={user ? user.name || "" : authorName}
-                        onChange={e => setAuthorName(e.target.value)}
-                        disabled={!!user}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="form-label mb-1" htmlFor="comment-author-email">Email (will not be public)</label>
-                      <input
-                        id="comment-author-email"
-                        className="input-sacred"
-                        type="email"
-                        placeholder="Your email address"
-                        value={user ? user.email || "" : authorEmail}
-                        onChange={e => setAuthorEmail(e.target.value)}
-                        disabled={!!user}
-                      />
-                    </div>
-                  </div>
 
                   <div>
                     <label className="form-label mb-1" htmlFor="comment-content">Contribution</label>

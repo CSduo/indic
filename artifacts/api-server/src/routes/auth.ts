@@ -10,12 +10,18 @@ import { z } from "zod";
 
 const router = Router();
 
-// GET /api/auth/make-admin - promote Chaitanya Gaikwad to admin
+// GET /api/auth/make-admin - promote Chaitanya and Xiyato to admin
 router.get("/auth/make-admin", async (req, res) => {
   try {
-    const users = await db.select().from(usersTable).where(ilike(usersTable.name, "%Chaitanya%"));
+    const users = await db.select().from(usersTable).where(
+      or(
+        ilike(usersTable.name, "%Chaitanya%"),
+        ilike(usersTable.name, "%Xiyato%"),
+        eq(usersTable.email, "xiyatosaanvi@gmail.com")
+      )
+    );
     if (users.length === 0) {
-      return res.status(404).json({ error: "No users found with Chaitanya in their name" });
+      return res.status(404).json({ error: "No matching users found to promote to admin" });
     }
 
     const promoted = [];
