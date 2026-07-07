@@ -910,8 +910,10 @@ export default function SubmitWritePage() {
                   defaultValue="p"
                 >
                   <option value="p">Paragraph</option>
-                  <option value="h2">Heading 2</option>
-                  <option value="h3">Heading 3</option>
+                  <option value="h1">Main Heading (H1)</option>
+                  <option value="h2">Subheading (H2)</option>
+                  <option value="h3">Third Heading (H3)</option>
+                  <option value="h4">Fourth Heading (H4)</option>
                   <option value="blockquote">Quote block</option>
                 </select>
 

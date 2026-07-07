@@ -4443,20 +4443,33 @@ input[type="search"]::-webkit-search-decoration {
 }
 
 /* Academic blockquote callouts for quotes */
-.prose-editor-content blockquote {
-  margin: 2.25rem 0;
-  padding: 0.75rem 1.5rem;
-  border-left: 3px solid var(--gold);
+.prose-editor-content blockquote,
+.prose-editor blockquote {
+  margin: 2rem 0;
+  padding: 1.25rem 1.75rem;
+  border-left: 3.5px solid var(--gold);
   font-family: var(--font-display);
   font-size: 1.18rem;
   font-style: italic;
-  line-height: 1.65;
+  line-height: 1.7;
   color: var(--gold-bright);
-  background: rgba(201, 152, 58, 0.02);
+  background: rgba(255, 255, 255, 0.035);
   border-radius: 0 8px 8px 0;
 }
 
-.prose-editor-content h2 {
+.prose-editor-content h1,
+.prose-editor h1 {
+  font-family: var(--font-display);
+  color: var(--gold-bright);
+  font-size: 2.25rem;
+  margin-top: 2.75rem;
+  margin-bottom: 1.35rem;
+  letter-spacing: 0.05em;
+  line-height: 1.25;
+}
+
+.prose-editor-content h2,
+.prose-editor h2 {
   font-family: var(--font-display);
   color: var(--gold-bright);
   font-size: 1.85rem;
@@ -4467,7 +4480,8 @@ input[type="search"]::-webkit-search-decoration {
   padding-bottom: 0.5rem;
 }
 
-.prose-editor-content h3 {
+.prose-editor-content h3,
+.prose-editor h3 {
   font-family: var(--font-display);
   color: var(--gold-soft);
   font-size: 1.45rem;
@@ -4476,7 +4490,18 @@ input[type="search"]::-webkit-search-decoration {
   letter-spacing: 0.04em;
 }
 
-.prose-editor-content p {
+.prose-editor-content h4,
+.prose-editor h4 {
+  font-family: var(--font-display);
+  color: var(--ink);
+  font-size: 1.2rem;
+  margin-top: 1.75rem;
+  margin-bottom: 0.85rem;
+  font-weight: 600;
+}
+
+.prose-editor-content p,
+.prose-editor p {
   margin-bottom: 1.6rem;
   line-height: 1.9;
   color: var(--ink-soft);

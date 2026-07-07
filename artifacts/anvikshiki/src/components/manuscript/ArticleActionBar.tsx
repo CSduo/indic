@@ -107,11 +107,11 @@ export function ArticleActionBar({ articleId, title, downloadUrl, className, ver
     }
   };
 
-  const buttonClass = "btn-ink min-h-0 px-3 py-2 text-[0.65rem]";
+  const buttonClass = "btn-ink min-h-0 px-2 sm:px-3 py-1.5 text-[9px] sm:text-[0.65rem] whitespace-nowrap flex items-center justify-center gap-1.5 flex-1 sm:flex-initial";
 
   return (
     <div className={className}>
-      <div className={vertical ? "flex flex-col gap-2" : "flex flex-wrap gap-2"}>
+      <div className={vertical ? "flex flex-col gap-1.5" : "flex flex-row flex-nowrap gap-1.5 sm:gap-2 w-full justify-between sm:justify-start"}>
         <button
           type="button"
           className={buttonClass}
@@ -119,19 +119,20 @@ export function ArticleActionBar({ articleId, title, downloadUrl, className, ver
           disabled={loadingSave}
           aria-label={isSaved ? "Remove from saved" : "Save article"}
         >
-          <Bookmark size={14} fill={isSaved ? "var(--gold)" : "none"} className={isSaved ? "text-[var(--gold)]" : ""} />
+          <Bookmark size={12} fill={isSaved ? "var(--gold)" : "none"} className={isSaved ? "text-[var(--gold)]" : ""} />
           {isSaved ? "Saved" : "Save"}
         </button>
-        <button type="button" className={buttonClass} onClick={share} aria-label="Share article"><Share2 size={14} /> Share</button>
-        <button type="button" className={buttonClass} onClick={cite} aria-label="Copy citation"><Quote size={14} /> Cite</button>
+        <button type="button" className={buttonClass} onClick={share} aria-label="Share article"><Share2 size={12} /> Share</button>
+        <button type="button" className={buttonClass} onClick={cite} aria-label="Copy citation"><Quote size={12} /> Cite</button>
         {downloadUrl ? (
           <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className={buttonClass} aria-label="Download article">
-            <Download size={14} /> PDF
+            <Download size={12} /> PDF
           </a>
         ) : (
-          <button type="button" className={buttonClass} onClick={() => window.print()} aria-label="Print article"><Download size={14} /> Print</button>
+          <button type="button" className={buttonClass} onClick={() => window.print()} aria-label="Print article"><Download size={12} /> Print</button>
         )}
       </div>
     </div>
   );
+
 }
