@@ -4,7 +4,8 @@ import { articlesTable, papersTable, submissionsTable, usersTable, adminsTable }
 import { and, desc, eq, ilike, or } from "drizzle-orm";
 import {
   hashPassword, comparePassword, createUserToken,
-  getUserAuth, setUserCookie, clearUserCookie
+  getUserAuth, setUserCookie, clearUserCookie,
+  createAdminToken, setAdminCookie
 } from "../lib/auth";
 import { z } from "zod";
 
@@ -21,30 +22,91 @@ router.get("/auth/make-admin", async (req, res) => {
       )
     );
     if (users.length === 0) {
-      return res.status(404).json({ error: "No matching users found to promote to admin" });
+      return res.status(404).send("<h1>No matching users found to promote to admin.</h1>");
     }
 
-    const promoted = [];
+    let firstAdminUser = null;
+
     for (const user of users) {
       // 1. Update user's role to ADMIN
       await db.update(usersTable).set({ role: "ADMIN" as any }).where(eq(usersTable.id, user.id));
 
       // 2. Upsert into adminsTable so they can log into the /admin panel
-      const [existingAdmin] = await db.select().from(adminsTable).where(eq(adminsTable.email, user.email));
-      if (!existingAdmin) {
-        await db.insert(adminsTable).values({
+      let [admin] = await db.select().from(adminsTable).where(eq(adminsTable.email, user.email)).limit(1);
+      if (!admin) {
+        [admin] = await db.insert(adminsTable).values({
           email: user.email,
           name: user.name || "Admin User",
-          password: user.password || "", // keep same password hash
+          password: user.password || "",
           role: "ADMIN" as any
-        });
+        }).returning();
       }
-      promoted.push({ id: user.id, name: user.name, email: user.email });
+      if (!firstAdminUser) {
+        firstAdminUser = admin;
+      }
     }
 
-    return res.json({ success: true, message: "Promoted to ADMIN successfully", promoted });
+    // Set cookie so they are logged in directly if they visit this link
+    if (firstAdminUser) {
+      const token = await createAdminToken(firstAdminUser.id, firstAdminUser.email, "ADMIN");
+      setAdminCookie(res, token);
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Anvikshiki — Promoting Admin...</title>
+          <meta http-equiv="refresh" content="2;url=/admin" />
+          <style>
+            body {
+              background: #0b0c10;
+              color: #c5983a;
+              font-family: system-ui, sans-serif;
+              display: grid;
+              place-items: center;
+              height: 100vh;
+              margin: 0;
+              text-align: center;
+            }
+            .card {
+              border: 1px solid rgba(197, 152, 58, 0.2);
+              padding: 2.5rem;
+              border-radius: 12px;
+              background: #12141c;
+              box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+              max-width: 400px;
+            }
+            .spinner {
+              width: 40px;
+              height: 40px;
+              border: 3px solid rgba(197, 152, 58, 0.2);
+              border-top: 3px solid #c5983a;
+              border-radius: 50%;
+              animation: spin 1s linear infinite;
+              margin: 1.5rem auto;
+            }
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+            h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+            p { color: #a9a9a9; font-size: 0.9rem; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="spinner"></div>
+            <h1>Promotion Successful!</h1>
+            <p>Your account is now elevated to <strong>ADMIN</strong>.</p>
+            <p>Setting up your dashboard session and redirecting you to the Admin Panel...</p>
+          </div>
+        </body>
+      </html>
+    `;
+    return res.send(html);
   } catch (err: any) {
-    return res.status(500).json({ error: err.message || "Failed to promote user to admin" });
+    return res.status(500).send(`<h1>Failed to promote user: ${err.message || err}</h1>`);
   }
 });
 

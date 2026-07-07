@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { User, Mail } from "lucide-react";
+import { User, Mail, ShieldAlert, ShieldCheck } from "lucide-react";
 import { AdminSidebar } from "@/components/sacred/AdminSidebar";
 import { LotusIcon } from "@/components/sacred/LotusIcon";
+import { toast } from "sonner";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -18,6 +19,31 @@ export default function AdminUsersPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [navigate]);
+
+  const toggleRole = async (userId: string, currentRole: string) => {
+    const targetRole = currentRole === "ADMIN" ? "USER" : "ADMIN";
+    const confirmMsg = targetRole === "ADMIN" 
+      ? "Are you sure you want to make this user an ADMIN? They will have full access to modify settings, manage users, and edit articles."
+      : "Are you sure you want to demote this ADMIN to a regular USER?";
+      
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      const r = await fetch(`${base()}/api/admin/users/${userId}/role`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: targetRole }),
+        credentials: "include",
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "Failed to update role");
+
+      toast.success(data.message || `User role updated to ${targetRole}`);
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: targetRole } : u));
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update user role");
+    }
+  };
 
   return (
     <div className="admin-layout">
@@ -46,6 +72,7 @@ export default function AdminUsersPage() {
                   <th scope="col">Email</th>
                   <th scope="col">Role</th>
                   <th scope="col">Joined</th>
+                  <th scope="col" style={{ textAlign: "right" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -66,12 +93,30 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
                     <td>
-                      <span className="font-ui text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(201,152,58,0.1)", color: "var(--gold)", border: "1px solid rgba(201,152,58,0.2)" }}>
+                      <span className="font-ui text-[10px] px-2 py-0.5 rounded-full" style={{ background: u.role === "ADMIN" ? "rgba(239,68,68,0.1)" : "rgba(201,152,58,0.1)", color: u.role === "ADMIN" ? "#ef4444" : "var(--gold)", border: u.role === "ADMIN" ? "1px solid rgba(239,68,68,0.2)" : "1px solid rgba(201,152,58,0.2)" }}>
                         {u.role || "USER"}
                       </span>
                     </td>
                     <td style={{ color: "var(--muted)" }}>
                       {u.createdAt ? new Date(u.createdAt).toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" }) : "—"}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      <button
+                        type="button"
+                        onClick={() => toggleRole(u.id, u.role || "USER")}
+                        className="btn-sacred btn-ghost text-[10px] py-1 px-2.5 inline-flex items-center gap-1"
+                        style={{ borderColor: "rgba(201,152,58,0.15)" }}
+                      >
+                        {u.role === "ADMIN" ? (
+                          <>
+                            <ShieldAlert size={12} className="text-red-400" /> Make Member
+                          </>
+                        ) : (
+                          <>
+                            <ShieldCheck size={12} className="text-emerald-400" /> Make Admin
+                          </>
+                        )}
+                      </button>
                     </td>
                   </tr>
                 ))}

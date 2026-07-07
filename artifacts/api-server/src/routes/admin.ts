@@ -548,6 +548,46 @@ router.get("/admin/users", requireAdmin, async (req, res) => {
   }
 });
 
+// PATCH /api/admin/users/:id/role - change user role (ADMIN only)
+router.patch("/admin/users/:id/role", requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const schema = z.object({
+      role: z.enum(["USER", "ADMIN"]),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid role" });
+
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const newRole = parsed.data.role;
+
+    // Update in usersTable
+    await db.update(usersTable).set({ role: newRole as any, updatedAt: new Date() }).where(eq(usersTable.id, id));
+
+    // Sync to adminsTable
+    if (newRole === "ADMIN") {
+      const [existingAdmin] = await db.select().from(adminsTable).where(eq(adminsTable.email, user.email));
+      if (!existingAdmin) {
+        await db.insert(adminsTable).values({
+          email: user.email,
+          name: user.name || "Admin User",
+          password: user.password || "",
+          role: "ADMIN" as any,
+        });
+      }
+    } else {
+      await db.delete(adminsTable).where(eq(adminsTable.email, user.email));
+    }
+
+    return res.json({ success: true, message: `Role updated to ${newRole}` });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed to update role" });
+  }
+});
+
 // GET /api/admin/site-settings
 router.get("/admin/site-settings", requireAdmin, async (req, res) => {
   try {
