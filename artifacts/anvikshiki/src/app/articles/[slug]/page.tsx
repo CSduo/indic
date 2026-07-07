@@ -283,7 +283,13 @@ export default function ArticlePage() {
             <GlyphTag domain={domain} />
           </div>
           <h1 className="font-display text-[clamp(2.4rem,6vw,4.8rem)] leading-[1.05] text-[var(--ink)] max-w-3xl mx-auto">{article.title}</h1>
-          {article.excerpt ? <p className="max-w-2xl font-display text-xl leading-relaxed text-[var(--terracotta)] mx-auto">{article.excerpt}</p> : null}
+          {article.excerpt ? (
+            <div className="max-w-2xl mx-auto space-y-1">
+              <p className="font-ui text-[10px] uppercase tracking-[0.18em] text-[var(--gold-soft)] opacity-70">Abstract</p>
+              <p className="font-body text-base leading-relaxed text-[var(--ink-soft)] italic">{article.excerpt}</p>
+            </div>
+          ) : null}
+
           <OrnamentDivider variant="minimal" className="my-5 justify-center mx-auto" />
           <div className="flex flex-wrap items-center justify-center gap-4 font-ui text-xs uppercase tracking-[0.08em] text-[var(--ink-faint)]">
             {article.authorName ? <span>By {article.authorName}</span> : null}

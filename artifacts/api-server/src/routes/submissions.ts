@@ -387,12 +387,36 @@ router.get("/submissions", async (req, res) => {
       .where(and(...conditions))
       .orderBy(submissionsTable.createdAt);
 
-    return res.json({ submissions });
+    // For PUBLISHED submissions, join to find the article slug so the author can edit
+    const publishedIds = submissions
+      .filter(s => s.status === "PUBLISHED")
+      .map(s => s.id);
+
+    let slugMap: Record<string, string> = {};
+    if (publishedIds.length > 0) {
+      const { inArray: inArr } = await import("drizzle-orm");
+      const articles = await db.select({
+        submissionId: articlesTable.submissionId,
+        slug: articlesTable.slug,
+      }).from(articlesTable)
+        .where(inArr(articlesTable.submissionId, publishedIds));
+      for (const a of articles) {
+        if (a.submissionId) slugMap[a.submissionId] = a.slug;
+      }
+    }
+
+    const enriched = submissions.map(s => ({
+      ...s,
+      slug: slugMap[s.id] || null,
+    }));
+
+    return res.json({ submissions: enriched });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed" });
   }
 });
+
 
 // GET /api/submissions/:id (single submission by ID)
 router.get("/submissions/:id", async (req, res) => {

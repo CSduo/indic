@@ -3003,14 +3003,18 @@ body:has(.sacred-drawer) {
 }
 
 .home-recent-image {
-  height: 140px;
+  height: 185px;
   overflow: hidden;
+  width: 100%;
+  display: block;
 }
 
 .home-recent-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center top;
+  display: block;
 }
 
 .home-recent-content {

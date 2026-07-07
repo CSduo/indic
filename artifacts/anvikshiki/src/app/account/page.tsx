@@ -164,6 +164,12 @@ export default function AccountPage() {
                   <Edit3 size={12} /> Resume
                 </Link>
               ) : null}
+              {submission.status === "PUBLISHED" && submission.slug ? (
+                <Link href={`/account/edit/${submission.slug}`} className="btn-ink px-2 py-1 text-[10px]" style={{ color: "var(--gold)" }}>
+                  <Edit3 size={12} /> Edit Post
+                </Link>
+              ) : null}
+
               <button
                 type="button"
                 onClick={() => deleteSubmission(submission.id)}

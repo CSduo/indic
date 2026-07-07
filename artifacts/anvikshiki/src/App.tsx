@@ -32,6 +32,7 @@ import ProfilePage      from "@/app/account/profile/page";
 import CollectionsPage  from "@/app/account/collections/page";
 import NotificationsPage from "@/app/account/notifications/page";
 import SettingsPage     from "@/app/account/settings/page";
+import EditArticlePage  from "@/app/account/edit/[slug]/page";
 import SubmitLandingPage  from "@/app/submit/page";
 import PublicUserProfilePage from "@/app/profile/[userId]/page";
 
@@ -114,6 +115,7 @@ function Router() {
         <Route path="/account/collections"     component={() => <AppShell><CollectionsPage /></AppShell>} />
         <Route path="/account/notifications"   component={() => <AppShell><NotificationsPage /></AppShell>} />
         <Route path="/account/settings"        component={() => <AppShell><SettingsPage /></AppShell>} />
+        <Route path="/account/edit/:slug"       component={() => <AppShell><EditArticlePage /></AppShell>} />
         <Route path="/submit"                  component={() => <AppShell><SubmitLandingPage /></AppShell>} />
         <Route path="/profile/:userId"          component={() => <AppShell><PublicUserProfilePage /></AppShell>} />
         <Route path="/submit/details"          component={() => <AppShell><SubmitDetailsPage /></AppShell>} />

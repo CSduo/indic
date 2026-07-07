@@ -73,4 +73,46 @@ router.get("/articles/:slug", async (req, res) => {
   }
 });
 
+// PATCH /api/articles/:slug/edit — author can update their own published article
+router.patch("/articles/:slug/edit", async (req, res) => {
+  try {
+    const { getUserAuth } = await import("../lib/auth");
+    const auth = await getUserAuth(req);
+    if (!auth) return res.status(401).json({ error: "You must be logged in to edit" });
+
+    const { slug } = req.params;
+    const [row] = await db
+      .select({ article: articlesTable })
+      .from(articlesTable)
+      .where(and(eq(articlesTable.slug, slug), eq(articlesTable.status, "PUBLISHED")))
+      .limit(1);
+
+    if (!row) return res.status(404).json({ error: "Article not found" });
+    if (row.article.deleted) return res.status(404).json({ error: "Article not found" });
+
+    // Only the original author (by userId) can self-edit
+    if (row.article.userId !== auth.userId) {
+      return res.status(403).json({ error: "You can only edit your own articles" });
+    }
+
+    const { title, excerpt, body } = req.body;
+    const updates: Record<string, any> = { updatedAt: new Date() };
+    if (typeof title === "string" && title.trim()) updates.title = title.trim();
+    if (typeof excerpt === "string") updates.excerpt = excerpt.trim();
+    if (typeof body === "string") updates.body = body;
+
+    const [updated] = await db
+      .update(articlesTable)
+      .set(updates)
+      .where(eq(articlesTable.slug, slug))
+      .returning();
+
+    return res.json({ success: true, article: updated });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed to update article" });
+  }
+});
+
 export default router;
+
