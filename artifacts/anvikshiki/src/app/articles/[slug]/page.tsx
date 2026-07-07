@@ -412,7 +412,8 @@ export default function ArticlePage() {
                     <label className="form-label mb-1" htmlFor="comment-content">Contribution</label>
                     <textarea
                       id="comment-content"
-                      className="input-sacred min-h-[110px] resize-y text-sm"
+                      className="textarea-sacred w-full text-sm resize-y"
+                      style={{ minHeight: "110px" }}
                       placeholder="Share your thoughts or inquiry on this text..."
                       value={content}
                       onChange={e => setContent(e.target.value)}
@@ -472,7 +473,8 @@ export default function ArticlePage() {
                             {editingCommentId === comment.id ? (
                               <div className="mt-2 space-y-2">
                                 <textarea
-                                  className="input-sacred w-full min-h-[85px] text-sm resize-y"
+                                  className="textarea-sacred w-full text-sm resize-y"
+                                  style={{ minHeight: "85px" }}
                                   value={editingCommentContent}
                                   onChange={e => setEditingCommentContent(e.target.value)}
                                   maxLength={3000}
@@ -540,7 +542,8 @@ export default function ArticlePage() {
                         {replyingTo === comment.id && (
                           <div className="mt-3 ml-12 border-l-2 border-[var(--border-gold)] pl-4">
                             <textarea
-                              className="input-sacred w-full min-h-[80px] resize-y text-sm"
+                              className="textarea-sacred w-full resize-y text-sm"
+                              style={{ minHeight: "80px" }}
                               placeholder={`Reply to ${comment.authorName}…`}
                               value={replyContent}
                               onChange={e => setReplyContent(e.target.value)}
@@ -587,7 +590,8 @@ export default function ArticlePage() {
                                   {editingCommentId === reply.id ? (
                                     <div className="mt-1 space-y-2">
                                       <textarea
-                                        className="input-sacred w-full min-h-[70px] text-xs resize-y"
+                                        className="textarea-sacred w-full text-xs resize-y"
+                                        style={{ minHeight: "70px" }}
                                         value={editingCommentContent}
                                         onChange={e => setEditingCommentContent(e.target.value)}
                                         maxLength={2000}

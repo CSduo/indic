@@ -207,7 +207,8 @@ export default function ProfilePage() {
               <label className="form-label mb-1" htmlFor="profile-bio">Short Bio</label>
               <textarea
                 id="profile-bio"
-                className="input-sacred min-h-[96px] resize-y"
+                className="textarea-sacred resize-y"
+                style={{ minHeight: "96px" }}
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 placeholder="A brief note about your scholarly interests and work…"

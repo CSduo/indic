@@ -96,11 +96,11 @@ export default function AdminNewArticlePage() {
           </div>
           <div>
             <label className="form-label" htmlFor="art-excerpt">Excerpt</label>
-            <textarea id="art-excerpt" className="input-sacred" rows={2} value={form.excerpt} onChange={e => set("excerpt", e.target.value)} placeholder="Brief summary shown in article cards…" />
+            <textarea id="art-excerpt" className="textarea-sacred" rows={3} value={form.excerpt} onChange={e => set("excerpt", e.target.value)} placeholder="Brief summary shown in article cards…" />
           </div>
           <div>
             <label className="form-label" htmlFor="art-body">Body *</label>
-            <textarea id="art-body" className="input-sacred" rows={14} value={form.body} onChange={e => set("body", e.target.value)} placeholder="Full article text (Markdown supported)…" required />
+            <textarea id="art-body" className="textarea-sacred" rows={14} value={form.body} onChange={e => set("body", e.target.value)} placeholder="Full article text (Markdown supported)…" required />
           </div>
           <div>
             <label className="form-label" htmlFor="art-meta">Meta Description</label>

@@ -105,7 +105,8 @@ export default function ContactPage() {
                     <label className="form-label mb-1" htmlFor="c-message">Message *</label>
                     <textarea
                       id="c-message"
-                      className="input-sacred min-h-[140px] resize-y"
+                      className="textarea-sacred resize-y"
+                      style={{ minHeight: "140px" }}
                       value={form.message}
                       onChange={set("message")}
                       placeholder="Write your message here…"

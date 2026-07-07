@@ -88,11 +88,11 @@ export default function AdminNewPaperPage() {
           </div>
           <div>
             <label className="form-label" htmlFor="paper-abstract">Abstract *</label>
-            <textarea id="paper-abstract" className="input-sacred" rows={4} value={form.abstract} onChange={e => set("abstract", e.target.value)} required />
+            <textarea id="paper-abstract" className="textarea-sacred" rows={6} value={form.abstract} onChange={e => set("abstract", e.target.value)} required />
           </div>
           <div>
             <label className="form-label" htmlFor="paper-body">Full Text</label>
-            <textarea id="paper-body" className="input-sacred" rows={10} value={form.body} onChange={e => set("body", e.target.value)} placeholder="Full paper text or leave empty for PDF-only papers…" />
+            <textarea id="paper-body" className="textarea-sacred" rows={12} value={form.body} onChange={e => set("body", e.target.value)} placeholder="Full paper text or leave empty for PDF-only papers…" />
           </div>
           <div>
             <label className="form-label" htmlFor="paper-keywords">Keywords (comma separated)</label>
