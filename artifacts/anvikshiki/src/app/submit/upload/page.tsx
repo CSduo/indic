@@ -515,6 +515,7 @@ export default function SubmitUploadPage() {
                     inputRef={imgRef}
                     onFileChange={pickImg}
                   />
+                </div>
                 {/* Voice note recorder */}
                 <div>
                   <div className="upload-section-label">
