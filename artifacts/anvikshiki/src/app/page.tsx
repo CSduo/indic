@@ -21,7 +21,9 @@ type RecentPublication = {
   categoryName?: string;
   authorName?: string;
   publishedAt?: string;
+  readingMinutes?: number;
 };
+
 
 /* ── Decorative mandala ring for section headers ── */
 function SectionMandala({ size = 52, color = "currentColor" }: { size?: number; color?: string }) {
@@ -165,8 +167,8 @@ export default function HomePage() {
       .catch(() => {});
 
     Promise.all([
-      fetch(`${base}/api/articles?limit=12`, { credentials: "include" }).then(r => r.json()),
-      fetch(`${base}/api/papers?limit=12`, { credentials: "include" }).then(r => r.json()),
+      fetch(`${base}/api/articles?limit=24`, { credentials: "include" }).then(r => r.json()),
+      fetch(`${base}/api/papers?limit=24`, { credentials: "include" }).then(r => r.json()),
     ])
       .then(([articleData, paperData]) => {
         const articles: RecentPublication[] = (articleData.articles || []).map((article: any) => ({
@@ -181,6 +183,7 @@ export default function HomePage() {
           categoryName: article.category?.name,
           authorName: article.authorName,
           publishedAt: article.publishedAt || article.createdAt,
+          readingMinutes: article.readingMinutes || undefined,
         }));
         const papers: RecentPublication[] = (paperData.papers || []).map((paper: any) => ({
           id: paper.id,
@@ -194,12 +197,13 @@ export default function HomePage() {
           categoryName: paper.category?.name,
           authorName: paper.authorName,
           publishedAt: paper.publishedAt || paper.createdAt,
+          readingMinutes: paper.readingMinutes || undefined,
         }));
 
         setRecentPublications(
           [...articles, ...papers]
             .sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime())
-            .slice(0, 12),
+            .slice(0, 24),
         );
       })
       .catch(() => {});
@@ -208,8 +212,7 @@ export default function HomePage() {
   const moveRecentPublications = useCallback((direction: -1 | 1) => {
     const track = recentTrackRef.current;
     if (!track) return;
-    const firstCard = track.firstElementChild as HTMLElement | null;
-    const distance = (firstCard?.offsetWidth || 300) + 20;
+    const distance = track.clientWidth * 0.85;
     const atStart = track.scrollLeft <= 8;
     const atEnd = track.scrollLeft + track.clientWidth >= track.scrollWidth - 8;
 
@@ -221,6 +224,7 @@ export default function HomePage() {
       track.scrollBy({ left: direction * distance, behavior: "smooth" });
     }
   }, []);
+
 
   useEffect(() => {
     if (recentPublications.length < 6) return;
@@ -318,7 +322,7 @@ export default function HomePage() {
               <span className="home-v3-lotus-mark">✦</span>
               <h2 className="home-v3-section-title">Recently Submitted</h2>
               <div className="home-recent-actions">
-                {recentPublications.length >= 6 && (
+                {recentPublications.length > 4 && (
                   <div className="home-recent-nav" aria-label="Recently submitted navigation">
                     <button type="button" onClick={() => moveRecentPublications(-1)} aria-label="Previous submissions" title="Previous submissions">
                       <ChevronLeft size={17} />
@@ -332,46 +336,52 @@ export default function HomePage() {
               </div>
             </div>
             <div
-              ref={recentPublications.length >= 6 ? recentTrackRef : undefined}
-              className={recentPublications.length >= 6 ? "home-recent-track" : "home-recent-grid"}
+              ref={recentTrackRef}
+              className="home-recent-track"
             >
-              {recentPublications.map((publication) => (
-                <Link
-                  key={`${publication.kind}-${publication.id}`}
-                  href={`/${publication.kind === "paper" ? "papers" : "articles"}/${publication.slug}`}
-                  className="home-v3-essay-card home-recent-card"
-                >
-                  {publication.imageUrl && (
-                    <div className="home-recent-image">
-                      <img
-                        src={publication.imageUrl}
-                        alt={publication.imageAlt || publication.title}
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                      />
-                    </div>
-                  )}
-                  <div className="home-recent-content">
-                    <div className="home-v3-essay-meta">
-                      <AnimalGlyph domain={publication.categorySlug || (publication.kind === "paper" ? "papers" : "archive")} size={26} />
-                      <span className="home-v3-essay-cat" style={{ color: "var(--gold)" }}>
-                        {publication.categoryName || publication.categorySlug || (publication.kind === "paper" ? "Paper" : "Essay")}
-                      </span>
-                    </div>
-                    <h3 className="home-v3-essay-title home-recent-title">{publication.title}</h3>
-                    {publication.summary && (
-                      <p className="home-recent-summary">{publication.summary}</p>
+              {recentPublications.map((publication) => {
+                const readingTimeText = publication.readingMinutes 
+                  ? `${publication.readingMinutes} min read` 
+                  : publication.kind === "paper" ? "8 min read" : "5 min read";
+                return (
+                  <Link
+                    key={`${publication.kind}-${publication.id}`}
+                    href={`/${publication.kind === "paper" ? "papers" : "articles"}/${publication.slug}`}
+                    className="home-recent-card"
+                  >
+                    {publication.imageUrl && (
+                      <div className="home-recent-image">
+                        <img
+                          src={publication.imageUrl}
+                          alt={publication.imageAlt || publication.title}
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      </div>
                     )}
-                    <div className="home-v3-essay-foot">
-                      <p className="home-v3-essay-author">{publication.authorName || "Editorial"}</p>
-                      {publication.publishedAt && (
-                        <span className="home-recent-date">
-                          {new Date(publication.publishedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                    <div className="home-recent-content">
+                      <div className="home-v3-essay-meta-mini">
+                        <AnimalGlyph domain={publication.categorySlug || (publication.kind === "paper" ? "papers" : "archive")} size={15} />
+                        <span>
+                          {publication.categoryName || publication.categorySlug || (publication.kind === "paper" ? "Paper" : "Essay")}
                         </span>
-                      )}
+                      </div>
+                      <h3 className="home-recent-title">{publication.title}</h3>
+                      <div className="home-v3-essay-foot-mini">
+                        <span className="home-v3-essay-author-mini">{publication.authorName || "Editorial"}</span>
+                        <span>{readingTimeText}</span>
+                      </div>
+                      <div className="font-ui text-[8px] opacity-80 mt-1 flex items-center justify-between" style={{ color: "rgba(255,255,255,0.4)" }}>
+                        <span>Published</span>
+                        {publication.publishedAt && (
+                          <span>
+                            {new Date(publication.publishedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           </div>
         </section>
