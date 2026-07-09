@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, Link, useSearch } from "wouter";
-import { ArrowLeft, Image as ImageIcon, X, CheckCircle, AlertCircle, Lock, Cloud, Save, FileText, Mic, Square, Play, Pause, Trash2, Volume2 } from "lucide-react";
+import { ArrowLeft, Image as ImageIcon, X, CheckCircle, AlertCircle, Lock, Cloud, Save, FileText, Mic, Square, Play, Pause, Trash2, Volume2, Upload } from "lucide-react";
 import { LotusIcon, LotusDivider } from "@/components/sacred/LotusIcon";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -277,6 +277,79 @@ export default function SubmitWritePage() {
   const editorRef = useRef<HTMLDivElement>(null);
   const inlineImgInputRef = useRef<HTMLInputElement>(null);
   const [insertingImage, setInsertingImage] = useState(false);
+
+  const [importingDoc, setImportingDoc] = useState(false);
+  const importDocInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDocImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const isTxt = file.name.endsWith(".txt");
+    const isDocx = file.name.endsWith(".docx") || file.name.endsWith(".doc");
+
+    if (!isTxt && !isDocx) {
+      setError("Please upload a .docx, .doc, or .txt file");
+      if (importDocInputRef.current) importDocInputRef.current.value = "";
+      return;
+    }
+
+    setImportingDoc(true);
+    setError("");
+
+    try {
+      let htmlContent = "";
+
+      if (isTxt) {
+        // Read plain text directly in browser
+        const text = await file.text();
+        // Convert plain text to basic HTML paragraphs
+        htmlContent = text
+          .split(/\n{2,}/)
+          .filter(p => p.trim())
+          .map(p => `<p>${p.trim().replace(/\n/g, "<br>")}</p>`)
+          .join("");
+      } else {
+        // Upload docx to server for extraction
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await fetch(`${base()}/api/media/extract-doc`, {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || "Failed to extract document content");
+        }
+        const data = await res.json();
+        htmlContent = data.html || "";
+      }
+
+      if (!htmlContent) {
+        setError("Could not extract any text from this document");
+        return;
+      }
+
+      // Insert into editor
+      if (editorRef.current) {
+        editorRef.current.focus();
+        const existing = editorRef.current.innerHTML.trim();
+        if (existing && existing !== "<br>") {
+          // Append after existing content
+          editorRef.current.innerHTML = existing + "<hr style=\"border-color:rgba(201,152,58,0.2);margin:2rem 0\">" + htmlContent;
+        } else {
+          editorRef.current.innerHTML = htmlContent;
+        }
+        set("body", editorRef.current.innerHTML);
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to import document");
+    } finally {
+      setImportingDoc(false);
+      if (importDocInputRef.current) importDocInputRef.current.value = "";
+    }
+  };
 
   const execCmd = (command: string, value: string = "") => {
     document.execCommand(command, false, value);
@@ -1009,7 +1082,30 @@ export default function SubmitWritePage() {
                   <Mic size={13} />
                   <span>{uploadingInlineAudio ? "Uploading…" : "Add VN"}</span>
                 </button>
+
+                <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+
+                {/* Import Document */}
+                <input
+                  type="file"
+                  ref={importDocInputRef}
+                  onChange={handleDocImport}
+                  accept=".docx,.doc,.txt"
+                  className="sr-only"
+                />
+                <button
+                  type="button"
+                  onClick={() => importDocInputRef.current?.click()}
+                  disabled={importingDoc}
+                  className="flex items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent"
+                  style={{ color: "var(--gold-soft)" }}
+                  title="Import content from .docx or .txt file"
+                >
+                  <Upload size={13} />
+                  <span>{importingDoc ? "Importing…" : "Import Doc"}</span>
+                </button>
               </div>
+
             </div>
 
             {/* Declaration + Submit */}

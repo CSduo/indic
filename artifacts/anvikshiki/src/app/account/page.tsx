@@ -145,20 +145,20 @@ export default function AccountPage() {
     const canDelete = USER_DELETABLE_STATUSES.has(submission.status);
     return (
       <div key={submission.id} className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3 min-w-0">
             <AnimalGlyph domain={submission.domain || "papers"} size={28} className="mt-1 shrink-0 text-[var(--gold)]" />
-            <div>
-              <h3 className="font-display text-2xl leading-tight text-[var(--ink)]">{submission.title || "Untitled draft"}</h3>
+            <div className="min-w-0">
+              <h3 className="font-display text-xl leading-tight text-[var(--ink)] break-words">{submission.title || "Untitled draft"}</h3>
               <p className="mt-1 font-ui text-xs text-[var(--muted)]">
                 {submission.type} · {submission.createdAt ? new Date(submission.createdAt).toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" }) : "Undated"}
               </p>
               {submission.abstract ? <p className="mt-2 line-clamp-2 font-body text-sm leading-6 text-[var(--ink-soft)]">{submission.abstract}</p> : null}
             </div>
           </div>
-          <div className="flex flex-col items-end gap-2 shrink-0">
-            <span className={`badge ${status.className}`}>{status.label}</span>
-            <div className="flex items-center gap-2">
+          <div className="flex flex-row items-center justify-between gap-2 sm:flex-col sm:items-end shrink-0">
+            <span className={`badge ${status.className} text-[10px]`}>{status.label}</span>
+            <div className="flex items-center gap-1.5 flex-wrap justify-end">
               {isDraft ? (
                 <Link href={`/submit/write?draftId=${submission.id}`} className="btn-ink px-2 py-1 text-[10px]">
                   <Edit3 size={12} /> Resume
@@ -360,7 +360,7 @@ export default function AccountPage() {
             <ParchmentCard className="p-6">
               <p className="type-section-label mb-2">Scholar's Desk</p>
               <h2 className="font-display text-4xl text-[var(--ink)]">Your Profile</h2>
-              <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div className="mt-6 grid grid-cols-2 gap-3">
                 {[
                   ["Submissions", published.length],
                   ["Published", submissions.filter((s) => s.status === "PUBLISHED").length],
@@ -368,8 +368,8 @@ export default function AccountPage() {
                   ["Profile Views", 0],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-4 text-center">
-                    <div className="font-display text-3xl text-[var(--gold)]">{value}</div>
-                    <div className="font-ui text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">{label}</div>
+                    <div className="font-display text-2xl text-[var(--gold)]">{value}</div>
+                    <div className="font-ui text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--ink-faint)] mt-1">{label}</div>
                   </div>
                 ))}
               </div>
@@ -388,12 +388,12 @@ export default function AccountPage() {
             ) : null}
 
             <ParchmentCard className="p-6">
-              <div className="mb-5 flex items-center justify-between gap-4">
+              <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="type-section-label mb-2">My Submissions</p>
                   <h2 className="font-display text-3xl text-[var(--ink)]">Editorial Status</h2>
                 </div>
-                <Link href="/submit" className="btn-terracotta">New Submission</Link>
+                <Link href="/submit" className="btn-terracotta self-start sm:self-auto">New Submission</Link>
               </div>
 
               {published.length === 0 ? (

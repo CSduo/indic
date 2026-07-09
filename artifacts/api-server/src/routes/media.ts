@@ -4,6 +4,8 @@ import multer from "multer";
 import path from "path";
 import { v2 as cloudinary } from "cloudinary";
 import { getUserAuth } from "../lib/auth";
+// @ts-ignore — mammoth has no bundled types but works fine
+import mammoth from "mammoth";
 
 const router = Router();
 
@@ -44,6 +46,20 @@ const upload = multer({
     const ext = path.extname(file.originalname).toLowerCase();
     if (!ALLOWED_MIME_TYPES.has(file.mimetype) || !ALLOWED_EXTENSIONS.has(ext)) {
       cb(new Error("Unsupported file type. Only JPEG, PNG, WEBP, GIF images, and WebM, MP3, OGG, WAV, M4A audio files are allowed."));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
+// Separate multer instance for document uploads (docx / txt)
+const docUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
+  fileFilter: (_req: any, file: any, cb: any): void => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (![".docx", ".doc", ".txt"].includes(ext)) {
+      cb(new Error("Only .docx, .doc, or .txt files are accepted."));
       return;
     }
     cb(null, true);
@@ -128,5 +144,69 @@ router.post("/media/upload", async (req: any, res: any, next: any): Promise<void
     return res.status(500).json({ error: "Media upload failed", detail: err?.message });
   }
 });
+
+// ── Extract document content (DOCX / TXT) → HTML ──
+router.post("/media/extract-doc",
+  async (req: any, res: any, next: any): Promise<void> => {
+    const auth = await getUserAuth(req);
+    if (!auth) { res.status(401).json({ error: "Unauthorized" }); return; }
+    next();
+  },
+  (req: any, res: any, next: any) => {
+    docUpload.single("file")(req, res, (err: any) => {
+      if (err) return res.status(400).json({ error: err.message || "Upload failed" });
+      next();
+    });
+  },
+  async (req: any, res: any) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+      const file = req.file;
+      const ext = path.extname(file.originalname).toLowerCase();
+
+      if (ext === ".txt") {
+        const text: string = file.buffer.toString("utf-8");
+        const html = text
+          .split(/\n{2,}/)
+          .filter((p: string) => p.trim())
+          .map((p: string) => `<p>${p.trim().replace(/\n/g, "<br>")}</p>`)
+          .join("");
+        return res.json({ html });
+      }
+
+      // DOCX — use mammoth to convert to HTML
+      // If Cloudinary is configured, embedded images are uploaded and returned as <img> tags
+      const imageHandler = async (image: any) => {
+        try {
+          if (!process.env.CLOUDINARY_URL) {
+            return { src: "" };
+          }
+          const buffer: Buffer = await image.read();
+          const uploadResult = await new Promise<any>((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+              { folder: "anvikshiki/doc_imports", resource_type: "image" },
+              (err: any, result: any) => (err ? reject(err) : resolve(result))
+            );
+            stream.end(buffer);
+          });
+          return { src: uploadResult.secure_url };
+        } catch {
+          return { src: "" };
+        }
+      };
+
+      const result = await mammoth.convertToHtml(
+        { buffer: file.buffer },
+        { convertImage: mammoth.images.imgElement(imageHandler) }
+      );
+
+      return res.json({ html: result.value || "" });
+    } catch (err: any) {
+      req.log?.error(err);
+      return res.status(500).json({ error: "Document extraction failed", detail: err?.message });
+    }
+  }
+);
 
 export default router;
