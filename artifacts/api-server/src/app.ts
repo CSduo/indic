@@ -5,7 +5,7 @@ import pinoHttp from "pino-http";
 import { rateLimit } from "express-rate-limit";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { syncPublishedSubmissions } from "./lib/publication-sync";
+import { syncPublishedSubmissions, ensureDefaultCategories } from "./lib/publication-sync";
 import { UPLOADS_DIR } from "./routes/submissions";
 import path from "path";
 
@@ -70,21 +70,34 @@ app.use((req, res, next) => {
   next();
 });
 
-let publicationInitialization: Promise<unknown> | null = null;
+let categoriesInitialization: Promise<unknown> | null = null;
 
 app.use(async (req, res, next) => {
-  publicationInitialization ||= syncPublishedSubmissions();
+  categoriesInitialization ||= ensureDefaultCategories();
   try {
-    await publicationInitialization;
+    await categoriesInitialization;
     next();
   } catch (err) {
-    publicationInitialization = null;
-    req.log.error({ err }, "Failed to initialize publication data");
+    categoriesInitialization = null;
+    req.log.error({ err }, "Failed to initialize default categories");
     res.status(500).json({
-      error: "The publication archive could not be initialized. Please try again.",
+      error: "The publication database could not be initialized. Please try again.",
     });
   }
 });
+
+// Run the full backup sync in the background asynchronously so it doesn't block request initialization
+if (process.env.DATABASE_URL) {
+  setTimeout(() => {
+    syncPublishedSubmissions()
+      .then((summary) => {
+        logger.info({ summary }, "Background published submissions sync completed");
+      })
+      .catch((err) => {
+        logger.warn({ err }, "Failed to run background published submissions sync");
+      });
+  }, 1000);
+}
 
 // Rate limiting on auth endpoints
 const authLimiter = rateLimit({
