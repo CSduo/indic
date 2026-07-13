@@ -3,7 +3,6 @@ import { Link } from "wouter";
 import { ArrowRight, BookOpen, ChevronLeft, ChevronRight, Clock3, Compass, Feather, Globe, Layers, Send, Users } from "lucide-react";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
-import { FloralBorder } from "@/components/sacred/FloralDecor";
 import { PrismaticBurst, YantraPattern } from "@/components/sacred/ColorfulDecor";
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -478,7 +477,6 @@ export default function HomePage() {
             <PrismaticBurst size={100} style={{ opacity: 0.5, transform: "scaleX(-1)" }} />
           </div>
         </div>
-        <FloralBorder petals={7} className="mt-4 opacity-55" />
       </section>
 
       {/* ─── ACTION ROWS ─── */}

@@ -737,7 +737,7 @@ button {
 .parchment-card:hover,
 .domain-card:hover {
   transform: translateY(-3px);
-  border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+  border-color: rgba(42,31,14,0.2);
   box-shadow: var(--shadow-lg);
 }
 
@@ -829,17 +829,18 @@ button {
 .btn-terracotta,
 .btn-primary,
 .btn-gold {
-  color: #fff8e8;
-  border-color: var(--border-terracotta);
-  background: linear-gradient(135deg, var(--terracotta), var(--clay));
-  box-shadow: var(--shadow-terracotta);
+  color: #ffffff;
+  border-color: rgba(80,80,80,0.4);
+  background: linear-gradient(135deg, #3a3a3a, #555555);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
 }
 
 .btn-terracotta:hover,
 .btn-primary:hover,
 .btn-gold:hover {
   transform: translateY(-1px);
-  box-shadow: 0 7px 24px rgba(184,76,42,.28);
+  box-shadow: 0 7px 24px rgba(0,0,0,0.32);
+  background: linear-gradient(135deg, #2a2a2a, #444444);
 }
 
 .btn-ink,
@@ -896,9 +897,9 @@ button {
 .select-sacred:focus,
 .textarea-sacred:focus {
   outline: none;
-  border-color: var(--terracotta);
+  border-color: var(--ink-soft);
   background: var(--vellum);
-  box-shadow: 0 0 0 3px var(--terracotta-pale);
+  box-shadow: 0 0 0 3px rgba(42,31,14,0.08);
 }
 
 .input-anv::placeholder,
@@ -928,11 +929,11 @@ button {
 
 .type-section-label,
 .section-label {
-  color: var(--terracotta);
+  color: var(--ink-soft);
 }
 
 .type-gold-label {
-  color: var(--gold);
+  color: var(--ink-soft);
 }
 
 .glyph-tag {
@@ -2908,14 +2909,14 @@ body:has(.sacred-drawer) {
   display: block;
   width: 64px;
   height: 1px;
-  background: linear-gradient(to right, transparent, var(--gold-soft));
+  background: linear-gradient(to right, transparent, var(--border-ink));
 }
 .home-v3-section-head.centered::after {
   content: '';
   display: block;
   width: 64px;
   height: 1px;
-  background: linear-gradient(to left, transparent, var(--gold-soft));
+  background: linear-gradient(to left, transparent, var(--border-ink));
 }
 
 .home-v3-section-title {
@@ -2942,7 +2943,7 @@ body:has(.sacred-drawer) {
 }
 
 .home-v3-lotus-mark {
-  color: var(--gold);
+  color: var(--ink-faint);
   font-size: 0.85rem;
   letter-spacing: 0.3em;
 }
@@ -2956,11 +2957,11 @@ body:has(.sacred-drawer) {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--terracotta);
+  color: var(--ink-soft);
   text-decoration: none;
-  transition: gap var(--motion-fast);
+  transition: gap var(--motion-fast), color var(--motion-fast);
 }
-.home-v3-view-all:hover { gap: 0.55rem; }
+.home-v3-view-all:hover { gap: 0.55rem; color: var(--ink); }
 
 /* ── Featured Essays ── */
 .home-recent-actions,
@@ -2984,9 +2985,9 @@ body:has(.sacred-drawer) {
 }
 
 .home-recent-nav button:hover {
-  border-color: var(--gold);
-  background: var(--gold-pale);
-  color: var(--terracotta);
+  border-color: var(--border-ink);
+  background: var(--ink-wash);
+  color: var(--ink);
 }
 
 .home-recent-grid {
@@ -3098,7 +3099,7 @@ body:has(.sacred-drawer) {
   font-family: var(--font-ui);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--gold-bright);
+  color: rgba(255,255,255,0.75);
 }
 
 .home-v3-essay-foot-mini {
@@ -4494,7 +4495,7 @@ input[type="search"]::-webkit-search-decoration {
 .prose-editor-content h1,
 .prose-editor h1 {
   font-family: var(--font-display);
-  color: var(--gold-bright);
+  color: var(--ink);
   font-size: 2.25rem;
   margin-top: 2.75rem;
   margin-bottom: 1.35rem;
@@ -4505,19 +4506,19 @@ input[type="search"]::-webkit-search-decoration {
 .prose-editor-content h2,
 .prose-editor h2 {
   font-family: var(--font-display);
-  color: var(--gold-bright);
+  color: var(--ink);
   font-size: 1.85rem;
   margin-top: 2.5rem;
   margin-bottom: 1.25rem;
   letter-spacing: 0.05em;
-  border-bottom: 1px dashed rgba(201, 152, 58, 0.15);
+  border-bottom: 1px dashed rgba(42,31,14,0.12);
   padding-bottom: 0.5rem;
 }
 
 .prose-editor-content h3,
 .prose-editor h3 {
   font-family: var(--font-display);
-  color: var(--gold-soft);
+  color: var(--ink-soft);
   font-size: 1.45rem;
   margin-top: 2rem;
   margin-bottom: 1rem;

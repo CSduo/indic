@@ -389,7 +389,22 @@ export default function SubmitWritePage() {
 
       if (editorRef.current) {
         editorRef.current.focus();
-        execCmd("insertImage", imageUrl);
+        // Insert image wrapped in a figure + a guaranteed empty paragraph after
+        // so the user can always click/tap below the image and continue writing
+        const imgHtml = `<figure style="margin:2rem 0;text-align:center;"><img src="${imageUrl}" alt="Inline image" style="max-width:100%;height:auto;border-radius:8px;display:inline-block;" /></figure><p><br></p>`;
+        document.execCommand("insertHTML", false, imgHtml);
+        // Move cursor into the paragraph after the image
+        const paras = editorRef.current.querySelectorAll("p");
+        const lastPara = paras[paras.length - 1];
+        if (lastPara) {
+          const range = document.createRange();
+          const sel = window.getSelection();
+          range.setStart(lastPara, 0);
+          range.collapse(true);
+          sel?.removeAllRanges();
+          sel?.addRange(range);
+        }
+        set("body", editorRef.current.innerHTML);
       }
     } catch (err: any) {
       setError(err.message || "Failed to insert image. Please try again.");
