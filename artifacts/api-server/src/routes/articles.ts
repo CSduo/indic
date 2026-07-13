@@ -44,8 +44,17 @@ router.get("/articles", async (req, res) => {
       .from(articlesTable)
       .where(and(...conditions));
 
-    const result = articles.map(r => ({ ...r.article, category: r.category }));
+    const result = articles.map(r => {
+      const art = { ...r.article, category: r.category };
+      // If readingMinutes is not stored, compute from body word count
+      if (!art.readingMinutes && art.body) {
+        const words = art.body.replace(/<[^>]*>/g, ' ').trim().split(/\s+/).filter(Boolean).length;
+        art.readingMinutes = Math.max(1, Math.round(words / 200));
+      }
+      return art;
+    });
     return res.json({ articles: result, total: Number(count), limit, offset });
+
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed to fetch articles" });

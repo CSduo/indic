@@ -251,8 +251,58 @@ export default function ArticlePage() {
 
   if (loading) {
     return (
-      <div className="grid min-h-[60vh] place-items-center bg-[var(--bg)]">
-        <div className="h-10 w-10 rounded-full border-2 border-[var(--border-gold)] border-t-[var(--gold)]" style={{ animation: "rotateSlow .8s linear infinite" }} role="status" aria-label="Loading" />
+      <div className="bg-[var(--bg)] min-h-screen" aria-busy="true" aria-label="Loading article">
+        {/* Skeleton header */}
+        <section className="container-anv py-8 md:py-16 text-center max-w-4xl mx-auto">
+          <div className="flex justify-center mb-6">
+            {/* Animated lotus / sacred geometry pulse */}
+            <div style={{ position: "relative", width: 64, height: 64 }}>
+              <div style={{
+                width: 64, height: 64, borderRadius: "50%",
+                border: "2px solid var(--border-gold)",
+                animation: "anv-pulse 1.6s ease-in-out infinite",
+              }} />
+              <div style={{
+                position: "absolute", inset: 8,
+                borderRadius: "50%",
+                border: "1.5px solid var(--gold-soft)",
+                opacity: 0.6,
+                animation: "anv-pulse 1.6s ease-in-out infinite 0.3s",
+              }} />
+              <div style={{
+                position: "absolute", inset: 18,
+                borderRadius: "50%",
+                background: "var(--gold-soft)",
+                opacity: 0.25,
+                animation: "anv-pulse 1.6s ease-in-out infinite 0.6s",
+              }} />
+            </div>
+          </div>
+          {/* Skeleton title */}
+          <div className="space-y-3 max-w-2xl mx-auto">
+            <div style={{ height: 48, background: "var(--ink-wash)", borderRadius: 8, animation: "anv-shimmer 1.8s linear infinite" }} />
+            <div style={{ height: 36, background: "var(--ink-wash)", borderRadius: 8, width: "75%", margin: "0 auto", animation: "anv-shimmer 1.8s linear infinite 0.15s" }} />
+          </div>
+          <div style={{ height: 1, background: "var(--border-gold)", margin: "2rem auto", maxWidth: 280, opacity: 0.4 }} />
+          {/* Skeleton meta */}
+          <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
+            {[90, 120, 80, 70].map((w, i) => (
+              <div key={i} style={{ height: 14, width: w, background: "var(--ink-wash)", borderRadius: 4, animation: `anv-shimmer 1.8s linear infinite ${i * 0.1}s` }} />
+            ))}
+          </div>
+        </section>
+        {/* Skeleton body */}
+        <section className="px-4 pb-16 max-w-3xl mx-auto">
+          <div className="space-y-4">
+            {[100, 90, 95, 70, 100, 85, 88, 60, 100, 92].map((w, i) => (
+              <div key={i} style={{ height: 16, background: "var(--ink-wash)", borderRadius: 4, width: `${w}%`, animation: `anv-shimmer 1.8s linear infinite ${i * 0.07}s` }} />
+            ))}
+            <div style={{ height: 80, background: "linear-gradient(135deg,rgba(139,96,32,0.06),rgba(139,96,32,0.03))", borderRadius: 10, borderLeft: "4px solid var(--border-gold)", margin: "1.5rem 0", animation: "anv-shimmer 1.8s linear infinite 0.5s" }} />
+            {[100, 88, 94, 72, 100].map((w, i) => (
+              <div key={`b${i}`} style={{ height: 16, background: "var(--ink-wash)", borderRadius: 4, width: `${w}%`, animation: `anv-shimmer 1.8s linear infinite ${i * 0.07 + 0.6}s` }} />
+            ))}
+          </div>
+        </section>
       </div>
     );
   }
@@ -651,6 +701,51 @@ export default function ArticlePage() {
                 )}
               </div>
             </div>
+
+            <OrnamentDivider className="my-10" />
+
+            {/* ─── SOURCES & REFERENCES ─── */}
+            {article.references && Array.isArray(article.references) && article.references.length > 0 && (
+              <div className="mt-8 mb-10" id="sources">
+                <div className="flex items-center gap-2 mb-5">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--gold)]" aria-hidden="true">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                  </svg>
+                  <h2 className="font-display text-2xl text-[var(--ink)]">Sources &amp; References</h2>
+                </div>
+                <div className="card-sacred p-5" style={{ background: "var(--surface-2)" }}>
+                  <ol className="space-y-3">
+                    {(article.references as any[]).map((ref: any, idx: number) => {
+                      const isString = typeof ref === "string";
+                      const title = isString ? ref : (ref.title || ref.name || ref.text || String(ref));
+                      const url = isString ? null : (ref.url || ref.href || ref.link || null);
+                      const authors = isString ? null : (ref.authors || ref.author || null);
+                      const year = isString ? null : (ref.year || ref.date || null);
+                      const publication = isString ? null : (ref.publication || ref.journal || ref.publisher || null);
+                      return (
+                        <li key={idx} className="flex gap-3 font-body text-sm leading-relaxed text-[var(--ink-soft)]">
+                          <span className="shrink-0 font-ui text-xs font-bold text-[var(--gold-soft)] mt-0.5" style={{ minWidth: 22 }}>
+                            {idx + 1}.
+                          </span>
+                          <span>
+                            {authors && <span className="font-semibold text-[var(--ink)]">{authors}{year ? ` (${year})` : ""}. </span>}
+                            {url ? (
+                              <a href={url} target="_blank" rel="noopener noreferrer" className="text-[var(--terracotta)] hover:underline">
+                                {title}
+                              </a>
+                            ) : (
+                              <em>{title}</em>
+                            )}
+                            {publication && <span className="text-[var(--ink-faint)]"> — {publication}</span>}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </div>
+              </div>
+            )}
 
             <OrnamentDivider className="my-10" />
 

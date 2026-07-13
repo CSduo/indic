@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import dns from 'dns/promises';
 import net from 'net';
+import { v2 as cloudinary } from 'cloudinary';
 
 const router = Router();
 
@@ -104,9 +105,297 @@ async function fetchWithSsrfGuard(startUrl: string): Promise<{ response: Respons
   throw Object.assign(new Error('Too many redirects'), { statusCode: 422 });
 }
 
+/** Decode common HTML entities */
+function decodeEntities(str: string): string {
+  return str
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&apos;/gi, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+}
+
+/** Try to upload an image src to Cloudinary and return the CDN URL */
+async function uploadImageToCloudinary(
+  imgSrc: string,
+  baseUrl: string
+): Promise<string | null> {
+  if (!process.env.CLOUDINARY_URL) return null;
+  try {
+    // Build absolute URL
+    const absoluteUrl = imgSrc.startsWith('http')
+      ? imgSrc
+      : new URL(imgSrc, baseUrl).toString();
+
+    // Guard against SSRF for image fetch
+    await assertUrlIsSafe(absoluteUrl);
+
+    const imgRes = await fetch(absoluteUrl, {
+      headers: FETCH_HEADERS,
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!imgRes.ok) return null;
+
+    const contentType = imgRes.headers.get('content-type') || '';
+    if (!contentType.startsWith('image/')) return null;
+
+    const buffer = Buffer.from(await imgRes.arrayBuffer());
+
+    const result = await new Promise<any>((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: 'anvikshiki/url_imports', resource_type: 'image' },
+        (err, res) => (err ? reject(err) : resolve(res))
+      );
+      stream.end(buffer);
+    });
+
+    return result?.secure_url || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Allowed block-level and inline HTML tags to preserve */
+const BLOCK_TAGS = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'ul', 'ol', 'li', 'figure', 'figcaption', 'section', 'div', 'article', 'main', 'header', 'pre', 'code']);
+const INLINE_TAGS = new Set(['strong', 'b', 'em', 'i', 'u', 'span', 'a', 'br', 'mark', 'sup', 'sub', 'abbr']);
+const SKIP_TAGS = new Set(['script', 'style', 'nav', 'footer', 'aside', 'iframe', 'noscript', 'form', 'button', 'input', 'select', 'option', 'meta', 'link', 'head', 'html', 'body', 'svg', 'path', 'template']);
+
+/**
+ * Lightweight HTML-to-structured-HTML converter.
+ * Extracts semantic content preserving paragraphs, headings, blockquotes,
+ * lists, inline formatting and images.
+ */
+async function extractSemanticHtml(rawHtml: string, finalUrl: string): Promise<string> {
+  // ── 1. Strip <script>, <style>, <nav>, <footer>, <header>, <aside>, <noscript> blocks ──
+  let cleaned = rawHtml
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<nav[\s\S]*?<\/nav>/gi, '')
+    .replace(/<footer[\s\S]*?<\/footer>/gi, '')
+    .replace(/<aside[\s\S]*?<\/aside>/gi, '')
+    .replace(/<header[\s\S]*?<\/header>/gi, '')
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, '')
+    .replace(/<svg[\s\S]*?<\/svg>/gi, '')
+    .replace(/<!--[\s\S]*?-->/g, '');
+
+  // ── 2. Try to isolate the main content area ──
+  const mainPatterns = [
+    /<article[\s\S]*?>([\s\S]*?)<\/article>/gi,
+    /<main[\s\S]*?>([\s\S]*?)<\/main>/gi,
+    /<div[^>]*(?:class|id)="[^"]*(?:article|content|post|entry|story|body|text)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+  ];
+
+  for (const pat of mainPatterns) {
+    pat.lastIndex = 0;
+    const m = pat.exec(cleaned);
+    if (m && m[1] && m[1].length > 300) {
+      cleaned = m[1];
+      break;
+    }
+  }
+
+  // ── 3. Process images: upload to Cloudinary, replace src ──
+  const imgPromises: Array<Promise<void>> = [];
+  const imgMap = new Map<string, string>(); // original src → cloudinary url
+  const imgMatches = [...cleaned.matchAll(/<img[^>]*src=["']([^"']+)["'][^>]*>/gi)];
+
+  for (const match of imgMatches) {
+    const src = match[1];
+    if (!imgMap.has(src)) {
+      imgPromises.push(
+        uploadImageToCloudinary(src, finalUrl).then(cdnUrl => {
+          if (cdnUrl) imgMap.set(src, cdnUrl);
+        })
+      );
+    }
+  }
+  await Promise.allSettled(imgPromises);
+
+  // ── 4. Build output HTML tag by tag ──
+  const result: string[] = [];
+  // Process the cleaned HTML with a simple tag-walk
+  const tokenRegex = /<(\/?)([\w-]+)([^>]*)>|([^<]+)/g;
+  const tagStack: string[] = [];
+  let skipDepth = 0;
+  let currentBlock = '';
+
+  const flushBlock = () => {
+    const trimmed = currentBlock.trim();
+    if (trimmed && trimmed !== '<br>' && trimmed !== '<br/>') {
+      result.push(`<p>${trimmed}</p>`);
+    }
+    currentBlock = '';
+  };
+
+  let token: RegExpExecArray | null;
+  while ((token = tokenRegex.exec(cleaned)) !== null) {
+    const [full, slash, tagName, attrs, text] = token;
+    const isClose = slash === '/';
+    const tag = (tagName || '').toLowerCase();
+
+    if (text !== undefined) {
+      // Text node
+      if (skipDepth > 0) continue;
+      const decoded = decodeEntities(text);
+      if (decoded.trim()) currentBlock += decoded;
+      continue;
+    }
+
+    // Tag node
+    if (skipDepth > 0) {
+      if (!isClose && SKIP_TAGS.has(tag)) skipDepth++;
+      else if (isClose && SKIP_TAGS.has(tag)) skipDepth--;
+      continue;
+    }
+
+    if (SKIP_TAGS.has(tag) && !isClose) {
+      skipDepth++;
+      continue;
+    }
+    if (SKIP_TAGS.has(tag) && isClose) continue;
+
+    if (tag === 'img') {
+      // Image — extract src and alt
+      const srcMatch = attrs.match(/src=["']([^"']+)["']/i);
+      const altMatch = attrs.match(/alt=["']([^"']*)["']/i);
+      const src = srcMatch ? srcMatch[1] : '';
+      const alt = altMatch ? decodeEntities(altMatch[1]) : '';
+      if (src) {
+        flushBlock();
+        const cdnSrc = imgMap.get(src) || src;
+        result.push(`<figure><img src="${cdnSrc}" alt="${alt}" style="max-width:100%;height:auto;margin:1.5rem auto;display:block;border-radius:8px;" />${alt ? `<figcaption>${alt}</figcaption>` : ''}</figure>`);
+      }
+      continue;
+    }
+
+    if (tag === 'br') {
+      currentBlock += '<br>';
+      continue;
+    }
+
+    if (tag === 'a' && !isClose) {
+      const hrefMatch = attrs.match(/href=["']([^"']+)["']/i);
+      const href = hrefMatch ? hrefMatch[1] : '#';
+      currentBlock += `<a href="${href}" target="_blank" rel="noopener noreferrer">`;
+      tagStack.push('a');
+      continue;
+    }
+    if (tag === 'a' && isClose) {
+      currentBlock += '</a>';
+      tagStack.pop();
+      continue;
+    }
+
+    if (INLINE_TAGS.has(tag)) {
+      if (!isClose) {
+        const openTag = tag === 'span' ? '' : `<${tag}>`;
+        currentBlock += openTag;
+        if (tag !== 'span') tagStack.push(tag);
+      } else {
+        const closeTag = tag === 'span' ? '' : `</${tag}>`;
+        currentBlock += closeTag;
+        if (tag !== 'span') tagStack.pop();
+      }
+      continue;
+    }
+
+    // Block-level tags
+    if (BLOCK_TAGS.has(tag)) {
+      if (!isClose) {
+        flushBlock();
+        if (tag === 'p') {
+          // Will accumulate content
+        } else if (['h1','h2','h3','h4','h5','h6'].includes(tag)) {
+          tagStack.push(tag);
+          result.push(`<${tag}>`);
+        } else if (tag === 'blockquote') {
+          tagStack.push('blockquote');
+          result.push('<blockquote>');
+        } else if (tag === 'ul') {
+          tagStack.push('ul');
+          result.push('<ul>');
+        } else if (tag === 'ol') {
+          tagStack.push('ol');
+          result.push('<ol>');
+        } else if (tag === 'li') {
+          tagStack.push('li');
+          result.push('<li>');
+        } else if (tag === 'figure') {
+          tagStack.push('figure');
+          result.push('<figure>');
+        } else if (tag === 'figcaption') {
+          tagStack.push('figcaption');
+          result.push('<figcaption>');
+        }
+      } else {
+        // Closing block tag
+        if (['h1','h2','h3','h4','h5','h6'].includes(tag)) {
+          const txt = currentBlock.trim();
+          if (txt) result.push(`${txt}</${tag}>`);
+          else if (result.length && result[result.length - 1].startsWith(`<${tag}>`)) result.pop();
+          currentBlock = '';
+          tagStack.pop();
+        } else if (tag === 'blockquote') {
+          const txt = currentBlock.trim();
+          if (txt) result.push(`${txt}</blockquote>`);
+          else result.push('</blockquote>');
+          currentBlock = '';
+          tagStack.pop();
+        } else if (tag === 'ul') {
+          result.push('</ul>');
+          tagStack.pop();
+        } else if (tag === 'ol') {
+          result.push('</ol>');
+          tagStack.pop();
+        } else if (tag === 'li') {
+          const txt = currentBlock.trim();
+          if (txt) result.push(`${txt}</li>`);
+          else result.push('</li>');
+          currentBlock = '';
+          tagStack.pop();
+        } else if (tag === 'figure') {
+          result.push('</figure>');
+          tagStack.pop();
+        } else if (tag === 'figcaption') {
+          const txt = currentBlock.trim();
+          if (txt) result.push(`${txt}</figcaption>`);
+          currentBlock = '';
+          tagStack.pop();
+        } else if (tag === 'p') {
+          flushBlock();
+        }
+      }
+      continue;
+    }
+  }
+
+  // Flush any remaining block content
+  flushBlock();
+
+  // ── 5. Merge result, clean empty tags, limit size ──
+  let finalHtml = result
+    .filter(line => {
+      const stripped = line.replace(/<[^>]*>/g, '').trim();
+      return stripped.length > 0 || line.includes('<img') || line.includes('<figure');
+    })
+    .join('\n');
+
+  // Limit to ~200k chars
+  if (finalHtml.length > 200_000) {
+    finalHtml = finalHtml.slice(0, 200_000) + '<p><em>[Content truncated]</em></p>';
+  }
+
+  return finalHtml;
+}
+
 /**
  * POST /api/extract-url
- * Fetches a public webpage and returns its plain text, stripped of HTML.
+ * Fetches a public webpage and returns structured HTML preserving
+ * paragraphs, headings, blockquotes, lists, inline formatting and images.
  */
 router.post('/extract-url', async (req, res) => {
   try {
@@ -120,33 +409,40 @@ router.post('/extract-url', async (req, res) => {
 
     const contentType = response.headers.get('content-type') || '';
     const rawText = await response.text();
-    let text: string;
+
+    let html: string;
 
     if (contentType.includes('text/plain')) {
-      text = rawText;
+      // Plain text — convert to paragraphs
+      html = rawText
+        .split(/\n{2,}/)
+        .filter(p => p.trim())
+        .map(p => `<p>${decodeEntities(p.trim().replace(/\n/g, '<br>'))}</p>`)
+        .join('\n');
     } else {
-      // Strip HTML tags, collapse whitespace, and remove scripts/styles
-      text = rawText
+      // HTML — extract semantic content
+      html = await extractSemanticHtml(rawText, finalUrl);
+    }
+
+    // Fallback: if extraction yielded almost nothing, return a plain-text conversion
+    const textLen = html.replace(/<[^>]*>/g, '').trim().length;
+    if (textLen < 100) {
+      const stripped = rawText
         .replace(/<script[\s\S]*?<\/script>/gi, '')
         .replace(/<style[\s\S]*?<\/style>/gi, '')
         .replace(/<[^>]+>/g, ' ')
-        .replace(/&nbsp;/gi, ' ')
-        .replace(/&amp;/gi, '&')
-        .replace(/&lt;/gi, '<')
-        .replace(/&gt;/gi, '>')
-        .replace(/&quot;/gi, '"')
-        .replace(/&#39;/gi, "'")
-        .replace(/[ \t]+/g, ' ')
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0)
+        .replace(/\s+/g, ' ')
+        .trim();
+      html = stripped
+        .split(/\s{3,}/)
+        .filter(p => p.trim().length > 40)
+        .map(p => `<p>${decodeEntities(p.trim())}</p>`)
         .join('\n');
     }
 
-    // Trim to 200 000 chars to avoid huge payloads
-    if (text.length > 200_000) text = text.slice(0, 200_000) + '\n\n[Content truncated at 200 000 characters]';
+    if (html.length > 200_000) html = html.slice(0, 200_000) + '<p><em>[Content truncated at 200 000 characters]</em></p>';
 
-    return res.json({ text, url: finalUrl });
+    return res.json({ html, url: finalUrl });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: err.errors[0]?.message || 'Invalid input' });

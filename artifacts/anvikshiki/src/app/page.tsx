@@ -237,7 +237,7 @@ export default function HomePage() {
         category: a.category?.name || a.categorySlug || "Essay",
         title: a.title,
         author: a.authorName || "Editorial",
-        minutes: a.readingMinutes || 6,
+        minutes: a.readingMinutes || null,
         domain: a.categorySlug || "philosophy",
         href: `/articles/${a.slug}`,
         color: "#7C3AED",
@@ -340,9 +340,9 @@ export default function HomePage() {
               className="home-recent-track"
             >
               {recentPublications.map((publication) => {
-                const readingTimeText = publication.readingMinutes 
-                  ? `${publication.readingMinutes} min read` 
-                  : publication.kind === "paper" ? "8 min read" : "5 min read";
+                const readingTimeText = publication.readingMinutes
+                  ? `${publication.readingMinutes} min read`
+                  : null;
                 return (
                   <Link
                     key={`${publication.kind}-${publication.id}`}
@@ -368,7 +368,7 @@ export default function HomePage() {
                       <h3 className="home-recent-title">{publication.title}</h3>
                       <div className="home-v3-essay-foot-mini">
                         <span className="home-v3-essay-author-mini">{publication.authorName || "Editorial"}</span>
-                        <span>{readingTimeText}</span>
+                        {readingTimeText && <span>{readingTimeText}</span>}
                       </div>
                       <div className="font-ui text-[8px] opacity-80 mt-1 flex items-center justify-between" style={{ color: "rgba(255,255,255,0.4)" }}>
                         <span>Published</span>

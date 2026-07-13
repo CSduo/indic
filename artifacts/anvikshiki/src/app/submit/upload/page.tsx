@@ -17,20 +17,20 @@ const fmt = (n: number) =>
 
 const STORAGE_KEY = "anvikshiki_write_draft";
 
-/* ── Text extraction helpers ─────────────────────────────────────── */
-async function extractTxt(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error("Could not read file"));
-    reader.readAsText(file, "utf-8");
-  });
+/* ── Text/HTML extraction helpers ────────────────────────────────── */
+
+/** Convert plain text (newlines) to HTML paragraphs */
+function plainTextToHtml(text: string): string {
+  return text
+    .split(/\n{2,}/)
+    .filter(p => p.trim())
+    .map(p => `<p>${p.trim().replace(/\n/g, "<br>")}</p>`)
+    .join("");
 }
 
-async function extractPdf(file: File): Promise<string> {
+async function extractPdfAsHtml(file: File): Promise<string> {
   // Dynamically import pdfjs-dist to keep initial bundle small
   const pdfjsLib = await import("pdfjs-dist");
-  // Point to the worker shipped with the package
   pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
     "pdfjs-dist/build/pdf.worker.mjs",
     import.meta.url,
@@ -42,30 +42,25 @@ async function extractPdf(file: File): Promise<string> {
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    const text = content.items
-      .map((item: any) => ("str" in item ? item.str : ""))
-      .join(" ");
-    pages.push(text);
+    // Group items by Y position to approximate paragraphs
+    const items = content.items as any[];
+    let pageText = "";
+    let lastY: number | null = null;
+    for (const item of items) {
+      if ("str" in item) {
+        const y = item.transform?.[5] ?? null;
+        if (lastY !== null && Math.abs(y - lastY) > 12) {
+          pageText += "\n\n";
+        } else if (lastY !== null && item.hasEOL) {
+          pageText += "\n";
+        }
+        pageText += item.str;
+        lastY = y;
+      }
+    }
+    pages.push(pageText);
   }
-  return pages.join("\n\n");
-}
-
-async function extractDocx(file: File): Promise<string> {
-  const mammoth = await import("mammoth");
-  const arrayBuffer = await file.arrayBuffer();
-  const result = await mammoth.extractRawText({ arrayBuffer });
-  return result.value;
-}
-
-async function extractText(file: File): Promise<string | null> {
-  if (file.type === "text/plain") return extractTxt(file);
-  if (file.type === "application/pdf") return extractPdf(file);
-  if (
-    file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-    file.type === "application/msword"
-  )
-    return extractDocx(file);
-  return null;
+  return plainTextToHtml(pages.join("\n\n"));
 }
 
 export default function SubmitUploadPage() {
@@ -191,24 +186,56 @@ export default function SubmitUploadPage() {
     setError("");
   };
 
-  /* ── Extract text from file and navigate to write editor ─────────── */
+  /* ── Extract HTML from file and navigate to write editor ────────── */
   const extractAndWrite = async (file: File) => {
     setExtracting(true);
     setError("");
     try {
-      const text = await extractText(file);
-      if (text && text.trim().length > 0) {
-        // Merge into the write draft
+      let htmlContent = "";
+
+      const isTxt = file.type === "text/plain" || file.name.endsWith(".txt");
+      const isPdf = file.type === "application/pdf" || file.name.endsWith(".pdf");
+      const isDocx =
+        file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+        file.type === "application/msword" ||
+        file.name.endsWith(".docx") ||
+        file.name.endsWith(".doc");
+
+      if (isTxt) {
+        // Browser-side: plain text → HTML paragraphs
+        const text = await file.text();
+        htmlContent = plainTextToHtml(text);
+      } else if (isPdf) {
+        // Browser-side PDF → HTML paragraphs (text layer only)
+        htmlContent = await extractPdfAsHtml(file);
+      } else if (isDocx) {
+        // Server-side mammoth → full HTML with embedded images uploaded to Cloudinary
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await fetch(`${base()}/api/media/extract-doc`, {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || "Failed to extract document content");
+        }
+        const data = await res.json();
+        htmlContent = data.html || "";
+      }
+
+      if (htmlContent && htmlContent.trim().length > 0) {
         const existing: any = {};
         try { Object.assign(existing, JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}")); } catch {}
         const type = sessionStorage.getItem("anvikshiki_submit_type") || "essay";
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...existing, type, body: text.trim() }));
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...existing, type, body: htmlContent }));
         navigate("/submit/write");
       } else {
-        setError("Could not extract text from this file. Try uploading as .txt or paste via URL.");
+        setError("Could not extract content from this file. Try uploading as .txt or paste via URL.");
       }
     } catch (err: any) {
-      setError(`Text extraction failed: ${err.message}. You can still upload the file directly.`);
+      setError(`Extraction failed: ${err.message}. You can still upload the file directly.`);
     } finally {
       setExtracting(false);
     }
@@ -230,11 +257,15 @@ export default function SubmitUploadPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to fetch URL");
-      const text: string = data.text || "";
+      // Use rich HTML if returned, fallback to plain text converted to paragraphs
+      const html: string = data.html || (data.text
+        ? data.text.split(/\n{2,}/).filter((p: string) => p.trim()).map((p: string) => `<p>${p.trim()}</p>`).join("")
+        : "");
+      if (!html) throw new Error("No content could be extracted from this URL.");
       const existing: any = {};
       try { Object.assign(existing, JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}")); } catch {}
       const type = sessionStorage.getItem("anvikshiki_submit_type") || "essay";
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...existing, type, body: text.trim() }));
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...existing, type, body: html }));
       navigate("/submit/write");
     } catch (err: any) {
       setError(err.message || "Failed to fetch content from URL.");
