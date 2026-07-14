@@ -150,6 +150,12 @@ export default function SubmitWritePage() {
   const [inlineRecordTime, setInlineRecordTime] = useState(0);
   const [showInlineVNRecorder, setShowInlineVNRecorder] = useState(false);
   const [uploadingInlineAudio, setUploadingInlineAudio] = useState(false);
+
+  const [isBold, setIsBold] = useState(false);
+  const [isItalic, setIsItalic] = useState(false);
+  const [isUnderline, setIsUnderline] = useState(false);
+  const [isQuoteActive, setIsQuoteActive] = useState(false);
+  const [currentBlockType, setCurrentBlockType] = useState("p");
   
   const inlineMediaRecorderRef = useRef<MediaRecorder | null>(null);
   const inlineAudioChunksRef = useRef<Blob[]>([]);
@@ -307,7 +313,7 @@ export default function SubmitWritePage() {
         htmlContent = text
           .split(/\n{2,}/)
           .filter(p => p.trim())
-          .map(p => `<p>${p.trim().replace(/\n/g, "<br>")}</p>`)
+          .map(p => `<p>${p.trim().replace(/\s*\n\s*/g, " ")}</p>`)
           .join("");
       } else {
         // Upload docx to server for extraction
@@ -351,11 +357,110 @@ export default function SubmitWritePage() {
     }
   };
 
+  const updateEditorStates = () => {
+    if (typeof window === "undefined") return;
+    setIsBold(document.queryCommandState("bold"));
+    setIsItalic(document.queryCommandState("italic"));
+    setIsUnderline(document.queryCommandState("underline"));
+
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      let node: Node | null = range.startContainer;
+      let insideBq = false;
+      let blockType = "p";
+      
+      while (node && node !== editorRef.current) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const tag = (node as Element).tagName.toLowerCase();
+          if (tag === "blockquote") {
+            insideBq = true;
+          } else if (["p", "h1", "h2", "h3", "h4"].includes(tag)) {
+            if (blockType === "p") {
+              blockType = tag;
+            }
+          }
+        }
+        node = node.parentNode;
+      }
+      
+      setIsQuoteActive(insideBq);
+      setCurrentBlockType(blockType);
+    }
+  };
+
+  const toggleBlockquote = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    const range = selection.getRangeAt(0);
+    
+    // Find if we are inside a blockquote
+    let isInsideBlockquote = false;
+    let bqNode: HTMLElement | null = null;
+    let curr: Node | null = range.startContainer;
+    while (curr && curr !== editorRef.current) {
+      if (curr.nodeType === Node.ELEMENT_NODE && (curr as Element).tagName === 'BLOCKQUOTE') {
+        isInsideBlockquote = true;
+        bqNode = curr as HTMLElement;
+        break;
+      }
+      curr = curr.parentNode;
+    }
+
+    if (isInsideBlockquote && bqNode) {
+      // Unwrap
+      const children = Array.from(bqNode.childNodes);
+      const parent = bqNode.parentNode;
+      if (parent) {
+        children.forEach(child => {
+          parent.insertBefore(child, bqNode);
+        });
+        parent.removeChild(bqNode);
+      }
+    } else {
+      // Wrap current block node
+      let blockNode: HTMLElement | null = null;
+      let node: Node | null = range.startContainer;
+      while (node && node !== editorRef.current) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const tag = (node as Element).tagName;
+          if (['P', 'H1', 'H2', 'H3', 'DIV'].includes(tag)) {
+            blockNode = node as HTMLElement;
+            break;
+          }
+        }
+        node = node.parentNode;
+      }
+      if (blockNode) {
+        const bq = document.createElement('blockquote');
+        bq.style.borderLeft = '4px solid var(--gold)';
+        bq.style.paddingLeft = '1rem';
+        bq.style.margin = '1.5rem 0';
+        bq.style.color = 'var(--ink-soft)';
+        
+        const parent = blockNode.parentNode;
+        if (parent) {
+          const clone = blockNode.cloneNode(true);
+          bq.appendChild(clone);
+          parent.replaceChild(bq, blockNode);
+        }
+      } else {
+        document.execCommand('formatBlock', false, 'blockquote');
+      }
+    }
+
+    if (editorRef.current) {
+      set("body", editorRef.current.innerHTML);
+    }
+    updateEditorStates();
+  };
+
   const execCmd = (command: string, value: string = "") => {
     document.execCommand(command, false, value);
     if (editorRef.current) {
       set("body", editorRef.current.innerHTML);
     }
+    updateEditorStates();
   };
 
   const handleInlineImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -914,8 +1019,15 @@ export default function SubmitWritePage() {
               <div
                 ref={editorRef}
                 contentEditable
-                onInput={e => set("body", e.currentTarget.innerHTML)}
+                onInput={e => {
+                  set("body", e.currentTarget.innerHTML);
+                  updateEditorStates();
+                }}
                 onBlur={e => set("body", e.currentTarget.innerHTML)}
+                onKeyUp={updateEditorStates}
+                onMouseUp={updateEditorStates}
+                onClick={updateEditorStates}
+                onFocus={updateEditorStates}
                 className="w-full p-6 min-h-[450px] outline-none bg-transparent text-[var(--ink)] font-body leading-[1.85] overflow-y-auto prose-editor"
                 data-placeholder="Begin writing your sacred manuscript here..."
                 style={{ boxSizing: "border-box" }}
@@ -1006,14 +1118,13 @@ export default function SubmitWritePage() {
                 <select
                   className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
                   onChange={e => execCmd("formatBlock", e.target.value)}
-                  defaultValue="p"
+                  value={currentBlockType}
                 >
                   <option value="p">Paragraph</option>
                   <option value="h1">Main Heading (H1)</option>
                   <option value="h2">Subheading (H2)</option>
                   <option value="h3">Third Heading (H3)</option>
                   <option value="h4">Fourth Heading (H4)</option>
-                  <option value="blockquote">Quote block</option>
                 </select>
 
                 <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
@@ -1022,8 +1133,11 @@ export default function SubmitWritePage() {
                 <button
                   type="button"
                   onClick={() => execCmd("bold")}
-                  className="p-1 px-2.5 rounded hover:bg-white/5 font-bold text-xs border-none bg-transparent cursor-pointer"
-                  style={{ color: "var(--ink-soft)" }}
+                  className="p-1 px-2.5 rounded hover:bg-white/5 font-bold text-xs border-none cursor-pointer transition-all"
+                  style={{
+                    color: isBold ? "var(--gold)" : "var(--ink-soft)",
+                    background: isBold ? "rgba(201, 152, 58, 0.15)" : "transparent"
+                  }}
                   title="Bold"
                 >
                   B
@@ -1031,8 +1145,11 @@ export default function SubmitWritePage() {
                 <button
                   type="button"
                   onClick={() => execCmd("italic")}
-                  className="p-1 px-2.5 rounded hover:bg-white/5 italic text-xs border-none bg-transparent cursor-pointer"
-                  style={{ color: "var(--ink-soft)" }}
+                  className="p-1 px-2.5 rounded hover:bg-white/5 italic text-xs border-none cursor-pointer transition-all"
+                  style={{
+                    color: isItalic ? "var(--gold)" : "var(--ink-soft)",
+                    background: isItalic ? "rgba(201, 152, 58, 0.15)" : "transparent"
+                  }}
                   title="Italic"
                 >
                   I
@@ -1040,11 +1157,27 @@ export default function SubmitWritePage() {
                 <button
                   type="button"
                   onClick={() => execCmd("underline")}
-                  className="p-1 px-2.5 rounded hover:bg-white/5 underline text-xs border-none bg-transparent cursor-pointer"
-                  style={{ color: "var(--ink-soft)" }}
+                  className="p-1 px-2.5 rounded hover:bg-white/5 underline text-xs border-none cursor-pointer transition-all"
+                  style={{
+                    color: isUnderline ? "var(--gold)" : "var(--ink-soft)",
+                    background: isUnderline ? "rgba(201, 152, 58, 0.15)" : "transparent"
+                  }}
                   title="Underline"
                 >
                   U
+                </button>
+                <button
+                  type="button"
+                  onClick={toggleBlockquote}
+                  className="p-1 px-2.5 rounded hover:bg-white/5 text-xs border-none cursor-pointer transition-all"
+                  style={{
+                    color: isQuoteActive ? "var(--gold)" : "var(--ink-soft)",
+                    fontWeight: "bold",
+                    background: isQuoteActive ? "rgba(201, 152, 58, 0.15)" : "transparent"
+                  }}
+                  title="Toggle Quote Block"
+                >
+                  "
                 </button>
 
                 <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />

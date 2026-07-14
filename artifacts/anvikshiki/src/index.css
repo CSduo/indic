@@ -3019,10 +3019,13 @@ body:has(.sacred-drawer) {
   border: 1px solid var(--border-gold);
   background: var(--surface);
   transition: transform var(--motion-normal) var(--ease-archive), box-shadow var(--motion-normal) var(--ease-archive);
+  isolation: isolate;
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
 }
 
 .home-recent-card:hover {
-  transform: translateY(-4px);
+  transform: translate3d(0, -4px, 0);
   box-shadow: 0 10px 20px rgba(0,0,0,0.3);
   border-color: var(--gold);
 }
@@ -3039,6 +3042,8 @@ body:has(.sacred-drawer) {
   width: 100%;
   overflow: hidden;
   display: block;
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
 }
 
 .home-recent-image img {
@@ -3048,6 +3053,9 @@ body:has(.sacred-drawer) {
   object-position: center top;
   display: block;
   transition: transform var(--motion-slow) var(--ease-archive);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  will-change: transform;
 }
 
 .home-recent-card:hover .home-recent-image img {
