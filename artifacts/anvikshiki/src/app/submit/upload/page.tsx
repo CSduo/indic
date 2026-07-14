@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   AlertCircle, ArrowLeft, ArrowRight, CheckCircle, Image as ImageIcon,
@@ -224,13 +224,10 @@ export default function SubmitUploadPage() {
         const data = await res.json();
         htmlContent = data.html || "";
       }
-
       if (htmlContent && htmlContent.trim().length > 0) {
-        const existing: any = {};
-        try { Object.assign(existing, JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}")); } catch {}
-        const type = sessionStorage.getItem("anvikshiki_submit_type") || "essay";
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...existing, type, body: htmlContent }));
-        navigate("/submit/write");
+        setEditorBody(htmlContent);
+        setEditorInitialized(false);
+        setError("");
       } else {
         setError("Could not extract content from this file. Try uploading as .txt or paste via URL.");
       }
@@ -257,16 +254,13 @@ export default function SubmitUploadPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to fetch URL");
-      // Use rich HTML if returned, fallback to plain text converted to paragraphs
       const html: string = data.html || (data.text
         ? data.text.split(/\n{2,}/).filter((p: string) => p.trim()).map((p: string) => `<p>${p.trim()}</p>`).join("")
         : "");
       if (!html) throw new Error("No content could be extracted from this URL.");
-      const existing: any = {};
-      try { Object.assign(existing, JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}")); } catch {}
-      const type = sessionStorage.getItem("anvikshiki_submit_type") || "essay";
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...existing, type, body: html }));
-      navigate("/submit/write");
+      setEditorBody(html);
+      setEditorInitialized(false);
+      setError("");
     } catch (err: any) {
       setError(err.message || "Failed to fetch content from URL.");
     } finally {
@@ -274,6 +268,79 @@ export default function SubmitUploadPage() {
     }
   };
 
+  // Rich Text Editor states and handlers
+  const [editorBody, setEditorBody] = useState("");
+  const [editorInitialized, setEditorInitialized] = useState(false);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const inlineImgInputRef = useRef<HTMLInputElement>(null);
+  const [insertingInlineImage, setInsertingInlineImage] = useState(false);
+
+  useEffect(() => {
+    if (editorRef.current && !editorInitialized && editorBody) {
+      editorRef.current.innerHTML = editorBody;
+      setEditorInitialized(true);
+    }
+  }, [editorBody, editorInitialized]);
+
+  const execCmd = (command: string, value: string = "") => {
+    document.execCommand(command, false, value);
+    if (editorRef.current) {
+      setEditorBody(editorRef.current.innerHTML);
+    }
+  };
+
+  const handleInlineImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 20 * 1024 * 1024) {
+      setError("Inline image must be under 20 MB");
+      return;
+    }
+
+    setInsertingInlineImage(true);
+    setError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(`${base()}/api/media/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to upload inline image");
+      }
+
+      const data = await res.json();
+      const imageUrl = data.url;
+
+      if (editorRef.current) {
+        editorRef.current.focus();
+        const imgHtml = `<figure style="margin:2rem 0;text-align:center;"><img src="${imageUrl}" alt="Inline image" style="max-width:100%;height:auto;border-radius:8px;display:inline-block;" /></figure><p><br></p>`;
+        document.execCommand("insertHTML", false, imgHtml);
+        const paras = editorRef.current.querySelectorAll("p");
+        const lastPara = paras[paras.length - 1];
+        if (lastPara) {
+          const range = document.createRange();
+          const sel = window.getSelection();
+          range.setStart(lastPara, 0);
+          range.collapse(true);
+          sel?.removeAllRanges();
+          sel?.addRange(range);
+        }
+        setEditorBody(editorRef.current.innerHTML);
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to insert image. Please try again.");
+    } finally {
+      setInsertingInlineImage(false);
+      if (inlineImgInputRef.current) inlineImgInputRef.current.value = "";
+    }
+  };
   /* ── Traditional file upload (sends to API) ──────────────────────── */
   const submit = async () => {
     if (!mainFile) { setError("Please upload your manuscript file"); return; }
@@ -445,6 +512,146 @@ export default function SubmitUploadPage() {
     }
   };
 
+  const submitEdited = async () => {
+    if (!declared) { setError("Please confirm the declaration"); return; }
+    if (!editorBody.trim()) { setError("Essay content cannot be empty"); return; }
+    setError("");
+    setSubmitting(true);
+    setProgress(15);
+
+    const detailsRaw = sessionStorage.getItem("anvikshiki_submit_details");
+    const typeRaw = sessionStorage.getItem("anvikshiki_submit_type") || "essay";
+    const details = detailsRaw ? JSON.parse(detailsRaw) : {};
+    const typeMap: Record<string, string> = {
+      essay: "ESSAY", paper: "PAPER", review: "REVIEW",
+      commentary: "COMMENTARY", "book-review": "COMMENTARY", translation: "ESSAY",
+    };
+    const type = typeMap[typeRaw.toLowerCase()] || "ESSAY";
+
+    if (!details.fullName && !details.name) {
+      setError("Submission details are missing. Please go back to Details.");
+      setSubmitting(false); setProgress(0); return;
+    }
+
+    try {
+      const sim = window.setInterval(() => setProgress((v) => Math.min(v + 10, 85)), 400);
+
+      // Check if Cloudinary is configured
+      const healthRes = await fetch(`${base()}/api/health`);
+      let isCloudinary = false;
+      if (healthRes.ok) {
+        const health = await healthRes.json();
+        isCloudinary = health?.environment?.storageProvider === "cloudinary";
+      }
+
+      let coverUrl = null;
+      let audioUrl = null;
+
+      if (isCloudinary) {
+        const uploadToCloudinary = async (file: File, folder: string, resourceType: string) => {
+          const sigRes = await fetch(`${base()}/api/uploads/cloudinary-signature`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ folder }),
+          });
+          if (!sigRes.ok) {
+            const errData = await sigRes.json();
+            throw new Error(errData.error || "Failed to generate upload signature");
+          }
+          const sigData = await sigRes.json();
+
+          const cloudData = new FormData();
+          cloudData.append("file", file);
+          cloudData.append("api_key", sigData.apiKey);
+          cloudData.append("timestamp", String(sigData.timestamp));
+          cloudData.append("signature", sigData.signature);
+          cloudData.append("folder", sigData.folder);
+
+          const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${sigData.cloudName}/${resourceType}/upload`, {
+            method: "POST",
+            body: cloudData,
+          });
+
+          if (!uploadRes.ok) throw new Error("Failed to upload file to Cloudinary cloud storage.");
+          const resData = await uploadRes.json();
+          return resData.secure_url;
+        };
+
+        if (imgFile) {
+          setProgress(40);
+          coverUrl = await uploadToCloudinary(imgFile, "submissions/covers", "image");
+        }
+
+        if (audioFile) {
+          setProgress(70);
+          audioUrl = await uploadToCloudinary(audioFile, "submissions/voice-notes", "video");
+        }
+      } else {
+        // Fallback local upload first
+        const uploadLocal = async (file: File, context: string) => {
+          const fd = new FormData();
+          fd.append("file", file);
+          fd.append("context", context);
+          const res = await fetch(`${base()}/api/media/upload`, { method: "POST", credentials: "include", body: fd });
+          if (!res.ok) throw new Error("Local upload failed");
+          const d = await res.json();
+          return d.url || "";
+        };
+
+        if (imgFile) {
+          setProgress(40);
+          coverUrl = await uploadLocal(imgFile, "submission_cover");
+        }
+
+        if (audioFile) {
+          setProgress(70);
+          audioUrl = await uploadLocal(audioFile, "voice_note");
+        }
+      }
+
+      setProgress(85);
+      const finalNotes = [
+        details.institution ? `Institution: ${details.institution}` : "",
+        details.domain ? `Domain: ${details.domain}` : "",
+        details.keywords ? `Keywords: ${details.keywords}` : "",
+        details.notes ? `Author notes: ${details.notes}` : "",
+        coverUrl ? `Cover image: ${coverUrl}` : "",
+      ].filter(Boolean).join("\n");
+
+      const response = await fetch(`${base()}/api/submissions/write`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          type,
+          submitterName: details.fullName || details.name || "",
+          submitterEmail: details.email || "",
+          title: details.title || "",
+          domain: details.domain,
+          abstract: details.abstract || "Submitted via editor.",
+          body: editorBody,
+          notes: finalNotes,
+          consent: true,
+          audioUrl,
+        }),
+      });
+
+      window.clearInterval(sim);
+      setProgress(100);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Submission failed");
+      sessionStorage.setItem("anvikshiki_submit_id", data.submission?.id || "");
+
+      sessionStorage.removeItem("anvikshiki_submit_details");
+      sessionStorage.removeItem("anvikshiki_submit_type");
+      navigate("/submit/success");
+    } catch (err: any) {
+      setError(err.message || "Submission failed. Please try again.");
+      setSubmitting(false);
+      setProgress(0);
+    }
+  };
+
   return (
     <div className="bg-[var(--bg)]">
       <section className="container-anv py-6 md:py-10">
@@ -474,63 +681,142 @@ export default function SubmitUploadPage() {
           <ParchmentCard className="p-5 md:p-7">
             <SubmissionStepper active={1} className="mb-7" />
 
-            {/* ── Source tabs ───────────────────────────────────────── */}
-            <div className="mb-6 flex rounded-[8px] border border-[var(--border-gold)] bg-[var(--surface)] p-1">
-              {(["file", "url"] as const).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => { setTab(t); setError(""); }}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-[6px] py-2 font-ui text-xs font-bold uppercase tracking-[0.1em] transition"
-                  style={{
-                    background: tab === t ? "var(--terracotta)" : "transparent",
-                    color: tab === t ? "var(--surface)" : "var(--muted)",
-                  }}
-                >
-                  {t === "file" ? <><Upload size={13} /> Upload File</> : <><Link2 size={13} /> From URL</>}
-                </button>
-              ))}
-            </div>
-
-            {tab === "file" ? (
-              <div className="grid gap-6">
-                {/* Manuscript upload */}
-                <div>
-                  <div className="upload-section-label">Manuscript File *</div>
-                  <UploadZone
-                    file={mainFile}
-                    dragging={dragging === "main"}
-                    onDragOver={(e) => { e.preventDefault(); setDragging("main"); }}
-                    onDragLeave={() => setDragging(null)}
-                    onDrop={(e) => { e.preventDefault(); setDragging(null); const f = e.dataTransfer.files[0]; if (f) pickMain(f); }}
-                    icon={<Upload size={38} className="text-[var(--gold)]" />}
-                    accept=".pdf,.doc,.docx,.txt"
-                    formatHint="PDF, DOC, DOCX, TXT · Max 50 MB"
-                    browseLabel="Browse Files"
-                    onRemove={() => setMainFile(null)}
-                    inputRef={mainRef}
-                    onFileChange={pickMain}
-                  />
-
-                  {/* Extract to editor button */}
-                  {mainFile && (
-                    <button
-                      type="button"
-                      onClick={() => extractAndWrite(mainFile)}
-                      disabled={extracting}
-                      className="mt-3 inline-flex items-center gap-2 rounded-[8px] border border-[var(--border-gold)] bg-[var(--surface-elevated)] px-4 py-2 font-ui text-xs font-bold uppercase tracking-[0.1em] text-[var(--gold)] transition hover:bg-[var(--surface)]"
-                    >
-                      <FileText size={13} />
-                      {extracting ? "Extracting text…" : "Extract text into Editor →"}
-                    </button>
-                  )}
+            {editorBody ? (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between border-b border-[rgba(201,152,58,0.15)] pb-3">
+                  <div>
+                    <h3 className="font-display text-xl text-[var(--ink)]">Review & Edit Content</h3>
+                    <p className="font-ui text-[10px] text-[var(--muted)] mt-1">Review the extracted document. You can edit paragraphs, align text, and add/remove images.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditorBody("");
+                      setEditorInitialized(false);
+                    }}
+                    className="btn-ink text-[11px] uppercase tracking-wider px-3 py-1.5"
+                    style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-gold)", cursor: "pointer" }}
+                  >
+                    ✕ Discard & Re-Upload
+                  </button>
                 </div>
 
-                {/* Cover image */}
-                <div>
+                <div className="card-sacred" style={{ padding: 0, overflow: "hidden" }}>
+                  <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: "1px solid rgba(201,152,58,0.15)" }}>
+                    <span className="section-label" style={{ marginBottom: 0 }}>Manuscript Body *</span>
+                    <span className="font-ui text-[10px]" style={{ color: "var(--ink-faint)" }}>
+                      Rich Text Editor
+                    </span>
+                  </div>
+
+                  <div
+                    ref={editorRef}
+                    contentEditable
+                    onInput={e => setEditorBody(e.currentTarget.innerHTML)}
+                    onBlur={e => setEditorBody(e.currentTarget.innerHTML)}
+                    className="w-full p-6 min-h-[400px] max-h-[600px] outline-none bg-transparent text-[var(--ink)] font-body leading-[1.85] overflow-y-auto prose-editor"
+                    style={{ boxSizing: "border-box" }}
+                  />
+
+                  {/* Toolbar */}
+                  <div className="flex flex-wrap items-center gap-2 p-2 bg-[var(--surface-elevated)] border-t border-[rgba(201,152,58,0.15)] select-none">
+                    <select
+                      className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
+                      onChange={e => execCmd("fontName", e.target.value)}
+                      defaultValue="Garamond"
+                    >
+                      <option value="Garamond">Garamond (Default)</option>
+                      <option value="'Noto Serif Devanagari', serif">Devanagari</option>
+                      <option value="'Noto Serif Sharada', serif">Sharada</option>
+                    </select>
+
+                    <select
+                      className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
+                      onChange={e => execCmd("formatBlock", e.target.value)}
+                      defaultValue="p"
+                    >
+                      <option value="p">Paragraph</option>
+                      <option value="h1">Main Heading (H1)</option>
+                      <option value="h2">Subheading (H2)</option>
+                      <option value="h3">Third Heading (H3)</option>
+                      <option value="blockquote">Quote block</option>
+                    </select>
+
+                    <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+
+                    <button
+                      type="button"
+                      onClick={() => execCmd("bold")}
+                      className="p-1 px-2.5 rounded hover:bg-white/5 font-bold text-xs border-none bg-transparent cursor-pointer text-[var(--ink-soft)]"
+                      title="Bold"
+                    >
+                      B
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => execCmd("italic")}
+                      className="p-1 px-2.5 rounded hover:bg-white/5 italic text-xs border-none bg-transparent cursor-pointer text-[var(--ink-soft)]"
+                      title="Italic"
+                    >
+                      I
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => execCmd("underline")}
+                      className="p-1 px-2.5 rounded hover:bg-white/5 underline text-xs border-none bg-transparent cursor-pointer text-[var(--ink-soft)]"
+                      title="Underline"
+                    >
+                      U
+                    </button>
+
+                    <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+
+                    <select
+                      className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
+                      onChange={e => execCmd("foreColor", e.target.value)}
+                      defaultValue=""
+                    >
+                      <option value="">Text Color</option>
+                      <option value="#ffffff">White</option>
+                      <option value="#a3a3a3">Muted Gray</option>
+                    </select>
+
+                    <select
+                      className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
+                      onChange={e => execCmd("hiliteColor", e.target.value)}
+                      defaultValue=""
+                    >
+                      <option value="">Highlight</option>
+                      <option value="rgba(255,255,255,0.15)">White glow</option>
+                      <option value="transparent">None</option>
+                    </select>
+
+                    <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+
+                    <input
+                      type="file"
+                      ref={inlineImgInputRef}
+                      onChange={handleInlineImageUpload}
+                      accept="image/*"
+                      className="sr-only"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => inlineImgInputRef.current?.click()}
+                      disabled={insertingInlineImage}
+                      className="flex items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent text-[var(--gold-soft)]"
+                      title="Insert Inline Image"
+                    >
+                      <ImageIcon size={13} />
+                      <span>{insertingInlineImage ? "Uploading…" : "Add Image"}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Cover Image Selection (Compulsory!) */}
+                <div className="mt-6">
                   <div className="upload-section-label">
-                    Cover / Supporting Image{" "}
-                    <span className="normal-case tracking-normal text-[var(--ink-faint)]">(optional)</span>
+                    Cover / Article Header Image * <span className="text-[var(--terracotta)] font-bold">(Compulsory)</span>
                   </div>
                   <UploadZone
                     file={imgFile}
@@ -547,13 +833,12 @@ export default function SubmitUploadPage() {
                     onFileChange={pickImg}
                   />
                 </div>
-                {/* Voice note recorder */}
-                <div>
+
+                {/* Voice Note Recording */}
+                <div className="mt-6">
                   <div className="upload-section-label">
-                    Voice Note / Audio Reading{" "}
-                    <span className="normal-case tracking-normal text-[var(--ink-faint)]">(optional)</span>
+                    Voice Note / Audio Reading <span className="normal-case tracking-normal text-[var(--ink-faint)]">(optional)</span>
                   </div>
-                  
                   {audioPreview ? (
                     <div className="p-4 rounded-lg space-y-3" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-gold)" }}>
                       <div className="flex items-center justify-between">
@@ -561,8 +846,7 @@ export default function SubmitUploadPage() {
                         <button
                           type="button"
                           onClick={deleteRecording}
-                          className="p-1.5 rounded-full hover:bg-rose-500/10 transition-colors"
-                          style={{ color: "var(--lotus)", background: "transparent", border: "none", cursor: "pointer" }}
+                          className="p-1.5 rounded-full hover:bg-rose-500/10 transition-colors border-none bg-transparent cursor-pointer text-[var(--lotus)]"
                           title="Delete recording"
                         >
                           <Trash2 size={14} />
@@ -581,8 +865,7 @@ export default function SubmitUploadPage() {
                           <button
                             type="button"
                             onClick={stopRecording}
-                            className="flex items-center gap-1.5 px-4 py-2 rounded-full font-ui text-[11px] font-bold tracking-wider"
-                            style={{ background: "var(--lotus)", color: "var(--surface)", border: "none", cursor: "pointer" }}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-full font-ui text-[11px] font-bold tracking-wider border-none bg-[var(--lotus)] text-[var(--surface)] cursor-pointer"
                           >
                             <Square size={12} /> STOP RECORDING
                           </button>
@@ -592,15 +875,13 @@ export default function SubmitUploadPage() {
                           <button
                             type="button"
                             onClick={startRecording}
-                            className="flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-all hover:bg-white/5"
-                            style={{ borderColor: "rgba(201,152,58,0.3)", color: "var(--gold-bright)", background: "var(--surface)", cursor: "pointer" }}
+                            className="flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-all hover:bg-white/5 border-[rgba(201,152,58,0.3)] text-[var(--gold-bright)] bg-[var(--surface)] cursor-pointer"
                           >
                             <Mic size={14} />
                             <span className="font-ui text-xs font-semibold">Record Mic</span>
                           </button>
                           <label
-                            className="flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border cursor-pointer transition-all hover:bg-white/5 text-center"
-                            style={{ borderColor: "rgba(201,152,58,0.3)", color: "var(--ink-soft)", background: "var(--surface)" }}
+                            className="flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border cursor-pointer transition-all hover:bg-white/5 text-center border-[rgba(201,152,58,0.3)] text-[var(--ink-soft)] bg-[var(--surface)]"
                           >
                             <input
                               type="file"
@@ -624,43 +905,191 @@ export default function SubmitUploadPage() {
                 </div>
               </div>
             ) : (
-              /* ── URL tab ─────────────────────────────────────────── */
-              <div className="space-y-4">
-                <p className="font-body text-sm leading-6 text-[var(--ink-soft)]">
-                  Paste the URL of a web article, blog post, or publicly accessible document. The text will
-                  be extracted and loaded into the editor where you can review and edit before submitting.
-                </p>
-                <div>
-                  <label className="form-label" htmlFor="url-input">Article / Document URL *</label>
-                  <div className="flex gap-2">
-                    <input
-                      id="url-input"
-                      type="url"
-                      className="input-sacred flex-1"
-                      placeholder="https://example.com/article"
-                      value={urlValue}
-                      onChange={(e) => setUrlValue(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && fetchUrl()}
-                    />
+              <div>
+                {/* ── Source tabs ───────────────────────────────────────── */}
+                <div className="mb-6 flex rounded-[8px] border border-[var(--border-gold)] bg-[var(--surface)] p-1">
+                  {(["file", "url"] as const).map((t) => (
                     <button
+                      key={t}
                       type="button"
-                      onClick={fetchUrl}
-                      disabled={urlFetching || !urlValue.trim()}
-                      className="btn-terracotta shrink-0 px-4"
+                      onClick={() => { setTab(t); setError(""); }}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-[6px] py-2 font-ui text-xs font-bold uppercase tracking-[0.1em] transition cursor-pointer"
+                      style={{
+                        background: tab === t ? "var(--terracotta)" : "transparent",
+                        color: tab === t ? "var(--surface)" : "var(--muted)",
+                        border: "none",
+                      }}
                     >
-                      {urlFetching ? "Fetching…" : "Fetch"}
+                      {t === "file" ? <><Upload size={13} /> Upload File</> : <><Link2 size={13} /> From URL</>}
                     </button>
-                  </div>
+                  ))}
                 </div>
-                <p className="font-ui text-xs text-[var(--ink-faint)]">
-                  Supports public web pages. Paywalled or login-protected pages cannot be fetched.
-                </p>
-              </div>
-            )}
 
-            <OrnamentDivider className="my-7" />
+                {tab === "file" ? (
+                  <div className="grid gap-6">
+                    {/* Manuscript upload */}
+                    <div>
+                      <div className="upload-section-label">Manuscript File *</div>
+                      <UploadZone
+                        file={mainFile}
+                        dragging={dragging === "main"}
+                        onDragOver={(e) => { e.preventDefault(); setDragging("main"); }}
+                        onDragLeave={() => setDragging(null)}
+                        onDrop={(e) => { e.preventDefault(); setDragging(null); const f = e.dataTransfer.files[0]; if (f) pickMain(f); }}
+                        icon={<Upload size={38} className="text-[var(--gold)]" />}
+                        accept=".pdf,.doc,.docx,.txt"
+                        formatHint="PDF, DOC, DOCX, TXT · Max 50 MB"
+                        browseLabel="Browse Files"
+                        onRemove={() => setMainFile(null)}
+                        inputRef={mainRef}
+                        onFileChange={pickMain}
+                      />
 
-            {/* Declaration */}
+                      {/* Extract to editor button */}
+                      {mainFile && (
+                        <button
+                          type="button"
+                          onClick={() => extractAndWrite(mainFile)}
+                          disabled={extracting}
+                          className="mt-3 inline-flex items-center gap-2 rounded-[8px] border border-[var(--border-gold)] bg-[var(--surface-elevated)] px-4 py-2 font-ui text-xs font-bold uppercase tracking-[0.1em] text-[var(--gold)] transition hover:bg-[var(--surface)] cursor-pointer"
+                        >
+                          <FileText size={13} />
+                          {extracting ? "Extracting text…" : "Extract text into Editor →"}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Cover image */}
+                    <div>
+                      <div className="upload-section-label">
+                        Cover / Supporting Image{" "}
+                        <span className="normal-case tracking-normal text-[var(--ink-faint)]">(optional)</span>
+                      </div>
+                      <UploadZone
+                        file={imgFile}
+                        dragging={dragging === "img"}
+                        onDragOver={(e) => { e.preventDefault(); setDragging("img"); }}
+                        onDragLeave={() => setDragging(null)}
+                        onDrop={(e) => { e.preventDefault(); setDragging(null); const f = e.dataTransfer.files[0]; if (f) pickImg(f); }}
+                        icon={<ImageIcon size={38} className="text-[var(--gold)]" />}
+                        accept="image/jpeg,image/png,image/webp,.jpg,.png,.webp"
+                        formatHint="JPG, PNG, WEBP · Max 20 MB"
+                        browseLabel="Browse Images"
+                        onRemove={() => setImgFile(null)}
+                        inputRef={imgRef}
+                        onFileChange={pickImg}
+                      />
+                    </div>
+                    {/* Voice note recorder */}
+                    <div>
+                      <div className="upload-section-label">
+                        Voice Note / Audio Reading{" "}
+                        <span className="normal-case tracking-normal text-[var(--ink-faint)]">(optional)</span>
+                      </div>
+                      
+                      {audioPreview ? (
+                        <div className="p-4 rounded-lg space-y-3" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-gold)" }}>
+                          <div className="flex items-center justify-between">
+                            <span className="font-ui text-xs font-semibold" style={{ color: "var(--gold-soft)" }}>Voice Note Recorded</span>
+                            <button
+                              type="button"
+                              onClick={deleteRecording}
+                              className="p-1.5 rounded-full hover:bg-rose-500/10 transition-colors border-none bg-transparent cursor-pointer text-[var(--lotus)]"
+                              title="Delete recording"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                          <audio src={audioPreview} controls className="w-full" style={{ filter: "sepia(0.3) invert(0.9)" }} />
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {recording ? (
+                            <div className="flex flex-col items-center justify-center p-4 rounded-lg border border-dashed" style={{ borderColor: "var(--lotus)", background: "rgba(139,26,74,0.02)" }}>
+                              <div className="w-3 h-3 rounded-full bg-rose-600 animate-pulse mb-2" />
+                              <div className="font-ui text-xs font-semibold mb-3" style={{ color: "var(--ink)" }}>
+                                Recording: {Math.floor(recordTime / 60)}:{(recordTime % 60).toString().padStart(2, "0")} / 5:00
+                              </div>
+                              <button
+                                type="button"
+                                onClick={stopRecording}
+                                className="flex items-center gap-1.5 px-4 py-2 rounded-full font-ui text-[11px] font-bold tracking-wider border-none bg-[var(--lotus)] text-[var(--surface)] cursor-pointer"
+                              >
+                                <Square size={12} /> STOP RECORDING
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={startRecording}
+                                className="flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-all hover:bg-white/5 border-[rgba(201,152,58,0.3)] text-[var(--gold-bright)] bg-[var(--surface)] cursor-pointer"
+                              >
+                                <Mic size={14} />
+                                <span className="font-ui text-xs font-semibold">Record Mic</span>
+                              </button>
+                              <label
+                                className="flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border cursor-pointer transition-all hover:bg-white/5 text-center border-[rgba(201,152,58,0.3)] text-[var(--ink-soft)] bg-[var(--surface)]"
+                              >
+                                <input
+                                  type="file"
+                                  accept="audio/*"
+                                  className="sr-only"
+                                  onChange={e => {
+                                    const f = e.target.files?.[0];
+                                    if (f) {
+                                      if (f.size > 30 * 1024 * 1024) { setError("Audio must be under 30 MB"); return; }
+                                      setAudioFile(f);
+                                      setAudioPreview(URL.createObjectURL(f));
+                                    }
+                                  }}
+                                />
+                                <span className="font-ui text-xs font-semibold">Upload Audio</span>
+                              </label>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                /* ── URL tab ─────────────────────────────────────────── */
+                <div className="space-y-4">
+                  <p className="font-body text-sm leading-6 text-[var(--ink-soft)]">
+                    Paste the URL of a web article, blog post, or publicly accessible document. The text will
+                    be extracted and loaded into the editor where you can review and edit before submitting.
+                  </p>
+                  <div>
+                    <label className="form-label" htmlFor="url-input">Article / Document URL *</label>
+                    <div className="flex gap-2">
+                      <input
+                        id="url-input"
+                        type="url"
+                        className="input-sacred flex-1"
+                        placeholder="https://example.com/article"
+                        value={urlValue}
+                        onChange={(e) => setUrlValue(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && fetchUrl()}
+                      />
+                      <button
+                        type="button"
+                        onClick={fetchUrl}
+                        disabled={urlFetching || !urlValue.trim()}
+                        className="btn-terracotta shrink-0 px-4"
+                      >
+                        {urlFetching ? "Fetching…" : "Fetch"}
+                      </button>
+                    </div>
+                  </div>
+                  <p className="font-ui text-xs text-[var(--ink-faint)]">
+                    Supports public web pages. Paywalled or login-protected pages cannot be fetched.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+            <OrnamentDivider className="my-7" />            {/* Declaration */}
             <label className="mb-6 flex cursor-pointer items-start gap-3">
               <button
                 type="button"
@@ -711,18 +1140,36 @@ export default function SubmitUploadPage() {
               </div>
             ) : null}
 
-            {/* Submit (only for file tab) */}
-            {tab === "file" && (
+            {editorBody ? (
               <button
                 type="button"
-                onClick={submit}
-                disabled={submitting || extracting}
-                className="btn-terracotta w-full justify-center py-4"
+                onClick={() => {
+                  if (!imgFile) {
+                    setError("Choosing a cover image is compulsory for articles.");
+                    return;
+                  }
+                  submitEdited();
+                }}
+                disabled={submitting}
+                className="btn-terracotta w-full justify-center py-4 mt-6"
               >
                 {submitting
                   ? `Uploading ${progress}%…`
-                  : <>Submit for Review <ArrowRight size={14} /></>}
+                  : <>Submit Edited Article <ArrowRight size={14} /></>}
               </button>
+            ) : (
+              tab === "file" && (
+                <button
+                  type="button"
+                  onClick={submit}
+                  disabled={submitting || extracting}
+                  className="btn-terracotta w-full justify-center py-4"
+                >
+                  {submitting
+                    ? `Uploading ${progress}%…`
+                    : <>Submit for Review <ArrowRight size={14} /></>}
+                </button>
+              )
             )}
 
             <div className="mt-4 flex items-center justify-center gap-2 font-ui text-xs text-[var(--ink-faint)]">
