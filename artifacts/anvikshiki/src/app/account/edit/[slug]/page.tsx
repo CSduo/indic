@@ -37,6 +37,19 @@ export default function EditArticlePage() {
   const [insertingImage, setInsertingImage] = useState(false);
   const [errorText, setErrorText] = useState("");
 
+  // Cover image states
+  const [imgFile, setImgFile] = useState<File | null>(null);
+  const [imgPreview, setImgPreview] = useState<string>("");
+  const [imgDragging, setImgDragging] = useState(false);
+  const imgRef = useRef<HTMLInputElement>(null);
+
+  const pickImg = (file: File) => {
+    if (!file.type.startsWith("image/")) { toast.error("Please upload a JPG, PNG, or WEBP image"); return; }
+    if (file.size > 20 * 1024 * 1024) { toast.error("Image must be under 20 MB"); return; }
+    setImgFile(file);
+    setImgPreview(URL.createObjectURL(file));
+  };
+
   useEffect(() => {
     if (!slug) return;
     fetch(`${base()}/api/articles/${slug}`)
@@ -47,6 +60,7 @@ export default function EditArticlePage() {
         setTitle(a.title || "");
         setExcerpt(a.excerpt || "");
         setBody(a.body || "");
+        setImgPreview(a.heroImageUrl || "");
         setLoading(false);
       })
       .catch(() => {
@@ -207,7 +221,19 @@ export default function EditArticlePage() {
 
       if (editorRef.current) {
         editorRef.current.focus();
-        execCmd("insertImage", imageUrl);
+        const imgHtml = `<figure style="margin:2rem 0;text-align:center;"><img src="${imageUrl}" alt="Inline image" style="max-width:100%;height:auto;border-radius:8px;display:inline-block;" /></figure><p><br></p>`;
+        document.execCommand("insertHTML", false, imgHtml);
+        const paras = editorRef.current.querySelectorAll("p");
+        const lastPara = paras[paras.length - 1];
+        if (lastPara) {
+          const range = document.createRange();
+          const sel = window.getSelection();
+          range.setStart(lastPara, 0);
+          range.collapse(true);
+          sel?.removeAllRanges();
+          sel?.addRange(range);
+        }
+        setBody(editorRef.current.innerHTML);
       }
     } catch (err: any) {
       setErrorText(err.message || "Failed to insert image. Please try again.");
@@ -220,13 +246,28 @@ export default function EditArticlePage() {
   const handleSave = async () => {
     const currentBody = editorRef.current ? editorRef.current.innerHTML : body;
     if (!title.trim()) { toast.error("Title cannot be empty"); return; }
+    if (!imgPreview) { toast.error("Choosing a cover image is compulsory for articles"); return; }
     setSaving(true);
     try {
+      let finalCover = imgPreview;
+      if (imgFile) {
+        const fd = new FormData();
+        fd.append("file", imgFile);
+        fd.append("context", "submission_cover");
+        const imgRes = await fetch(`${base()}/api/media/upload`, { method: "POST", credentials: "include", body: fd });
+        if (!imgRes.ok) {
+          const imgErr = await imgRes.json().catch(() => ({}));
+          throw new Error(imgErr.error || "Failed to upload cover image");
+        }
+        const imgData = await imgRes.json();
+        finalCover = imgData.url || "";
+      }
+
       const res = await fetch(`${base()}/api/articles/${slug}/edit`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ title, excerpt, body: currentBody }),
+        body: JSON.stringify({ title, excerpt, body: currentBody, heroImageUrl: finalCover }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save");
@@ -317,6 +358,43 @@ export default function EditArticlePage() {
               maxLength={1000}
               placeholder="Brief abstract or summary…"
             />
+          </div>
+
+          {/* Cover image */}
+          <div>
+            <label className="form-label mb-1">Cover / Header Image *</label>
+            <p className="font-body text-[11px] mb-3" style={{ color: "var(--ink-faint)" }}>Choosing a cover image is compulsory for articles.</p>
+
+            {imgPreview ? (
+              <div className="relative rounded-lg overflow-hidden border border-[var(--border)]" style={{ aspectRatio: "16/9", maxWidth: "360px" }}>
+                <img src={imgPreview} alt="Cover preview" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => { setImgFile(null); setImgPreview(""); }}
+                  className="absolute top-2 right-2 p-1 rounded-full"
+                  style={{ background: "var(--ink)", color: "var(--surface)" }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <div
+                className={`upload-zone${imgDragging ? " active" : ""}`}
+                style={{ padding: "1.5rem", minHeight: 100, maxWidth: "360px", border: "1px dashed var(--border)" }}
+                onDragOver={e => { e.preventDefault(); setImgDragging(true); }}
+                onDragLeave={() => setImgDragging(false)}
+                onDrop={e => { e.preventDefault(); setImgDragging(false); const f = e.dataTransfer.files[0]; if (f) pickImg(f); }}
+                onClick={() => imgRef.current?.click()}
+                role="button" tabIndex={0}
+                onKeyDown={e => e.key === "Enter" && imgRef.current?.click()}
+              >
+                <input ref={imgRef} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) pickImg(f); }} />
+                <ImageIcon size={24} style={{ color: "var(--ink-soft)", opacity: 0.5, margin: "0 auto 8px" }} />
+                <p className="font-ui text-xs text-center" style={{ color: "var(--ink-faint)" }}>Drop or click to upload</p>
+                <p className="font-ui text-[10px] text-center mt-1" style={{ color: "var(--ink-faint)", opacity: 0.6 }}>JPG, PNG, WEBP · Max 20 MB</p>
+              </div>
+            )}
           </div>
 
           {/* Error Banner if any */}
@@ -481,8 +559,6 @@ export default function EditArticlePage() {
                 defaultValue=""
               >
                 <option value="">Text Color</option>
-                <option value="#C9983A">Gold</option>
-                <option value="#8B1A4A">Terracotta</option>
                 <option value="#ffffff">White</option>
                 <option value="#a3a3a3">Muted Gray</option>
               </select>
@@ -494,8 +570,7 @@ export default function EditArticlePage() {
                 defaultValue=""
               >
                 <option value="">Highlight</option>
-                <option value="rgba(201,152,58,0.25)">Gold glow</option>
-                <option value="rgba(139,26,74,0.25)">Terracotta glow</option>
+                <option value="rgba(255,255,255,0.15)">White glow</option>
                 <option value="transparent">None</option>
               </select>
 

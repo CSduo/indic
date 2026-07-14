@@ -431,6 +431,10 @@ export default function SubmitWritePage() {
           const m = notesLines.match(new RegExp(`^${label}: (.*)$`, "m"));
           return m ? m[1] : "";
         };
+        const coverImg = pick("Cover image") || s.coverImageUrl || "";
+        if (coverImg) {
+          setImgPreview(coverImg);
+        }
         setDraft((prev) => ({
           ...prev,
           type: typeMap[s.type] || "essay",
@@ -445,6 +449,7 @@ export default function SubmitWritePage() {
           body: s.body || "",
         }));
         setServerDraftId(s.id);
+
       } catch (err: any) {
         setError(err.message || "Could not load draft");
       } finally {
@@ -493,20 +498,26 @@ export default function SubmitWritePage() {
     if (!draft.email.trim() || !/^[^@]+@[^@]+\.[^@]+$/.test(draft.email)) e.email = "Valid email required";
     if (!draft.title.trim()) e.title = "Title is required";
     if (!draft.domain) e.domain = "Domain is required";
-    // abstract and body no longer have strict character limits
     if (!draft.body.trim()) e.body = "Essay content is required";
+    if (!imgPreview) {
+      setError("Choosing a cover image for the article is compulsory.");
+      return false;
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
-  const buildNotes = (imageUrl: string) => [
-    draft.institution ? `Institution: ${draft.institution}` : "",
-    draft.domain ? `Domain: ${draft.domain}` : "",
-    draft.keywords ? `Keywords: ${draft.keywords}` : "",
-    draft.language !== "English" ? `Language: ${draft.language}` : "",
-    draft.notes ? `Author notes: ${draft.notes}` : "",
-    imageUrl ? `Cover image: ${imageUrl}` : "",
-  ].filter(Boolean).join("\n");
+  const buildNotes = (imageUrl: string) => {
+    const finalCover = imageUrl || (imgPreview && (imgPreview.startsWith("http") || imgPreview.startsWith("/api/")) ? imgPreview : "");
+    return [
+      draft.institution ? `Institution: ${draft.institution}` : "",
+      draft.domain ? `Domain: ${draft.domain}` : "",
+      draft.keywords ? `Keywords: ${draft.keywords}` : "",
+      draft.language !== "English" ? `Language: ${draft.language}` : "",
+      draft.notes ? `Author notes: ${draft.notes}` : "",
+      finalCover ? `Cover image: ${finalCover}` : "",
+    ].filter(Boolean).join("\n");
+  };
 
   const uploadCoverIfNeeded = async (): Promise<string> => {
     if (!imgFile) return "";
@@ -1045,8 +1056,6 @@ export default function SubmitWritePage() {
                   defaultValue=""
                 >
                   <option value="">Text Color</option>
-                  <option value="#C9983A">Gold</option>
-                  <option value="#8B1A4A">Terracotta</option>
                   <option value="#ffffff">White</option>
                   <option value="#a3a3a3">Muted Gray</option>
                 </select>
@@ -1058,8 +1067,7 @@ export default function SubmitWritePage() {
                   defaultValue=""
                 >
                   <option value="">Highlight</option>
-                  <option value="rgba(201,152,58,0.25)">Gold glow</option>
-                  <option value="rgba(139,26,74,0.25)">Terracotta glow</option>
+                  <option value="rgba(255,255,255,0.15)">White glow</option>
                   <option value="transparent">None</option>
                 </select>
 

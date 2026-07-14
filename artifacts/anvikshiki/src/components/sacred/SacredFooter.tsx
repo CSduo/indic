@@ -5,7 +5,6 @@ import { toast } from "sonner";
 
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { LotusIcon } from "@/components/sacred/LotusIcon";
-import { FloralBorder, FloralCorner, LotusBlossom } from "@/components/sacred/FloralDecor";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -73,19 +72,7 @@ export function SacredFooter() {
 
   return (
     <footer className="relative border-t border-[var(--border-gold)] bg-[var(--bg-deep)] overflow-hidden" role="contentinfo">
-      {/* Corner flowers */}
-      <FloralCorner position="tl" size={64} className="absolute top-0 left-0 text-[var(--gold)] opacity-40" />
-      <FloralCorner position="tr" size={64} className="absolute top-0 right-0 text-[var(--gold)] opacity-40" />
-
-      {/* Large background lotus watermark */}
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/3 pointer-events-none" aria-hidden="true">
-        <LotusBlossom size={420} className="text-[var(--gold)] opacity-[0.035]" />
-      </div>
-
-      <div className="h-px bg-gradient-to-r from-transparent via-[var(--gold)] to-transparent" aria-hidden="true" />
-
-      {/* Grand floral border below top line */}
-      <FloralBorder petals={7} className="mt-6 mb-2 px-4 opacity-60" />
+      <div className="h-px bg-gradient-to-r from-transparent via-[var(--border-ink)] to-transparent" aria-hidden="true" />
 
       <div className="container-anv py-8 relative z-10">
         <OrnamentDivider variant="grand" className="mb-10" />

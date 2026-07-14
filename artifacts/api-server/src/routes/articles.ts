@@ -109,11 +109,12 @@ router.patch("/articles/:slug/edit", async (req, res) => {
     }
 
 
-    const { title, excerpt, body } = req.body;
+    const { title, excerpt, body, heroImageUrl } = req.body;
     const updates: Record<string, any> = { updatedAt: new Date() };
     if (typeof title === "string" && title.trim()) updates.title = title.trim();
     if (typeof excerpt === "string") updates.excerpt = excerpt.trim();
     if (typeof body === "string") updates.body = body;
+    if (typeof heroImageUrl === "string") updates.heroImageUrl = heroImageUrl;
 
     const [updated] = await db
       .update(articlesTable)

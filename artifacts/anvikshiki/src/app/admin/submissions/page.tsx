@@ -234,28 +234,36 @@ export default function AdminSubmissionsPage() {
                 )}
 
                 {/* Category selector — shown when about to publish */}
-                {selected.status === "ACCEPTED" && (
-                  <div className="mb-4 p-3 rounded-lg" style={{ background: "rgba(201,152,58,0.08)", border: "1px solid var(--border-gold)" }}>
-                    <div className="form-label mb-2" style={{ color: "var(--gold)" }}>Category for Publication</div>
-                    <p className="font-ui text-xs mb-2" style={{ color: "var(--muted)" }}>
-                      Choose the section where this article will appear on the website.
-                    </p>
-                    <div className="relative">
-                      <select
-                        id="publish-category-select"
-                        value={publishCategory}
-                        onChange={e => setPublishCategory(e.target.value)}
-                        className="input-sacred w-full pr-8 text-sm appearance-none"
-                        style={{ color: "var(--ink-soft)", background: "var(--surface-3)", cursor: "pointer" }}
-                      >
-                        {CATEGORIES.map(c => (
-                          <option key={c.slug} value={c.slug}>{c.label}</option>
-                        ))}
-                      </select>
-                      <ChevronDown size={14} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" style={{ color: "var(--muted)" }} />
+                {selected.status === "ACCEPTED" && (() => {
+                  const imgUrl = selected.coverImageUrl || extractCoverFromNotes(selected.notes);
+                  return (
+                    <div className="mb-4 p-3 rounded-lg" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}>
+                      <div className="form-label mb-2" style={{ color: "var(--ink)" }}>Category for Publication</div>
+                      <p className="font-ui text-xs mb-2" style={{ color: "var(--muted)" }}>
+                        Choose the section where this article will appear on the website.
+                      </p>
+                      <div className="relative mb-3">
+                        <select
+                          id="publish-category-select"
+                          value={publishCategory}
+                          onChange={e => setPublishCategory(e.target.value)}
+                          className="input-sacred w-full pr-8 text-sm appearance-none"
+                          style={{ color: "var(--ink-soft)", background: "var(--surface-3)", cursor: "pointer" }}
+                        >
+                          {CATEGORIES.map(c => (
+                            <option key={c.slug} value={c.slug}>{c.label}</option>
+                          ))}
+                        </select>
+                        <ChevronDown size={14} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" style={{ color: "var(--muted)" }} />
+                      </div>
+                      {!imgUrl && (
+                        <div className="p-2.5 rounded bg-rose-950/20 border border-rose-900/40 text-rose-400 font-ui text-[11px] leading-relaxed">
+                          ⚠️ Warning: This submission has no cover image. A cover image is compulsory to publish as an article.
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Actions */}
                 <div className="flex flex-wrap gap-2 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
@@ -267,15 +275,19 @@ export default function AdminSubmissionsPage() {
                       <X size={12} /> Reject
                     </button>
                   </>)}
-                  {selected.status === "ACCEPTED" && (
-                    <button
-                      type="button"
-                      onClick={() => patchAction(selected.id, "publish", { categorySlug: publishCategory })}
-                      className="btn-sacred btn-gold text-xs py-1.5 px-3 inline-flex items-center gap-1.5"
-                    >
-                      <Globe size={12} /> Publish as Article
-                    </button>
-                  )}
+                  {selected.status === "ACCEPTED" && (() => {
+                    const imgUrl = selected.coverImageUrl || extractCoverFromNotes(selected.notes);
+                    return (
+                      <button
+                        type="button"
+                        disabled={!imgUrl}
+                        onClick={() => patchAction(selected.id, "publish", { categorySlug: publishCategory })}
+                        className="btn-sacred btn-gold text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <Globe size={12} /> Publish as Article
+                      </button>
+                    );
+                  })()}
                   {selected.status === "PUBLISHED" && (
                     <button type="button" onClick={() => patchAction(selected.id, "unpublish")} className="btn-sacred btn-ghost text-xs py-1.5 px-3 inline-flex items-center gap-1.5">
                       <ArchiveRestore size={12} /> Unpublish
