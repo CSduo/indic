@@ -24,7 +24,7 @@ function plainTextToHtml(text: string): string {
   return text
     .split(/\n{2,}/)
     .filter(p => p.trim())
-    .map(p => `<p>${p.trim().replace(/\n/g, "<br>")}</p>`)
+    .map(p => `<p>${p.trim().replace(/\s*\n\s*/g, " ")}</p>`)
     .join("");
 }
 
@@ -49,7 +49,7 @@ async function extractPdfAsHtml(file: File): Promise<string> {
     for (const item of items) {
       if ("str" in item) {
         const y = item.transform?.[5] ?? null;
-        if (lastY !== null && Math.abs(y - lastY) > 12) {
+        if (lastY !== null && Math.abs(y - lastY) > 20) {
           pageText += "\n\n";
         } else if (lastY !== null && item.hasEOL) {
           pageText += "\n";
@@ -87,22 +87,21 @@ export default function SubmitUploadPage() {
   const [error, setError] = useState("");
   const [extracting, setExtracting] = useState(false);
 
-  // Voice note recording states
-  const [audioFile, setAudioFile] = useState<File | null>(null);
-  const [audioPreview, setAudioPreview] = useState<string>("");
-  const [recording, setRecording] = useState(false);
-  const [recordTime, setRecordTime] = useState(0);
-  const [uploadingAudio, setUploadingAudio] = useState(false);
+  // Inline Voice Note recording states
+  const [inlineRecording, setInlineRecording] = useState(false);
+  const [inlineRecordTime, setInlineRecordTime] = useState(0);
+  const [showInlineVNRecorder, setShowInlineVNRecorder] = useState(false);
+  const [uploadingInlineAudio, setUploadingInlineAudio] = useState(false);
+  
+  const inlineMediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const inlineAudioChunksRef = useRef<Blob[]>([]);
+  const inlineTimerRef = useRef<any>(null);
+  const inlineAudioInputRef = useRef<HTMLInputElement>(null);
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<any>(null);
-
-  const startRecording = async () => {
+  const startInlineRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
-      // Choose supported mimetype
       let mimeType = "audio/webm";
       if (!MediaRecorder.isTypeSupported(mimeType)) {
         mimeType = "audio/ogg";
@@ -112,32 +111,32 @@ export default function SubmitUploadPage() {
       }
 
       const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-      mediaRecorderRef.current = recorder;
-      audioChunksRef.current = [];
+      inlineMediaRecorderRef.current = recorder;
+      inlineAudioChunksRef.current = [];
       
       recorder.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) {
-          audioChunksRef.current.push(e.data);
+          inlineAudioChunksRef.current.push(e.data);
         }
       };
 
-      recorder.onstop = () => {
+      recorder.onstop = async () => {
         const ext = mimeType.includes("ogg") ? "ogg" : "webm";
-        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType || "audio/webm" });
-        const file = new File([audioBlob], `voice-note-${Date.now()}.${ext}`, { type: mimeType || "audio/webm" });
-        setAudioFile(file);
-        setAudioPreview(URL.createObjectURL(file));
+        const audioBlob = new Blob(inlineAudioChunksRef.current, { type: mimeType || "audio/webm" });
+        const file = new File([audioBlob], `inline-voice-note-${Date.now()}.${ext}`, { type: mimeType || "audio/webm" });
+        
+        await uploadAndInsertInlineAudio(file);
         stream.getTracks().forEach(track => track.stop());
       };
 
       recorder.start();
-      setRecording(true);
-      setRecordTime(0);
+      setInlineRecording(true);
+      setInlineRecordTime(0);
 
-      timerRef.current = setInterval(() => {
-        setRecordTime(prev => {
+      inlineTimerRef.current = setInterval(() => {
+        setInlineRecordTime(prev => {
           if (prev >= 300) { // 5-minute cap
-            stopRecording();
+            stopInlineRecording();
             return prev;
           }
           return prev + 1;
@@ -149,20 +148,62 @@ export default function SubmitUploadPage() {
     }
   };
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
+  const stopInlineRecording = () => {
+    if (inlineMediaRecorderRef.current && inlineMediaRecorderRef.current.state !== "inactive") {
+      inlineMediaRecorderRef.current.stop();
     }
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
+    if (inlineTimerRef.current) {
+      clearInterval(inlineTimerRef.current);
     }
-    setRecording(false);
+    setInlineRecording(false);
   };
 
-  const deleteRecording = () => {
-    setAudioFile(null);
-    setAudioPreview("");
-    setRecordTime(0);
+  const uploadAndInsertInlineAudio = async (file: File) => {
+    if (file.size > 30 * 1024 * 1024) {
+      setError("Audio file must be under 30 MB");
+      return;
+    }
+
+    setUploadingInlineAudio(true);
+    setError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("context", "voice_note");
+
+      const res = await fetch(`${base()}/api/media/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to upload voice note");
+      }
+
+      const data = await res.json();
+      const audioUrl = data.url;
+
+      if (editorRef.current) {
+        editorRef.current.focus();
+        const audioHtml = `<audio src="${audioUrl}" controls class="article-body-audio" style="width: 100%; max-width: 500px; margin: 1.5rem auto; display: block;" data-vn-id="${data.mediaAsset?.storageKey || ''}"></audio><p><br></p>`;
+        document.execCommand("insertHTML", false, audioHtml);
+        setEditorBody(editorRef.current.innerHTML);
+      }
+      setShowInlineVNRecorder(false);
+    } catch (err: any) {
+      setError(err.message || "Failed to insert voice note. Please try again.");
+    } finally {
+      setUploadingInlineAudio(false);
+    }
+  };
+
+  const handleInlineAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await uploadAndInsertInlineAudio(file);
+    }
   };
 
   /* ── File validation ─────────────────────────────────────────────── */
@@ -433,16 +474,6 @@ export default function SubmitUploadPage() {
           coverImageResourceType = coverResult.resourceType;
         }
 
-        let audioUrl = null;
-        let audioPublicId = null;
-
-        if (audioFile) {
-          setProgress(75);
-          const audioResult = await uploadToCloudinary(audioFile, "submissions/voice-notes", "video");
-          audioUrl = audioResult.secureUrl;
-          audioPublicId = audioResult.publicId;
-        }
-
         setProgress(85);
         const payload = {
           submitterName: details.fullName || details.name || "",
@@ -460,8 +491,6 @@ export default function SubmitUploadPage() {
           coverUrl: coverImageUrl,
           coverPublicId: coverImagePublicId,
           coverResourceType: coverImageResourceType,
-          audioUrl,
-          audioPublicId,
         };
 
         const response = await fetch(`${base()}/api/submissions/upload`, {
@@ -480,7 +509,6 @@ export default function SubmitUploadPage() {
         const formData = new FormData();
         formData.append("manuscript", mainFile);
         if (imgFile) formData.append("coverImage", imgFile);
-        if (audioFile) formData.append("audio", audioFile);
         formData.append("submitterName", details.fullName || details.name || "");
         formData.append("submitterEmail", details.email || "");
         formData.append("title", details.title || "");
@@ -545,7 +573,6 @@ export default function SubmitUploadPage() {
       }
 
       let coverUrl = null;
-      let audioUrl = null;
 
       if (isCloudinary) {
         const uploadToCloudinary = async (file: File, folder: string, resourceType: string) => {
@@ -581,11 +608,6 @@ export default function SubmitUploadPage() {
           setProgress(40);
           coverUrl = await uploadToCloudinary(imgFile, "submissions/covers", "image");
         }
-
-        if (audioFile) {
-          setProgress(70);
-          audioUrl = await uploadToCloudinary(audioFile, "submissions/voice-notes", "video");
-        }
       } else {
         // Fallback local upload first
         const uploadLocal = async (file: File, context: string) => {
@@ -601,11 +623,6 @@ export default function SubmitUploadPage() {
         if (imgFile) {
           setProgress(40);
           coverUrl = await uploadLocal(imgFile, "submission_cover");
-        }
-
-        if (audioFile) {
-          setProgress(70);
-          audioUrl = await uploadLocal(audioFile, "voice_note");
         }
       }
 
@@ -632,7 +649,6 @@ export default function SubmitUploadPage() {
           body: editorBody,
           notes: finalNotes,
           consent: true,
-          audioUrl,
         }),
       });
 
@@ -810,7 +826,84 @@ export default function SubmitUploadPage() {
                       <ImageIcon size={13} />
                       <span>{insertingInlineImage ? "Uploading…" : "Add Image"}</span>
                     </button>
+
+                    <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+
+                    {/* Inline VN Recorder input and button */}
+                    <input
+                      type="file"
+                      ref={inlineAudioInputRef}
+                      onChange={handleInlineAudioUpload}
+                      accept="audio/*"
+                      className="sr-only"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowInlineVNRecorder(v => !v)}
+                      disabled={uploadingInlineAudio}
+                      className="flex items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent text-[var(--gold-soft)]"
+                      title="Insert Voice Note"
+                    >
+                      <Mic size={13} />
+                      <span>{uploadingInlineAudio ? "Uploading…" : "Add VN"}</span>
+                    </button>
                   </div>
+
+                  {/* Inline VN Recorder Strip */}
+                  {showInlineVNRecorder && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[var(--surface-elevated)] border-t border-[rgba(201,152,58,0.15)]">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${inlineRecording ? 'bg-rose-500 animate-pulse' : 'bg-[var(--gold)]'}`} />
+                        <span className="font-ui text-xs text-[var(--ink-soft)]">
+                          {inlineRecording 
+                            ? `Recording: ${Math.floor(inlineRecordTime / 60)}:${(inlineRecordTime % 60).toString().padStart(2, '0')} / 5:00` 
+                            : uploadingInlineAudio 
+                            ? 'Uploading voice note…' 
+                            : 'Record or upload a voice note to insert at cursor'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {!inlineRecording && !uploadingInlineAudio && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={startInlineRecording}
+                              className="px-2.5 py-1 rounded bg-[rgba(201,152,58,0.15)] hover:bg-[rgba(201,152,58,0.25)] text-xs text-[var(--gold-bright)] font-ui font-semibold cursor-pointer border-none"
+                            >
+                              Record
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => inlineAudioInputRef.current?.click()}
+                              className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-xs text-[var(--ink-soft)] font-ui font-semibold cursor-pointer border-none"
+                            >
+                              Upload File
+                            </button>
+                          </>
+                        )}
+                        {inlineRecording && (
+                          <button
+                            type="button"
+                            onClick={stopInlineRecording}
+                            className="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-700 text-xs text-white font-ui font-semibold animate-pulse cursor-pointer border-none"
+                          >
+                            Stop & Insert
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (inlineRecording) stopInlineRecording();
+                            setShowInlineVNRecorder(false);
+                          }}
+                          disabled={uploadingInlineAudio}
+                          className="px-2.5 py-1 rounded hover:bg-white/5 text-xs text-[var(--ink-faint)] font-ui cursor-pointer border-none bg-transparent"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Cover Image Selection (Compulsory!) */}
@@ -832,76 +925,6 @@ export default function SubmitUploadPage() {
                     inputRef={imgRef}
                     onFileChange={pickImg}
                   />
-                </div>
-
-                {/* Voice Note Recording */}
-                <div className="mt-6">
-                  <div className="upload-section-label">
-                    Voice Note / Audio Reading <span className="normal-case tracking-normal text-[var(--ink-faint)]">(optional)</span>
-                  </div>
-                  {audioPreview ? (
-                    <div className="p-4 rounded-lg space-y-3" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-gold)" }}>
-                      <div className="flex items-center justify-between">
-                        <span className="font-ui text-xs font-semibold" style={{ color: "var(--gold-soft)" }}>Voice Note Recorded</span>
-                        <button
-                          type="button"
-                          onClick={deleteRecording}
-                          className="p-1.5 rounded-full hover:bg-rose-500/10 transition-colors border-none bg-transparent cursor-pointer text-[var(--lotus)]"
-                          title="Delete recording"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                      <audio src={audioPreview} controls className="w-full" style={{ filter: "sepia(0.3) invert(0.9)" }} />
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {recording ? (
-                        <div className="flex flex-col items-center justify-center p-4 rounded-lg border border-dashed" style={{ borderColor: "var(--lotus)", background: "rgba(139,26,74,0.02)" }}>
-                          <div className="w-3 h-3 rounded-full bg-rose-600 animate-pulse mb-2" />
-                          <div className="font-ui text-xs font-semibold mb-3" style={{ color: "var(--ink)" }}>
-                            Recording: {Math.floor(recordTime / 60)}:{(recordTime % 60).toString().padStart(2, "0")} / 5:00
-                          </div>
-                          <button
-                            type="button"
-                            onClick={stopRecording}
-                            className="flex items-center gap-1.5 px-4 py-2 rounded-full font-ui text-[11px] font-bold tracking-wider border-none bg-[var(--lotus)] text-[var(--surface)] cursor-pointer"
-                          >
-                            <Square size={12} /> STOP RECORDING
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={startRecording}
-                            className="flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-all hover:bg-white/5 border-[rgba(201,152,58,0.3)] text-[var(--gold-bright)] bg-[var(--surface)] cursor-pointer"
-                          >
-                            <Mic size={14} />
-                            <span className="font-ui text-xs font-semibold">Record Mic</span>
-                          </button>
-                          <label
-                            className="flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border cursor-pointer transition-all hover:bg-white/5 text-center border-[rgba(201,152,58,0.3)] text-[var(--ink-soft)] bg-[var(--surface)]"
-                          >
-                            <input
-                              type="file"
-                              accept="audio/*"
-                              className="sr-only"
-                              onChange={e => {
-                                const f = e.target.files?.[0];
-                                if (f) {
-                                  if (f.size > 30 * 1024 * 1024) { setError("Audio must be under 30 MB"); return; }
-                                  setAudioFile(f);
-                                  setAudioPreview(URL.createObjectURL(f));
-                                }
-                              }}
-                            />
-                            <span className="font-ui text-xs font-semibold">Upload Audio</span>
-                          </label>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               </div>
             ) : (
@@ -979,77 +1002,6 @@ export default function SubmitUploadPage() {
                         inputRef={imgRef}
                         onFileChange={pickImg}
                       />
-                    </div>
-                    {/* Voice note recorder */}
-                    <div>
-                      <div className="upload-section-label">
-                        Voice Note / Audio Reading{" "}
-                        <span className="normal-case tracking-normal text-[var(--ink-faint)]">(optional)</span>
-                      </div>
-                      
-                      {audioPreview ? (
-                        <div className="p-4 rounded-lg space-y-3" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-gold)" }}>
-                          <div className="flex items-center justify-between">
-                            <span className="font-ui text-xs font-semibold" style={{ color: "var(--gold-soft)" }}>Voice Note Recorded</span>
-                            <button
-                              type="button"
-                              onClick={deleteRecording}
-                              className="p-1.5 rounded-full hover:bg-rose-500/10 transition-colors border-none bg-transparent cursor-pointer text-[var(--lotus)]"
-                              title="Delete recording"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                          <audio src={audioPreview} controls className="w-full" style={{ filter: "sepia(0.3) invert(0.9)" }} />
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          {recording ? (
-                            <div className="flex flex-col items-center justify-center p-4 rounded-lg border border-dashed" style={{ borderColor: "var(--lotus)", background: "rgba(139,26,74,0.02)" }}>
-                              <div className="w-3 h-3 rounded-full bg-rose-600 animate-pulse mb-2" />
-                              <div className="font-ui text-xs font-semibold mb-3" style={{ color: "var(--ink)" }}>
-                                Recording: {Math.floor(recordTime / 60)}:{(recordTime % 60).toString().padStart(2, "0")} / 5:00
-                              </div>
-                              <button
-                                type="button"
-                                onClick={stopRecording}
-                                className="flex items-center gap-1.5 px-4 py-2 rounded-full font-ui text-[11px] font-bold tracking-wider border-none bg-[var(--lotus)] text-[var(--surface)] cursor-pointer"
-                              >
-                                <Square size={12} /> STOP RECORDING
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={startRecording}
-                                className="flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-all hover:bg-white/5 border-[rgba(201,152,58,0.3)] text-[var(--gold-bright)] bg-[var(--surface)] cursor-pointer"
-                              >
-                                <Mic size={14} />
-                                <span className="font-ui text-xs font-semibold">Record Mic</span>
-                              </button>
-                              <label
-                                className="flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border cursor-pointer transition-all hover:bg-white/5 text-center border-[rgba(201,152,58,0.3)] text-[var(--ink-soft)] bg-[var(--surface)]"
-                              >
-                                <input
-                                  type="file"
-                                  accept="audio/*"
-                                  className="sr-only"
-                                  onChange={e => {
-                                    const f = e.target.files?.[0];
-                                    if (f) {
-                                      if (f.size > 30 * 1024 * 1024) { setError("Audio must be under 30 MB"); return; }
-                                      setAudioFile(f);
-                                      setAudioPreview(URL.createObjectURL(f));
-                                    }
-                                  }}
-                                />
-                                <span className="font-ui text-xs font-semibold">Upload Audio</span>
-                              </label>
-                            </div>
-                          )}
-                        </div>
-                      )}
                     </div>
                   </div>
                 ) : (

@@ -2,6 +2,8 @@ import { Router } from "express";
 import { db, mediaAssetsTable } from "@workspace/db";
 import multer from "multer";
 import path from "path";
+import fs from "fs";
+import { UPLOADS_DIR } from "./submissions";
 import { v2 as cloudinary } from "cloudinary";
 import { getUserAuth } from "../lib/auth";
 // @ts-ignore — mammoth has no bundled types but works fine
@@ -179,19 +181,30 @@ router.post("/media/extract-doc",
       // If Cloudinary is configured, embedded images are uploaded and returned as <img> tags
       const imageHandler = async (image: any) => {
         try {
-          if (!process.env.CLOUDINARY_URL) {
-            return { src: "" };
-          }
           const buffer: Buffer = await image.read();
-          const uploadResult = await new Promise<any>((resolve, reject) => {
-            const stream = cloudinary.uploader.upload_stream(
-              { folder: "anvikshiki/doc_imports", resource_type: "image" },
-              (err: any, result: any) => (err ? reject(err) : resolve(result))
-            );
-            stream.end(buffer);
-          });
-          return { src: uploadResult.secure_url };
-        } catch {
+          const contentType = image.contentType; // e.g. "image/png" or "image/jpeg"
+          const ext = contentType.split("/")[1] || "png";
+
+          if (process.env.CLOUDINARY_URL) {
+            const uploadResult = await new Promise<any>((resolve, reject) => {
+              const stream = cloudinary.uploader.upload_stream(
+                { folder: "anvikshiki/doc_imports", resource_type: "image" },
+                (err: any, result: any) => (err ? reject(err) : resolve(result))
+              );
+              stream.end(buffer);
+            });
+            return { src: uploadResult.secure_url };
+          } else {
+            // Local fallback
+            const filename = `doc-import-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
+            const filePath = path.join(UPLOADS_DIR, filename);
+            await fs.promises.writeFile(filePath, buffer);
+            const apiBase = process.env.API_BASE_URL || "http://localhost:3001";
+            const baseClean = apiBase.replace(/\/$/, "");
+            return { src: `${baseClean}/api/uploads/${filename}` };
+          }
+        } catch (err) {
+          console.error("Image import failed:", err);
           return { src: "" };
         }
       };
