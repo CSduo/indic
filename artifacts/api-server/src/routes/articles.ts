@@ -38,7 +38,7 @@ router.get("/articles", async (req, res) => {
       .from(articlesTable)
       .leftJoin(categoriesTable, eq(articlesTable.categorySlug, categoriesTable.slug))
       .where(and(...conditions))
-      .orderBy(desc(articlesTable.featured), desc(articlesTable.publishedAt))
+      .orderBy(desc(articlesTable.featured), desc(articlesTable.publishedAt), desc(articlesTable.id))
       .limit(limit).offset(offset);
 
     const [{ count }] = await db

@@ -201,7 +201,12 @@ export default function HomePage() {
 
         setRecentPublications(
           [...articles, ...papers]
-            .sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime())
+            .sort((a, b) => {
+              const timeA = new Date(a.publishedAt || 0).getTime();
+              const timeB = new Date(b.publishedAt || 0).getTime();
+              if (timeB !== timeA) return timeB - timeA;
+              return b.id.localeCompare(a.id);
+            })
             .slice(0, 24),
         );
       })
@@ -224,12 +229,6 @@ export default function HomePage() {
     }
   }, []);
 
-
-  useEffect(() => {
-    if (recentPublications.length < 6) return;
-    const timer = window.setInterval(() => moveRecentPublications(1), 4500);
-    return () => window.clearInterval(timer);
-  }, [moveRecentPublications, recentPublications.length]);
 
   const realEssays = featuredEssays.length > 0
     ? featuredEssays.map((a: any) => ({
