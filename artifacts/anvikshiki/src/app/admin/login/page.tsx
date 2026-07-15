@@ -67,7 +67,7 @@ export default function AdminLoginPage() {
           </form>
           <LotusDivider className="mt-5 mb-3" />
           <p className="font-ui text-[10px] text-center" style={{ color: "var(--ink-faint)" }}>
-            Set <code style={{ color: "var(--gold)", background: "var(--surface-3)", padding: "1px 4px", borderRadius: 3 }}>ADMIN_EMAIL</code> and <code style={{ color: "var(--gold)", background: "var(--surface-3)", padding: "1px 4px", borderRadius: 3 }}>ADMIN_PASSWORD</code> in environment to create admin access.
+            Set <code style={{ color: "var(--gold)", background: "var(--surface-3)", padding: "1px 4px", borderRadius: 3 }}>ADMIN_EMAIL</code> and a bcrypt <code style={{ color: "var(--gold)", background: "var(--surface-3)", padding: "1px 4px", borderRadius: 3 }}>ADMIN_PASSWORD_HASH</code> secret to provision admin access.
           </p>
         </div>
       </div>

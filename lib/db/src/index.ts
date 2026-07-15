@@ -19,14 +19,17 @@ if (!process.env.DATABASE_URL) {
   }
 }
 
-const maxConnections = Number(
+const configuredMaxConnections = Number(
   process.env.PG_POOL_MAX || (isVercel ? 1 : isProduction ? 5 : 20)
 );
+const maxConnections = Number.isInteger(configuredMaxConnections) && configuredMaxConnections > 0
+  ? Math.min(configuredMaxConnections, 50)
+  : (isVercel ? 1 : isProduction ? 5 : 20);
 
 const sslConfig = process.env.PGSSL === "false"
   ? undefined
   : (process.env.PGSSL === "true" || isProduction || isVercel)
-    ? { rejectUnauthorized: false }
+    ? { rejectUnauthorized: process.env.PGSSL_REJECT_UNAUTHORIZED !== "false" }
     : undefined;
 
 // Robust connection pool with configuration for production stability

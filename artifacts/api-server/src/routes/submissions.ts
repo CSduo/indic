@@ -12,6 +12,8 @@ import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import path from "path";
 import fs from "fs";
+import { sanitizeArticleBody } from "../lib/content";
+import { hasExpectedFileSignature } from "../lib/file-validation";
 
 import { sendSubmissionNotification } from "../lib/notifier";
 
@@ -23,8 +25,11 @@ if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 const storage = multer.memoryStorage();
 
 async function saveFile(file: any, subFolder: string): Promise<string> {
-  const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const filename = `${Date.now()}-${subFolder}-${safeName}`;
+  if (!hasExpectedFileSignature(file)) {
+    throw new Error("Uploaded file content does not match its extension");
+  }
+  const extension = path.extname(file.originalname).toLowerCase();
+  const filename = `${subFolder}-${crypto.randomUUID()}${extension}`;
 
   // Persist to local disk, served statically from /api/uploads.
   // Note: on ephemeral hosting this directory is not guaranteed to survive
@@ -48,6 +53,7 @@ const upload = multer({
       "text/plain",
     ];
     const imageTypes = ["image/jpeg", "image/png", "image/webp"];
+    const audioTypes = ["audio/webm", "audio/ogg", "audio/wav", "audio/mpeg", "audio/mp4", "audio/x-m4a"];
 
     if (file.fieldname === "coverImage") {
       // Cover images: only allow image MIME types
@@ -60,6 +66,12 @@ const upload = multer({
       // Manuscripts: allow document + image types
       const allowed = [...manuscriptTypes, ...imageTypes];
       if (allowed.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error("File type not allowed"));
+      }
+    } else if (file.fieldname === "audio") {
+      if (audioTypes.includes(file.mimetype)) {
         cb(null, true);
       } else {
         cb(new Error("File type not allowed"));
@@ -150,7 +162,7 @@ router.post("/uploads/cloudinary-signature", async (req, res) => {
     }
 
     const timestamp = Math.round(new Date().getTime() / 1000);
-    const folder = (req.body.folder || "submissions").trim();
+    const folder = `anvikshiki/submissions/${auth.userId}`;
 
     const signature = cloudinary.utils.api_sign_request(
       {
@@ -190,29 +202,55 @@ router.post(
   },
   async (req: any, res) => {
     try {
-      const submitterName = (req.body.submitterName || "").trim();
-      const submitterEmail = (req.body.submitterEmail || "").trim();
-      const title = (req.body.title || "").trim();
-      const domain = req.body.domain ? normalizeCategorySlug(String(req.body.domain)) : null;
-      const abstract = (req.body.abstract || "Submitted via upload form").trim();
-      const typeRaw = (req.body.type || "ESSAY").toUpperCase();
-      const validTypes = ["ESSAY", "PAPER", "REVIEW", "COMMENTARY"];
-      const type = validTypes.includes(typeRaw) ? typeRaw as "ESSAY" | "PAPER" | "REVIEW" | "COMMENTARY" : "ESSAY";
-
-      if (!submitterName || !submitterEmail || !title) {
-        return res.status(400).json({ error: "Missing required fields: submitterName, submitterEmail, title" });
+      const uploadSchema = z.object({
+        submitterName: z.string().trim().min(1).max(160),
+        submitterEmail: z.string().trim().toLowerCase().email(),
+        title: z.string().trim().min(1).max(500),
+        domain: z.string().max(160).optional(),
+        abstract: z.string().trim().min(1).max(10_000).default("Submitted via upload form"),
+        type: z.enum(["ESSAY", "PAPER", "REVIEW", "COMMENTARY"]).default("ESSAY"),
+        consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).transform(v => v === true || v === "true"),
+        manuscriptUrl: z.string().url().max(2_000).optional().or(z.literal("")),
+        manuscriptPublicId: z.string().max(500).optional(),
+        manuscriptResourceType: z.string().max(50).optional(),
+        coverUrl: z.string().url().max(2_000).optional().or(z.literal("")),
+        coverImageUrl: z.string().url().max(2_000).optional().or(z.literal("")),
+        coverPublicId: z.string().max(500).optional(),
+        coverImagePublicId: z.string().max(500).optional(),
+        coverResourceType: z.string().max(50).optional(),
+        coverImageResourceType: z.string().max(50).optional(),
+        audioUrl: z.string().url().max(2_000).optional().or(z.literal("")),
+        audioPublicId: z.string().max(500).optional(),
+        keywords: z.string().max(2_000).optional(),
+        notes: z.string().max(5_000).optional(),
+      });
+      const parsed = uploadSchema.safeParse({
+        ...req.body,
+        type: String(req.body.type || "ESSAY").toUpperCase(),
+      });
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid submission", details: parsed.error.flatten() });
       }
+      if (!parsed.data.consent) return res.status(400).json({ error: "Consent is required" });
 
-      let manuscriptUrl = req.body.manuscriptUrl || null;
-      let manuscriptPublicId = req.body.manuscriptPublicId || null;
-      let manuscriptResourceType = req.body.manuscriptResourceType || null;
+      const data = parsed.data;
+      const submitterName = data.submitterName;
+      const submitterEmail = data.submitterEmail;
+      const title = data.title;
+      const domain = data.domain ? normalizeCategorySlug(data.domain) : null;
+      const abstract = data.abstract;
+      const type = data.type;
 
-      let coverImageUrl = req.body.coverUrl || req.body.coverImageUrl || null;
-      let coverImagePublicId = req.body.coverPublicId || req.body.coverImagePublicId || null;
-      let coverImageResourceType = req.body.coverResourceType || req.body.coverImageResourceType || null;
+      let manuscriptUrl = data.manuscriptUrl || null;
+      let manuscriptPublicId = data.manuscriptPublicId || null;
+      let manuscriptResourceType = data.manuscriptResourceType || null;
 
-      let audioUrl = req.body.audioUrl || null;
-      let audioPublicId = req.body.audioPublicId || null;
+      let coverImageUrl = data.coverUrl || data.coverImageUrl || null;
+      let coverImagePublicId = data.coverPublicId || data.coverImagePublicId || null;
+      let coverImageResourceType = data.coverResourceType || data.coverImageResourceType || null;
+
+      let audioUrl = data.audioUrl || null;
+      let audioPublicId = data.audioPublicId || null;
 
       const contentType = req.headers["content-type"] || "";
       if (contentType.includes("multipart/form-data")) {
@@ -246,8 +284,8 @@ router.post(
         coverImageUrl ? `Cover URL: ${coverImageUrl}` : null,
         audioUrl ? `Audio URL: ${audioUrl}` : null,
         domain ? `Domain: ${domain}` : null,
-        req.body.keywords ? `Keywords: ${req.body.keywords}` : null,
-        req.body.notes ? `Notes: ${req.body.notes}` : null,
+        data.keywords ? `Keywords: ${data.keywords}` : null,
+        data.notes ? `Notes: ${data.notes}` : null,
       ].filter(Boolean).join("\n");
 
       const auth = await getUserAuth(req);
@@ -313,7 +351,7 @@ router.post("/submissions/write", async (req, res) => {
       title: z.string().min(1).max(500),
       domain: z.string().max(160).optional(),
       abstract: z.string().max(10000).optional().default(""),
-      body: z.string().optional().default(""),
+      body: z.string().max(500_000).optional().default(""),
       notes: z.string().max(5000).optional(),
       consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).optional().transform(v => v === true || v === "true"),
       status: z.enum(["DRAFT", "RECEIVED"]).optional().default("RECEIVED"),
@@ -345,7 +383,7 @@ router.post("/submissions/write", async (req, res) => {
       title: data.title,
       domain: data.domain ? normalizeCategorySlug(data.domain) : null,
       abstract: data.abstract || "",
-      body: data.body || "",
+      body: sanitizeArticleBody(data.body || ""),
       notes: data.notes || null,
       consent: !isDraft,
       status: isDraft ? "DRAFT" : "RECEIVED",
@@ -407,6 +445,7 @@ router.get("/submissions", async (req, res) => {
 
     const enriched = submissions.map(s => ({
       ...s,
+      body: sanitizeArticleBody(s.body),
       slug: slugMap[s.id] || null,
     }));
 
@@ -435,7 +474,9 @@ router.get("/submissions/:id", async (req, res) => {
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    return res.json({ submission });
+    return res.json({
+      submission: { ...submission, body: sanitizeArticleBody(submission.body) },
+    });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed" });
@@ -463,7 +504,7 @@ router.put("/submissions/:id", async (req, res) => {
       title: z.string().min(1).max(500).optional(),
       domain: z.string().max(160).optional(),
       abstract: z.string().max(10000).optional(),
-      body: z.string().optional(),
+       body: z.string().max(500_000).optional(),
       notes: z.string().max(5000).optional(),
       consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).optional(),
       status: z.enum(["DRAFT", "RECEIVED"]).optional(),
@@ -489,9 +530,8 @@ router.put("/submissions/:id", async (req, res) => {
     if (data.title !== undefined) updates.title = data.title;
     if (data.domain !== undefined) updates.domain = data.domain ? normalizeCategorySlug(data.domain) : null;
     if (data.abstract !== undefined) updates.abstract = data.abstract;
-    if (data.body !== undefined) updates.body = data.body;
+    if (data.body !== undefined) updates.body = sanitizeArticleBody(data.body);
     if (data.notes !== undefined) updates.notes = data.notes;
-    if (data.domain !== undefined) updates.domain = data.domain;
     if (wantsSubmit) {
       updates.status = "RECEIVED";
       updates.consent = true;
@@ -507,7 +547,11 @@ router.put("/submissions/:id", async (req, res) => {
     const publication = wantsSubmit
       ? await ensurePublicPublicationForSubmission(submission)
       : null;
-    return res.json({ success: true, submission, publication });
+    return res.json({
+      success: true,
+      submission: { ...submission, body: sanitizeArticleBody(submission.body) },
+      publication,
+    });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed to update submission" });
@@ -545,15 +589,6 @@ router.delete("/submissions/:id", async (req, res) => {
         .set({ deleted: true, deletedAt: now, updatedAt: now })
         .where(eq(papersTable.submissionId, existing.id));
 
-      if (existing.title) {
-        await db.update(articlesTable)
-          .set({ deleted: true, deletedAt: now, updatedAt: now })
-          .where(and(eq(articlesTable.title, existing.title), eq(articlesTable.deleted, false)));
-
-        await db.update(papersTable)
-          .set({ deleted: true, deletedAt: now, updatedAt: now })
-          .where(and(eq(papersTable.title, existing.title), eq(papersTable.deleted, false)));
-      }
     } catch {
       // Non-fatal: public document soft-delete is best-effort
     }

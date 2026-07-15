@@ -3,10 +3,35 @@ import { z } from 'zod';
 import dns from 'dns/promises';
 import net from 'net';
 import { v2 as cloudinary } from 'cloudinary';
+import { getUserAuth } from '../lib/auth';
+import { sanitizeArticleBody } from '../lib/content';
 
 const router = Router();
 
-const schema = z.object({ url: z.string().url('Valid URL required') });
+const schema = z.object({ url: z.string().url('Valid URL required').max(2_048) });
+
+async function readLimitedBody(response: Response, maxBytes: number): Promise<Buffer> {
+  const declaredLength = Number(response.headers.get('content-length') || 0);
+  if (declaredLength > maxBytes) {
+    throw Object.assign(new Error('Remote response is too large'), { statusCode: 413 });
+  }
+  if (!response.body) return Buffer.alloc(0);
+
+  const reader = response.body.getReader();
+  const chunks: Buffer[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw Object.assign(new Error('Remote response is too large'), { statusCode: 413 });
+    }
+    chunks.push(Buffer.from(value));
+  }
+  return Buffer.concat(chunks, total);
+}
 
 /**
  * Returns true if the given IP address is within a private, loopback,
@@ -143,7 +168,7 @@ async function uploadImageToCloudinary(
     const contentType = imgRes.headers.get('content-type') || '';
     if (!contentType.startsWith('image/')) return null;
 
-    const buffer = Buffer.from(await imgRes.arrayBuffer());
+    const buffer = await readLimitedBody(imgRes, 10 * 1024 * 1024);
 
     const result = await new Promise<any>((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
@@ -399,6 +424,9 @@ async function extractSemanticHtml(rawHtml: string, finalUrl: string): Promise<s
  */
 router.post('/extract-url', async (req, res) => {
   try {
+    const auth = await getUserAuth(req);
+    if (!auth) return res.status(401).json({ error: 'Unauthorized' });
+
     const { url } = schema.parse(req.body);
 
     const { response, finalUrl } = await fetchWithSsrfGuard(url);
@@ -408,7 +436,10 @@ router.post('/extract-url', async (req, res) => {
     }
 
     const contentType = response.headers.get('content-type') || '';
-    const rawText = await response.text();
+    if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml') && !contentType.includes('text/plain')) {
+      return res.status(415).json({ error: 'The remote URL did not return HTML or plain text' });
+    }
+    const rawText = (await readLimitedBody(response, 2 * 1024 * 1024)).toString('utf-8');
 
     let html: string;
 
@@ -442,7 +473,7 @@ router.post('/extract-url', async (req, res) => {
 
     if (html.length > 200_000) html = html.slice(0, 200_000) + '<p><em>[Content truncated at 200 000 characters]</em></p>';
 
-    return res.json({ html, url: finalUrl });
+    return res.json({ html: sanitizeArticleBody(html), url: finalUrl });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: err.errors[0]?.message || 'Invalid input' });
@@ -453,7 +484,8 @@ router.post('/extract-url', async (req, res) => {
     if (typeof err.statusCode === 'number') {
       return res.status(err.statusCode).json({ error: err.message || 'Invalid request' });
     }
-    return res.status(500).json({ error: err.message || 'Failed to fetch URL' });
+    req.log?.error({ err }, 'Failed to import remote URL');
+    return res.status(500).json({ error: 'Failed to fetch URL' });
   }
 });
 

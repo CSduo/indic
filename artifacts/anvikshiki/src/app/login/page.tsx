@@ -12,6 +12,11 @@ import { useAuthContext } from "@/contexts/AuthContext";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
+const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
+
+interface GoogleCredentialResponse {
+  credential?: string;
+}
 
 export default function LoginPage() {
   const [, navigate] = useLocation();
@@ -25,14 +30,29 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const google = (window as any).google;
-    // Default fallback client id to let them test immediately or use their own once configured
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "1016629737976-7hgl4ooh8v4q7mve1c8b3u9a19m257h6.apps.googleusercontent.com";
+    if (!googleClientId) return;
+    let stopped = false;
+    let attempts = 0;
+    let script = document.getElementById("google-identity-script") as HTMLScriptElement | null;
+    let scriptCreated = false;
+    if (!(window as any).google?.accounts?.id && !script) {
+      script = document.createElement("script");
+      script.id = "google-identity-script";
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      document.head.appendChild(script);
+      scriptCreated = true;
+    }
 
-    if (google && google.accounts && google.accounts.id) {
+    const initializeGoogle = () => {
+      const google = (window as any).google;
+      const container = document.getElementById("google-login-button");
+      if (stopped || !container || !google?.accounts?.id) return false;
+      container.replaceChildren();
       google.accounts.id.initialize({
-        client_id: clientId,
-        callback: async (response: any) => {
+        client_id: googleClientId,
+        callback: async (response: GoogleCredentialResponse) => {
+          if (!response.credential) return;
           setLoading(true);
           setError("");
           try {
@@ -59,7 +79,7 @@ export default function LoginPage() {
       });
 
       google.accounts.id.renderButton(
-        document.getElementById("google-login-button"),
+        container,
         {
           theme: "outline",
           size: "large",
@@ -68,16 +88,28 @@ export default function LoginPage() {
           shape: "rectangular",
         }
       );
-    }
-  }, [tab, login, navigate]);
+      return true;
+    };
+
+    if (initializeGoogle()) return;
+    const timer = window.setInterval(() => {
+      attempts += 1;
+      if (initializeGoogle() || attempts >= 40) window.clearInterval(timer);
+    }, 250);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+      if (scriptCreated) script?.remove();
+    };
+  }, [login, navigate]);
 
   const validate = () => {
     if (!email.trim() || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
       setError("Please enter a valid email address");
       return false;
     }
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters");
+    if (!password || (tab === "signup" && password.length < 12)) {
+      setError(tab === "signup" ? "Password must be at least 12 characters" : "Please enter your password");
       return false;
     }
     if (tab === "signup" && !name.trim()) {
@@ -167,9 +199,12 @@ export default function LoginPage() {
             ))}
           </div>
 
-          <div id="google-login-button" className="mb-5 flex justify-center w-full"></div>
-
-          <OrnamentDivider variant="minimal" className="mb-5" />
+          {googleClientId ? (
+            <>
+              <div id="google-login-button" className="mb-5 flex min-h-10 w-full justify-center" />
+              <OrnamentDivider variant="minimal" className="mb-5" />
+            </>
+          ) : null}
 
           <form onSubmit={submit} className="space-y-4" noValidate>
             {tab === "signup" ? (
@@ -183,9 +218,9 @@ export default function LoginPage() {
               <input id="email" type="email" className="input-sacred" placeholder="you@example.com" value={email} onChange={(event) => setEmail(event.target.value)} required />
             </div>
             <div>
-              <label className="form-label" htmlFor="password">Password * <span className="font-normal normal-case tracking-normal text-[var(--ink-faint)]">(min. 8 characters)</span></label>
+              <label className="form-label" htmlFor="password">Password * {tab === "signup" ? <span className="font-normal normal-case tracking-normal text-[var(--ink-faint)]">(min. 12 characters)</span> : null}</label>
               <div className="relative">
-                <input id="password" type={showPassword ? "text" : "password"} className="input-sacred pr-11" placeholder="Password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={8} />
+                <input id="password" type={showPassword ? "text" : "password"} className="input-sacred pr-11" placeholder="Password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={tab === "signup" ? 12 : 1} maxLength={128} autoComplete={tab === "signup" ? "new-password" : "current-password"} />
                 <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Hide password" : "Show password"}>
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>

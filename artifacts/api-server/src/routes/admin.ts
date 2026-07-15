@@ -2,7 +2,8 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import {
   adminsTable, articlesTable, papersTable, submissionsTable,
-  newsletterSubscribersTable, categoriesTable, usersTable, siteSettingsTable
+  newsletterSubscribersTable, categoriesTable, usersTable, siteSettingsTable,
+  notificationsTable
 } from "@workspace/db";
 import { eq, desc, sql, and, ne } from "drizzle-orm";
 import {
@@ -15,51 +16,52 @@ import {
   syncPublishedSubmissions,
 } from "../lib/publication-sync";
 import { z } from "zod";
+import { sanitizeArticleBody } from "../lib/content";
 
 const router = Router();
 
 const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
+  email: z.string().trim().toLowerCase().email(),
+  password: z.string().min(1).max(128),
 });
 
 const articleInputSchema = z.object({
-  slug: z.string().optional(),
-  title: z.string().min(1),
-  subtitle: z.string().optional(),
-  excerpt: z.string().optional(),
-  body: z.string().optional(),
-  categorySlug: z.string().min(1),
-  tags: z.array(z.string()).default([]),
-  authorName: z.string().optional(),
-  heroImageUrl: z.string().optional(),
-  heroImageAlt: z.string().optional(),
-  keyTakeaways: z.array(z.string()).default([]),
-  seoTitle: z.string().optional(),
-  seoDescription: z.string().optional(),
-  audioUrl: z.string().optional(),
+  slug: z.string().trim().max(500).optional(),
+  title: z.string().trim().min(1).max(500),
+  subtitle: z.string().max(1_000).optional(),
+  excerpt: z.string().max(5_000).optional(),
+  body: z.string().max(500_000).optional(),
+  categorySlug: z.string().trim().min(1).max(100),
+  tags: z.array(z.string().trim().min(1).max(80)).max(30).default([]),
+  authorName: z.string().trim().max(200).optional(),
+  heroImageUrl: z.string().url().max(2_000).optional().or(z.literal("")),
+  heroImageAlt: z.string().max(500).optional(),
+  keyTakeaways: z.array(z.string().max(1_000)).max(20).default([]),
+  seoTitle: z.string().max(200).optional(),
+  seoDescription: z.string().max(500).optional(),
+  audioUrl: z.string().url().max(2_000).optional().or(z.literal("")),
   status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).default("DRAFT"),
   featured: z.boolean().default(false),
   publishedAt: z.string().optional(),
 });
 
 const paperInputSchema = z.object({
-  slug: z.string().optional(),
-  title: z.string().min(1),
-  abstract: z.string().optional(),
-  body: z.string().optional(),
-  categorySlug: z.string().min(1),
-  tags: z.array(z.string()).default([]),
-  authorName: z.string().optional(),
-  pdfUrl: z.string().optional(),
-  coverImageUrl: z.string().optional(),
-  citationText: z.string().optional(),
+  slug: z.string().trim().max(500).optional(),
+  title: z.string().trim().min(1).max(500),
+  abstract: z.string().max(10_000).optional(),
+  body: z.string().max(500_000).optional(),
+  categorySlug: z.string().trim().min(1).max(100),
+  tags: z.array(z.string().trim().min(1).max(80)).max(30).default([]),
+  authorName: z.string().trim().max(200).optional(),
+  pdfUrl: z.string().url().max(2_000).optional().or(z.literal("")),
+  coverImageUrl: z.string().url().max(2_000).optional().or(z.literal("")),
+  citationText: z.string().max(5_000).optional(),
   peerReviewed: z.boolean().default(false),
   paperType: z.enum(["RESEARCH_PAPER", "WORKING_PAPER", "REVIEW_ESSAY", "MONOGRAPH", "TRANSLATION", "ARCHIVAL_NOTE"]).default("RESEARCH_PAPER"),
   year: z.number().optional(),
-  doi: z.string().optional(),
-  seoTitle: z.string().optional(),
-  seoDescription: z.string().optional(),
+  doi: z.string().max(255).optional(),
+  seoTitle: z.string().max(200).optional(),
+  seoDescription: z.string().max(500).optional(),
   status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).default("DRAFT"),
   publishedAt: z.string().optional(),
 });
@@ -70,6 +72,15 @@ async function requireAdmin(req: any, res: any, next: any) {
   if (!auth) return res.status(401).json({ error: "Unauthorized" });
   req.adminAuth = auth;
   next();
+}
+
+function requireAdminRole(...roles: Array<"ADMIN" | "EDITOR" | "REVIEWER">) {
+  return (req: any, res: any, next: any) => {
+    if (!req.adminAuth || !roles.includes(req.adminAuth.role)) {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
+    next();
+  };
 }
 
 // POST /api/admin/login
@@ -84,14 +95,7 @@ router.post("/admin/login", async (req, res) => {
     const envEmail = process.env.ADMIN_EMAIL?.toLowerCase();
     if (envEmail && email.toLowerCase() === envEmail) {
       const envHash = process.env.ADMIN_PASSWORD_HASH;
-      const envPlain = process.env.ADMIN_PASSWORD;
-
-      let valid = false;
-      if (envHash) {
-        valid = await comparePassword(password, envHash);
-      } else if (envPlain) {
-        valid = password === envPlain;
-      }
+      const valid = envHash ? await comparePassword(password, envHash) : false;
 
       if (valid) {
         let [admin] = await db.select().from(adminsTable).where(eq(adminsTable.email, envEmail)).limit(1);
@@ -181,14 +185,23 @@ router.get("/admin/stats", requireAdmin, async (req, res) => {
 router.get("/admin/articles", requireAdmin, async (req, res) => {
   try {
     const { status } = req.query;
-    const conditions = status ? [eq(articlesTable.status, status as any)] : [];
+    const parsedStatus = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).safeParse(status);
+    if (status && !parsedStatus.success) return res.status(400).json({ error: "Invalid status" });
+    const conditions = parsedStatus.success ? [eq(articlesTable.status, parsedStatus.data)] : [];
     const articles = await db.select({ article: articlesTable, category: categoriesTable })
       .from(articlesTable)
       .leftJoin(categoriesTable, eq(articlesTable.categorySlug, categoriesTable.slug))
       .where(conditions.length ? and(...conditions) : undefined)
       .orderBy(desc(articlesTable.updatedAt))
       .limit(100);
-    return res.json({ articles: articles.map(r => ({ ...r.article, category: r.category })), total: articles.length });
+    return res.json({
+      articles: articles.map(r => ({
+        ...r.article,
+        body: sanitizeArticleBody(r.article.body),
+        category: r.category,
+      })),
+      total: articles.length,
+    });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed" });
@@ -196,7 +209,7 @@ router.get("/admin/articles", requireAdmin, async (req, res) => {
 });
 
 // POST /api/admin/articles
-router.post("/admin/articles", requireAdmin, async (req, res) => {
+router.post("/admin/articles", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
   try {
     const parsed = articleInputSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
@@ -211,16 +224,16 @@ router.post("/admin/articles", requireAdmin, async (req, res) => {
       title: data.title,
       subtitle: data.subtitle,
       excerpt: data.excerpt,
-      body: data.body || "",
-      categorySlug: data.categorySlug,
+      body: sanitizeArticleBody(data.body || ""),
+      categorySlug: normalizeCategorySlug(data.categorySlug),
       tags: data.tags,
       authorName: data.authorName,
-      heroImageUrl: data.heroImageUrl,
+      heroImageUrl: data.heroImageUrl || null,
       heroImageAlt: data.heroImageAlt,
       keyTakeaways: data.keyTakeaways,
       seoTitle: data.seoTitle,
       seoDescription: data.seoDescription,
-      audioUrl: data.audioUrl,
+      audioUrl: data.audioUrl || null,
       status: data.status,
       featured: data.featured,
       publishedAt: data.publishedAt ? new Date(data.publishedAt) : null,
@@ -234,12 +247,16 @@ router.post("/admin/articles", requireAdmin, async (req, res) => {
 });
 
 // PATCH /api/admin/articles/:id
-router.patch("/admin/articles/:id", requireAdmin, async (req, res) => {
+router.patch("/admin/articles/:id", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
   try {
     const parsed = articleInputSchema.partial().safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
 
     const updates: any = { ...parsed.data, updatedAt: new Date() };
+    if (updates.body !== undefined) updates.body = sanitizeArticleBody(updates.body);
+    if (updates.categorySlug !== undefined) updates.categorySlug = normalizeCategorySlug(updates.categorySlug);
+    if (updates.heroImageUrl === "") updates.heroImageUrl = null;
+    if (updates.audioUrl === "") updates.audioUrl = null;
     if (updates.publishedAt) updates.publishedAt = new Date(updates.publishedAt);
 
     const [article] = await db.update(articlesTable).set(updates)
@@ -253,9 +270,14 @@ router.patch("/admin/articles/:id", requireAdmin, async (req, res) => {
 });
 
 // DELETE /api/admin/articles/:id
-router.delete("/admin/articles/:id", requireAdmin, async (req, res) => {
+router.delete("/admin/articles/:id", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
   try {
-    await db.delete(articlesTable).where(eq(articlesTable.id, req.params.id));
+    const now = new Date();
+    const [article] = await db.update(articlesTable)
+      .set({ deleted: true, deletedAt: now, updatedAt: now })
+      .where(eq(articlesTable.id, req.params.id))
+      .returning({ id: articlesTable.id });
+    if (!article) return res.status(404).json({ error: "Not found" });
     return res.json({ success: true });
   } catch (err) {
     req.log.error(err);
@@ -267,13 +289,22 @@ router.delete("/admin/articles/:id", requireAdmin, async (req, res) => {
 router.get("/admin/papers", requireAdmin, async (req, res) => {
   try {
     const { status } = req.query;
-    const conditions = status ? [eq(papersTable.status, status as any)] : [];
+    const parsedStatus = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).safeParse(status);
+    if (status && !parsedStatus.success) return res.status(400).json({ error: "Invalid status" });
+    const conditions = parsedStatus.success ? [eq(papersTable.status, parsedStatus.data)] : [];
     const papers = await db.select({ paper: papersTable, category: categoriesTable })
       .from(papersTable)
       .leftJoin(categoriesTable, eq(papersTable.categorySlug, categoriesTable.slug))
       .where(conditions.length ? and(...conditions) : undefined)
       .orderBy(desc(papersTable.updatedAt));
-    return res.json({ papers: papers.map(r => ({ ...r.paper, category: r.category })), total: papers.length });
+    return res.json({
+      papers: papers.map(r => ({
+        ...r.paper,
+        body: sanitizeArticleBody(r.paper.body),
+        category: r.category,
+      })),
+      total: papers.length,
+    });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed" });
@@ -281,7 +312,7 @@ router.get("/admin/papers", requireAdmin, async (req, res) => {
 });
 
 // POST /api/admin/papers
-router.post("/admin/papers", requireAdmin, async (req, res) => {
+router.post("/admin/papers", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
   try {
     const parsed = paperInputSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
@@ -295,12 +326,12 @@ router.post("/admin/papers", requireAdmin, async (req, res) => {
       slug,
       title: data.title,
       abstract: data.abstract,
-      body: data.body || "",
-      categorySlug: data.categorySlug,
+      body: sanitizeArticleBody(data.body || ""),
+      categorySlug: normalizeCategorySlug(data.categorySlug),
       tags: data.tags,
       authorName: data.authorName,
-      pdfUrl: data.pdfUrl,
-      coverImageUrl: data.coverImageUrl,
+      pdfUrl: data.pdfUrl || null,
+      coverImageUrl: data.coverImageUrl || null,
       citationText: data.citationText,
       peerReviewed: data.peerReviewed,
       paperType: data.paperType,
@@ -320,12 +351,16 @@ router.post("/admin/papers", requireAdmin, async (req, res) => {
 });
 
 // PATCH /api/admin/papers/:id
-router.patch("/admin/papers/:id", requireAdmin, async (req, res) => {
+router.patch("/admin/papers/:id", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
   try {
     const parsed = paperInputSchema.partial().safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
 
     const updates: any = { ...parsed.data, updatedAt: new Date() };
+    if (updates.body !== undefined) updates.body = sanitizeArticleBody(updates.body);
+    if (updates.categorySlug !== undefined) updates.categorySlug = normalizeCategorySlug(updates.categorySlug);
+    if (updates.pdfUrl === "") updates.pdfUrl = null;
+    if (updates.coverImageUrl === "") updates.coverImageUrl = null;
     if (updates.publishedAt) updates.publishedAt = new Date(updates.publishedAt);
 
     const [paper] = await db.update(papersTable).set(updates)
@@ -339,9 +374,14 @@ router.patch("/admin/papers/:id", requireAdmin, async (req, res) => {
 });
 
 // DELETE /api/admin/papers/:id
-router.delete("/admin/papers/:id", requireAdmin, async (req, res) => {
+router.delete("/admin/papers/:id", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
   try {
-    await db.delete(papersTable).where(eq(papersTable.id, req.params.id));
+    const now = new Date();
+    const [paper] = await db.update(papersTable)
+      .set({ deleted: true, deletedAt: now, updatedAt: now })
+      .where(eq(papersTable.id, req.params.id))
+      .returning({ id: papersTable.id });
+    if (!paper) return res.status(404).json({ error: "Not found" });
     return res.json({ success: true });
   } catch (err) {
     req.log.error(err);
@@ -360,11 +400,19 @@ router.get("/admin/submissions", requireAdmin, async (req, res) => {
       ne(submissionsTable.status, "DRAFT"),
       eq(submissionsTable.deleted, showDeleted)
     ];
-    if (status && status !== "DRAFT") conditions.push(eq(submissionsTable.status, status as any));
+    const parsedStatus = z.enum(["RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "ACCEPTED", "REJECTED", "PUBLISHED", "ARCHIVED"]).safeParse(status);
+    if (status && !parsedStatus.success) return res.status(400).json({ error: "Invalid status" });
+    if (parsedStatus.success) conditions.push(eq(submissionsTable.status, parsedStatus.data));
     const submissions = await db.select().from(submissionsTable)
       .where(and(...conditions))
       .orderBy(desc(submissionsTable.createdAt));
-    return res.json({ submissions, total: submissions.length });
+    return res.json({
+      submissions: submissions.map(submission => ({
+        ...submission,
+        body: sanitizeArticleBody(submission.body),
+      })),
+      total: submissions.length,
+    });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed" });
@@ -372,7 +420,7 @@ router.get("/admin/submissions", requireAdmin, async (req, res) => {
 });
 
 // POST /api/admin/submissions/sync-public
-router.post("/admin/submissions/sync-public", requireAdmin, async (req, res) => {
+router.post("/admin/submissions/sync-public", requireAdmin, requireAdminRole("ADMIN"), async (req, res) => {
   try {
     const summary = await syncPublishedSubmissions();
     return res.json({ success: true, summary });
@@ -395,6 +443,16 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
 
+    const [previous] = await db.select({
+      status: submissionsTable.status,
+      userId: submissionsTable.userId,
+      title: submissionsTable.title,
+      publishedAt: submissionsTable.publishedAt,
+    }).from(submissionsTable)
+      .where(eq(submissionsTable.id, req.params.id))
+      .limit(1);
+    if (!previous) return res.status(404).json({ error: "Not found" });
+
     const now = new Date();
     const { categorySlug, ...submissionPatch } = parsed.data;
     const updates: Record<string, any> = {
@@ -414,14 +472,36 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
           categorySlug,
           publishedAt: submission.publishedAt || now,
         });
+        if (previous.status !== "PUBLISHED" && previous.userId) {
+          await db.insert(notificationsTable).values({
+            userId: previous.userId,
+            type: "SUBMISSION_STATUS",
+            message: `Your submission "${previous.title}" is now published.`,
+            href: "/account",
+          });
+        }
         return res.json({ submission, publication });
       } catch (publicationErr: any) {
+        await db.update(submissionsTable).set({
+          status: previous.status,
+          publishedAt: previous.publishedAt,
+          updatedAt: new Date(),
+        }).where(eq(submissionsTable.id, req.params.id));
         req.log.error({ err: publicationErr }, "Failed to auto-create public document from submission");
         return res.status(500).json({
           error: "Submission was marked published, but its public page could not be created. Retry publishing or run the public sync.",
           submission,
         });
       }
+    }
+
+    if (parsed.data.status && parsed.data.status !== previous.status && previous.userId) {
+      await db.insert(notificationsTable).values({
+        userId: previous.userId,
+        type: "SUBMISSION_STATUS",
+        message: `Your submission "${previous.title}" is now ${parsed.data.status.toLowerCase().replace(/_/g, " ")}.`,
+        href: "/account",
+      });
     }
 
     return res.json({ submission });
@@ -432,7 +512,7 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
 });
 
 // DELETE /api/admin/submissions/:id — admin soft-deletes a submission
-router.delete("/admin/submissions/:id", requireAdmin, async (req, res) => {
+router.delete("/admin/submissions/:id", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
   try {
     const [existing] = await db.select().from(submissionsTable)
       .where(eq(submissionsTable.id, req.params.id)).limit(1);
@@ -453,16 +533,6 @@ router.delete("/admin/submissions/:id", requireAdmin, async (req, res) => {
         await db.update(articlesTable)
           .set({ deleted: true, deletedAt: now, updatedAt: now })
           .where(eq(articlesTable.id, bySubId.id));
-      } else {
-        const [byTitle] = await db.select({ id: articlesTable.id })
-          .from(articlesTable)
-          .where(eq(articlesTable.title, existing.title))
-          .limit(1);
-        if (byTitle) {
-          await db.update(articlesTable)
-            .set({ deleted: true, deletedAt: now, updatedAt: now })
-            .where(eq(articlesTable.id, byTitle.id));
-        }
       }
 
       const [paperBySubId] = await db.select({ id: papersTable.id })
@@ -497,7 +567,7 @@ router.get("/admin/categories", requireAdmin, async (req, res) => {
 });
 
 // POST /api/admin/categories
-router.post("/admin/categories", requireAdmin, async (req, res) => {
+router.post("/admin/categories", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
   try {
     const schema = z.object({
       slug: z.string().min(1),
@@ -519,7 +589,7 @@ router.post("/admin/categories", requireAdmin, async (req, res) => {
 });
 
 // GET /api/admin/newsletter
-router.get("/admin/newsletter", requireAdmin, async (req, res) => {
+router.get("/admin/newsletter", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
   try {
     const subscribers = await db.select().from(newsletterSubscribersTable)
       .where(eq(newsletterSubscribersTable.isActive, true))
@@ -532,7 +602,7 @@ router.get("/admin/newsletter", requireAdmin, async (req, res) => {
 });
 
 // GET /api/admin/users
-router.get("/admin/users", requireAdmin, async (req, res) => {
+router.get("/admin/users", requireAdmin, requireAdminRole("ADMIN"), async (req, res) => {
   try {
     const users = await db.select({
       id: usersTable.id,
@@ -549,7 +619,7 @@ router.get("/admin/users", requireAdmin, async (req, res) => {
 });
 
 // PATCH /api/admin/users/:id/role - change user role (ADMIN only)
-router.patch("/admin/users/:id/role", requireAdmin, async (req, res) => {
+router.patch("/admin/users/:id/role", requireAdmin, requireAdminRole("ADMIN"), async (req, res) => {
   try {
     const { id } = req.params;
     const schema = z.object({
@@ -568,12 +638,15 @@ router.patch("/admin/users/:id/role", requireAdmin, async (req, res) => {
 
     // Sync to adminsTable
     if (newRole === "ADMIN") {
+      if (!user.password) {
+        return res.status(400).json({ error: "Set a password on this account before granting administrator access" });
+      }
       const [existingAdmin] = await db.select().from(adminsTable).where(eq(adminsTable.email, user.email));
       if (!existingAdmin) {
         await db.insert(adminsTable).values({
           email: user.email,
           name: user.name || "Admin User",
-          password: user.password || "",
+          password: user.password,
           role: "ADMIN" as any,
         });
       }
@@ -589,7 +662,7 @@ router.patch("/admin/users/:id/role", requireAdmin, async (req, res) => {
 });
 
 // GET /api/admin/site-settings
-router.get("/admin/site-settings", requireAdmin, async (req, res) => {
+router.get("/admin/site-settings", requireAdmin, requireAdminRole("ADMIN"), async (req, res) => {
   try {
     const settings = await db.select().from(siteSettingsTable).orderBy(siteSettingsTable.key);
     return res.json({ settings });
@@ -600,7 +673,7 @@ router.get("/admin/site-settings", requireAdmin, async (req, res) => {
 });
 
 // PUT /api/admin/site-settings/:key
-router.put("/admin/site-settings/:key", requireAdmin, async (req, res) => {
+router.put("/admin/site-settings/:key", requireAdmin, requireAdminRole("ADMIN"), async (req, res) => {
   try {
     const schema = z.object({ value: z.string(), description: z.string().optional() });
     const parsed = schema.safeParse(req.body);
@@ -627,7 +700,7 @@ router.put("/admin/site-settings/:key", requireAdmin, async (req, res) => {
 });
 
 // POST /api/admin/submissions/sync-public-archives - manually sync and backfill published submissions
-router.post("/admin/submissions/sync-public-archives", requireAdmin, async (req, res) => {
+router.post("/admin/submissions/sync-public-archives", requireAdmin, requireAdminRole("ADMIN"), async (req, res) => {
   try {
     const { syncPublishedArchives } = await import("../lib/publishHelper");
     const count = await syncPublishedArchives();

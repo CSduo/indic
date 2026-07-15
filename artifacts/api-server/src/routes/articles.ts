@@ -3,6 +3,9 @@ import { db } from "@workspace/db";
 import { articlesTable, categoriesTable, submissionsTable } from "@workspace/db";
 import { eq, and, desc, ilike, inArray, or, sql } from "drizzle-orm";
 import { categorySlugCandidates } from "../lib/publication-sync";
+import { sanitizeArticleBody } from "../lib/content";
+import { z } from "zod";
+import { parsePagination, toLikePattern } from "../lib/request";
 
 const router = Router();
 
@@ -10,8 +13,7 @@ const router = Router();
 router.get("/articles", async (req, res) => {
   try {
     const { category, featured, q, limit: lim, offset: off } = req.query;
-    const limit = Math.min(parseInt(String(lim || "20")), 50);
-    const offset = parseInt(String(off || "0"));
+    const { limit, offset } = parsePagination(lim, off);
 
     const conditions = [
       eq(articlesTable.status, "PUBLISHED"),
@@ -23,7 +25,7 @@ router.get("/articles", async (req, res) => {
     }
     if (featured === "true") conditions.push(eq(articlesTable.featured, true));
     if (q) {
-      const searchTerm = `%${q}%`;
+      const searchTerm = toLikePattern(String(q));
       conditions.push(or(
         ilike(articlesTable.title, searchTerm),
         ilike(articlesTable.subtitle, searchTerm),
@@ -45,7 +47,11 @@ router.get("/articles", async (req, res) => {
       .where(and(...conditions));
 
     const result = articles.map(r => {
-      const art = { ...r.article, category: r.category };
+      const art = {
+        ...r.article,
+        body: sanitizeArticleBody(r.article.body),
+        category: r.category,
+      };
       // If readingMinutes is not stored, compute from body word count
       if (!art.readingMinutes && art.body) {
         const words = art.body.replace(/<[^>]*>/g, ' ').trim().split(/\s+/).filter(Boolean).length;
@@ -75,7 +81,13 @@ router.get("/articles/:slug", async (req, res) => {
     if (!row) return res.status(404).json({ error: "Article not found" });
     // Filter out soft-deleted articles
     if (row.article.deleted) return res.status(404).json({ error: "Article not found" });
-    return res.json({ article: { ...row.article, category: row.category } });
+    return res.json({
+      article: {
+        ...row.article,
+        body: sanitizeArticleBody(row.article.body),
+        category: row.category,
+      },
+    });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed" });
@@ -109,12 +121,22 @@ router.patch("/articles/:slug/edit", async (req, res) => {
     }
 
 
-    const { title, excerpt, body, heroImageUrl } = req.body;
+    const parsed = z.object({
+      title: z.string().trim().min(1).max(500).optional(),
+      excerpt: z.string().max(5_000).optional(),
+      body: z.string().max(500_000).optional(),
+      heroImageUrl: z.string().url().max(2_000).optional().or(z.literal("")),
+    }).safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
+    }
+
+    const { title, excerpt, body, heroImageUrl } = parsed.data;
     const updates: Record<string, any> = { updatedAt: new Date() };
     if (typeof title === "string" && title.trim()) updates.title = title.trim();
     if (typeof excerpt === "string") updates.excerpt = excerpt.trim();
-    if (typeof body === "string") updates.body = body;
-    if (typeof heroImageUrl === "string") updates.heroImageUrl = heroImageUrl;
+    if (body !== undefined) updates.body = sanitizeArticleBody(body);
+    if (heroImageUrl !== undefined) updates.heroImageUrl = heroImageUrl || null;
 
     const [updated] = await db
       .update(articlesTable)
@@ -122,7 +144,10 @@ router.patch("/articles/:slug/edit", async (req, res) => {
       .where(eq(articlesTable.slug, slug))
       .returning();
 
-    return res.json({ success: true, article: updated });
+    return res.json({
+      success: true,
+      article: { ...updated, body: sanitizeArticleBody(updated.body) },
+    });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed to update article" });

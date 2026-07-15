@@ -1,6 +1,8 @@
 import bcryptjs from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
 import type { Request, Response } from "express";
+import { adminsTable, db } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 function makeSecret(envVar: string | undefined, name: string): Uint8Array {
   if (envVar) return new TextEncoder().encode(envVar);
@@ -44,6 +46,8 @@ export async function comparePassword(password: string, hash: string): Promise<b
 export async function createUserToken(userId: string, email: string): Promise<string> {
   return new SignJWT({ userId, email, type: "user" })
     .setProtectedHeader({ alg: "HS256" })
+    .setIssuer("anvikshiki-api")
+    .setAudience("anvikshiki-user")
     .setIssuedAt()
     .setExpirationTime("7d")
     .sign(getAuthSecret());
@@ -51,8 +55,15 @@ export async function createUserToken(userId: string, email: string): Promise<st
 
 export async function verifyUserToken(token: string) {
   try {
-    const { payload } = await jwtVerify(token, getAuthSecret(), { clockTolerance: 60 });
-    return payload as { userId: string; email: string; type: string };
+    const { payload } = await jwtVerify(token, getAuthSecret(), {
+      clockTolerance: 60,
+      issuer: "anvikshiki-api",
+      audience: "anvikshiki-user",
+    });
+    if (payload.type !== "user" || typeof payload.userId !== "string" || typeof payload.email !== "string") {
+      return null;
+    }
+    return payload as { userId: string; email: string; type: "user" };
   } catch {
     return null;
   }
@@ -61,6 +72,8 @@ export async function verifyUserToken(token: string) {
 export async function createAdminToken(adminId: string, email: string, role: string): Promise<string> {
   return new SignJWT({ adminId, email, role, type: "admin" })
     .setProtectedHeader({ alg: "HS256" })
+    .setIssuer("anvikshiki-api")
+    .setAudience("anvikshiki-admin")
     .setIssuedAt()
     .setExpirationTime("8h")
     .sign(getAdminSecret());
@@ -68,8 +81,20 @@ export async function createAdminToken(adminId: string, email: string, role: str
 
 export async function verifyAdminToken(token: string) {
   try {
-    const { payload } = await jwtVerify(token, getAdminSecret(), { clockTolerance: 60 });
-    return payload as { adminId: string; email: string; role: string; type: string };
+    const { payload } = await jwtVerify(token, getAdminSecret(), {
+      clockTolerance: 60,
+      issuer: "anvikshiki-api",
+      audience: "anvikshiki-admin",
+    });
+    if (
+      payload.type !== "admin" ||
+      typeof payload.adminId !== "string" ||
+      typeof payload.email !== "string" ||
+      typeof payload.role !== "string"
+    ) {
+      return null;
+    }
+    return payload as { adminId: string; email: string; role: string; type: "admin" };
   } catch {
     return null;
   }
@@ -104,12 +129,25 @@ export async function getUserAuth(req: Request) {
 export async function getAdminAuth(req: Request) {
   const token = getAdminTokenFromRequest(req);
   if (!token) return null;
-  return verifyAdminToken(token);
+  const auth = await verifyAdminToken(token);
+  if (!auth) return null;
+  const [admin] = await db.select({
+    id: adminsTable.id,
+    email: adminsTable.email,
+    role: adminsTable.role,
+  }).from(adminsTable)
+    .where(eq(adminsTable.id, auth.adminId))
+    .limit(1);
+  if (!admin || admin.email.toLowerCase() !== auth.email.toLowerCase()) return null;
+  return { ...auth, email: admin.email, role: admin.role };
 }
 
 export function setUserCookie(res: Response, token: string) {
   const isProd = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
-  const sameSite = (process.env.COOKIE_SAMESITE as "lax" | "strict" | "none") || "lax";
+  const configuredSameSite = process.env.COOKIE_SAMESITE?.toLowerCase();
+  const sameSite = configuredSameSite === "strict" || configuredSameSite === "none"
+    ? configuredSameSite
+    : "lax";
   res.cookie("user_session", token, {
     httpOnly: true,
     secure: isProd || sameSite === "none",
@@ -121,7 +159,10 @@ export function setUserCookie(res: Response, token: string) {
 
 export function setAdminCookie(res: Response, token: string) {
   const isProd = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
-  const sameSite = (process.env.COOKIE_SAMESITE as "lax" | "strict" | "none") || "lax";
+  const configuredSameSite = process.env.COOKIE_SAMESITE?.toLowerCase();
+  const sameSite = configuredSameSite === "strict" || configuredSameSite === "none"
+    ? configuredSameSite
+    : "lax";
   res.cookie("admin_session", token, {
     httpOnly: true,
     secure: isProd || sameSite === "none",

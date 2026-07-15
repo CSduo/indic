@@ -196,6 +196,41 @@ export const savedItemsTable = pgTable("saved_items", {
   index("saved_items_user_idx").on(t.userId),
 ]);
 
+// Named collections for organizing saved reading.
+export const collectionsTable = pgTable("collections", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 200 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("collections_user_idx").on(t.userId),
+]);
+
+export const collectionItemsTable = pgTable("collection_items", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  collectionId: text("collection_id").notNull().references(() => collectionsTable.id, { onDelete: "cascade" }),
+  itemType: itemTypeEnum("item_type").notNull(),
+  itemId: text("item_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("collection_items_unique").on(t.collectionId, t.itemType, t.itemId),
+  index("collection_items_collection_idx").on(t.collectionId),
+]);
+
+export const notificationsTable = pgTable("notifications", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  type: varchar("type", { length: 80 }).notNull().default("SYSTEM"),
+  message: text("message").notNull(),
+  href: text("href"),
+  read: boolean("read").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("notifications_user_idx").on(t.userId),
+  index("notifications_unread_idx").on(t.userId, t.read),
+]);
+
 // Audit logs
 export const auditLogsTable = pgTable("audit_logs", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -242,6 +277,9 @@ export type Submission = typeof submissionsTable.$inferSelect;
 export type Comment = typeof commentsTable.$inferSelect;
 export type NewsletterSubscriber = typeof newsletterSubscribersTable.$inferSelect;
 export type SavedItem = typeof savedItemsTable.$inferSelect;
+export type Collection = typeof collectionsTable.$inferSelect;
+export type CollectionItem = typeof collectionItemsTable.$inferSelect;
+export type Notification = typeof notificationsTable.$inferSelect;
 
 export const insertUserSchema = createInsertSchema(usersTable).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCategorySchema = createInsertSchema(categoriesTable).omit({ id: true, createdAt: true, updatedAt: true });

@@ -9,9 +9,17 @@ import { ReadingProgress } from "@/components/manuscript/ReadingProgress";
 import { EmptyState } from "@/components/sacred/EmptyState";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { ThemeToggle } from "@/components/brand/ThemeToggle";
+import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
+
+const textSummary = (value: unknown, maxLength = 220) => String(value || "")
+  .replace(/<[^>]*>/g, " ")
+  .replace(/\s+/g, " ")
+  .trim()
+  .slice(0, maxLength);
 
 const getReadingTime = (bodyHtml: string) => {
   if (!bodyHtml) return "1 min read";
@@ -95,7 +103,10 @@ export default function ArticlePage() {
 
   useEffect(() => {
     if (!slug) return;
-    fetch(`${base()}/api/articles/${slug}`)
+    const controller = new AbortController();
+    setLoading(true);
+    setError(false);
+    fetch(`${base()}/api/articles/${slug}`, { signal: controller.signal })
       .then((response) => {
         if (!response.ok) throw new Error();
         return response.json();
@@ -106,17 +117,42 @@ export default function ArticlePage() {
         setLoading(false);
         // Load comments
         if (art.id) {
-          fetch(`${base()}/api/articles/${art.id}/comments`)
+          fetch(`${base()}/api/articles/${art.id}/comments`, { signal: controller.signal })
             .then(r => r.json())
             .then(d => setComments(d.comments || []))
-            .catch(() => {});
+            .catch(commentError => {
+              if (!(commentError instanceof DOMException && commentError.name === "AbortError")) setComments([]);
+            });
         }
       })
-      .catch(() => {
+      .catch(fetchError => {
+        if (fetchError instanceof DOMException && fetchError.name === "AbortError") return;
         setError(true);
         setLoading(false);
       });
+    return () => controller.abort();
   }, [slug]);
+
+  const articleDescription = textSummary(article?.excerpt || article?.body);
+  const articleImage = article?.heroImageUrl || article?.featuredImage || article?.coverImage || null;
+  const canonicalPath = `${articlesParams ? "/articles" : "/essays"}/${encodeURIComponent(slug)}`;
+  useDocumentMetadata({
+    title: article?.title ? `${article.title} — Ānvīkṣikī` : undefined,
+    description: articleDescription,
+    canonicalPath,
+    image: articleImage,
+    type: "article",
+    structuredData: article ? {
+      "@context": "https://schema.org",
+      "@type": "ScholarlyArticle",
+      headline: article.title,
+      description: articleDescription,
+      author: article.authorName ? { "@type": "Person", name: article.authorName } : undefined,
+      datePublished: article.publishedAt || undefined,
+      dateModified: article.updatedAt || article.publishedAt || undefined,
+      articleSection: article.categorySlug || article.categoryId || undefined,
+    } : null,
+  });
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -332,7 +368,7 @@ export default function ArticlePage() {
           <div className="flex justify-center">
             <GlyphTag domain={domain} />
           </div>
-          <h1 className="font-display text-[clamp(2.4rem,6vw,4.8rem)] leading-[1.05] text-[var(--ink)] max-w-3xl mx-auto">{article.title}</h1>
+          <h1 className="font-display text-[clamp(2.2rem,5vw,4.2rem)] leading-[1.08] text-[var(--ink)] max-w-4xl mx-auto">{article.title}</h1>
           {article.excerpt ? (
             <div className="max-w-2xl mx-auto space-y-1">
               <p className="font-ui text-[10px] uppercase tracking-[0.18em] text-[var(--gold-soft)] opacity-70">Abstract</p>
@@ -347,13 +383,21 @@ export default function ArticlePage() {
             <span className="inline-flex items-center gap-1"><Clock size={13} /> {getReadingTime(article.body)}</span>
             {article.viewCount ? <span className="inline-flex items-center gap-1"><Eye size={13} /> {article.viewCount} reads</span> : null}
           </div>
+          <div className="flex items-center justify-center gap-3 pt-1">
+            <span className="font-ui text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--ink-faint)]">Reading theme</span>
+            <ThemeToggle />
+          </div>
         </div>
 
         {/* Cover image in center (only if uploaded) */}
-        {(article.featuredImage || article.coverImage) && (
-          <div className="max-w-3xl mx-auto mt-10">
+        {(article.heroImageUrl || article.featuredImage || article.coverImage) && (
+          <div className="max-w-5xl mx-auto mt-10">
             <ParchmentCard className="overflow-hidden p-2" corners={false}>
-              <img src={article.featuredImage || article.coverImage} alt={article.title} className="max-h-[500px] w-full rounded-[6px] object-cover" />
+              <img
+                src={article.heroImageUrl || article.featuredImage || article.coverImage}
+                alt={article.heroImageAlt || article.title}
+                className="max-h-[620px] w-full rounded-[6px] object-cover"
+              />
             </ParchmentCard>
           </div>
         )}
@@ -364,7 +408,7 @@ export default function ArticlePage() {
         </div>
       </section>
 
-      <section className="px-4 pb-16 max-w-3xl mx-auto">
+      <section className="article-reader-shell pb-16">
         <article className="w-full">
           <OrnamentDivider className="mb-8" />
           

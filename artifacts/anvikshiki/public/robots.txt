@@ -1,4 +1,11 @@
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /account/
+Disallow: /notifications
+Disallow: /saved
+Disallow: /submit/write
+Disallow: /submit/upload
 
 Sitemap: https://anvikshikijournal.in/sitemap.xml
