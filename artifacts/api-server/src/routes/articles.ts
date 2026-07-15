@@ -94,6 +94,7 @@ router.get("/articles/:slug", async (req, res) => {
       article: {
         ...row.article,
         body: sanitizeArticleBody(recoverLegacyInlineImages(row.article.slug, row.article.body)),
+        rawBody: row.article.body,
         category: row.category,
         authorId: row.authorId,
         authorAvatarUrl: row.authorAvatarUrl,
