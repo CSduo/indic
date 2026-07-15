@@ -376,10 +376,10 @@ router.post("/submissions/write", async (req, res) => {
     const auth = await getUserAuth(req);
 
     const schema = z.object({
-      type: z.enum(["ESSAY", "PAPER", "REVIEW", "COMMENTARY"]),
-      submitterName: z.string().min(1).max(160),
-      submitterEmail: z.string().email(),
-      title: z.string().min(1).max(500),
+      type: z.enum(["ESSAY", "PAPER", "REVIEW", "COMMENTARY"]).optional(),
+      submitterName: z.string().max(160).optional().or(z.literal("")),
+      submitterEmail: z.string().email().optional().or(z.literal("")).or(z.null()),
+      title: z.string().max(500).optional().or(z.literal("")),
       domain: z.string().max(160).optional(),
       abstract: z.string().max(10000).optional().default(""),
       body: z.string().max(500_000).optional().default(""),
@@ -410,16 +410,20 @@ router.post("/submissions/write", async (req, res) => {
     // Full submissions still require the declaration + minimum content.
     if (!isDraft) {
       if (!data.consent) return res.status(400).json({ error: "Consent is required" });
+      if (!data.submitterName?.trim()) return res.status(400).json({ error: "Full Name is required" });
+      if (!data.submitterEmail?.trim() || !data.submitterEmail.includes("@")) {
+        return res.status(400).json({ error: "A valid Email Address is required" });
+      }
       if (!data.abstract.trim()) return res.status(400).json({ error: "Abstract is required" });
       if (!data.body.trim() || data.body.length < 1) return res.status(400).json({ error: "Essay body is required" });
     }
 
     const [submission] = await db.insert(submissionsTable).values({
       userId: auth?.userId || null,
-      submitterName: data.submitterName,
-      submitterEmail: data.submitterEmail,
-      type: data.type,
-      title: data.title,
+      submitterName: data.submitterName || "Draft Author",
+      submitterEmail: data.submitterEmail || auth?.email || "",
+      type: data.type || "ESSAY",
+      title: data.title || "Untitled draft",
       domain: data.domain ? normalizeCategorySlug(data.domain) : null,
       abstract: data.abstract || "",
       body: sanitizeArticleBody(data.body || ""),
@@ -538,9 +542,9 @@ router.put("/submissions/:id", async (req, res) => {
 
     const schema = z.object({
       type: z.enum(["ESSAY", "PAPER", "REVIEW", "COMMENTARY"]).optional(),
-      submitterName: z.string().min(1).max(160).optional(),
-      submitterEmail: z.string().email().optional(),
-      title: z.string().min(1).max(500).optional(),
+      submitterName: z.string().max(160).optional().or(z.literal("")),
+      submitterEmail: z.string().email().optional().or(z.literal("")).or(z.null()),
+      title: z.string().max(500).optional().or(z.literal("")),
       domain: z.string().max(160).optional(),
       abstract: z.string().max(10000).optional(),
       body: z.string().max(500_000).optional(),
@@ -569,7 +573,11 @@ router.put("/submissions/:id", async (req, res) => {
       const consent = data.consent === true || data.consent === "true";
       const abstract = data.abstract ?? existing.abstract ?? "";
       const body = data.body ?? existing.body ?? "";
+      const name = data.submitterName ?? existing.submitterName ?? "";
+      const email = data.submitterEmail ?? existing.submitterEmail ?? "";
       if (!consent) return res.status(400).json({ error: "Consent is required" });
+      if (!name.trim()) return res.status(400).json({ error: "Full Name is required" });
+      if (!email.trim() || !email.includes("@")) return res.status(400).json({ error: "A valid Email Address is required" });
       if (!abstract.trim()) return res.status(400).json({ error: "Abstract is required" });
       if (!body.trim()) return res.status(400).json({ error: "Essay body is required" });
     }

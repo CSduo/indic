@@ -4904,8 +4904,9 @@ input[type="search"]::-webkit-search-decoration {
 .prose-anv,
 .article-body,
 .prose-sacred,
-.prose-editor-content {
-  color: var(--ink-soft) !important;
+.prose-editor-content,
+.prose-editor {
+  color: var(--ink) !important;
 }
 
 .prose-anv h1,
@@ -4917,16 +4918,25 @@ input[type="search"]::-webkit-search-decoration {
 .prose-editor-content h1,
 .prose-editor-content h2,
 .prose-editor-content h3,
-.prose-editor-content h4 {
+.prose-editor-content h4,
+.prose-editor h1,
+.prose-editor h2,
+.prose-editor h3,
+.prose-editor h4 {
   color: var(--ink) !important;
 }
 
 .prose-anv p,
-.prose-editor-content p {
-  color: var(--ink-soft) !important;
+.prose-editor-content p,
+.prose-editor p,
+.prose-anv li,
+.prose-editor-content li,
+.prose-editor li {
+  color: var(--ink) !important;
 }
 
 .prose-anv blockquote,
-.prose-editor-content blockquote {
+.prose-editor-content blockquote,
+.prose-editor blockquote {
   color: var(--ink) !important;
 }

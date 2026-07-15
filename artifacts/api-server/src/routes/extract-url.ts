@@ -429,7 +429,13 @@ router.post('/extract-url', async (req, res) => {
 
     const { url } = schema.parse(req.body);
 
-    const { response, finalUrl } = await fetchWithSsrfGuard(url);
+    const googleDocRegex = /https:\/\/docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/i;
+    const googleMatch = url.match(googleDocRegex);
+    const fetchUrl = googleMatch
+      ? `https://docs.google.com/document/d/${googleMatch[1]}/export?format=html`
+      : url;
+
+    const { response, finalUrl } = await fetchWithSsrfGuard(fetchUrl);
 
     if (!response.ok) {
       return res.status(422).json({ error: `Remote server returned ${response.status}` });
@@ -473,7 +479,7 @@ router.post('/extract-url', async (req, res) => {
 
     if (html.length > 200_000) html = html.slice(0, 200_000) + '<p><em>[Content truncated at 200 000 characters]</em></p>';
 
-    return res.json({ html: sanitizeArticleBody(html), url: finalUrl });
+    return res.json({ html: sanitizeArticleBody(html), url: googleMatch ? url : finalUrl });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: err.errors[0]?.message || 'Invalid input' });

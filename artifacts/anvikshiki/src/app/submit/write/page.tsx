@@ -57,7 +57,9 @@ function countUnresolvedImages(html: string): number {
   return tags.filter((tag: string) => {
     const match = tag.match(/\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
     const source = match?.[1] ?? match?.[2] ?? match?.[3] ?? "";
-    return !PERSISTED_IMAGE_SOURCE.test(source.trim());
+    const trimmed = source.trim();
+    if (!trimmed) return false; // Ignore empty src (legacy placeholders)
+    return !PERSISTED_IMAGE_SOURCE.test(trimmed);
   }).length;
 }
 
