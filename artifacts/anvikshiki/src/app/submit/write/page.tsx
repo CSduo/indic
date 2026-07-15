@@ -50,6 +50,30 @@ function escapeHtml(value: string): string {
   })[character] || character);
 }
 
+const PERSISTED_IMAGE_SOURCE = /^(?:https?:\/\/|\/(?!\/))/i;
+
+function countUnresolvedImages(html: string): number {
+  const tags = html.match(/<img\b[^>]*>/gi) || [];
+  return tags.filter(tag => {
+    const match = tag.match(/\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+    const source = match?.[1] ?? match?.[2] ?? match?.[3] ?? "";
+    return !PERSISTED_IMAGE_SOURCE.test(source.trim());
+  }).length;
+}
+
+function dataImageUrlToFile(source: string, index: number): File | null {
+  const match = source.match(/^data:(image\/(?:jpeg|png|webp|gif));base64,([a-z0-9+/=\s]+)$/i);
+  if (!match) return null;
+
+  const binary = atob(match[2].replace(/\s/g, ""));
+  const bytes = new Uint8Array(binary.length);
+  for (let position = 0; position < binary.length; position += 1) {
+    bytes[position] = binary.charCodeAt(position);
+  }
+  const extension = match[1].split("/")[1].replace("jpeg", "jpg");
+  return new File([bytes], `pasted-image-${index + 1}.${extension}`, { type: match[1] });
+}
+
 export default function SubmitWritePage() {
   const [, navigate] = useLocation();
   const search = useSearch();
@@ -474,34 +498,129 @@ export default function SubmitWritePage() {
     updateEditorStates();
   };
 
-  const handleInlineImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 20 * 1024 * 1024) {
-      setError("Inline image must be under 20 MB");
-      return;
+  const uploadInlineImageFile = async (file: File): Promise<string> => {
+    if (!/^image\/(?:jpeg|png|webp|gif)$/i.test(file.type)) {
+      throw new Error("Inline images must be JPG, PNG, WEBP, or GIF files");
     }
+    if (file.size > 20 * 1024 * 1024) {
+      throw new Error("Inline image must be under 20 MB");
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("context", "article_inline");
+
+    const res = await fetch(`${base()}/api/media/upload`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || "Failed to upload inline image");
+    }
+
+    const data = await res.json();
+    if (!data.url) throw new Error("Image storage did not return a URL");
+    return data.url;
+  };
+
+  const handleEditorPaste = async (event: React.ClipboardEvent<HTMLDivElement>) => {
+    const rawHtml = event.clipboardData.getData("text/html");
+    const clipboardImages = Array.from(event.clipboardData.files).filter(file => file.type.startsWith("image/"));
+    const parsed = rawHtml ? new DOMParser().parseFromString(rawHtml, "text/html") : null;
+    const pastedImages = parsed ? Array.from(parsed.body.querySelectorAll("img")) : [];
+    const hasUnresolvedSource = pastedImages.some(image => !PERSISTED_IMAGE_SOURCE.test((image.getAttribute("src") || "").trim()));
+
+    if (clipboardImages.length === 0 && !hasUnresolvedSource) return;
+    event.preventDefault();
+
+    const editor = editorRef.current;
+    if (!editor) return;
+    const selection = window.getSelection();
+    const savedRange = selection?.rangeCount && editor.contains(selection.getRangeAt(0).commonAncestorContainer)
+      ? selection.getRangeAt(0).cloneRange()
+      : null;
 
     setInsertingImage(true);
     setError("");
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      
-      const res = await fetch(`${base()}/api/media/upload`, {
-        method: "POST",
-        body: formData,
-      });
+      let htmlToInsert = "";
+      let skippedImages = 0;
 
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Failed to upload inline image");
+      if (parsed && pastedImages.length > 0) {
+        parsed.body.querySelectorAll("script,style,iframe,object,embed,link,meta").forEach(element => element.remove());
+        parsed.body.querySelectorAll("*").forEach(element => {
+          Array.from(element.attributes).forEach(attribute => {
+            if (attribute.name.toLowerCase().startsWith("on") || attribute.name.toLowerCase() === "srcdoc") {
+              element.removeAttribute(attribute.name);
+            }
+          });
+        });
+
+        let clipboardIndex = 0;
+        for (let index = 0; index < pastedImages.length; index += 1) {
+          const image = pastedImages[index];
+          const source = (image.getAttribute("src") || "").trim();
+          if (PERSISTED_IMAGE_SOURCE.test(source)) continue;
+
+          let file = clipboardImages[clipboardIndex] || null;
+          if (file) clipboardIndex += 1;
+          if (!file && source.startsWith("data:")) {
+            const decodedFile = dataImageUrlToFile(source, index);
+            if (decodedFile) file = decodedFile;
+          }
+          if (!file && source.startsWith("blob:")) {
+            const blob = await fetch(source).then(response => response.blob());
+            file = new File([blob], `pasted-image-${index + 1}`, { type: blob.type });
+          }
+
+          if (!file) {
+            image.remove();
+            skippedImages += 1;
+            continue;
+          }
+
+          image.setAttribute("src", await uploadInlineImageFile(file));
+          image.removeAttribute("srcset");
+        }
+        htmlToInsert = parsed.body.innerHTML;
+      } else {
+        const uploaded = await Promise.all(clipboardImages.map(uploadInlineImageFile));
+        htmlToInsert = uploaded
+          .map(url => `<figure><img src="${escapeHtml(url)}" alt="Inline image"></figure>`)
+          .join("") + "<p><br></p>";
       }
 
-      const data = await res.json();
-      const imageUrl = data.url;
+      editor.focus();
+      if (savedRange) {
+        selection?.removeAllRanges();
+        selection?.addRange(savedRange);
+      }
+      document.execCommand("insertHTML", false, htmlToInsert);
+      set("body", editor.innerHTML);
+
+      if (skippedImages > 0) {
+        setError(`${skippedImages} pasted image${skippedImages === 1 ? " was" : "s were"} not included because the clipboard did not contain the image data. Import the DOCX or use Insert image.`);
+      }
+    } catch (err: any) {
+      setError(err.message || "Could not store pasted images. Nothing was pasted; please try again.");
+    } finally {
+      setInsertingImage(false);
+    }
+  };
+
+  const handleInlineImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setInsertingImage(true);
+    setError("");
+
+    try {
+      const imageUrl = await uploadInlineImageFile(file);
 
       if (editorRef.current) {
         editorRef.current.focus();
@@ -649,6 +768,10 @@ export default function SubmitWritePage() {
     if (!draft.title.trim()) e.title = "Title is required";
     if (!draft.domain) e.domain = "Domain is required";
     if (!draft.body.trim()) e.body = "Essay content is required";
+    const unresolvedImages = countUnresolvedImages(draft.body);
+    if (unresolvedImages > 0) {
+      e.body = `${unresolvedImages} image${unresolvedImages === 1 ? " is" : "s are"} not stored yet. Re-paste the content, import the DOCX, or use Insert image.`;
+    }
     if (!imgPreview) {
       setError("Choosing a cover image for the article is compulsory.");
       return false;
@@ -708,6 +831,11 @@ export default function SubmitWritePage() {
   const saveDraftToServer = async () => {
     if (!user) { setError("Please sign in to save a draft."); return; }
     if (!draft.title.trim() && !draft.body.trim()) { setError("Write a title or some content before saving a draft."); return; }
+    const unresolvedImages = countUnresolvedImages(draft.body);
+    if (unresolvedImages > 0) {
+      setError(`${unresolvedImages} image${unresolvedImages === 1 ? " is" : "s are"} not stored yet. Re-paste the content, import the DOCX, or use Insert image before saving.`);
+      return;
+    }
     setError(""); setSavingDraft(true);
     try {
       const typeMap: Record<string, string> = { essay: "ESSAY", paper: "PAPER", review: "REVIEW", commentary: "COMMENTARY", "book-review": "COMMENTARY", translation: "ESSAY" };
@@ -1080,6 +1208,7 @@ export default function SubmitWritePage() {
                   set("body", e.currentTarget.innerHTML);
                   updateEditorStates();
                 }}
+                onPaste={handleEditorPaste}
                 onBlur={e => set("body", e.currentTarget.innerHTML)}
                 onKeyUp={updateEditorStates}
                 onMouseUp={updateEditorStates}

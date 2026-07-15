@@ -32,6 +32,7 @@ const CONTENT_OPTIONS: sanitizeHtml.IOptions = {
   },
   allowProtocolRelative: false,
   enforceHtmlBoundary: true,
+  exclusiveFilter: frame => frame.tag === "img" && !frame.attribs.src,
   transformTags: {
     a: (_tagName, attribs) => {
       const target = attribs.target === "_blank" ? "_blank" : undefined;
@@ -76,4 +77,16 @@ export function sanitizeArticleBody(value: unknown): string {
 export function sanitizeOptionalArticleBody(value: unknown): string | undefined {
   if (value === undefined) return undefined;
   return sanitizeArticleBody(value);
+}
+
+const SAFE_PERSISTED_IMAGE_SOURCE = /^(?:https?:\/\/|\/(?!\/))/i;
+
+export function countUnresolvedArticleImages(value: unknown): number {
+  if (typeof value !== "string") return 0;
+  const tags = value.match(/<img\b[^>]*>/gi) || [];
+  return tags.filter(tag => {
+    const match = tag.match(/\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+    const source = match?.[1] ?? match?.[2] ?? match?.[3] ?? "";
+    return !SAFE_PERSISTED_IMAGE_SOURCE.test(source.trim());
+  }).length;
 }

@@ -12,7 +12,7 @@ import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import path from "path";
 import fs from "fs";
-import { sanitizeArticleBody } from "../lib/content";
+import { countUnresolvedArticleImages, sanitizeArticleBody } from "../lib/content";
 import { hasExpectedFileSignature } from "../lib/file-validation";
 import { put } from "@vercel/blob";
 
@@ -396,6 +396,14 @@ router.post("/submissions/write", async (req, res) => {
     const data = parsed.data;
     const isDraft = data.status === "DRAFT";
 
+    const unresolvedImages = countUnresolvedArticleImages(data.body);
+    if (unresolvedImages > 0) {
+      return res.status(400).json({
+        error: `${unresolvedImages} embedded image${unresolvedImages === 1 ? " is" : "s are"} not stored. Import the DOCX or upload the images before saving.`,
+        code: "UNRESOLVED_ARTICLE_IMAGES",
+      });
+    }
+
     // Only signed-in users may save drafts — drafts must be resumable/owned.
     if (isDraft && !auth) return res.status(401).json({ error: "Sign in to save a draft" });
 
@@ -547,6 +555,14 @@ router.put("/submissions/:id", async (req, res) => {
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
     const data = parsed.data;
+
+    const unresolvedImages = countUnresolvedArticleImages(data.body ?? existing.body);
+    if (unresolvedImages > 0) {
+      return res.status(400).json({
+        error: `${unresolvedImages} embedded image${unresolvedImages === 1 ? " is" : "s are"} not stored. Import the DOCX or upload the images before saving.`,
+        code: "UNRESOLVED_ARTICLE_IMAGES",
+      });
+    }
 
     const wantsSubmit = data.status === "RECEIVED";
     if (wantsSubmit) {

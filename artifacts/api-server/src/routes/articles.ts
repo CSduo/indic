@@ -4,6 +4,7 @@ import { articlesTable, categoriesTable, submissionsTable, usersTable } from "@w
 import { eq, and, desc, ilike, inArray, or, sql } from "drizzle-orm";
 import { categorySlugCandidates } from "../lib/publication-sync";
 import { sanitizeArticleBody } from "../lib/content";
+import { recoverLegacyInlineImages } from "../lib/legacy-content";
 import { z } from "zod";
 import { parsePagination, toLikePattern } from "../lib/request";
 
@@ -49,7 +50,7 @@ router.get("/articles", async (req, res) => {
     const result = articles.map(r => {
       const art = {
         ...r.article,
-        body: sanitizeArticleBody(r.article.body),
+        body: sanitizeArticleBody(recoverLegacyInlineImages(r.article.slug, r.article.body)),
         category: r.category,
       };
       // If readingMinutes is not stored, compute from body word count
@@ -92,7 +93,7 @@ router.get("/articles/:slug", async (req, res) => {
     return res.json({
       article: {
         ...row.article,
-        body: sanitizeArticleBody(row.article.body),
+        body: sanitizeArticleBody(recoverLegacyInlineImages(row.article.slug, row.article.body)),
         category: row.category,
         authorId: row.authorId,
         authorAvatarUrl: row.authorAvatarUrl,

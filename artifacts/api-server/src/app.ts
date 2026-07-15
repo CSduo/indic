@@ -77,15 +77,19 @@ app.use((req, res, next) => {
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Permissions-Policy", "camera=(), geolocation=(), microphone=(self)");
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
-  
-  const isUploadOrStatic = req.path.startsWith("/api/uploads") || req.path.startsWith("/uploads");
+
+  const isUploadOrStatic =
+    req.path === "/api/uploads" ||
+    req.path.startsWith("/api/uploads/") ||
+    req.path === "/uploads" ||
+    req.path.startsWith("/uploads/");
   if (!isUploadOrStatic) {
     res.setHeader(
       "Content-Security-Policy",
       "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
     );
   }
-  
+
   if (isProduction) {
     res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }

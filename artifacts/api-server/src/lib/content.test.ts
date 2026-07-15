@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeArticleBody, sanitizeOptionalArticleBody } from "./content";
+import { countUnresolvedArticleImages, sanitizeArticleBody, sanitizeOptionalArticleBody } from "./content";
 
 describe("sanitizeArticleBody", () => {
   it("removes executable markup and unsafe URL schemes", () => {
@@ -40,5 +40,29 @@ describe("sanitizeArticleBody", () => {
   it("handles absent and non-string legacy values safely", () => {
     expect(sanitizeArticleBody(null)).toBe("");
     expect(sanitizeOptionalArticleBody(undefined)).toBeUndefined();
+  });
+
+  it("removes empty image placeholders while keeping valid relative images", () => {
+    const result = sanitizeArticleBody(`
+      <p>Before</p>
+      <img width="450" height="340">
+      <img src="" width="541" height="567">
+      <img src="/images/articles/recovered.jpg" alt="Recovered">
+      <p>After</p>
+    `);
+
+    expect(result).not.toContain('width="450"');
+    expect(result).not.toContain('width="541"');
+    expect(result).toContain('src="/images/articles/recovered.jpg"');
+  });
+
+  it("detects images that would lose their source during sanitization", () => {
+    expect(countUnresolvedArticleImages(`
+      <img src="https://res.cloudinary.com/example/one.jpg">
+      <img src="/api/uploads/two.jpg">
+      <img src="data:image/png;base64,abc">
+      <img src="file:///C:/temporary/three.jpg">
+      <img width="450">
+    `)).toBe(3);
   });
 });

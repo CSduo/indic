@@ -8,6 +8,17 @@ describe("API security boundary", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ status: "ok" });
     expect(response.headers["x-content-type-options"]).toBe("nosniff");
+    expect(response.headers["content-security-policy"]).toBe(
+      "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+    );
+  });
+
+  it("does not apply the JSON API CSP to static upload responses", async () => {
+    const response = await request(app).get("/api/uploads/missing-cover.jpg");
+
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(response.headers["x-content-type-options"]).toBe("nosniff");
+    expect(response.headers["content-security-policy"]).toBeUndefined();
   });
 
   it("rejects cross-site writes before parsing their body", async () => {

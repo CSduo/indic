@@ -214,9 +214,10 @@ router.post("/media/extract-doc",
 
       // DOCX — use mammoth to convert to HTML
       // If Cloudinary is configured, embedded images are uploaded and returned as <img> tags
+      const imageImportErrors: unknown[] = [];
       const imageHandler = async (image: any) => {
         try {
-          const buffer: Buffer = await image.read();
+          const buffer: Buffer = await image.readAsBuffer();
           const contentType = image.contentType; // e.g. "image/png" or "image/jpeg"
           const ext = contentType.split("/")[1] || "png";
 
@@ -239,6 +240,9 @@ router.post("/media/extract-doc",
               );
               stream.end(buffer);
             });
+            if (!uploadResult?.secure_url) {
+              throw new Error("Cloudinary did not return a secure image URL");
+            }
             return { src: uploadResult.secure_url };
           }
 
@@ -254,8 +258,8 @@ router.post("/media/extract-doc",
 
           throw new Error("No persistent storage configured for document images");
         } catch (err) {
-          console.error("Image import failed:", err);
-          return { src: "" };
+          imageImportErrors.push(err);
+          throw err;
         }
       };
 
@@ -263,6 +267,17 @@ router.post("/media/extract-doc",
         { buffer: file.buffer },
         { convertImage: mammoth.images.imgElement(imageHandler) }
       );
+
+      if (imageImportErrors.length > 0) {
+        req.log?.error(
+          { imageErrorCount: imageImportErrors.length, firstError: imageImportErrors[0] },
+          "Document import failed while persisting embedded images",
+        );
+        return res.status(502).json({
+          error: "The document text was read, but one or more embedded images could not be stored. Nothing was imported; please retry.",
+          code: "DOCUMENT_IMAGE_UPLOAD_FAILED",
+        });
+      }
 
       return res.json({ html: sanitizeArticleBody(result.value || "") });
     } catch (err: any) {
