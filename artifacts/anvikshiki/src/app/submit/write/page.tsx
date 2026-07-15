@@ -53,8 +53,8 @@ function escapeHtml(value: string): string {
 const PERSISTED_IMAGE_SOURCE = /^(?:https?:\/\/|\/(?!\/))/i;
 
 function countUnresolvedImages(html: string): number {
-  const tags = html.match(/<img\b[^>]*>/gi) || [];
-  return tags.filter(tag => {
+  const tags: string[] = html.match(/<img\b[^>]*>/gi) || [];
+  return tags.filter((tag: string) => {
     const match = tag.match(/\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
     const source = match?.[1] ?? match?.[2] ?? match?.[3] ?? "";
     return !PERSISTED_IMAGE_SOURCE.test(source.trim());
