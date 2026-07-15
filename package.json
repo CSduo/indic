@@ -10,7 +10,7 @@
     "db:push:force": "pnpm --filter @workspace/db run push-force"
   },
   "private": true,
-  "packageManager": "pnpm@10.26.1",
+  "packageManager": "pnpm@9.15.9",
   "devDependencies": {
     "next": "^15.1.0",
     "prettier": "^3.8.4",
