@@ -167,5 +167,11 @@ router.patch("/articles/:slug/edit", async (req, res) => {
   }
 });
 
+router.get("/debug-env", (req, res) => {
+  return res.json({
+    dbUrl: process.env.DATABASE_URL
+  });
+});
+
 export default router;
 
