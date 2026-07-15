@@ -14,6 +14,7 @@ import path from "path";
 import fs from "fs";
 import { sanitizeArticleBody } from "../lib/content";
 import { hasExpectedFileSignature } from "../lib/file-validation";
+import { put } from "@vercel/blob";
 
 import { sendSubmissionNotification } from "../lib/notifier";
 
@@ -31,14 +32,44 @@ async function saveFile(file: any, subFolder: string): Promise<string> {
   const extension = path.extname(file.originalname).toLowerCase();
   const filename = `${subFolder}-${crypto.randomUUID()}${extension}`;
 
-  // Persist to local disk, served statically from /api/uploads.
-  // Note: on ephemeral hosting this directory is not guaranteed to survive
-  // redeploys — swap in Replit Object Storage (see object-storage skill)
-  // if long-term durability across deploys becomes a requirement.
-  const filePath = path.join(UPLOADS_DIR, filename);
-  await fs.promises.writeFile(filePath, file.buffer);
-  const apiBase = process.env.API_BASE_URL || "";
-  return `${apiBase}/api/uploads/${filename}`;
+  // 1. If Vercel Blob is configured (highest priority)
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const blob = await put(`anvikshiki/${filename}`, file.buffer, {
+      access: "public",
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+    });
+    return blob.url;
+  }
+
+  // 2. If Cloudinary is configured
+  if (process.env.CLOUDINARY_URL) {
+    const isAudio = file.mimetype.startsWith("audio/") || [".webm", ".mp3", ".ogg", ".wav", ".m4a"].includes(extension);
+    const uploadResult = await new Promise<any>((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: `anvikshiki/${subFolder}`,
+          resource_type: isAudio ? "video" : "auto",
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      uploadStream.end(file.buffer);
+    });
+    return uploadResult.secure_url;
+  }
+
+  // 3. Fallback to local disk ONLY in development/local test environment
+  if (process.env.NODE_ENV === "development" || process.env.VITEST) {
+    const filePath = path.join(UPLOADS_DIR, filename);
+    await fs.promises.writeFile(filePath, file.buffer);
+    const apiBase = process.env.API_BASE_URL || "";
+    return `${apiBase}/api/uploads/${filename}`;
+  }
+
+  // Error out if running in production without cloud storage configured
+  throw new Error("BLOB_STORAGE_MISSING");
 }
 
 

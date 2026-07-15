@@ -19,8 +19,8 @@
   --surface-3: #fff8e8;
   --vellum: #fff8e8;
   --vellum-warm: #f7ebcf;
-  --ink: #2a1f0e;
-  --ink-soft: #4a3820;
+  --ink: #000000;
+  --ink-soft: #1a1a1a;
   --ink-faint: #7a6040;
   --muted: #9a7850;
   --gold: #8b6020;
@@ -66,8 +66,8 @@
   --radius-card: 8px;
   --radius-lg: 14px;
   --radius-pill: 999px;
-  --max-reader: min(88ch, 920px);
-  --max-reader-wide: 1120px;
+  --max-reader: min(105ch, 1100px);
+  --max-reader-wide: 1344px;
   --progress: 0%;
   --motion-fast: 140ms;
   --motion: 240ms;
@@ -90,8 +90,8 @@
   --surface-3: #24201b;
   --vellum: #1e1b17;
   --vellum-warm: #1a1815;
-  --ink: #f2eadb;
-  --ink-soft: #ddd0ba;
+  --ink: #ffffff;
+  --ink-soft: #e5e5e5;
   --ink-faint: #b5a182;
   --muted: #9d8564;
   --gold: #c9963a;
@@ -4898,4 +4898,35 @@ input[type="search"]::-webkit-search-decoration {
     align-items: stretch;
     flex-direction: column;
   }
+}
+
+/* Monochromatic High Contrast Overrides for Reading Column */
+.prose-anv,
+.article-body,
+.prose-sacred,
+.prose-editor-content {
+  color: var(--ink-soft) !important;
+}
+
+.prose-anv h1,
+.prose-anv h2,
+.prose-anv h3,
+.prose-anv h4,
+.prose-anv h5,
+.prose-anv h6,
+.prose-editor-content h1,
+.prose-editor-content h2,
+.prose-editor-content h3,
+.prose-editor-content h4 {
+  color: var(--ink) !important;
+}
+
+.prose-anv p,
+.prose-editor-content p {
+  color: var(--ink-soft) !important;
+}
+
+.prose-anv blockquote,
+.prose-editor-content blockquote {
+  color: var(--ink) !important;
 }

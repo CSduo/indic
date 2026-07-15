@@ -8,6 +8,7 @@ import { v2 as cloudinary } from "cloudinary";
 import { getUserAuth } from "../lib/auth";
 import { sanitizeArticleBody } from "../lib/content";
 import { hasExpectedFileSignature } from "../lib/file-validation";
+import { put } from "@vercel/blob";
 // @ts-ignore — mammoth has no bundled types but works fine
 import mammoth from "mammoth";
 
@@ -98,15 +99,26 @@ router.post("/media/upload", async (req: any, res: any, next: any): Promise<void
     const context = req.body.context || "avatar";
     const isAudio = file.mimetype.startsWith("audio/") || [".webm", ".mp3", ".ogg", ".wav", ".m4a"].includes(path.extname(file.originalname).toLowerCase());
 
+    const extension = path.extname(file.originalname).toLowerCase();
     let url: string;
     let storageKey: string;
 
-    // Upload to Cloudinary if configured, otherwise fall back to local disk
-    if (process.env.CLOUDINARY_URL) {
+    // 1. Upload to Vercel Blob if configured
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      const filename = `${context}-${crypto.randomUUID()}${extension}`;
+      const blob = await put(`anvikshiki/${filename}`, file.buffer, {
+        access: "public",
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+      });
+      url = blob.url;
+      storageKey = blob.url;
+    }
+    // 2. Upload to Cloudinary if configured
+    else if (process.env.CLOUDINARY_URL) {
       const uploadResult = await new Promise<any>((resolve, reject) => {
         const uploadOptions: any = {
           folder: `anvikshiki/${context}`,
-          resource_type: isAudio ? "video" : "image", // Cloudinary handles audio files under "video"
+          resource_type: isAudio ? "video" : "image",
         };
         
         if (!isAudio) {
@@ -127,14 +139,22 @@ router.post("/media/upload", async (req: any, res: any, next: any): Promise<void
 
       url = uploadResult.secure_url;
       storageKey = uploadResult.public_id;
-    } else {
+    }
+    // 3. Fallback to local disk sandbox ONLY in development/local test environment
+    else if (process.env.NODE_ENV === "development" || process.env.VITEST) {
+      const filename = `${context}-${crypto.randomUUID()}${extension}`;
+      const filePath = path.join(UPLOADS_DIR, filename);
+      await fs.promises.writeFile(filePath, file.buffer);
+      const apiBase = process.env.API_BASE_URL || "";
+      url = `${apiBase}/api/uploads/${filename}`;
+      storageKey = filename;
+    }
+    else {
       return res.status(503).json({
-        error: "Storage is not configured. Please set CLOUDINARY_URL.",
+        error: "Storage is not configured. Please set BLOB_READ_WRITE_TOKEN or CLOUDINARY_URL.",
         code: "STORAGE_NOT_CONFIGURED",
       });
     }
-
-    const extension = path.extname(file.originalname).toLowerCase();
     const [asset] = await db.insert(mediaAssetsTable).values({
       url,
       storageKey,
@@ -200,6 +220,17 @@ router.post("/media/extract-doc",
           const contentType = image.contentType; // e.g. "image/png" or "image/jpeg"
           const ext = contentType.split("/")[1] || "png";
 
+          // 1. If Vercel Blob configured
+          if (process.env.BLOB_READ_WRITE_TOKEN) {
+            const filename = `doc-import-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
+            const blob = await put(`anvikshiki/doc_imports/${filename}`, buffer, {
+              access: "public",
+              token: process.env.BLOB_READ_WRITE_TOKEN,
+            });
+            return { src: blob.url };
+          }
+
+          // 2. If Cloudinary configured
           if (process.env.CLOUDINARY_URL) {
             const uploadResult = await new Promise<any>((resolve, reject) => {
               const stream = cloudinary.uploader.upload_stream(
@@ -209,8 +240,10 @@ router.post("/media/extract-doc",
               stream.end(buffer);
             });
             return { src: uploadResult.secure_url };
-          } else {
-            // Local fallback
+          }
+
+          // 3. Fallback to local disk sandbox ONLY in development/local test environment
+          if (process.env.NODE_ENV === "development" || process.env.VITEST) {
             const filename = `doc-import-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
             const filePath = path.join(UPLOADS_DIR, filename);
             await fs.promises.writeFile(filePath, buffer);
@@ -218,6 +251,8 @@ router.post("/media/extract-doc",
             const baseClean = apiBase.replace(/\/$/, "");
             return { src: `${baseClean}/api/uploads/${filename}` };
           }
+
+          throw new Error("No persistent storage configured for document images");
         } catch (err) {
           console.error("Image import failed:", err);
           return { src: "" };

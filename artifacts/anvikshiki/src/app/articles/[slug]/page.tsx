@@ -469,16 +469,34 @@ export default function ArticlePage() {
 
           {/* Author profile card at the end of the text */}
           <div className="card-sacred p-6 mt-12 flex flex-col md:flex-row items-center gap-5" style={{ borderLeft: "3px solid var(--gold)" }}>
-            <div className="h-14 w-14 rounded-full overflow-hidden bg-[var(--terracotta-pale)] flex items-center justify-center border border-[var(--border-gold)] shrink-0">
-              <span className="font-display text-lg font-bold text-[var(--terracotta)]">
-                {(article.authorName || "A").charAt(0).toUpperCase()}
-              </span>
-            </div>
+            {article.authorId ? (
+              <Link href={`/profile/${article.authorId}`} className="h-14 w-14 rounded-full overflow-hidden bg-[var(--terracotta-pale)] flex items-center justify-center border border-[var(--border-gold)] shrink-0 cursor-pointer hover:opacity-80 transition-opacity">
+                {article.authorAvatarUrl ? (
+                  <img src={article.authorAvatarUrl} alt={article.authorName || "Author"} className="h-full w-full object-cover" />
+                ) : (
+                  <span className="font-display text-lg font-bold text-[var(--terracotta)]">
+                    {(article.authorName || "A").charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </Link>
+            ) : (
+              <div className="h-14 w-14 rounded-full overflow-hidden bg-[var(--terracotta-pale)] flex items-center justify-center border border-[var(--border-gold)] shrink-0">
+                <span className="font-display text-lg font-bold text-[var(--terracotta)]">
+                  {(article.authorName || "A").charAt(0).toUpperCase()}
+                </span>
+              </div>
+            )}
             <div className="text-center md:text-left space-y-1">
-              <h4 className="font-ui text-sm font-bold text-[var(--gold-bright)]">{article.authorName}</h4>
+              {article.authorId ? (
+                <Link href={`/profile/${article.authorId}`} className="font-ui text-sm font-bold text-[var(--gold-bright)] hover:underline cursor-pointer block">
+                  {article.authorName}
+                </Link>
+              ) : (
+                <h4 className="font-ui text-sm font-bold text-[var(--gold-bright)]">{article.authorName}</h4>
+              )}
               <p className="font-ui text-[10px] text-[var(--ink-faint)]">Contributor · Anvikshiki Journal</p>
               <p className="font-body text-xs text-[var(--ink-soft)] leading-relaxed mt-2">
-                This contribution is part of Anvikshiki's ongoing dedication to independent civilizational dialogue, multidisciplinary analysis, and rigorous philosophical inquiry.
+                {article.authorBio || "This contribution is part of Anvikshiki's ongoing dedication to independent civilizational dialogue, multidisciplinary analysis, and rigorous philosophical inquiry."}
               </p>
             </div>
           </div>

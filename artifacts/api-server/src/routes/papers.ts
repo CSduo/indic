@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { papersTable, categoriesTable } from "@workspace/db";
+import { papersTable, categoriesTable, submissionsTable, usersTable } from "@workspace/db";
 import { eq, and, desc, ilike, inArray, or, sql } from "drizzle-orm";
 import { categorySlugCandidates } from "../lib/publication-sync";
 import { sanitizeArticleBody } from "../lib/content";
@@ -61,9 +61,17 @@ router.get("/papers/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
     const [row] = await db
-      .select({ paper: papersTable, category: categoriesTable })
+      .select({
+        paper: papersTable,
+        category: categoriesTable,
+        authorId: usersTable.id,
+        authorAvatarUrl: usersTable.avatarUrl,
+        authorBio: usersTable.bio,
+      })
       .from(papersTable)
       .leftJoin(categoriesTable, eq(papersTable.categorySlug, categoriesTable.slug))
+      .leftJoin(submissionsTable, eq(papersTable.submissionId, submissionsTable.id))
+      .leftJoin(usersTable, eq(submissionsTable.userId, usersTable.id))
       .where(and(eq(papersTable.slug, slug), eq(papersTable.status, "PUBLISHED"), eq(papersTable.deleted, false)))
       .limit(1);
 
@@ -73,6 +81,9 @@ router.get("/papers/:slug", async (req, res) => {
         ...row.paper,
         body: sanitizeArticleBody(row.paper.body),
         category: row.category,
+        authorId: row.authorId,
+        authorAvatarUrl: row.authorAvatarUrl,
+        authorBio: row.authorBio,
       },
     });
   } catch (err) {
