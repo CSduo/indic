@@ -71,16 +71,21 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
 
-app.use((_req, res, next) => {
+app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Permissions-Policy", "camera=(), geolocation=(), microphone=(self)");
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
-  res.setHeader(
-    "Content-Security-Policy",
-    "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; sandbox",
-  );
+  
+  const isUploadOrStatic = req.path.startsWith("/api/uploads") || req.path.startsWith("/uploads");
+  if (!isUploadOrStatic) {
+    res.setHeader(
+      "Content-Security-Policy",
+      "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+    );
+  }
+  
   if (isProduction) {
     res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }
