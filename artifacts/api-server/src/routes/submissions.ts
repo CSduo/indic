@@ -122,7 +122,7 @@ const submissionSchema = z.object({
   abstract: z.string().min(1).max(5000),
   notes: z.string().max(2000).optional(),
   consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).transform(v => v === true || v === "true"),
-  audioUrl: z.string().url().optional().or(z.literal("")).or(z.null()),
+  audioUrl: z.string().optional().or(z.literal("")).or(z.null()),
   audioPublicId: z.string().optional().or(z.literal("")).or(z.null()),
 });
 
@@ -241,16 +241,16 @@ router.post(
         abstract: z.string().trim().min(1).max(10_000).default("Submitted via upload form"),
         type: z.enum(["ESSAY", "PAPER", "REVIEW", "COMMENTARY"]).default("ESSAY"),
         consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).transform(v => v === true || v === "true"),
-        manuscriptUrl: z.string().url().max(2_000).optional().or(z.literal("")),
+        manuscriptUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
         manuscriptPublicId: z.string().max(500).optional(),
         manuscriptResourceType: z.string().max(50).optional(),
-        coverUrl: z.string().url().max(2_000).optional().or(z.literal("")),
-        coverImageUrl: z.string().url().max(2_000).optional().or(z.literal("")),
+        coverUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
+        coverImageUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
         coverPublicId: z.string().max(500).optional(),
         coverImagePublicId: z.string().max(500).optional(),
         coverResourceType: z.string().max(50).optional(),
         coverImageResourceType: z.string().max(50).optional(),
-        audioUrl: z.string().url().max(2_000).optional().or(z.literal("")),
+        audioUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
         audioPublicId: z.string().max(500).optional(),
         keywords: z.string().max(2_000).optional(),
         notes: z.string().max(5_000).optional(),
@@ -386,7 +386,7 @@ router.post("/submissions/write", async (req, res) => {
       notes: z.string().max(5000).optional(),
       consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).optional().transform(v => v === true || v === "true"),
       status: z.enum(["DRAFT", "RECEIVED"]).optional().default("RECEIVED"),
-      audioUrl: z.string().url().optional().or(z.literal("")).or(z.null()),
+      audioUrl: z.string().optional().or(z.literal("")).or(z.null()),
       audioPublicId: z.string().optional().or(z.literal("")).or(z.null()),
     });
 
@@ -535,10 +535,14 @@ router.put("/submissions/:id", async (req, res) => {
       title: z.string().min(1).max(500).optional(),
       domain: z.string().max(160).optional(),
       abstract: z.string().max(10000).optional(),
-       body: z.string().max(500_000).optional(),
+      body: z.string().max(500_000).optional(),
       notes: z.string().max(5000).optional(),
       consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).optional(),
       status: z.enum(["DRAFT", "RECEIVED"]).optional(),
+      audioUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
+      audioPublicId: z.string().max(500).optional().or(z.literal("")).or(z.null()),
+      coverUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
+      coverImageUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
@@ -563,6 +567,11 @@ router.put("/submissions/:id", async (req, res) => {
     if (data.abstract !== undefined) updates.abstract = data.abstract;
     if (data.body !== undefined) updates.body = sanitizeArticleBody(data.body);
     if (data.notes !== undefined) updates.notes = data.notes;
+    if (data.audioUrl !== undefined) updates.audioUrl = data.audioUrl;
+    if (data.audioPublicId !== undefined) updates.audioPublicId = data.audioPublicId;
+    if (data.coverUrl !== undefined || data.coverImageUrl !== undefined) {
+      updates.coverImageUrl = data.coverUrl || data.coverImageUrl || null;
+    }
     if (wantsSubmit) {
       updates.status = "RECEIVED";
       updates.consent = true;

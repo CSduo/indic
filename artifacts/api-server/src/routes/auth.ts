@@ -192,7 +192,7 @@ router.put("/auth/profile", async (req, res) => {
       name: z.string().min(1).max(100).optional(),
       bio: z.string().max(500).optional(),
       institution: z.string().max(200).optional(),
-      avatarUrl: z.string().url().max(2000).optional().or(z.literal("")),
+      avatarUrl: z.string().max(2000).optional().or(z.literal("")).or(z.null()),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid input" });

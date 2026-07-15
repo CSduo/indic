@@ -136,7 +136,7 @@ router.patch("/articles/:slug/edit", async (req, res) => {
       title: z.string().trim().min(1).max(500).optional(),
       excerpt: z.string().max(5_000).optional(),
       body: z.string().max(500_000).optional(),
-      heroImageUrl: z.string().url().max(2_000).optional().or(z.literal("")),
+      heroImageUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
     }).safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
