@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "wouter";
 import { ArrowLeft, BookOpen, Building2, Mail, MessageSquare, User, X } from "lucide-react";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
@@ -37,8 +37,9 @@ export default function PublicProfilePage() {
   const [notFound, setNotFound] = useState(false);
   const [showLightbox, setShowLightbox] = useState(false);
 
-  useEffect(() => {
+  const loadProfile = useCallback(() => {
     if (!userId) return;
+    setLoading(true);
     fetch(`${base()}/api/users/${userId}/profile`)
       .then(r => {
         if (r.status === 404) { setNotFound(true); setLoading(false); return null; }
@@ -73,6 +74,12 @@ export default function PublicProfilePage() {
       })
       .catch(() => { setNotFound(true); setLoading(false); });
   }, [userId]);
+
+  useEffect(() => {
+    loadProfile();
+    window.addEventListener("anv:content-changed", loadProfile);
+    return () => window.removeEventListener("anv:content-changed", loadProfile);
+  }, [loadProfile]);
 
   if (loading) {
     return (

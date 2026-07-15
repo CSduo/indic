@@ -159,7 +159,7 @@ export default function HomePage() {
   const [recentPublications, setRecentPublications] = useState<RecentPublication[]>([]);
   const recentTrackRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
     fetch(`${base}/api/articles?featured=true&limit=4`, { credentials: "include" })
       .then(r => r.json())
       .then(d => { if (d.articles?.length) setFeaturedEssays(d.articles); })
@@ -212,6 +212,14 @@ export default function HomePage() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    loadData();
+    // Re-fetch whenever the account page signals that content has changed
+    // (e.g. after a delete, publish, or restore).
+    window.addEventListener("anv:content-changed", loadData);
+    return () => window.removeEventListener("anv:content-changed", loadData);
+  }, [loadData]);
 
   const moveRecentPublications = useCallback((direction: -1 | 1) => {
     const track = recentTrackRef.current;

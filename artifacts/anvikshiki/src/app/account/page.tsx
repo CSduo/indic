@@ -123,6 +123,7 @@ export default function AccountPage() {
         return prev.filter((s) => s.id !== id);
       });
       toast.success("Submission moved to Deleted");
+      window.dispatchEvent(new Event("anv:content-changed"));
     } catch (err: any) {
       toast.error(err.message || "Failed to delete submission");
     }
@@ -200,6 +201,7 @@ export default function AccountPage() {
         return prev.filter(s => s.id !== id);
       });
       toast.success("Submission restored successfully");
+      window.dispatchEvent(new Event("anv:content-changed"));
     } catch (err: any) {
       toast.error(err.message || "Failed to restore submission");
     }
@@ -215,6 +217,7 @@ export default function AccountPage() {
       if (!r.ok) throw new Error(data.error || "Failed to permanently delete");
       setDeletedSubmissions(prev => prev.filter(s => s.id !== id));
       toast.success("Submission permanently deleted");
+      window.dispatchEvent(new Event("anv:content-changed"));
     } catch (err: any) {
       toast.error(err.message || "Failed to permanently delete submission");
     }
