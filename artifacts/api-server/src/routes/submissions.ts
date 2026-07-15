@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { submissionsTable, articlesTable, papersTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or, ilike, isNull } from "drizzle-orm";
 import { getUserAuth } from "../lib/auth";
 import {
   ensurePublicPublicationForSubmission,
@@ -643,15 +643,33 @@ router.delete("/submissions/:id", async (req, res) => {
       .set({ deleted: true, deletedAt: now, updatedAt: now })
       .where(eq(submissionsTable.id, req.params.id));
 
-    // Also soft-delete any linked article or paper (by submissionId or title match fallback)
+    // Also soft-delete any linked article or paper.
+    // Match by submissionId first; also match by authorName as a fallback for
+    // articles that were published by admins without a submissionId link.
     try {
+      const namePattern = existing.submitterName ? `%${existing.submitterName}%` : null;
+
+      const articleWhere = namePattern
+        ? or(
+            eq(articlesTable.submissionId, existing.id),
+            and(isNull(articlesTable.submissionId), ilike(articlesTable.authorName, namePattern))
+          )
+        : eq(articlesTable.submissionId, existing.id);
+
+      const paperWhere = namePattern
+        ? or(
+            eq(papersTable.submissionId, existing.id),
+            and(isNull(papersTable.submissionId), ilike(papersTable.authorName, namePattern))
+          )
+        : eq(papersTable.submissionId, existing.id);
+
       await db.update(articlesTable)
         .set({ deleted: true, deletedAt: now, updatedAt: now })
-        .where(eq(articlesTable.submissionId, existing.id));
+        .where(articleWhere!);
 
       await db.update(papersTable)
         .set({ deleted: true, deletedAt: now, updatedAt: now })
-        .where(eq(papersTable.submissionId, existing.id));
+        .where(paperWhere!);
 
     } catch {
       // Non-fatal: public document soft-delete is best-effort
@@ -714,10 +732,27 @@ router.delete("/submissions/:id/permanent", async (req, res) => {
     if (existing.userId !== auth.userId) return res.status(403).json({ error: "Forbidden" });
     if (!existing.deleted) return res.status(400).json({ error: "Move submission to trash first before permanently deleting" });
 
-    // Hard-delete any linked article or paper first
+    // Hard-delete any linked article or paper first.
+    // Also match by authorName for articles published without a submissionId link.
     try {
-      await db.delete(articlesTable).where(eq(articlesTable.submissionId, existing.id));
-      await db.delete(papersTable).where(eq(papersTable.submissionId, existing.id));
+      const namePattern = existing.submitterName ? `%${existing.submitterName}%` : null;
+
+      const articleWhere = namePattern
+        ? or(
+            eq(articlesTable.submissionId, existing.id),
+            and(isNull(articlesTable.submissionId), ilike(articlesTable.authorName, namePattern))
+          )
+        : eq(articlesTable.submissionId, existing.id);
+
+      const paperWhere = namePattern
+        ? or(
+            eq(papersTable.submissionId, existing.id),
+            and(isNull(papersTable.submissionId), ilike(papersTable.authorName, namePattern))
+          )
+        : eq(papersTable.submissionId, existing.id);
+
+      await db.delete(articlesTable).where(articleWhere!);
+      await db.delete(papersTable).where(paperWhere!);
     } catch {
       // best effort
     }
