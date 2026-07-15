@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, Link, useSearch } from "wouter";
-import { ArrowLeft, Image as ImageIcon, X, CheckCircle, AlertCircle, Lock, Cloud, Save, FileText, Mic, Square, Play, Pause, Trash2, Volume2, Upload } from "lucide-react";
+import { ArrowLeft, Image as ImageIcon, X, CheckCircle, AlertCircle, Lock, Save, FileText, Mic, Square, Play, Pause, Trash2, Volume2, Upload, Maximize2, Minimize2 } from "lucide-react";
 import { LotusIcon, LotusDivider } from "@/components/sacred/LotusIcon";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -40,6 +40,16 @@ function loadDraft(): Draft {
   return EMPTY;
 }
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[character] || character);
+}
+
 export default function SubmitWritePage() {
   const [, navigate] = useLocation();
   const search = useSearch();
@@ -61,6 +71,7 @@ export default function SubmitWritePage() {
   const [imgDragging, setImgDragging] = useState(false);
   const [declared, setDeclared] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
 
   // Voice note recording states
   const [audioFile, setAudioFile] = useState<File | null>(null);
@@ -292,10 +303,10 @@ export default function SubmitWritePage() {
     if (!file) return;
 
     const isTxt = file.name.endsWith(".txt");
-    const isDocx = file.name.endsWith(".docx") || file.name.endsWith(".doc");
+    const isDocx = file.name.toLowerCase().endsWith(".docx");
 
     if (!isTxt && !isDocx) {
-      setError("Please upload a .docx, .doc, or .txt file");
+      setError("Please upload a .docx or .txt file");
       if (importDocInputRef.current) importDocInputRef.current.value = "";
       return;
     }
@@ -313,7 +324,7 @@ export default function SubmitWritePage() {
         htmlContent = text
           .split(/\n{2,}/)
           .filter(p => p.trim())
-          .map(p => `<p>${p.trim().replace(/\s*\n\s*/g, " ")}</p>`)
+          .map(p => `<p>${escapeHtml(p.trim().replace(/\s*\n\s*/g, " "))}</p>`)
           .join("");
       } else {
         // Upload docx to server for extraction
@@ -589,6 +600,40 @@ export default function SubmitWritePage() {
     if (errors[k]) setErrors(e => ({ ...e, [k]: undefined }));
   };
 
+  useEffect(() => {
+    if (!focusMode) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFocusMode(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [focusMode]);
+
+  useEffect(() => {
+    const hasUnpersistedFiles = Boolean(imgFile || audioFile);
+    if (!hasUnpersistedFiles && saveStatus !== "saving") return;
+
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    const confirmInternalNavigation = (event: MouseEvent) => {
+      const link = (event.target as Element | null)?.closest?.("a[href]");
+      if (!link || link.getAttribute("target") === "_blank") return;
+      if (!window.confirm("Your text is saved in this browser, but selected media files are not. Leave this page?")) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+
+    window.addEventListener("beforeunload", beforeUnload);
+    document.addEventListener("click", confirmInternalNavigation, true);
+    return () => {
+      window.removeEventListener("beforeunload", beforeUnload);
+      document.removeEventListener("click", confirmInternalNavigation, true);
+    };
+  }, [audioFile, imgFile, saveStatus]);
+
   const pickImg = (file: File) => {
     if (!file.type.startsWith("image/")) { setError("Please upload a JPG, PNG, or WEBP image"); return; }
     if (file.size > 20 * 1024 * 1024) { setError("Image must be under 20 MB"); return; }
@@ -797,23 +842,23 @@ export default function SubmitWritePage() {
           </Link>
           <LotusIcon size={22} className="mb-3" style={{ color: "var(--gold)", opacity: 0.7 }} />
           <h1 className="font-display" style={{ fontSize: "clamp(1.75rem, 4vw, 3rem)", color: "var(--gold-bright)", letterSpacing: "0.08em" }}>Write Your Essay</h1>
-          <p className="font-body text-sm mt-2" style={{ color: "var(--ink-faint)" }}>Your draft is saved automatically as you write</p>
+          <p className="font-body text-sm mt-2" style={{ color: "var(--ink-faint)" }}>Your text is kept in this browser as you write</p>
         </div>
       </div>
 
-      <div className="container-anv pb-24" style={{ maxWidth: 900 }}>
-        <div className="grid lg:grid-cols-3 gap-6">
+      <div className={`container-anv pb-24 editor-workspace-wide${focusMode ? " editor-focus-mode" : ""}`}>
+        <div className={focusMode ? "grid grid-cols-1 gap-6" : "grid lg:grid-cols-[280px_minmax(0,1fr)] gap-6"}>
 
           {/* ── Left: Metadata ── */}
-          <div className="space-y-4">
+          <div className={focusMode ? "hidden" : "space-y-4"}>
 
             {/* Auto-save indicator */}
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(139,90,20,0.15)" }}>
               {saveStatus === "saved"
-                ? <><Cloud size={13} style={{ color: "#4ade80", flexShrink: 0 }} /><span className="font-ui text-[10px]" style={{ color: "#4ade80" }}>Draft saved</span></>
+                ? <><Save size={13} style={{ color: "#4ade80", flexShrink: 0 }} /><span className="font-ui text-[10px]" style={{ color: "#4ade80" }}>Saved in this browser</span></>
                 : saveStatus === "saving"
                 ? <><Save size={13} style={{ color: "var(--gold)", flexShrink: 0, opacity: 0.6 }} /><span className="font-ui text-[10px]" style={{ color: "var(--ink-faint)" }}>Saving…</span></>
-                : <><Save size={13} style={{ color: "var(--gold)", flexShrink: 0, opacity: 0.4 }} /><span className="font-ui text-[10px]" style={{ color: "var(--ink-faint)" }}>Auto-save on</span></>
+                : <><Save size={13} style={{ color: "var(--gold)", flexShrink: 0, opacity: 0.4 }} /><span className="font-ui text-[10px]" style={{ color: "var(--ink-faint)" }}>Browser save ready</span></>
               }
             </div>
 
@@ -972,7 +1017,7 @@ export default function SubmitWritePage() {
           </div>
 
           {/* ── Right: Writing area ── */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="space-y-4 min-w-0 editor-reading-surface">
 
             {/* Title */}
             <div className="card-sacred p-5">
@@ -1003,11 +1048,23 @@ export default function SubmitWritePage() {
 
             {/* Body */}
             <div className="card-sacred" style={{ padding: 0, overflow: "hidden" }}>
-              <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: "1px solid rgba(139,90,20,0.15)" }}>
+              <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3" style={{ borderBottom: "1px solid rgba(139,90,20,0.15)" }}>
                 <span className="section-label" style={{ marginBottom: 0 }}>Essay Body *</span>
-                <span className="font-ui text-[10px]" style={{ color: "var(--ink-faint)" }}>
-                  {wordCount > 0 ? `${wordCount.toLocaleString()} words · ${charCount.toLocaleString()} chars` : "Start writing below"}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="font-ui text-[10px]" style={{ color: "var(--ink-faint)" }}>
+                    {wordCount > 0 ? `${wordCount.toLocaleString()} words · ${charCount.toLocaleString()} chars` : "Start writing below"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setFocusMode(value => !value)}
+                    className="editor-focus-toggle"
+                    aria-pressed={focusMode}
+                    title={focusMode ? "Exit focus mode (Esc)" : "Open distraction-free editor"}
+                  >
+                    {focusMode ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+                    <span>{focusMode ? "Exit focus" : "Focus"}</span>
+                  </button>
+                </div>
               </div>
               {errors.body && (
                 <div className="px-5 py-2" style={{ background: "rgba(139,26,74,0.08)", borderBottom: "1px solid rgba(139,26,74,0.15)" }}>
@@ -1028,7 +1085,7 @@ export default function SubmitWritePage() {
                 onMouseUp={updateEditorStates}
                 onClick={updateEditorStates}
                 onFocus={updateEditorStates}
-                className="w-full p-6 min-h-[450px] outline-none bg-transparent text-[var(--ink)] font-body leading-[1.85] overflow-y-auto prose-editor"
+                className="w-full p-6 md:p-8 min-h-[560px] outline-none bg-transparent text-[var(--ink)] font-body leading-[1.85] overflow-y-auto prose-editor"
                 data-placeholder="Begin writing your sacred manuscript here..."
                 style={{ boxSizing: "border-box" }}
               />
@@ -1246,7 +1303,7 @@ export default function SubmitWritePage() {
                   type="file"
                   ref={importDocInputRef}
                   onChange={handleDocImport}
-                  accept=".docx,.doc,.txt"
+                  accept=".docx,.txt"
                   className="sr-only"
                 />
                 <button

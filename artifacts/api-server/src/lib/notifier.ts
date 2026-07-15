@@ -11,166 +11,195 @@ interface SubmissionNotificationData {
   abstract?: string | null;
 }
 
-/**
- * Sends a notification to the administrator when a new submission is uploaded.
- * Supports:
- * - General Webhook (Zapier/Make/custom SMS gateway) via NOTIFICATION_WEBHOOK_URL
- * - Telegram Bot via TELEGRAM_BOT_TOKEN & TELEGRAM_CHAT_ID
- * - Twilio SMS/WhatsApp via TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER, NOTIFICATION_TO_NUMBER
- */
-export async function sendSubmissionNotification(sub: SubmissionNotificationData): Promise<void> {
-  const messageText = `✨ *New Submission Received* ✨\n\n` +
-    `👤 *Author:* ${sub.submitterName} (${sub.submitterEmail})\n` +
-    `📖 *Title:* ${sub.title}\n` +
-    `🏷️ *Type:* ${sub.type}\n` +
-    `📂 *Domain:* ${sub.domain || "Unassigned"}\n` +
-    `🔗 *Review Link:* https://anvikshikijournal.in/admin/submissions`;
+export type ContactNotification = {
+  name: string;
+  email: string;
+  inquiryType?: string;
+  subject: string;
+  message: string;
+};
 
-  logger.info({ submissionId: sub.id }, "Triggering submission notifications...");
-
-  // 1. General Webhook (Zapier, Make, custom SMS gateways)
-  if (process.env.NOTIFICATION_WEBHOOK_URL) {
-    try {
-      await fetch(process.env.NOTIFICATION_WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          event: "submission.created",
-          text: messageText,
-          data: sub,
-        }),
-      });
-      logger.info("Webhook notification sent successfully");
-    } catch (err: any) {
-      logger.error({ error: err.message }, "Failed to send webhook notification");
-    }
+function smtpTransport() {
+  if (
+    !process.env.SMTP_HOST ||
+    !process.env.SMTP_PORT ||
+    !process.env.SMTP_USER ||
+    !process.env.SMTP_PASS
+  ) {
+    return null;
   }
 
-  // 2. Telegram Bot (Free, reliable, and instant mobile alerts)
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT),
+    secure: Number(process.env.SMTP_PORT) === 465,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+}
+
+function smtpFrom(label: string): string {
+  return process.env.SMTP_FROM || `"${label}" <${process.env.SMTP_USER}>`;
+}
+
+async function postWebhook(event: string, data: unknown, text: string): Promise<boolean> {
+  if (!process.env.NOTIFICATION_WEBHOOK_URL) return false;
+  const response = await fetch(process.env.NOTIFICATION_WEBHOOK_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ event, text, data }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  return response.ok;
+}
+
+export async function sendSubmissionNotification(sub: SubmissionNotificationData): Promise<void> {
+  const reviewUrl = process.env.PUBLIC_SITE_URL
+    ? `${process.env.PUBLIC_SITE_URL.replace(/\/$/, "")}/admin/submissions`
+    : "Admin submissions dashboard";
+  const messageText = [
+    "New submission received",
+    `Author: ${sub.submitterName} (${sub.submitterEmail})`,
+    `Title: ${sub.title}`,
+    `Type: ${sub.type}`,
+    `Domain: ${sub.domain || "Unassigned"}`,
+    `Review: ${reviewUrl}`,
+  ].join("\n");
+
+  logger.info({ submissionId: sub.id }, "Dispatching submission notifications");
+  const deliveries: Promise<unknown>[] = [];
+
+  if (process.env.NOTIFICATION_WEBHOOK_URL) {
+    deliveries.push(postWebhook("submission.created", sub, messageText));
+  }
+
   if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
-    try {
-      const url = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`;
-      const res = await fetch(url, {
+    deliveries.push(fetch(
+      `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+      {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chat_id: process.env.TELEGRAM_CHAT_ID,
           text: messageText,
-          parse_mode: "Markdown",
         }),
-      });
-      if (!res.ok) {
-        const body = await res.text();
-        throw new Error(`Telegram API returned ${res.status}: ${body}`);
-      }
-      logger.info("Telegram notification sent successfully");
-    } catch (err: any) {
-      logger.error({ error: err.message }, "Failed to send Telegram notification");
-    }
+        signal: AbortSignal.timeout(10_000),
+      },
+    ).then(response => {
+      if (!response.ok) throw new Error(`Telegram returned ${response.status}`);
+    }));
   }
 
-  // 3. Twilio SMS / WhatsApp
   if (
     process.env.TWILIO_ACCOUNT_SID &&
     process.env.TWILIO_AUTH_TOKEN &&
     process.env.TWILIO_FROM_NUMBER &&
     process.env.NOTIFICATION_TO_NUMBER
   ) {
-    try {
-      const sid = process.env.TWILIO_ACCOUNT_SID;
-      const token = process.env.TWILIO_AUTH_TOKEN;
-      const from = process.env.TWILIO_FROM_NUMBER;
-      const to = process.env.NOTIFICATION_TO_NUMBER;
-
-      const isWhatsApp = from.startsWith("whatsapp:") || to.startsWith("whatsapp:");
-      const finalFrom = isWhatsApp && !from.startsWith("whatsapp:") ? `whatsapp:${from}` : from;
-      const finalTo = isWhatsApp && !to.startsWith("whatsapp:") ? `whatsapp:${to}` : to;
-
-      const authHeader = "Basic " + Buffer.from(`${sid}:${token}`).toString("base64");
-      
-      const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`;
-      const bodyParams = new URLSearchParams();
-      bodyParams.append("From", finalFrom);
-      bodyParams.append("To", finalTo);
-      bodyParams.append("Body", messageText.replace(/\*/g, "")); // Strip markdown asterisks for clean text SMS
-
-      const res = await fetch(twilioUrl, {
+    const sid = process.env.TWILIO_ACCOUNT_SID;
+    const from = process.env.TWILIO_FROM_NUMBER;
+    const to = process.env.NOTIFICATION_TO_NUMBER;
+    const useWhatsApp = from.startsWith("whatsapp:") || to.startsWith("whatsapp:");
+    const body = new URLSearchParams({
+      From: useWhatsApp && !from.startsWith("whatsapp:") ? `whatsapp:${from}` : from,
+      To: useWhatsApp && !to.startsWith("whatsapp:") ? `whatsapp:${to}` : to,
+      Body: messageText,
+    });
+    deliveries.push(fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}/Messages.json`,
+      {
         method: "POST",
         headers: {
-          "Authorization": authHeader,
+          Authorization: `Basic ${Buffer.from(`${sid}:${process.env.TWILIO_AUTH_TOKEN}`).toString("base64")}`,
           "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: bodyParams.toString(),
-      });
-
-      if (!res.ok) {
-        const body = await res.text();
-        throw new Error(`Twilio API returned ${res.status}: ${body}`);
-      }
-      logger.info("Twilio SMS/WhatsApp notification sent successfully");
-    } catch (err: any) {
-      logger.error({ error: err.message }, "Failed to send Twilio notification");
-    }
+        body,
+        signal: AbortSignal.timeout(10_000),
+      },
+    ).then(response => {
+      if (!response.ok) throw new Error(`Twilio returned ${response.status}`);
+    }));
   }
 
-  // 4. CallMeBot WhatsApp (Free public WhatsApp API)
-  const callmebotPhone = process.env.WHATSAPP_PHONE || "918828051561";
-  const callmebotApiKey = process.env.CALLMEBOT_API_KEY;
+  if (process.env.CALLMEBOT_API_KEY && process.env.WHATSAPP_PHONE) {
+    const query = new URLSearchParams({
+      phone: process.env.WHATSAPP_PHONE,
+      text: messageText,
+      apikey: process.env.CALLMEBOT_API_KEY,
+    });
+    deliveries.push(fetch(`https://api.callmebot.com/whatsapp.php?${query}`, {
+      signal: AbortSignal.timeout(10_000),
+    }).then(response => {
+      if (!response.ok) throw new Error(`CallMeBot returned ${response.status}`);
+    }));
+  }
 
-  if (callmebotApiKey) {
-    try {
-      const url = `https://api.callmebot.com/whatsapp.php?phone=${callmebotPhone}&text=${encodeURIComponent(messageText)}&apikey=${callmebotApiKey}`;
-      const res = await fetch(url);
-      if (!res.ok) {
-        throw new Error(`CallMeBot API returned status ${res.status}`);
-      }
-      logger.info("CallMeBot WhatsApp notification sent successfully");
-    } catch (err: any) {
-      logger.error({ error: err.message }, "Failed to send CallMeBot WhatsApp notification");
-    }
-  } else {
-    logger.warn("CALLMEBOT_API_KEY env variable is not set. CallMeBot WhatsApp notification skipped.");
+  const results = await Promise.allSettled(deliveries);
+  const failures = results.filter(result => result.status === "rejected");
+  if (failures.length) {
+    logger.warn(
+      { submissionId: sub.id, failures: failures.length, channels: results.length },
+      "One or more submission notifications failed",
+    );
   }
 }
 
-export async function sendNewMemberNotification(memberName: string, memberEmail: string): Promise<void> {
-  const adminEmail = "xiyatosaanvi@gmail.com";
-  const subject = `✨ Anvikshiki: New Community Member Joined!`;
-  const textContent = `Hello Admin,\n\nA new member has signed up for the Anvikshiki community:\n\n👤 Name: ${memberName}\n✉️ Email: ${memberEmail}\n\nBest regards,\nAnvikshiki Journal Server`;
-  
-  logger.info({ memberName, memberEmail }, "Triggering new member email notification...");
+export async function sendNewMemberNotification(
+  memberName: string,
+  memberEmail: string,
+): Promise<void> {
+  const recipient = process.env.ADMIN_NOTIFICATION_EMAIL;
+  const transporter = smtpTransport();
+  if (!recipient || !transporter) {
+    logger.debug("Member email notification is not configured");
+    return;
+  }
 
-  if (
-    process.env.SMTP_HOST &&
-    process.env.SMTP_PORT &&
-    process.env.SMTP_USER &&
-    process.env.SMTP_PASS
-  ) {
-    try {
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: Number(process.env.SMTP_PORT),
-        secure: Number(process.env.SMTP_PORT) === 465,
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-      });
+  await transporter.sendMail({
+    from: smtpFrom("Anvikshiki Server"),
+    to: recipient,
+    subject: "Anvikshiki: new community member",
+    text: [
+      "A new member has joined the Anvikshiki community.",
+      "",
+      `Name: ${memberName}`,
+      `Email: ${memberEmail}`,
+    ].join("\n"),
+  });
+}
 
-      await transporter.sendMail({
-        from: process.env.SMTP_FROM || `"Anvikshiki Server" <${process.env.SMTP_USER}>`,
-        to: adminEmail,
-        subject,
-        text: textContent,
-      });
+/** Deliver a contact request through at least one configured durable channel. */
+export async function sendContactNotification(contact: ContactNotification): Promise<boolean> {
+  let delivered = false;
 
-      logger.info("New member email notification sent successfully via SMTP.");
-    } catch (err: any) {
-      logger.error({ error: err.message }, "Failed to send new member email notification via SMTP");
-    }
-  } else {
-    logger.warn(
-      "EMAIL NOTIFICATION WARNING: SMTP credentials (SMTP_HOST, SMTP_USER, etc.) are not configured in Vercel environment variables. Could not send new member email notification."
+  if (process.env.NOTIFICATION_WEBHOOK_URL) {
+    delivered = await postWebhook(
+      "contact.created",
+      contact,
+      `Contact request from ${contact.name}: ${contact.subject}`,
     );
   }
+
+  const recipient = process.env.CONTACT_TO_EMAIL || process.env.ADMIN_NOTIFICATION_EMAIL;
+  const transporter = smtpTransport();
+  if (recipient && transporter) {
+    await transporter.sendMail({
+      from: smtpFrom("Anvikshiki Contact"),
+      to: recipient,
+      replyTo: contact.email,
+      subject: `[Contact] ${contact.subject}`,
+      text: [
+        `Name: ${contact.name}`,
+        `Email: ${contact.email}`,
+        `Type: ${contact.inquiryType || "General"}`,
+        "",
+        contact.message,
+      ].join("\n"),
+    });
+    delivered = true;
+  }
+
+  return delivered;
 }

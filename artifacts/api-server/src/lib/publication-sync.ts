@@ -7,14 +7,11 @@ import {
   submissionsTable,
   type Submission,
 } from "@workspace/db";
+import { sanitizeArticleBody } from "./content";
 
 type PublicationKind = "article" | "paper";
 
 const PUBLIC_SUBMISSION_STATUSES = [
-  "RECEIVED",
-  "UNDER_REVIEW",
-  "REVISION_REQUESTED",
-  "ACCEPTED",
   "PUBLISHED",
 ] as const;
 
@@ -184,7 +181,7 @@ export async function ensurePublicPublicationForSubmission(
   );
   const baseSlug = slugify(submission.title);
   const publishedAt = options.publishedAt || submission.publishedAt || submission.updatedAt || new Date();
-  const body = submission.body || submission.abstract || "";
+  const body = sanitizeArticleBody(submission.body || submission.abstract || "");
 
   if (kind === "paper") {
     const [existing] = await db

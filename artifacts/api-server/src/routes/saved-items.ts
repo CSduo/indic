@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { savedItemsTable, articlesTable, papersTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { getUserAuth } from "../lib/auth";
 import { z } from "zod";
 
@@ -19,26 +19,32 @@ router.get("/saved-items", async (req, res) => {
       .where(eq(savedItemsTable.userId, auth.userId))
       .orderBy(savedItemsTable.createdAt);
 
-    // Hydrate with actual item data
-    const hydratedItems = await Promise.all(
-      savedItems.map(async (item) => {
-        if (item.itemType === "ARTICLE") {
-          const [article] = await db
-            .select()
-            .from(articlesTable)
-            .where(eq(articlesTable.id, item.itemId))
-            .limit(1);
-          return { ...item, item: article || null };
-        } else {
-          const [paper] = await db
-            .select()
-            .from(papersTable)
-            .where(eq(papersTable.id, item.itemId))
-            .limit(1);
-          return { ...item, item: paper || null };
-        }
-      })
-    );
+    const articleIds = savedItems.filter(item => item.itemType === "ARTICLE").map(item => item.itemId);
+    const paperIds = savedItems.filter(item => item.itemType === "PAPER").map(item => item.itemId);
+    const [articles, papers] = await Promise.all([
+      articleIds.length
+        ? db.select().from(articlesTable).where(and(
+            inArray(articlesTable.id, articleIds),
+            eq(articlesTable.status, "PUBLISHED"),
+            eq(articlesTable.deleted, false),
+          ))
+        : [],
+      paperIds.length
+        ? db.select().from(papersTable).where(and(
+            inArray(papersTable.id, paperIds),
+            eq(papersTable.status, "PUBLISHED"),
+            eq(papersTable.deleted, false),
+          ))
+        : [],
+    ]);
+    const articleMap = new Map(articles.map(article => [article.id, article]));
+    const paperMap = new Map(papers.map(paper => [paper.id, paper]));
+    const hydratedItems = savedItems.map(item => ({
+      ...item,
+      item: item.itemType === "ARTICLE"
+        ? articleMap.get(item.itemId) || null
+        : paperMap.get(item.itemId) || null,
+    }));
 
     return res.json({ savedItems: hydratedItems });
   } catch (err) {
@@ -62,6 +68,19 @@ router.post("/saved-items", async (req, res) => {
     if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
 
     const { itemType, itemId } = parsed.data;
+
+    const [publishedItem] = itemType === "ARTICLE"
+      ? await db.select({ id: articlesTable.id }).from(articlesTable).where(and(
+          eq(articlesTable.id, itemId),
+          eq(articlesTable.status, "PUBLISHED"),
+          eq(articlesTable.deleted, false),
+        )).limit(1)
+      : await db.select({ id: papersTable.id }).from(papersTable).where(and(
+          eq(papersTable.id, itemId),
+          eq(papersTable.status, "PUBLISHED"),
+          eq(papersTable.deleted, false),
+        )).limit(1);
+    if (!publishedItem) return res.status(404).json({ error: "Published item not found" });
 
     const [existing] = await db
       .select()

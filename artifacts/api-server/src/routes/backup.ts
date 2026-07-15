@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { Router } from "express";
 import { getAdminAuth } from "../lib/auth";
 
@@ -20,88 +21,99 @@ async function requireAdmin(req: any, res: any, next: any) {
   next();
 }
 
-// POST /api/admin/trigger-backup — trigger a Neon database snapshot via Neon API
-// Called manually or by Vercel Cron every Sunday
-router.post("/admin/trigger-backup", requireAdmin, async (req: any, res) => {
+function isCronAuthorized(authorization: string | undefined): boolean {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || !authorization) return false;
+  const expected = Buffer.from(`Bearer ${secret}`);
+  const actual = Buffer.from(authorization);
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
+}
+
+async function createBackup(req: any, res: any) {
   try {
     const neonApiKey = process.env.NEON_API_KEY;
     const neonProjectId = process.env.NEON_PROJECT_ID;
-
     if (!neonApiKey || !neonProjectId) {
-      // Graceful fallback: log that backup was triggered but credentials are missing
-      req.log.warn("Neon backup triggered but NEON_API_KEY or NEON_PROJECT_ID is not set. Set these in Vercel env vars.");
-      return res.json({
+      req.log.warn("Neon backup credentials are not configured");
+      return res.status(503).json({
         success: false,
-        message: "Backup credentials not configured. Set NEON_API_KEY and NEON_PROJECT_ID in Vercel environment variables.",
-        timestamp: new Date().toISOString(),
+        message: "Backup service is not configured.",
       });
     }
 
-    // Call Neon API to create a branch (snapshot) of the main branch
-    const branchName = `backup-${new Date().toISOString().split("T")[0]}`;
+    const branchName = `backup-${new Date().toISOString().replace(/[:.]/g, "-")}`;
     const response = await fetch(
-      `https://console.neon.tech/api/v2/projects/${neonProjectId}/branches`,
+      `https://console.neon.tech/api/v2/projects/${encodeURIComponent(neonProjectId)}/branches`,
       {
         method: "POST",
         headers: {
           Authorization: `Bearer ${neonApiKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          branch: { name: branchName },
-          endpoints: [],
-        }),
-      }
+        body: JSON.stringify({ branch: { name: branchName }, endpoints: [] }),
+        signal: AbortSignal.timeout(20_000),
+      },
     );
 
     if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      req.log.error({ err }, "Failed to create Neon branch backup");
-      return res.status(500).json({ success: false, error: "Backup failed", detail: err });
+      req.log.error({ status: response.status }, "Failed to create Neon backup branch");
+      return res.status(502).json({ success: false, error: "Backup provider rejected the request" });
     }
 
     const data = await response.json() as NeonBranchResponse;
-    req.log.info({ branchName, branchId: data.branch?.id }, "Database backup branch created successfully");
-
+    req.log.info(
+      { branchName, branchId: data.branch?.id, actor: req.adminAuth?.adminId || "cron" },
+      "Database backup branch created",
+    );
     return res.json({
       success: true,
-      message: `Database snapshot created: ${branchName}`,
+      message: "Database snapshot created.",
       branchId: data.branch?.id,
+      branchName,
       timestamp: new Date().toISOString(),
     });
-  } catch (err: any) {
-    req.log.error(err);
-    return res.status(500).json({ error: "Backup request failed", detail: err?.message });
+  } catch (err) {
+    req.log.error({ err }, "Backup request failed");
+    return res.status(502).json({ error: "Backup request failed" });
   }
+}
+
+// Vercel Cron invokes configured jobs with GET and Bearer CRON_SECRET.
+router.get("/admin/trigger-backup", async (req: any, res: any) => {
+  if (!isCronAuthorized(req.get("authorization"))) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  return createBackup(req, res);
 });
 
-// GET /api/admin/backups — list recent backup branches in Neon
+// Administrators may also trigger a snapshot manually.
+router.post("/admin/trigger-backup", requireAdmin, createBackup);
+
 router.get("/admin/backups", requireAdmin, async (req: any, res) => {
   try {
     const neonApiKey = process.env.NEON_API_KEY;
     const neonProjectId = process.env.NEON_PROJECT_ID;
-
     if (!neonApiKey || !neonProjectId) {
-      return res.json({ branches: [], message: "Neon credentials not set" });
+      return res.status(503).json({ branches: [], message: "Backup service is not configured." });
     }
 
     const response = await fetch(
-      `https://console.neon.tech/api/v2/projects/${neonProjectId}/branches`,
+      `https://console.neon.tech/api/v2/projects/${encodeURIComponent(neonProjectId)}/branches`,
       {
         headers: { Authorization: `Bearer ${neonApiKey}` },
-      }
+        signal: AbortSignal.timeout(20_000),
+      },
     );
-
-    if (!response.ok) return res.status(500).json({ error: "Failed to fetch branches" });
+    if (!response.ok) {
+      return res.status(502).json({ error: "Failed to fetch backup list" });
+    }
 
     const data = await response.json() as NeonBranchResponse;
-    // Only return branches whose names start with "backup-"
-    const backups = (data.branches || []).filter((branch) => branch.name?.startsWith("backup-"));
-
+    const backups = (data.branches || []).filter(branch => branch.name?.startsWith("backup-"));
     return res.json({ branches: backups });
-  } catch (err: any) {
-    req.log.error(err);
-    return res.status(500).json({ error: "Failed", detail: err?.message });
+  } catch (err) {
+    req.log.error({ err }, "Failed to list backups");
+    return res.status(502).json({ error: "Failed to fetch backup list" });
   }
 });
 

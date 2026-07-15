@@ -72,9 +72,9 @@ router.post("/articles/:articleId/comments", async (req, res) => {
     const { articleId } = req.params;
 
     const schema = z.object({
-      authorName: z.string().min(1).max(160),
-      content: z.string().min(1).max(5000),
-      authorEmail: z.string().email().optional(),
+      authorName: z.string().trim().min(1).max(160),
+      content: z.string().trim().min(1).max(5000),
+      authorEmail: z.string().trim().toLowerCase().email().optional(),
       parentId: z.string().optional(), // if replying to a comment
     });
     const parsed = schema.safeParse(req.body);
@@ -91,7 +91,12 @@ router.post("/articles/:articleId/comments", async (req, res) => {
     if (parsed.data.parentId) {
       const [parent] = await db.select({ id: commentsTable.id })
         .from(commentsTable)
-        .where(eq(commentsTable.id, parsed.data.parentId))
+        .where(and(
+          eq(commentsTable.id, parsed.data.parentId),
+          eq(commentsTable.articleId, articleId),
+          eq(commentsTable.approved, true),
+          eq(commentsTable.deleted, false),
+        ))
         .limit(1);
       if (!parent) return res.status(404).json({ error: "Parent comment not found" });
     }
@@ -99,13 +104,19 @@ router.post("/articles/:articleId/comments", async (req, res) => {
     // Check if user is logged in — auto-approve if so
     const auth = await getUserAuth(req);
     const isLoggedIn = Boolean(auth);
+    const [user] = auth
+      ? await db.select({ name: usersTable.name, email: usersTable.email })
+          .from(usersTable)
+          .where(eq(usersTable.id, auth.userId))
+          .limit(1)
+      : [];
 
     const [comment] = await db.insert(commentsTable).values({
       articleId,
       userId: auth?.userId || null,
       parentId: parsed.data.parentId || null,
-      authorName: parsed.data.authorName,
-      authorEmail: parsed.data.authorEmail || null,
+      authorName: user?.name || parsed.data.authorName,
+      authorEmail: user?.email || parsed.data.authorEmail || null,
       content: parsed.data.content,
       approved: isLoggedIn, // auto-approve logged-in users
     }).returning();

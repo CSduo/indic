@@ -6,6 +6,8 @@ import fs from "fs";
 import { UPLOADS_DIR } from "./submissions";
 import { v2 as cloudinary } from "cloudinary";
 import { getUserAuth } from "../lib/auth";
+import { sanitizeArticleBody } from "../lib/content";
+import { hasExpectedFileSignature } from "../lib/file-validation";
 // @ts-ignore — mammoth has no bundled types but works fine
 import mammoth from "mammoth";
 
@@ -60,8 +62,11 @@ const docUpload = multer({
   limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
   fileFilter: (_req: any, file: any, cb: any): void => {
     const ext = path.extname(file.originalname).toLowerCase();
-    if (![".docx", ".doc", ".txt"].includes(ext)) {
-      cb(new Error("Only .docx, .doc, or .txt files are accepted."));
+    const allowed =
+      (ext === ".docx" && file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") ||
+      (ext === ".txt" && ["text/plain", "application/octet-stream"].includes(file.mimetype));
+    if (!allowed) {
+      cb(new Error("Only DOCX or plain-text files are accepted."));
       return;
     }
     cb(null, true);
@@ -87,6 +92,9 @@ router.post("/media/upload", async (req: any, res: any, next: any): Promise<void
     }
 
     const file = req.file;
+    if (!hasExpectedFileSignature(file)) {
+      return res.status(400).json({ error: "Uploaded file content does not match its extension" });
+    }
     const context = req.body.context || "avatar";
     const isAudio = file.mimetype.startsWith("audio/") || [".webm", ".mp3", ".ogg", ".wav", ".m4a"].includes(path.extname(file.originalname).toLowerCase());
 
@@ -168,13 +176,20 @@ router.post("/media/extract-doc",
       const ext = path.extname(file.originalname).toLowerCase();
 
       if (ext === ".txt") {
+        if (file.buffer.includes(0)) {
+          return res.status(400).json({ error: "The text file contains binary data" });
+        }
         const text: string = file.buffer.toString("utf-8");
         const html = text
           .split(/\n{2,}/)
           .filter((p: string) => p.trim())
           .map((p: string) => `<p>${p.trim().replace(/\n/g, "<br>")}</p>`)
           .join("");
-        return res.json({ html });
+        return res.json({ html: sanitizeArticleBody(html) });
+      }
+
+      if (file.buffer[0] !== 0x50 || file.buffer[1] !== 0x4b) {
+        return res.status(400).json({ error: "The uploaded file is not a valid DOCX document" });
       }
 
       // DOCX — use mammoth to convert to HTML
@@ -214,10 +229,10 @@ router.post("/media/extract-doc",
         { convertImage: mammoth.images.imgElement(imageHandler) }
       );
 
-      return res.json({ html: result.value || "" });
+      return res.json({ html: sanitizeArticleBody(result.value || "") });
     } catch (err: any) {
       req.log?.error(err);
-      return res.status(500).json({ error: "Document extraction failed", detail: err?.message });
+      return res.status(500).json({ error: "Document extraction failed" });
     }
   }
 );

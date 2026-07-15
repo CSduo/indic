@@ -153,10 +153,10 @@ export default function AdminSettingsPage() {
         <div className="space-y-4 max-w-lg">
           <div className="section-label mb-3">Technical Configuration</div>
           {[
-            { title: "Admin Access", desc: "Admin login is at /admin/login. Set ADMIN_EMAIL and ADMIN_PASSWORD in environment secrets to control access. The first login auto-creates the admin record." },
-            { title: "Database", desc: "PostgreSQL connected via DATABASE_URL. Schema managed with Drizzle ORM. 11 tables: users, admins, articles, papers, categories, submissions, newsletter_subscribers, saved_items, audit_logs, site_settings, media_assets." },
+            { title: "Admin Access", desc: "Admin login is at /admin/login. Set ADMIN_EMAIL and a bcrypt ADMIN_PASSWORD_HASH in environment secrets. The first valid login creates the admin record." },
+            { title: "Database", desc: "PostgreSQL is connected through DATABASE_URL and managed with Drizzle ORM. Apply the reviewed schema migration as a separate deployment step after taking a backup." },
             { title: "Auth Secrets", desc: "Set AUTH_SECRET (user JWT signing) and ADMIN_SECRET (admin JWT signing) as environment secrets. These must be set for sessions to work correctly." },
-            { title: "Google Login", desc: "Prepared architecture. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to enable." },
+            { title: "Google Login", desc: "Set matching GOOGLE_CLIENT_ID and VITE_GOOGLE_CLIENT_ID values to enable verified Google sign-in." },
           ].map(s => (
             <div key={s.title} className="card-sacred p-5">
               <div className="flex items-center gap-2 mb-2">

@@ -2,6 +2,8 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { articlesTable, papersTable, categoriesTable } from "@workspace/db";
 import { eq, and, ilike, or, sql } from "drizzle-orm";
+import { toLikePattern } from "../lib/request";
+import { sanitizeArticleBody } from "../lib/content";
 
 const router = Router();
 
@@ -19,7 +21,8 @@ router.get("/search", async (req, res) => {
       });
     }
 
-    const st = `%${q}%`;
+    if (q.length > 200) return res.status(400).json({ error: "Search query is too long" });
+    const st = toLikePattern(q);
     const [articles, papers, categories] = await Promise.all([
       db.select({ article: articlesTable, category: categoriesTable })
         .from(articlesTable)
@@ -46,8 +49,16 @@ router.get("/search", async (req, res) => {
         .limit(8),
     ]);
 
-    const articleResults = articles.map(r => ({ ...r.article, category: r.category }));
-    const paperResults = papers.map(r => ({ ...r.paper, category: r.category }));
+    const articleResults = articles.map(r => ({
+      ...r.article,
+      body: sanitizeArticleBody(r.article.body),
+      category: r.category,
+    }));
+    const paperResults = papers.map(r => ({
+      ...r.paper,
+      body: sanitizeArticleBody(r.paper.body),
+      category: r.category,
+    }));
 
     return res.json({
       query: q,
