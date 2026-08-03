@@ -12,13 +12,13 @@ router.get("/archive", async (req, res) => {
       db.select({ article: articlesTable, category: categoriesTable })
         .from(articlesTable)
         .leftJoin(categoriesTable, eq(articlesTable.categorySlug, categoriesTable.slug))
-        .where(and(eq(articlesTable.status, "PUBLISHED"), eq(articlesTable.deleted, false)))
+        .where(eq(articlesTable.status, "PUBLISHED"))
         .orderBy(desc(articlesTable.publishedAt))
         .limit(500),
       db.select({ paper: papersTable, category: categoriesTable })
         .from(papersTable)
         .leftJoin(categoriesTable, eq(papersTable.categorySlug, categoriesTable.slug))
-        .where(and(eq(papersTable.status, "PUBLISHED"), eq(papersTable.deleted, false)))
+        .where(eq(papersTable.status, "PUBLISHED"))
         .orderBy(desc(papersTable.publishedAt))
         .limit(500),
     ]);

@@ -16,7 +16,6 @@ router.get("/papers", async (req, res) => {
 
     const conditions = [
       eq(papersTable.status, "PUBLISHED"),
-      eq(papersTable.deleted, false),
     ];
     if (category) {
       const normalizedCategory = sql<string>`trim(both '-' from lower(regexp_replace(replace(${papersTable.categorySlug}, '_', '-'), '[^a-z0-9]+', '-', 'g')))`;
@@ -64,25 +63,13 @@ router.get("/papers/:slug", async (req, res) => {
       .select({
         paper: papersTable,
         category: categoriesTable,
-        authorId: usersTable.id,
-        authorAvatarUrl: usersTable.avatarUrl,
-        authorBio: usersTable.bio,
       })
       .from(papersTable)
       .leftJoin(categoriesTable, eq(papersTable.categorySlug, categoriesTable.slug))
-      .leftJoin(submissionsTable, eq(papersTable.submissionId, submissionsTable.id))
-      .leftJoin(usersTable, eq(submissionsTable.userId, usersTable.id))
-      .where(and(eq(papersTable.slug, slug), eq(papersTable.status, "PUBLISHED"), eq(papersTable.deleted, false)))
+      .where(and(eq(papersTable.slug, slug), eq(papersTable.status, "PUBLISHED")))
       .limit(1);
 
     if (!row) return res.status(404).json({ error: "Paper not found" });
-    
-    // Increment view count asynchronously
-    db.update(papersTable)
-      .set({ viewCount: sql`${papersTable.viewCount} + 1` })
-      .where(eq(papersTable.id, row.paper.id))
-      .execute()
-      .catch(e => req.log.error("Failed to increment viewCount", e));
 
     return res.json({
       paper: {

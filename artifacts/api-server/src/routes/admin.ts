@@ -186,13 +186,11 @@ router.get("/admin/articles", requireAdmin, async (req, res) => {
   try {
     const { status } = req.query;
     const parsedStatus = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).safeParse(status);
-    if (status && !parsedStatus.success) return res.status(400).json({ error: "Invalid status" });
     const conditions = parsedStatus.success ? [eq(articlesTable.status, parsedStatus.data)] : [];
-    conditions.push(eq(articlesTable.deleted, false));
     const articles = await db.select({ article: articlesTable, category: categoriesTable })
       .from(articlesTable)
       .leftJoin(categoriesTable, eq(articlesTable.categorySlug, categoriesTable.slug))
-      .where(and(...conditions))
+      .where(conditions.length ? and(...conditions) : undefined)
       .orderBy(desc(articlesTable.updatedAt))
       .limit(100);
     return res.json({
@@ -293,11 +291,10 @@ router.get("/admin/papers", requireAdmin, async (req, res) => {
     const parsedStatus = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).safeParse(status);
     if (status && !parsedStatus.success) return res.status(400).json({ error: "Invalid status" });
     const conditions = parsedStatus.success ? [eq(papersTable.status, parsedStatus.data)] : [];
-    conditions.push(eq(papersTable.deleted, false));
     const papers = await db.select({ paper: papersTable, category: categoriesTable })
       .from(papersTable)
       .leftJoin(categoriesTable, eq(papersTable.categorySlug, categoriesTable.slug))
-      .where(and(...conditions))
+      .where(conditions.length ? and(...conditions) : undefined)
       .orderBy(desc(papersTable.updatedAt));
     return res.json({
       papers: papers.map(r => ({

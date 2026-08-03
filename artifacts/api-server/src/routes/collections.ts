@@ -104,13 +104,11 @@ router.post("/collections/:id/items", async (req, res) => {
           .where(and(
             eq(articlesTable.id, itemId),
             eq(articlesTable.status, "PUBLISHED"),
-            eq(articlesTable.deleted, false),
           )).limit(1)
       : await db.select({ id: papersTable.id }).from(papersTable)
           .where(and(
             eq(papersTable.id, itemId),
             eq(papersTable.status, "PUBLISHED"),
-            eq(papersTable.deleted, false),
           )).limit(1);
     if (!item) return res.status(404).json({ error: "Published item not found" });
 

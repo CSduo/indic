@@ -23,7 +23,7 @@ router.get("/articles/:articleId/comments", async (req, res) => {
     // Verify article exists and is published
     const [article] = await db.select({ id: articlesTable.id })
       .from(articlesTable)
-      .where(and(eq(articlesTable.id, articleId), eq(articlesTable.status, "PUBLISHED"), eq(articlesTable.deleted, false)))
+      .where(and(eq(articlesTable.id, articleId), eq(articlesTable.status, "PUBLISHED")))
       .limit(1);
     if (!article) return res.status(404).json({ error: "Article not found" });
 
@@ -83,7 +83,7 @@ router.post("/articles/:articleId/comments", async (req, res) => {
     // Verify article exists and is published
     const [article] = await db.select({ id: articlesTable.id })
       .from(articlesTable)
-      .where(and(eq(articlesTable.id, articleId), eq(articlesTable.status, "PUBLISHED"), eq(articlesTable.deleted, false)))
+      .where(and(eq(articlesTable.id, articleId), eq(articlesTable.status, "PUBLISHED")))
       .limit(1);
     if (!article) return res.status(404).json({ error: "Article not found" });
 

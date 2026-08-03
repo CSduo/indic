@@ -75,18 +75,13 @@ export const articlesTable = pgTable("articles", {
   audioUrl: text("audio_url"),
   status: contentStatusEnum("status").notNull().default("DRAFT"),
   featured: boolean("featured").notNull().default(false),
-  deleted: boolean("deleted").notNull().default(false),
-  deletedAt: timestamp("deleted_at"),
-  submissionId: text("submission_id"),
   publishedAt: timestamp("published_at"),
-  viewCount: integer("view_count").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   index("articles_status_idx").on(t.status),
   index("articles_category_idx").on(t.categorySlug),
   index("articles_published_at_idx").on(t.publishedAt),
-  index("articles_deleted_idx").on(t.deleted),
 ]);
 
 // Papers
@@ -111,17 +106,12 @@ export const papersTable = pgTable("papers", {
   seoTitle: text("seo_title"),
   seoDescription: text("seo_description"),
   status: contentStatusEnum("status").notNull().default("DRAFT"),
-  deleted: boolean("deleted").notNull().default(false),
-  deletedAt: timestamp("deleted_at"),
-  submissionId: text("submission_id"),
   publishedAt: timestamp("published_at"),
-  viewCount: integer("view_count").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   index("papers_status_idx").on(t.status),
   index("papers_category_idx").on(t.categorySlug),
-  index("papers_deleted_idx").on(t.deleted),
 ]);
 
 // Submissions
@@ -149,8 +139,6 @@ export const submissionsTable = pgTable("submissions", {
   priority: priorityEnum("priority").notNull().default("NORMAL"),
   assignedEditorId: text("assigned_editor_id"),
   editorNotes: text("editor_notes"),
-  deleted: boolean("deleted").notNull().default(false),
-  deletedAt: timestamp("deleted_at"),
   publishedAt: timestamp("published_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

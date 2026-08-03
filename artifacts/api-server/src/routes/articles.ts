@@ -18,7 +18,6 @@ router.get("/articles", async (req, res) => {
 
     const conditions = [
       eq(articlesTable.status, "PUBLISHED"),
-      eq(articlesTable.deleted, false),
     ];
     if (category) {
       const normalizedCategory = sql<string>`trim(both '-' from lower(regexp_replace(replace(${articlesTable.categorySlug}, '_', '-'), '[^a-z0-9]+', '-', 'g')))`;
@@ -78,14 +77,9 @@ router.get("/articles/:slug", async (req, res) => {
       .select({
         article: articlesTable,
         category: categoriesTable,
-        authorId: usersTable.id,
-        authorAvatarUrl: usersTable.avatarUrl,
-        authorBio: usersTable.bio,
       })
       .from(articlesTable)
       .leftJoin(categoriesTable, eq(articlesTable.categorySlug, categoriesTable.slug))
-      .leftJoin(submissionsTable, eq(articlesTable.submissionId, submissionsTable.id))
-      .leftJoin(usersTable, eq(submissionsTable.userId, usersTable.id))
       .where(and(
         or(eq(articlesTable.slug, slug), eq(articlesTable.slug, cleanSlug), ilike(articlesTable.slug, `${cleanSlug}%`)),
         eq(articlesTable.status, "PUBLISHED")
@@ -93,15 +87,6 @@ router.get("/articles/:slug", async (req, res) => {
       .limit(1);
 
     if (!row) return res.status(404).json({ error: "Article not found" });
-    // Filter out soft-deleted articles
-    if (row.article.deleted) return res.status(404).json({ error: "Article not found" });
-    
-    // Increment view count asynchronously
-    db.update(articlesTable)
-      .set({ viewCount: sql`${articlesTable.viewCount} + 1` })
-      .where(eq(articlesTable.id, row.article.id))
-      .execute()
-      .catch(e => req.log.error("Failed to increment viewCount", e));
 
     return res.json({
       article: {
@@ -109,9 +94,6 @@ router.get("/articles/:slug", async (req, res) => {
         body: sanitizeArticleBody(recoverLegacyInlineImages(row.article.slug, row.article.body)),
         rawBody: row.article.body,
         category: row.category,
-        authorId: row.authorId,
-        authorAvatarUrl: row.authorAvatarUrl,
-        authorBio: row.authorBio,
       },
     });
   } catch (err) {

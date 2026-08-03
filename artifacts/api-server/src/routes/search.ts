@@ -39,7 +39,6 @@ router.get("/search", async (req, res) => {
 
     const articleConditions = [
       eq(articlesTable.status, "PUBLISHED"),
-      eq(articlesTable.deleted, false),
       or(
         ilike(articlesTable.title, st),
         sql`coalesce(${articlesTable.subtitle}, '') ilike ${st}`,
@@ -49,7 +48,6 @@ router.get("/search", async (req, res) => {
 
     const paperConditions = [
       eq(papersTable.status, "PUBLISHED"),
-      eq(papersTable.deleted, false),
       or(
         ilike(papersTable.title, st),
         sql`coalesce(${papersTable.abstract}, '') ilike ${st}`

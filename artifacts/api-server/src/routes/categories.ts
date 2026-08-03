@@ -21,13 +21,13 @@ router.get("/categories", async (req, res) => {
     const articleCounts = await db
       .select({ slug: articleCategorySlug, count: sql<number>`count(*)` })
       .from(articlesTable)
-      .where(and(eq(articlesTable.status, "PUBLISHED"), eq(articlesTable.deleted, false)))
+      .where(eq(articlesTable.status, "PUBLISHED"))
       .groupBy(articleCategorySlug);
 
     const paperCounts = await db
       .select({ slug: paperCategorySlug, count: sql<number>`count(*)` })
       .from(papersTable)
-      .where(and(eq(papersTable.status, "PUBLISHED"), eq(papersTable.deleted, false)))
+      .where(eq(papersTable.status, "PUBLISHED"))
       .groupBy(paperCategorySlug);
 
     const articleMap: Record<string, number> = {};
@@ -67,9 +67,9 @@ router.get("/categories/:slug", async (req, res) => {
     const paperCategory = sql<string>`trim(both '-' from lower(regexp_replace(replace(${papersTable.categorySlug}, '_', '-'), '[^a-z0-9]+', '-', 'g')))`;
 
     const articles = await db.select().from(articlesTable)
-      .where(and(inArray(articleCategory, candidates), eq(articlesTable.status, "PUBLISHED"), eq(articlesTable.deleted, false)));
+      .where(and(inArray(articleCategory, candidates), eq(articlesTable.status, "PUBLISHED")));
     const papers = await db.select().from(papersTable)
-      .where(and(inArray(paperCategory, candidates), eq(papersTable.status, "PUBLISHED"), eq(papersTable.deleted, false)));
+      .where(and(inArray(paperCategory, candidates), eq(papersTable.status, "PUBLISHED")));
 
     return res.json({ category, articles, papers });
   } catch (err) {

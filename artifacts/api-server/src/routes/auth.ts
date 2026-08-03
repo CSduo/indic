@@ -244,19 +244,15 @@ router.get("/users/:userId/profile", async (req, res) => {
       id: articlesTable.id,
       slug: articlesTable.slug,
       title: articlesTable.title,
+      subtitle: articlesTable.subtitle,
       excerpt: articlesTable.excerpt,
       heroImageUrl: articlesTable.heroImageUrl,
       categorySlug: articlesTable.categorySlug,
       publishedAt: articlesTable.publishedAt,
     }).from(articlesTable)
-      .leftJoin(submissionsTable, eq(articlesTable.submissionId, submissionsTable.id))
       .where(and(
         eq(articlesTable.status, "PUBLISHED"),
-        eq(articlesTable.deleted, false),
-        or(
-          eq(submissionsTable.userId, userId),
-          ilike(articlesTable.authorName, user.name || "__no_author_name__")
-        )
+        ilike(articlesTable.authorName, user.name || "__no_author_name__")
       ))
       .orderBy(desc(articlesTable.publishedAt))
       .limit(20);
@@ -270,14 +266,9 @@ router.get("/users/:userId/profile", async (req, res) => {
       categorySlug: papersTable.categorySlug,
       publishedAt: papersTable.publishedAt,
     }).from(papersTable)
-      .leftJoin(submissionsTable, eq(papersTable.submissionId, submissionsTable.id))
       .where(and(
         eq(papersTable.status, "PUBLISHED"),
-        eq(papersTable.deleted, false),
-        or(
-          eq(submissionsTable.userId, userId),
-          ilike(papersTable.authorName, user.name || "__no_author_name__")
-        )
+        ilike(papersTable.authorName, user.name || "__no_author_name__")
       ))
       .orderBy(desc(papersTable.publishedAt))
       .limit(20);
