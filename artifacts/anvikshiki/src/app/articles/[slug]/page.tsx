@@ -863,10 +863,7 @@ export default function ArticlePage() {
 
             <OrnamentDivider className="my-10" />
 
-            <div className="flex flex-row items-center justify-between gap-2 md:gap-4 mt-8 w-full">
-              <Link href="/browse" className="btn-ink flex-1 justify-center text-center text-xs md:text-sm py-2.5 px-3 whitespace-nowrap"><ArrowLeft size={14} /> More Essays</Link>
-              <Link href={`/domains/${domain}`} className="btn-terracotta flex-1 justify-center text-center text-xs md:text-sm py-2.5 px-3 whitespace-nowrap">More in this Domain</Link>
-            </div>
+
 
             <div className="mt-10">
               <ParchmentCard className="p-4 text-center citation-box">
