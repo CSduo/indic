@@ -76,9 +76,6 @@ router.get("/papers/:slug", async (req, res) => {
         ...row.paper,
         body: sanitizeArticleBody(row.paper.body),
         category: row.category,
-        authorId: row.authorId,
-        authorAvatarUrl: row.authorAvatarUrl,
-        authorBio: row.authorBio,
       },
     });
   } catch (err) {

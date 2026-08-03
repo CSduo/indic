@@ -458,10 +458,8 @@ router.get("/submissions", async (req, res) => {
     const auth = await getUserAuth(req);
     if (!auth) return res.status(401).json({ error: "Unauthorized" });
 
-    const showDeleted = req.query.deleted === "true";
     const conditions = [
       eq(submissionsTable.userId, auth.userId),
-      eq(submissionsTable.deleted, showDeleted),
     ];
 
     const submissions = await db.select().from(submissionsTable)
@@ -622,7 +620,7 @@ router.put("/submissions/:id", async (req, res) => {
   }
 });
 
-// DELETE /api/submissions/:id — owner soft-deletes their own submission/draft
+// DELETE /api/submissions/:id — owner deletes their own submission/draft
 // as long as it has not yet been accepted/published by an admin.
 router.delete("/submissions/:id", async (req, res) => {
   try {
@@ -637,44 +635,7 @@ router.delete("/submissions/:id", async (req, res) => {
       return res.status(403).json({ error: "This submission has already been approved and can no longer be deleted" });
     }
 
-    const now = new Date();
-    // Soft-delete the submission
-    await db.update(submissionsTable)
-      .set({ deleted: true, deletedAt: now, updatedAt: now })
-      .where(eq(submissionsTable.id, req.params.id));
-
-    // Also soft-delete any linked article or paper.
-    // Match by submissionId first; also match by authorName as a fallback for
-    // articles that were published by admins without a submissionId link.
-    try {
-      const namePattern = existing.submitterName ? `%${existing.submitterName}%` : null;
-
-      const articleWhere = namePattern
-        ? or(
-            eq(articlesTable.submissionId, existing.id),
-            and(isNull(articlesTable.submissionId), ilike(articlesTable.authorName, namePattern))
-          )
-        : eq(articlesTable.submissionId, existing.id);
-
-      const paperWhere = namePattern
-        ? or(
-            eq(papersTable.submissionId, existing.id),
-            and(isNull(papersTable.submissionId), ilike(papersTable.authorName, namePattern))
-          )
-        : eq(papersTable.submissionId, existing.id);
-
-      await db.update(articlesTable)
-        .set({ deleted: true, deletedAt: now, updatedAt: now })
-        .where(articleWhere!);
-
-      await db.update(papersTable)
-        .set({ deleted: true, deletedAt: now, updatedAt: now })
-        .where(paperWhere!);
-
-    } catch {
-      // Non-fatal: public document soft-delete is best-effort
-    }
-
+    await db.delete(submissionsTable).where(eq(submissionsTable.id, req.params.id));
     return res.json({ success: true });
   } catch (err) {
     req.log.error(err);
