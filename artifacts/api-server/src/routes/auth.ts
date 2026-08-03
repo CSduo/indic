@@ -240,6 +240,8 @@ router.get("/users/:userId/profile", async (req, res) => {
 
     if (!user) return res.status(404).json({ error: "User not found" });
 
+    const isChaitanyaOrAdmin = (user.name || "").toLowerCase().includes("chaitanya") || (user.name || "").toLowerCase().includes("xiyato") || user.id.includes("admin");
+
     const articles = await db.select({
       id: articlesTable.id,
       slug: articlesTable.slug,
@@ -252,7 +254,13 @@ router.get("/users/:userId/profile", async (req, res) => {
     }).from(articlesTable)
       .where(and(
         eq(articlesTable.status, "PUBLISHED"),
-        ilike(articlesTable.authorName, user.name || "__no_author_name__")
+        isChaitanyaOrAdmin
+          ? or(
+              ilike(articlesTable.authorName, "%Chaitanya%"),
+              ilike(articlesTable.authorName, "%Xiyato%"),
+              ilike(articlesTable.authorName, user.name || "%")
+            )
+          : ilike(articlesTable.authorName, user.name || "__no_author_name__")
       ))
       .orderBy(desc(articlesTable.publishedAt))
       .limit(20);
@@ -268,7 +276,13 @@ router.get("/users/:userId/profile", async (req, res) => {
     }).from(papersTable)
       .where(and(
         eq(papersTable.status, "PUBLISHED"),
-        ilike(papersTable.authorName, user.name || "__no_author_name__")
+        isChaitanyaOrAdmin
+          ? or(
+              ilike(papersTable.authorName, "%Chaitanya%"),
+              ilike(papersTable.authorName, "%Xiyato%"),
+              ilike(papersTable.authorName, user.name || "%")
+            )
+          : ilike(papersTable.authorName, user.name || "__no_author_name__")
       ))
       .orderBy(desc(papersTable.publishedAt))
       .limit(20);

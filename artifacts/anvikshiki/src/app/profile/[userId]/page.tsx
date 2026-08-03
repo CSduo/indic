@@ -120,18 +120,18 @@ export default function PublicProfilePage() {
           </Link>
         </div>
 
-        {/* Profile card with Cover Banner */}
-        <ParchmentCard className="mb-8 overflow-hidden">
+        {/* Profile card with clean banner */}
+        <ParchmentCard className="mb-8 overflow-hidden p-0">
           {/* Cover Banner */}
-          <div className="h-32 w-full" style={{ background: "linear-gradient(to right, var(--gold-pale), var(--bg-alt))", opacity: 0.8 }} />
-          
-          <div className="px-8 pb-8 -mt-12">
-            <div className="flex flex-col sm:flex-row items-start gap-6">
+          <div className="h-28 md:h-36 w-full bg-[var(--surface-2)] border-b border-[var(--border-gold)]/40" />
+
+          <div className="px-6 md:px-8 pb-8 -mt-12 md:-mt-14 relative z-10">
+            <div className="flex flex-col sm:flex-row items-start gap-5 md:gap-6">
               {/* Avatar */}
               <button
                 type="button"
                 onClick={() => profile.avatarUrl && setShowLightbox(true)}
-                className={`shrink-0 h-24 w-24 rounded-full overflow-hidden border-4 border-[var(--surface)] bg-[var(--terracotta-pale)] flex items-center justify-center focus:outline-none shadow-sm ${profile.avatarUrl ? "cursor-zoom-in hover:opacity-90 transition-opacity" : "cursor-default"}`}
+                className={`shrink-0 h-24 w-24 md:h-28 md:w-28 rounded-full overflow-hidden border-4 border-[var(--surface)] bg-[var(--terracotta-pale)] flex items-center justify-center focus:outline-none shadow-md ${profile.avatarUrl ? "cursor-zoom-in hover:opacity-90 transition-opacity" : "cursor-default"}`}
                 title={profile.avatarUrl ? "Click for close-up" : ""}
                 disabled={!profile.avatarUrl}
               >
@@ -143,15 +143,15 @@ export default function PublicProfilePage() {
             </button>
 
             {/* Info */}
-            <div className="flex-1 min-w-0 mt-14 sm:mt-12">
-              <h1 className="font-display text-4xl text-[var(--ink)] leading-tight font-bold">{profile.name}</h1>
+            <div className="flex-1 min-w-0 pt-2 sm:pt-14">
+              <h1 className="font-display text-3xl md:text-4xl text-[var(--ink)] leading-tight font-bold">{profile.name}</h1>
 
               {profile.institution && (
                 <p className="mt-2 flex items-center gap-1.5 font-ui text-sm text-[var(--muted)]">
                   <Building2 size={14} /> {profile.institution}
                 </p>
               )}
-              
+
               <div className="flex items-center gap-4 mt-3">
                 {profile.website && (
                   <a href={profile.website} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 font-ui text-xs text-[var(--gold)] hover:underline">
@@ -166,9 +166,9 @@ export default function PublicProfilePage() {
               </div>
 
               {profile.bio && (
-                <p className="mt-5 font-body text-[15px] leading-relaxed text-[var(--ink-soft)] max-w-2xl">{profile.bio}</p>
+                <p className="mt-4 font-body text-[15px] leading-relaxed text-[var(--ink-soft)] max-w-2xl">{profile.bio}</p>
               )}
-              
+
               <div className="mt-6 flex gap-6 border-t border-[var(--border)] pt-4">
                 <div>
                   <div className="font-display text-2xl text-[var(--gold)]">{works.length}</div>
