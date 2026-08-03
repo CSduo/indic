@@ -1189,24 +1189,27 @@ export default function SubmitUploadPage() {
             </div>
           )}
 
-            <OrnamentDivider className="my-7" />            {/* Declaration */}
-            <label className="mb-6 flex cursor-pointer items-start gap-3">
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={declared}
-                onClick={() => setDeclared((v) => !v)}
-                className="mt-1 grid h-5 w-5 shrink-0 place-items-center rounded border transition"
-                style={{
-                  borderColor: declared ? "var(--terracotta)" : "var(--border-ink)",
-                  background: declared ? "var(--terracotta)" : "var(--surface)",
-                }}
+            <OrnamentDivider className="my-7" />
+
+            {/* Declaration */}
+            <label className="mb-6 flex cursor-pointer items-start gap-3.5 p-3.5 rounded-xl border border-[var(--border-gold)] bg-[var(--surface-3)] hover:bg-[rgba(201,152,58,0.08)] transition-all select-none">
+              <input
+                type="checkbox"
+                checked={declared}
+                onChange={(e) => setDeclared(e.target.checked)}
+                className="sr-only"
+              />
+              <div
+                className={`w-6 h-6 shrink-0 rounded-md border-2 flex items-center justify-center transition-all mt-0.5 ${
+                  declared
+                    ? "border-[var(--terracotta)] bg-[var(--terracotta)] text-white shadow-md scale-105"
+                    : "border-[var(--gold)] bg-[var(--surface-2)] text-transparent hover:border-[var(--terracotta)]"
+                }`}
               >
-                {declared ? <CheckCircle size={13} className="text-[var(--surface)]" /> : null}
-              </button>
-              <span className="font-body text-sm leading-6 text-[var(--ink-soft)]">
-                I confirm this work is my own (or I have permission to submit it) and has not been published
-                elsewhere in this form.
+                <CheckCircle size={15} className={`transition-transform ${declared ? "scale-100 text-white" : "scale-0"}`} />
+              </div>
+              <span className="font-body text-sm leading-6 text-[var(--ink-soft)] font-medium">
+                I confirm this work is my own (or I have permission to submit it) and has not been published elsewhere in this form.
               </span>
             </label>
 

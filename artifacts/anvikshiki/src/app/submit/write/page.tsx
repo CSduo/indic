@@ -1381,23 +1381,23 @@ export default function SubmitWritePage() {
             <div className="card-sacred p-5">
               <LotusDivider className="mb-5" style={{ opacity: 0.4 }} />
 
-              <label className="flex items-start gap-3 cursor-pointer mb-5" style={{ userSelect: "none" }}>
-                <button
-                  type="button"
-                  role="checkbox"
-                  aria-checked={declared}
-                  onClick={() => setDeclared(v => !v)}
-                  style={{
-                    width: 20, height: 20, flexShrink: 0, borderRadius: 4, marginTop: 2,
-                    border: `1.5px solid ${declared ? "var(--gold)" : "rgba(201,152,58,0.4)"}`,
-                    background: declared ? "var(--gold)" : "transparent",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    transition: "all 0.2s", cursor: "pointer",
-                  }}
+              <label className="mb-5 flex cursor-pointer items-start gap-3.5 p-3.5 rounded-xl border border-[var(--border-gold)] bg-[var(--surface-3)] hover:bg-[rgba(201,152,58,0.08)] transition-all select-none">
+                <input
+                  type="checkbox"
+                  checked={declared}
+                  onChange={(e) => setDeclared(e.target.checked)}
+                  className="sr-only"
+                />
+                <div
+                  className={`w-6 h-6 shrink-0 rounded-md border-2 flex items-center justify-center transition-all mt-0.5 ${
+                    declared
+                      ? "border-[var(--gold)] bg-[var(--gold)] text-[var(--surface)] shadow-md scale-105"
+                      : "border-[var(--gold)] bg-[var(--surface-2)] text-transparent hover:border-[var(--gold-bright)]"
+                  }`}
                 >
-                  {declared && <CheckCircle size={12} style={{ color: "var(--surface)" }} />}
-                </button>
-                <span className="font-body text-sm leading-relaxed" style={{ color: "var(--ink-soft)" }}>
+                  <CheckCircle size={15} className={`transition-transform ${declared ? "scale-100 text-[var(--surface)]" : "scale-0"}`} />
+                </div>
+                <span className="font-body text-sm leading-relaxed text-[var(--ink-soft)] font-medium">
                   I confirm this work is my own (or I have permission to submit it) and has not been published elsewhere in this form.
                 </span>
               </label>
