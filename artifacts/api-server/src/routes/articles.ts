@@ -91,9 +91,24 @@ router.get("/articles/:slug", async (req, res) => {
 
     if (!row) return res.status(404).json({ error: "Article not found" });
 
+    const [authorUser] = await db.select({
+      id: usersTable.id,
+      name: usersTable.name,
+      avatarUrl: usersTable.avatarUrl,
+      bio: usersTable.bio,
+    }).from(usersTable).where(
+      or(
+        eq(usersTable.role, "ADMIN"),
+        ilike(usersTable.name, row.article.authorName || "%")
+      )
+    ).limit(1);
+
     return res.json({
       article: {
         ...row.article,
+        authorId: authorUser ? authorUser.id : "f6200aac-6489-49df-94d8-301aa3539557",
+        authorAvatarUrl: authorUser?.avatarUrl || null,
+        authorBio: authorUser?.bio || null,
         body: sanitizeArticleBody(recoverLegacyInlineImages(row.article.slug, row.article.body)),
         rawBody: row.article.body,
         category: row.category,

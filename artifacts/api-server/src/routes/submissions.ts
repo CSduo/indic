@@ -806,6 +806,13 @@ router.delete("/submissions/:id", async (req, res) => {
       .set({ status: "ARCHIVED", updatedAt: new Date() })
       .where(eq(submissionsTable.id, req.params.id));
 
+    // Synchronize unpublish: update matching article status to DRAFT if soft deleted
+    if (existing.title) {
+      await db.update(articlesTable)
+        .set({ status: "DRAFT", updatedAt: new Date() })
+        .where(eq(articlesTable.title, existing.title));
+    }
+
     return res.json({ success: true });
   } catch (err) {
     req.log.error(err);
@@ -825,9 +832,15 @@ router.post("/submissions/:id/restore", async (req, res) => {
     if (existing.userId !== auth.userId && (auth as any).role !== "ADMIN") return res.status(403).json({ error: "Forbidden" });
 
     const [submission] = await db.update(submissionsTable)
-      .set({ status: "DRAFT", updatedAt: new Date() })
+      .set({ status: "PUBLISHED", updatedAt: new Date() })
       .where(eq(submissionsTable.id, req.params.id))
       .returning();
+
+    if (submission.title) {
+      await db.update(articlesTable)
+        .set({ status: "PUBLISHED", updatedAt: new Date() })
+        .where(eq(articlesTable.title, submission.title));
+    }
 
     return res.json({ success: true, submission });
   } catch (err) {
@@ -848,6 +861,11 @@ router.delete("/submissions/:id/permanent", async (req, res) => {
     if (existing.userId !== auth.userId && (auth as any).role !== "ADMIN") return res.status(403).json({ error: "Forbidden" });
 
     await db.delete(submissionsTable).where(eq(submissionsTable.id, req.params.id));
+
+    if (existing.title) {
+      await db.delete(articlesTable).where(eq(articlesTable.title, existing.title));
+    }
+
     return res.json({ success: true });
   } catch (err) {
     req.log.error(err);
