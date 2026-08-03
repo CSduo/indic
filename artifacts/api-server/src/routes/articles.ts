@@ -38,7 +38,7 @@ router.get("/articles", async (req, res) => {
       .from(articlesTable)
       .leftJoin(categoriesTable, eq(articlesTable.categorySlug, categoriesTable.slug))
       .where(and(...conditions))
-      .orderBy(desc(articlesTable.featured), desc(articlesTable.publishedAt), desc(articlesTable.id))
+      .orderBy(desc(articlesTable.publishedAt), desc(articlesTable.id))
       .limit(limit).offset(offset);
 
     const [{ count }] = await db
@@ -61,9 +61,9 @@ router.get("/articles", async (req, res) => {
     });
     return res.json({ articles: result, total: Number(count), limit, offset });
 
-  } catch (err) {
-    req.log.error(err);
-    return res.status(500).json({ error: "Failed to fetch articles" });
+  } catch (err: any) {
+    console.error("GET /api/articles ERROR:", err);
+    return res.status(500).json({ error: "Failed to fetch articles", details: String(err?.message || err) });
   }
 });
 
