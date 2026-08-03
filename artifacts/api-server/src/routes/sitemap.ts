@@ -16,8 +16,8 @@ router.get("/sitemap.xml", async (req, res) => {
         .where(eq(papersTable.status, "PUBLISHED"))
     ]);
 
-    const baseUrl = process.env.FRONTEND_URL || 'https://anvikshiki.com';
-    const staticPages = ['', '/about', '/contact', '/privacy', '/terms', '/browse', '/domains', '/archive'];
+    const baseUrl = 'https://anvikshikijournal.in';
+    const staticPages = ['', '/about', '/contact', '/privacy', '/terms', '/browse', '/domains', '/archive', '/papers'];
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
 
@@ -34,20 +34,20 @@ router.get("/sitemap.xml", async (req, res) => {
     // Add articles
     for (const article of articles) {
       xml += `  <url>
-    <loc>${baseUrl}/article/${article.slug}</loc>
+    <loc>${baseUrl}/articles/${article.slug}</loc>
     <lastmod>${new Date(article.updatedAt).toISOString()}</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
+    <priority>0.8</priority>
   </url>\n`;
     }
 
     // Add papers
     for (const paper of papers) {
       xml += `  <url>
-    <loc>${baseUrl}/paper/${paper.slug}</loc>
+    <loc>${baseUrl}/papers/${paper.slug}</loc>
     <lastmod>${new Date(paper.updatedAt).toISOString()}</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
+    <priority>0.8</priority>
   </url>\n`;
     }
 

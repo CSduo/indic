@@ -16,7 +16,7 @@ export default function SubmitSuccessPage() {
     sessionStorage.removeItem("anvikshiki_submit_id");
   }, []);
 
-  const adminEmail = "editor@anvikshikijournal.in";
+  const adminEmail = "xiyatosaanvi@gmail.com";
 
   const copyEmail = () => {
     navigator.clipboard.writeText(adminEmail);

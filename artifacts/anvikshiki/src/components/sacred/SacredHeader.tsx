@@ -64,16 +64,8 @@ export function SacredHeader() {
               </div>
             </Link>
 
-            {/* Far Right: Search & Account */}
-            <div className="sacred-actions flex items-center gap-2 md:gap-3 w-20 md:w-28 shrink-0 justify-end">
-              <Link
-                href="/search"
-                className="sacred-icon-btn text-[var(--ink)] hover:text-[var(--gold)]"
-                aria-label="Search the journal"
-              >
-                <Search size={20} strokeWidth={1.8} />
-              </Link>
-
+            {/* Far Right: Account & Sign In */}
+            <div className="sacred-actions flex items-center justify-end w-24 md:w-32 shrink-0">
               {user ? (
                 <div className="relative">
                   <button
@@ -121,7 +113,7 @@ export function SacredHeader() {
                   ) : null}
                 </div>
               ) : (
-                <Link href="/login" className="font-ui text-xs font-extrabold uppercase tracking-widest text-[var(--ink)] hover:text-[var(--gold)] px-2" aria-label="Sign in">
+                <Link href="/login" className="font-ui text-xs font-extrabold uppercase tracking-widest text-[var(--ink)] hover:text-[var(--gold)] px-2 whitespace-nowrap inline-block leading-none" aria-label="Sign in">
                   Sign in
                 </Link>
               )}
