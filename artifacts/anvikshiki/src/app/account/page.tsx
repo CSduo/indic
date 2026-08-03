@@ -275,8 +275,8 @@ export default function AccountPage() {
               {/* Avatar (Clickable for close-up preview) */}
               <div 
                 onClick={() => user.avatarUrl && setShowLightbox(true)}
-                className={`mx-auto mb-4 grid h-20 w-20 place-items-center overflow-hidden rounded-full border border-[var(--border-gold)] bg-[var(--terracotta-pale)] text-[var(--terracotta)] ${user.avatarUrl ? "cursor-zoom-in hover:scale-105 transition-transform" : ""}`}
-                title={user.avatarUrl ? "Click for close-up" : ""}
+                className={`mx-auto mb-4 grid h-20 w-20 place-items-center overflow-hidden rounded-full border-2 border-[var(--border-gold)] bg-[var(--terracotta-pale)] text-[var(--terracotta)] ${user.avatarUrl ? "cursor-pointer hover:opacity-90 transition-opacity" : ""}`}
+                title={user.avatarUrl ? "Click for close-up preview" : ""}
               >
                 {user.avatarUrl ? (
                   <img src={user.avatarUrl} alt={user.name || "Your avatar"} className="h-full w-full object-cover" />
@@ -284,36 +284,6 @@ export default function AccountPage() {
                   <User size={34} />
                 )}
               </div>
-
-              {/* Lightbox Close-up Modal */}
-              {showLightbox && user.avatarUrl && (
-                <div 
-                  className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in"
-                  onClick={() => setShowLightbox(false)}
-                >
-                  <div 
-                    className="relative max-w-md w-full bg-[var(--bg-alt)] border border-[var(--border-gold)] rounded-2xl p-6 shadow-2xl animate-scale-up"
-                    onClick={e => e.stopPropagation()}
-                  >
-                    <button 
-                      onClick={() => setShowLightbox(false)}
-                      className="absolute top-4 right-4 text-[var(--muted)] hover:text-[var(--ink)] transition-colors p-1"
-                      aria-label="Close preview"
-                    >
-                      <X size={20} />
-                    </button>
-                    <div className="flex flex-col items-center">
-                      <div className="h-64 w-64 rounded-full overflow-hidden border-4 border-[var(--border-gold)] shadow-xl mb-4">
-                        <img src={user.avatarUrl} alt={user.name || "Your avatar"} className="h-full w-full object-cover" />
-                      </div>
-                      <h3 className="font-display text-2xl text-[var(--ink)] font-semibold">{user.name}</h3>
-                      {user.institution && (
-                        <p className="font-ui text-sm text-[var(--muted)] mt-1">{user.institution}</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
               {editing ? (
                 <div className="flex items-center gap-2">
                   <input autoFocus className="input-sacred py-1 text-center" value={editName} onChange={(event) => setEditName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && saveProfile()} />
@@ -421,6 +391,36 @@ export default function AccountPage() {
           </main>
         </div>
       </section>
+
+      {/* Lightbox Close-up Modal (Page Root Level to avoid layout flickering) */}
+      {showLightbox && user.avatarUrl && (
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md"
+          onClick={() => setShowLightbox(false)}
+        >
+          <div 
+            className="relative max-w-md w-full bg-[var(--bg-alt)] border-2 border-[var(--border-gold)] rounded-2xl p-6 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <button 
+              onClick={() => setShowLightbox(false)}
+              className="absolute top-4 right-4 text-[var(--muted)] hover:text-[var(--ink)] transition-colors p-1"
+              aria-label="Close preview"
+            >
+              <X size={20} />
+            </button>
+            <div className="flex flex-col items-center">
+              <div className="h-64 w-64 rounded-full overflow-hidden border-4 border-[var(--border-gold)] shadow-xl mb-4">
+                <img src={user.avatarUrl} alt={user.name || "Your avatar"} className="h-full w-full object-cover" />
+              </div>
+              <h3 className="font-display text-2xl text-[var(--ink)] font-semibold">{user.name}</h3>
+              {user.institution && (
+                <p className="font-ui text-sm text-[var(--muted)] mt-1">{user.institution}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
