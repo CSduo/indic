@@ -414,7 +414,7 @@ export default function EditArticlePage() {
             </div>
 
             {/* Sticky Top Toolbar */}
-            <div className="flex flex-wrap items-center gap-2 p-2.5 bg-[var(--surface-elevated)] border-b border-[rgba(201,152,58,0.15)] sticky top-0 z-10 select-none shadow-sm overflow-x-auto">
+            <div className="flex items-center gap-2 p-2.5 bg-[var(--surface-elevated)] border-b border-[rgba(201,152,58,0.15)] sticky top-0 z-10 select-none shadow-sm overflow-x-auto max-w-full whitespace-nowrap flex-nowrap sm:flex-wrap">
               {/* Font Selector */}
               <select
                 className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
@@ -620,15 +620,15 @@ export default function EditArticlePage() {
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-between pt-2 border-t border-[var(--border)]">
-            <Link href={`/articles/${slug}`} className="btn-ink text-sm" target="_blank" rel="noopener">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-[var(--border)]">
+            <Link href={`/articles/${slug}`} className="btn-ink text-sm w-full sm:w-auto justify-center" target="_blank" rel="noopener">
               View Live Article ↗
             </Link>
             <button
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="btn-terracotta inline-flex items-center gap-2"
+              className="btn-terracotta inline-flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Save size={15} />
               {saving ? "Saving…" : "Save Changes"}

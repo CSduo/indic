@@ -267,10 +267,10 @@ export default function AccountPage() {
   );
 
   return (
-    <div className="bg-[var(--bg)]">
-      <section className="container-anv py-10">
-        <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <aside className="space-y-4">
+    <div className="bg-[var(--bg)] w-full overflow-x-hidden">
+      <section className="container-anv py-6 sm:py-10 px-4 sm:px-6 w-full max-w-full overflow-hidden">
+        <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)] w-full max-w-full">
+          <aside className="space-y-4 w-full max-w-full min-w-0">
             <ParchmentCard className="p-6 text-center">
               {/* Avatar (Clickable for close-up preview) */}
               <div 

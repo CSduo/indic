@@ -208,294 +208,160 @@ const SAKURA_PETALS = Array.from({ length: 32 }, (_, i) => ({
 /* ─────────────────────────────────────────────────────────────────────────────
    LOADING SCREEN
 ───────────────────────────────────────────────────────────────────────────── */
+import { useEffect, useState } from "react";
+
+const WISDOM_QUOTES = [
+  { text: "Satyam Eva Jayate", sub: "Truth alone triumphs" },
+  { text: "Ātmānaṃ Viddhi", sub: "Know Thyself" },
+  { text: "Charaivetī Charaivetī", sub: "Keep moving forward, always" },
+  { text: "Tamaso Mā Jyotirgamaya", sub: "Lead me from darkness into light" },
+];
+
 export function LoadingScreen({ onDone }: { onDone?: () => void }) {
   const [pct, setPct] = useState(0);
   const [fade, setFade] = useState(false);
-  const [titleIn, setTitleIn] = useState(false);
+  const [quoteIdx, setQuoteIdx] = useState(0);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setTitleIn(true), 440);
-    const steps = [10, 28, 48, 66, 84, 100];
+    setQuoteIdx(Math.floor(Math.random() * WISDOM_QUOTES.length));
+    const steps = [15, 35, 60, 82, 100];
     let i = 0;
     const tick = () => {
       if (i < steps.length) {
         setPct(steps[i++]);
-        setTimeout(tick, i === steps.length ? 200 : 320 + Math.random() * 250);
+        setTimeout(tick, i === steps.length ? 150 : 250 + Math.random() * 150);
       } else {
         setFade(true);
-        setTimeout(() => onDone?.(), 650);
+        setTimeout(() => onDone?.(), 550);
       }
     };
-    const t2 = setTimeout(tick, 300);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    const timer = setTimeout(tick, 200);
+    return () => clearTimeout(timer);
   }, [onDone]);
+
+  const currentQuote = WISDOM_QUOTES[quoteIdx];
 
   return (
     <div
-      role="status" aria-live="polite" aria-label="Loading Ānvīkṣikī"
+      role="status"
+      aria-live="polite"
+      aria-label="Loading ĀnvīkṢikī"
       style={{
-        position: "fixed", inset: 0, zIndex: 9999,
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        overflow: "hidden",
-        transition: "opacity 0.65s ease",
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#000000",
+        color: "#FFFFFF",
+        transition: "opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1)",
         opacity: fade ? 0 : 1,
         pointerEvents: fade ? "none" : "auto",
+        padding: "2rem",
       }}
     >
-
-      {/* ══ LAYER 1 — HERO IMAGE, barely visible (hidden in dark mode via CSS) ══ */}
-      <div aria-hidden="true" className="anv-ls-hero-img" style={{
-        position: "absolute", inset: 0,
-        backgroundImage: `url(${asset("/images/provided/home-falcon-city-panorama-hero.jpg")})`,
-        backgroundSize: "cover",
-        backgroundPosition: "58% 18%",
-        filter: "sepia(1) hue-rotate(290deg) brightness(1.6) saturate(0.28)",
-        opacity: 0.07,
-        animation: "heroZoom 16s ease-in-out infinite",
-        transformOrigin: "center center",
-      }} />
-
-      {/* ══ LAYER 2 — ATMOSPHERIC COLOUR WASHES ══ */}
-      <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-        {/* Base — parchment in light, pure black in dark (via CSS) */}
-        <div className="anv-ls-base" style={{ position: "absolute", inset: 0 }} />
-        {/* Colour blooms */}
-        <div className="anv-ls-bloom-top" style={{
-          position: "absolute", top: "4%", left: "50%", transform: "translateX(-50%)",
-          width: 720, height: 720, borderRadius: "50%",
-        }} />
-        <div className="anv-ls-bloom-bl" style={{
-          position: "absolute", bottom: "0%", left: "16%",
-          width: 520, height: 520, borderRadius: "50%",
-        }} />
-        <div className="anv-ls-bloom-br" style={{
-          position: "absolute", bottom: "8%", right: "12%",
-          width: 380, height: 380, borderRadius: "50%",
-        }} />
-        <div className="anv-ls-bloom-tr" style={{
-          position: "absolute", top: "3%", right: "10%",
-          width: 300, height: 300, borderRadius: "50%",
-        }} />
-
-        {/* Manuscript specks — pink/gold dust */}
-        {Array.from({ length: 38 }).map((_, i) => (
-          <div key={i} style={{
-            position: "absolute",
-            left: `${6 + (i * 43) % 88}%`,
-            top: `${6 + (i * 61) % 86}%`,
-            width: i % 9 === 0 ? 3 : i % 4 === 0 ? 2 : 1.3,
-            height: i % 9 === 0 ? 3 : i % 4 === 0 ? 2 : 1.3,
-            borderRadius: "50%",
-            background: i % 4 === 0 ? "#f97316" : i % 6 === 0 ? "#c9983a" : "#ff9f43",
-            opacity: 0.04 + (i % 7) * 0.04,
-            animation: `shimmer ${2.1 + (i % 5) * 0.65}s ease-in-out infinite`,
-            animationDelay: `${(i * 0.27) % 2.4}s`,
-          }} />
-        ))}
-      </div>
-
-      {/* ══ LAYER 3 — FALLING SAKURA PETALS ══ */}
-      {SAKURA_PETALS.map((p, i) => (
-        <div key={i} aria-hidden="true" style={{
+      {/* Subtle ambient bloom */}
+      <div
+        aria-hidden="true"
+        style={{
           position: "absolute",
-          top: "-4%",
-          left: p.left,
-          opacity: 0,
-          animation: `sakuraFall ${p.dur} ${p.delay} linear infinite`,
-          ["--petal-drift" as string]: p.drift,
-          ["--petal-spin"  as string]: p.spin,
-          zIndex: i % 4 === 0 ? 3 : 1,
-        }}>
-          <SakuraPetal size={p.size} color={p.color} opacity={p.opacity} />
-        </div>
-      ))}
-
-      {/* ══ LAYER 4 — CORNER ORNAMENTS ══ */}
-      {(["tl", "tr", "bl", "br"] as const).map((corner) => (
-        <div key={corner} aria-hidden="true" style={{
-          position: "absolute",
-          ...(corner.includes("t") ? { top: 10 } : { bottom: 10 }),
-          ...(corner.includes("l") ? { left: 10 } : { right: 10 }),
-          zIndex: 2,
-        }}>
-          <CornerOrnament corner={corner} />
-        </div>
-      ))}
-
-      {/* ══ CENTRAL COMPOSITION (z=4) ══ */}
-      <div style={{
-        position: "relative", zIndex: 4,
-        display: "flex", flexDirection: "column", alignItems: "center",
-      }}>
-
-        {/* Lotus glow aura — saffron */}
-        <div aria-hidden="true" style={{
-          position: "absolute",
-          top: "15%", left: "50%", transform: "translateX(-50%)",
-          width: 220, height: 220,
+          top: "45%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: "360px",
+          height: "360px",
           borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(249,115,22,0.14) 0%, transparent 68%)",
-          filter: "blur(20px)",
-          animation: "lanternGlow 4s ease-in-out infinite",
-        }} />
+          background: "radial-gradient(circle, rgba(200, 74, 16, 0.12) 0%, transparent 70%)",
+          filter: "blur(40px)",
+          pointerEvents: "none",
+        }}
+      />
 
-        {/* ── RING SYSTEM ── */}
-        <div style={{ position: "relative", width: 280, height: 280, flexShrink: 0 }}>
-
-          {/* Outer slow-spin ring */}
-          <svg width="280" height="280" viewBox="0 0 280 280"
-            className="animate-spin-slow"
-            style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-            <circle cx="140" cy="140" r="134" stroke="#ffaa52" strokeWidth="0.55" fill="none" opacity="0.18" strokeDasharray="4 18" />
-            {[0,30,60,90,120,150,180,210,240,270,300,330].map((a, i) => (
-              <circle key={i}
-                cx={140 + 134 * Math.cos((a * Math.PI) / 180)}
-                cy={140 + 134 * Math.sin((a * Math.PI) / 180)}
-                r={i % 3 === 0 ? 3 : 1.8}
-                fill={i % 4 === 0 ? "#e87c30" : "#c9983a"}
-                opacity={0.22 + (i % 4) * 0.08}
-              />
-            ))}
-          </svg>
-
-          {/* Counter-rotating middle ring */}
-          <svg width="280" height="280" viewBox="0 0 280 280"
-            style={{ position: "absolute", inset: 0, animation: "rotateSlow 26s linear infinite reverse", pointerEvents: "none" }}>
-            <circle cx="140" cy="140" r="108" stroke="#e88fa8" strokeWidth="0.5" fill="none" opacity="0.2" strokeDasharray="2 12" />
-            {[0,45,90,135,180,225,270,315].map((a, i) => (
-              <path key={i}
-                d={`M ${140 + 100 * Math.cos((a * Math.PI) / 180)} ${140 + 100 * Math.sin((a * Math.PI) / 180)} L ${140 + 116 * Math.cos((a * Math.PI) / 180)} ${140 + 116 * Math.sin((a * Math.PI) / 180)}`}
-                stroke="#f5a8be" strokeWidth="0.8" opacity="0.32"
-              />
-            ))}
-          </svg>
-
-          {/* Inner static mandala ring */}
-          <svg width="280" height="280" viewBox="0 0 280 280"
-            style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-            <circle cx="140" cy="140" r="82" stroke="#e88fa8" strokeWidth="0.4" fill="none" opacity="0.2" />
-            {[0,60,120,180,240,300].map((a, i) => (
-              <line key={i}
-                x1={140 + 72 * Math.cos((a * Math.PI) / 180)}
-                y1={140 + 72 * Math.sin((a * Math.PI) / 180)}
-                x2={140 + 82 * Math.cos((a * Math.PI) / 180)}
-                y2={140 + 82 * Math.sin((a * Math.PI) / 180)}
-                stroke="#d4688a" strokeWidth="0.9" opacity="0.3"
-              />
-            ))}
-            {[0,90,180,270].map((a, i) => {
-              const x = 140 + 82 * Math.cos((a * Math.PI) / 180);
-              const y = 140 + 82 * Math.sin((a * Math.PI) / 180);
-              return <circle key={i} cx={x} cy={y} r="2.5" fill="#d4688a" opacity="0.42" />;
-            })}
-          </svg>
-
-          {/* Lotus — centred in rings */}
-          <div style={{
-            position: "absolute", inset: 0,
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <div className="animate-glow">
-              <LotusFlower size={220} />
-            </div>
-          </div>
-        </div>
-
-        {/* Lantern beneath lotus */}
-        <div aria-hidden="true" style={{ marginTop: -10, marginBottom: 12, opacity: 0.68 }}>
-          <Lantern />
-        </div>
-
-        {/* ── ORNAMENTAL RULE ── */}
-        <div aria-hidden="true" style={{
-          display: "flex", alignItems: "center", gap: "0.5rem",
-          marginBottom: "1.1rem", opacity: 0.5,
-        }}>
-          <div style={{ width: 48, height: 1, background: "linear-gradient(to right, transparent, #d4688a)" }} />
-          <span style={{ color: "#e88fa8", fontSize: "0.48rem", letterSpacing: "0.4em" }}>✦ ✦ ✦</span>
-          <div style={{ width: 48, height: 1, background: "linear-gradient(to left, transparent, #d4688a)" }} />
-        </div>
-
-        {/* ── SINGLE TITLE ── */}
+      <div style={{ position: "relative", zIndex: 2, textAlign: "center", maxWidth: "420px", width: "100%" }}>
+        {/* Brand Name */}
         <h1
           className="font-display"
           style={{
-            fontSize: "clamp(1.6rem, 4.5vw, 2.4rem)",
-            letterSpacing: "0.32em",
-            color: "var(--gold-bright)",
-            marginBottom: "0.55rem",
-            lineHeight: 1,
-            textShadow: "0 0 32px rgba(220,100,150,0.22), 0 1px 0 rgba(0,0,0,0.06)",
-            animation: titleIn ? "inscribe 0.9s ease both" : "none",
-            opacity: titleIn ? undefined : 0,
+            fontSize: "clamp(2rem, 5vw, 3.2rem)",
+            letterSpacing: "0.35em",
+            color: "#FFFFFF",
+            marginBottom: "0.4rem",
+            fontWeight: 400,
+            textTransform: "uppercase",
           }}
         >
           ĀNVĪKṢIKĪ
         </h1>
 
         {/* Subtitle */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.55rem", marginBottom: "0.4rem" }}>
-          <span style={{ width: 22, height: 1, background: "#ff9f43", opacity: 0.45, flexShrink: 0 }} />
-          <span className="font-ui" style={{ fontSize: "0.54rem", letterSpacing: "0.42em", textTransform: "uppercase", color: "var(--ink-faint)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.75rem", marginBottom: "2rem" }}>
+          <span style={{ width: 20, height: 1, background: "#C84A10", opacity: 0.8 }} />
+          <span
+            className="font-ui"
+            style={{
+              fontSize: "0.62rem",
+              letterSpacing: "0.3em",
+              textTransform: "uppercase",
+              color: "#A3A3A3",
+              fontWeight: 600,
+            }}
+          >
             Journal &amp; Research Platform
           </span>
-          <span style={{ width: 22, height: 1, background: "#ff9f43", opacity: 0.45, flexShrink: 0 }} />
+          <span style={{ width: 20, height: 1, background: "#C84A10", opacity: 0.8 }} />
         </div>
 
-        {/* Tagline */}
-        <p className="font-body" style={{
-          fontSize: "0.72rem", color: "var(--ink-faint)", fontStyle: "italic",
-          letterSpacing: "0.06em", marginBottom: "1.6rem", opacity: 0.62,
-        }}>
-          Where Inquiry Becomes Insight
-        </p>
-
-        {/* ── PROGRESS BAR ── */}
-        <div style={{ width: 220 }}>
-          <div style={{
-            height: 2, background: "rgba(249,115,22,0.12)",
-            borderRadius: 2, overflow: "hidden", marginBottom: 9,
-          }}>
-            <div style={{
-              height: "100%",
-              background: "linear-gradient(90deg, #e87c30, #ffaa52, #c9983a)",
-              width: `${pct}%`,
-              transition: "width 0.52s ease",
-              boxShadow: "0 0 14px rgba(232,124,48,0.55), 0 0 4px rgba(255,170,82,0.8)",
-              borderRadius: 2,
-            }} />
+        {/* Glowing Progress Bar */}
+        <div style={{ width: "100%", maxWidth: "240px", margin: "0 auto 1.5rem" }}>
+          <div
+            style={{
+              height: "2px",
+              background: "#1F1F1F",
+              borderRadius: "4px",
+              overflow: "hidden",
+              position: "relative",
+            }}
+          >
+            <div
+              style={{
+                height: "100%",
+                background: "linear-gradient(90deg, #C84A10, #E06020)",
+                width: `${pct}%`,
+                transition: "width 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+                boxShadow: "0 0 12px rgba(200, 74, 16, 0.8)",
+                borderRadius: "4px",
+              }}
+            />
           </div>
-          <p className="font-ui" style={{
-            fontSize: "0.5rem", letterSpacing: "0.28em",
-            textTransform: "uppercase", textAlign: "center", color: "var(--ink-faint)",
-          }}>
-            {pct < 100 ? "Opening the archive…" : "Welcome"}
-          </p>
         </div>
 
-      </div>{/* /central */}
-
-      {/* ══ FLOATING PETAL ORNAMENTS (large, slow sway) ══ */}
-      {[
-        { left: "5%",  top: "15%", delay: "0s",    dur: "6s",   big: false },
-        { left: "92%", top: "18%", delay: "1.6s",  dur: "7.5s", big: true  },
-        { left: "10%", top: "84%", delay: "3.0s",  dur: "5.2s", big: false },
-        { left: "88%", top: "78%", delay: "1.0s",  dur: "6.2s", big: true  },
-        { left: "2%",  top: "50%", delay: "4.2s",  dur: "7.0s", big: false },
-        { left: "96%", top: "52%", delay: "2.4s",  dur: "5.8s", big: true  },
-      ].map((p, i) => (
-        <div key={i} aria-hidden="true" style={{
-          position: "absolute", left: p.left, top: p.top, zIndex: 5,
-          animation: `float ${p.dur} ${p.delay} ease-in-out infinite`,
-        }}>
-          <SakuraPetal
-            size={p.big ? 12 : 7}
-            color={["#ff9f43", "#ffc87a", "#f97316"][i % 3]}
-            opacity={0.4}
-          />
-        </div>
-      ))}
-
+        {/* Quote & Progress text */}
+        <p
+          className="font-body"
+          style={{
+            fontSize: "0.82rem",
+            color: "#D4D4D4",
+            fontStyle: "italic",
+            marginBottom: "0.25rem",
+          }}
+        >
+          "{currentQuote.sub}"
+        </p>
+        <p
+          className="font-ui"
+          style={{
+            fontSize: "0.6rem",
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            color: "#737373",
+          }}
+        >
+          {currentQuote.text} · {pct}%
+        </p>
+      </div>
     </div>
   );
 }
+

@@ -295,14 +295,8 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="home-v3-frieze" aria-hidden="true">
-          <span className="home-v3-frieze-ornament">
-            <span className="home-v3-frieze-diamond">✦</span>
-            <span className="home-v3-frieze-line" />
-            <span className="home-v3-frieze-diamond">❋</span>
-            <span className="home-v3-frieze-line" />
-            <span className="home-v3-frieze-diamond">✦</span>
-          </span>
+        <div className="container-anv my-6" aria-hidden="true">
+          <div className="h-px w-full bg-[var(--border)]" />
         </div>
       </section>
 
