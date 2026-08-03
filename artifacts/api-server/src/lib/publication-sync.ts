@@ -179,9 +179,11 @@ export async function ensurePublicPublicationForSubmission(
   const categorySlug = await resolveCategorySlug(
     options.categorySlug || getSubmissionDomain(submission) || "archive",
   );
-  const baseSlug = slugify(submission.title);
+  const baseSlug = slugify(submission.title || "untitled-submission");
   const publishedAt = options.publishedAt || submission.publishedAt || submission.updatedAt || new Date();
-  const body = sanitizeArticleBody(submission.body || submission.abstract || "");
+  const body = sanitizeArticleBody(submission.body || submission.abstract || submission.title || "No body content provided.");
+  const authorName = submission.submitterName || "Anonymous Scholar";
+  const coverImageUrl = getSubmissionCoverImage(submission) || "/images/provided/home-falcon-city-panorama-hero.jpg";
 
   if (kind === "paper") {
     const [existing] = await db
@@ -194,13 +196,13 @@ export async function ensurePublicPublicationForSubmission(
       await db
         .update(papersTable)
         .set({
-          title: submission.title,
+          title: submission.title || "Untitled Paper",
           abstract: submission.abstract || "",
           body,
           categorySlug,
-          authorName: submission.submitterName,
-          pdfUrl: submission.manuscriptUrl,
-          coverImageUrl: getSubmissionCoverImage(submission),
+          authorName,
+          pdfUrl: submission.manuscriptUrl || submission.fileUrl || null,
+          coverImageUrl,
           status: "PUBLISHED",
           deleted: false,
           deletedAt: null,
@@ -220,14 +222,14 @@ export async function ensurePublicPublicationForSubmission(
       .insert(papersTable)
       .values({
         slug,
-        title: submission.title,
+        title: submission.title || "Untitled Paper",
         abstract: submission.abstract || "",
         body,
         categorySlug,
         tags: [],
-        authorName: submission.submitterName,
-        pdfUrl: submission.manuscriptUrl,
-        coverImageUrl: getSubmissionCoverImage(submission),
+        authorName,
+        pdfUrl: submission.manuscriptUrl || submission.fileUrl || null,
+        coverImageUrl,
         citationText: null,
         peerReviewed: false,
         paperType: "RESEARCH_PAPER",
@@ -263,13 +265,13 @@ export async function ensurePublicPublicationForSubmission(
     await db
       .update(articlesTable)
       .set({
-        title: submission.title,
-        excerpt: submission.abstract || "",
+        title: submission.title || "Untitled Article",
+        excerpt: submission.abstract || submission.title || "Article excerpt",
         body,
         categorySlug,
-        authorName: submission.submitterName,
-        heroImageUrl: getSubmissionCoverImage(submission),
-        heroImageAlt: submission.title,
+        authorName,
+        heroImageUrl: coverImageUrl,
+        heroImageAlt: submission.title || "Article Cover",
         audioUrl: (submission as any).audioUrl || null,
         status: "PUBLISHED",
         deleted: false,
@@ -290,15 +292,15 @@ export async function ensurePublicPublicationForSubmission(
     .insert(articlesTable)
     .values({
       slug,
-      title: submission.title,
+      title: submission.title || "Untitled Article",
       subtitle: null,
-      excerpt: submission.abstract || "",
+      excerpt: submission.abstract || submission.title || "Article excerpt",
       body,
       categorySlug,
       tags: [],
-      authorName: submission.submitterName,
-      heroImageUrl: getSubmissionCoverImage(submission),
-      heroImageAlt: submission.title,
+      authorName,
+      heroImageUrl: coverImageUrl,
+      heroImageAlt: submission.title || "Article Cover",
       audioUrl: (submission as any).audioUrl || null,
       keyTakeaways: [],
       status: "PUBLISHED",

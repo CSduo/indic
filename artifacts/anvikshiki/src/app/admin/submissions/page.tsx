@@ -127,6 +127,7 @@ export default function AdminSubmissionsPage() {
   const [activePreviewUrl, setActivePreviewUrl] = useState<string | null>(null);
   const [activePreviewType, setActivePreviewType] = useState<"pdf" | "image" | "link" | null>(null);
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   const [, navigate] = useLocation();
 
@@ -135,6 +136,27 @@ export default function AdminSubmissionsPage() {
       .then(r => { if (r.status === 401) { navigate("/admin/login"); return null; } return r.json(); })
       .then(d => d && (setSubmissions(d.submissions || []), setLoading(false)))
       .catch((err) => { toast.error("Failed to load submissions"); setLoading(false); });
+  };
+
+  const runPublicSync = async () => {
+    setSyncing(true);
+    try {
+      const r = await fetch(`${base()}/api/admin/submissions/sync-public-archives`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await r.json();
+      if (r.ok) {
+        toast.success(data.message || "Public publication sync completed successfully!");
+        load();
+      } else {
+        toast.error(data.error || "Public sync failed");
+      }
+    } catch {
+      toast.error("Network error running public sync");
+    } finally {
+      setSyncing(false);
+    }
   };
 
   useEffect(() => { 
@@ -224,7 +246,16 @@ export default function AdminSubmissionsPage() {
             <h1 className="font-display text-2xl" style={{ color: "var(--gold-bright)" }}>Submissions</h1>
             <p className="font-ui text-xs mt-1" style={{ color: "var(--muted)" }}>{submissions.length} total · {submissions.filter(s => !s.status || s.status === "RECEIVED").length} pending review</p>
           </div>
-          <div className="flex gap-1.5 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              disabled={syncing}
+              onClick={runPublicSync}
+              className="text-xs py-1 px-3 rounded-lg bg-[rgba(201,152,58,0.15)] hover:bg-[rgba(201,152,58,0.25)] border border-[var(--border-gold)] text-[var(--gold-bright)] font-ui font-semibold inline-flex items-center gap-1.5 disabled:opacity-50"
+            >
+              {syncing ? <span className="animate-spin text-xs">↻</span> : <Globe size={12} />}
+              {syncing ? "Syncing Public..." : "Run Public Sync"}
+            </button>
             {FILTER_OPTS.map(f => (
               <button key={f} type="button" onClick={() => setFilter(f)} className="text-xs py-1 px-3 rounded-lg transition-all capitalize" style={{ background: filter === f ? "rgba(201,152,58,0.15)" : "transparent", border: `1px solid ${filter === f ? "var(--border-gold)" : "var(--border)"}`, color: filter === f ? "var(--gold-bright)" : "var(--muted)", fontFamily: "var(--font-ui)", fontWeight: 500, cursor: "pointer" }}>
                 {f.replace(/_/g, " ")}
