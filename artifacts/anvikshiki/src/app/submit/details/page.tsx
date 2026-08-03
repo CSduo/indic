@@ -86,7 +86,6 @@ export default function SubmitDetailsPage() {
     if (!form.email.trim() || !/^[^@]+@[^@]+\.[^@]+$/.test(form.email)) nextErrors.email = "Valid email required";
     if (!form.title.trim()) nextErrors.title = "Title is required";
     if (!form.domain) nextErrors.domain = "Domain is required";
-    if (!form.abstract.trim() || form.abstract.length < 50) nextErrors.abstract = "Abstract must be at least 50 characters";
     return nextErrors;
   };
 
@@ -156,8 +155,8 @@ export default function SubmitDetailsPage() {
                 </select>
               </Field>
               <div className="sm:col-span-2">
-                <Field label="Abstract" id="abstract" required error={errors.abstract}>
-                  <textarea id="abstract" className="textarea-sacred" placeholder="A clear summary of your work (100-500 words recommended)..." value={form.abstract} onChange={(event) => set("abstract", event.target.value)} rows={5} aria-required="true" />
+                <Field label="Abstract (Optional)" id="abstract" error={errors.abstract}>
+                  <textarea id="abstract" className="textarea-sacred" placeholder="Optional summary of your work..." value={form.abstract} onChange={(event) => set("abstract", event.target.value)} rows={4} />
                 </Field>
               </div>
               <Field label="Keywords" id="kw">

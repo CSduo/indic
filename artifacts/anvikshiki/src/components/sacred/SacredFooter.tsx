@@ -75,20 +75,20 @@ export function SacredFooter() {
       <div className="container-anv py-8 relative z-10">
         <div className="mb-8 h-px bg-[var(--border)] opacity-60" aria-hidden="true" />
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-[1.25fr_.8fr_.8fr_1fr] gap-6 text-white">
-          <section>
-            <div className="mb-4">
+        <div className="grid grid-cols-2 md:grid-cols-[1.25fr_.8fr_.8fr_1fr] gap-6 text-white">
+          <section className="col-span-2 md:col-span-1">
+            <div className="mb-3">
               <div className="font-display text-xl font-bold tracking-[0.18em] text-white" style={{ color: "#FFFFFF" }}>ĀNVĪKṢIKĪ</div>
               <div className="font-ui text-[0.62rem] font-extrabold uppercase tracking-[0.24em] text-white opacity-90" style={{ color: "#FFFFFF" }}>Journal &amp; Research Platform</div>
             </div>
-            <p className="max-w-sm font-body text-sm leading-7 text-white font-medium opacity-95" style={{ color: "#FFFFFF" }}>
+            <p className="max-w-sm font-body text-xs md:text-sm leading-6 text-white font-medium opacity-95" style={{ color: "#FFFFFF" }}>
               A living archive of inquiry across philosophy, history, science, and civilizational thought.
             </p>
           </section>
 
           <section>
-            <h2 className="type-section-label mb-4 text-white font-bold uppercase tracking-wider" style={{ color: "#FFFFFF" }}>Explore</h2>
-            <ul className="space-y-2 font-ui text-sm text-white font-medium" style={{ color: "#FFFFFF" }}>
+            <h2 className="type-section-label mb-3 text-white font-bold uppercase tracking-wider text-xs md:text-sm" style={{ color: "#FFFFFF" }}>Explore</h2>
+            <ul className="space-y-2 font-ui text-xs md:text-sm text-white font-medium" style={{ color: "#FFFFFF" }}>
               {[["Browse", "/browse"], ["Archive", "/archive"], ["Papers", "/papers"], ["Search", "/search"]].map(([label, href]) => (
                 <li key={href}><Link href={href} className="text-white hover:text-[var(--gold)] font-medium" style={{ color: "#FFFFFF" }}>{label}</Link></li>
               ))}
@@ -96,17 +96,17 @@ export function SacredFooter() {
           </section>
 
           <section>
-            <h2 className="type-section-label mb-4 text-white font-bold uppercase tracking-wider" style={{ color: "#FFFFFF" }}>Community</h2>
-            <ul className="space-y-2 font-ui text-sm text-white font-medium" style={{ color: "#FFFFFF" }}>
-              {[["Submit Work", "/submit"], ["Community", "/community"], ["Account", "/account"], ["About", "/about"]].map(([label, href]) => (
+            <h2 className="type-section-label mb-3 text-white font-bold uppercase tracking-wider text-xs md:text-sm" style={{ color: "#FFFFFF" }}>Community</h2>
+            <ul className="space-y-2 font-ui text-xs md:text-sm text-white font-medium" style={{ color: "#FFFFFF" }}>
+              {[["About", "/about"], ["Submit Work", "/submit"], ["Community", "/community"], ["Account", "/account"]].map(([label, href]) => (
                 <li key={href}><Link href={href} className="text-white hover:text-[var(--gold)] font-medium" style={{ color: "#FFFFFF" }}>{label}</Link></li>
               ))}
             </ul>
           </section>
 
-          <section className="col-span-2 sm:col-span-1">
-            <h2 className="type-section-label mb-4 text-white font-bold uppercase tracking-wider" style={{ color: "#FFFFFF" }}>Stay Connected</h2>
-            <p className="mb-3 font-body text-sm leading-6 text-white font-medium" style={{ color: "#FFFFFF" }}>No noise. Only inquiry, new essays, and notes from the archive.</p>
+          <section className="col-span-2 md:col-span-1">
+            <h2 className="type-section-label mb-3 text-white font-bold uppercase tracking-wider text-xs md:text-sm" style={{ color: "#FFFFFF" }}>Stay Connected</h2>
+            <p className="mb-3 font-body text-xs md:text-sm leading-5 text-white font-medium" style={{ color: "#FFFFFF" }}>No noise. Only inquiry, new essays, and notes from the archive.</p>
             <FooterNewsletter />
           </section>
         </div>

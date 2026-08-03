@@ -271,14 +271,15 @@ export default function HomePage() {
 
       {/* ─── HERO ─── */}
       <section className="home-v3-hero">
-        <div className="home-v3-video-wrap" aria-hidden="true">
+        <picture className="home-v3-video-wrap" aria-hidden="true">
+          <source media="(min-width: 769px)" srcSet={asset("/images/provided/home-falcon-banner-desktop.jpg")} />
           <img
             src={asset("/images/provided/home-falcon-city-panorama-hero.jpg")}
             alt="Illustrated scholar with falcon overlooking mountains and a luminous city"
             className="home-v3-video"
             style={{ objectFit: "cover", width: "100%", height: "100%" }}
           />
-        </div>
+        </picture>
 
         <div className="container-anv home-v3-hero-inner">
           <div className="home-v3-text">
@@ -347,31 +348,34 @@ export default function HomePage() {
                   <Link
                     key={`${publication.kind}-${publication.id}`}
                     href={`/${publication.kind === "paper" ? "papers" : "articles"}/${publication.slug}`}
-                    className="group relative w-full h-[460px] md:h-[540px] rounded-3xl overflow-hidden border-2 border-[var(--border-gold)] bg-[#0c0804] shadow-2xl block transition-all duration-500 hover:scale-[1.01] hover:border-[var(--gold)]"
+                    className="group relative w-full rounded-3xl overflow-hidden border-2 border-[var(--border-gold)] bg-[#120b05] shadow-2xl block transition-all duration-500 hover:scale-[1.01] hover:border-[var(--gold)]"
                   >
                     {publication.imageUrl && (
-                      <div className="absolute inset-0 w-full h-full overflow-hidden">
+                      <div className="w-full h-[260px] md:h-[340px] overflow-hidden relative bg-black">
                         <img
                           src={publication.imageUrl}
                           alt={publication.imageAlt || publication.title}
-                          className="w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
+                          className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
                           onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#080502] via-[#080502]/85 to-transparent" />
                       </div>
                     )}
-                    <div className="absolute bottom-0 left-0 right-0 p-6 md:p-12 flex flex-col justify-end text-white z-10">
-                      <h3 className="text-2xl md:text-4xl font-extrabold text-white mb-3 leading-tight tracking-tight group-hover:text-[var(--gold-bright)] transition-colors" style={{ color: "#FFFFFF" }}>
+                    <div className="p-6 md:p-8 flex flex-col justify-between text-white bg-[#120b05]">
+                      <h3 className="text-xl md:text-3xl font-extrabold text-white mb-2 leading-snug tracking-tight group-hover:text-[var(--gold-bright)] transition-colors" style={{ color: "#FFFFFF" }}>
                         {publication.title}
                       </h3>
                       {publication.summary && (
-                        <p className="text-sm md:text-lg text-white opacity-95 line-clamp-2 max-w-4xl mb-6 font-body leading-relaxed" style={{ color: "#FFFFFF" }}>
+                        <p className="text-xs md:text-base text-white opacity-90 line-clamp-2 font-body leading-relaxed mb-2" style={{ color: "#FFFFFF" }}>
                           {publication.summary}
                         </p>
                       )}
-                      <div className="flex flex-wrap items-center justify-between gap-4 font-ui text-xs md:text-sm font-bold uppercase tracking-wider text-white border-t border-white/20 pt-4" style={{ color: "#FFFFFF" }}>
+                      
+                      {/* Sectional Divider Line */}
+                      <div className="h-px w-full bg-[var(--border-gold)] opacity-40 my-4" />
+
+                      <div className="flex flex-wrap items-center justify-between gap-4 font-ui text-xs md:text-sm font-bold uppercase tracking-wider text-white" style={{ color: "#FFFFFF" }}>
                         <div className="flex flex-wrap items-center gap-3">
-                          <span className="font-extrabold text-white tracking-widest">{publication.authorName || "Editorial"}</span>
+                          <span className="font-extrabold text-white tracking-widest" style={{ color: "#FFFFFF" }}>{publication.authorName || "Editorial"}</span>
                           <span className="px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-widest bg-[#C84A10] text-white border border-white/20 shadow-sm" style={{ color: "#FFFFFF" }}>
                             {publication.categoryName || publication.categorySlug || (publication.kind === "paper" ? "Paper" : "Essay")}
                           </span>
@@ -382,7 +386,7 @@ export default function HomePage() {
                           )}
                         </div>
                         {publication.publishedAt && (
-                          <span className="text-white opacity-90">
+                          <span className="text-white opacity-90 font-bold" style={{ color: "#FFFFFF" }}>
                             {new Date(publication.publishedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                           </span>
                         )}

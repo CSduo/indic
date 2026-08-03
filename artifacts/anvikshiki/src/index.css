@@ -2874,6 +2874,35 @@ body:has(.sacred-drawer) {
   margin-top: 0.5rem;
 }
 
+@media (min-width: 769px) {
+  .home-v3-chips {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    scrollbar-width: none !important;
+    gap: 0.5rem !important;
+    padding-bottom: 0.25rem !important;
+    width: 100% !important;
+  }
+  .home-v3-chips::-webkit-scrollbar {
+    display: none !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .home-v3-cta-row {
+    gap: 0.4rem !important;
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+  .home-v3-btn-primary, .home-v3-btn-outline {
+    flex: 1 1 auto !important;
+    padding: 0.65rem 0.75rem !important;
+    font-size: 0.68rem !important;
+    gap: 0.35rem !important;
+  }
+}
+
 .home-v3-chip {
   display: inline-flex;
   align-items: center;
@@ -3491,9 +3520,9 @@ body:has(.sacred-drawer) {
   /* Make the wrap a positioned container so the img can fill it with absolute positioning */
   .home-v3-video-wrap {
     position: relative;
-    height: 52vw;
-    min-height: 260px;
-    max-height: 420px;
+    height: 64vw;
+    min-height: 320px;
+    max-height: 480px;
     width: 100%;
     overflow: hidden;
     flex-shrink: 0;
