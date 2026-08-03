@@ -1,24 +1,30 @@
 @import "tailwindcss";
+/* Minimal Aesthetic Design Kit — Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,600&family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@500;600;700;800&display=swap');
 
 @theme {
+  /* Display / Editorial headings — Cormorant Garamond (unchanged, already great) */
   --font-display: "Cormorant Garamond", "Noto Serif Devanagari", "Noto Serif Sharada", "Noto Serif Tamil", "Noto Serif Telugu", "Noto Serif Grantha", "Noto Serif Kannada", "Noto Serif Malayalam", "Noto Serif Bengali", "Noto Serif Gurmukhi", Georgia, serif;
-  --font-body: "EB Garamond", "Noto Serif Devanagari", "Noto Serif Sharada", "Noto Serif Tamil", "Noto Serif Telugu", "Noto Serif Grantha", "Noto Serif Kannada", "Noto Serif Malayalam", "Noto Serif Bengali", "Noto Serif Gurmukhi", Georgia, serif;
-  --font-ui: "DM Sans", Inter, system-ui, sans-serif;
+  /* Body text — Inter (clean, neutral, maximally readable on-screen) */
+  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* UI labels — Montserrat (uppercase, wide tracking, professional) */
+  --font-ui: "Montserrat", "Inter", system-ui, sans-serif;
 }
 
 :root {
   color-scheme: light;
-  --bg: #f5edd8;
-  --bg-deep: #ede2c4;
-  --bg-alt: #f9f2e3;
-  --surface: #faf5e8;
-  --surface-card: #f2e8d0;
-  --surface-elevated: #fff8e8;
-  --surface-soft: #f7ebcf;
-  --surface-2: #f7ebcf;
-  --surface-3: #fff8e8;
-  --vellum: #fff8e8;
-  --vellum-warm: #f7ebcf;
+  /* ── Minimal Editorial Palette (Warm Linen + Deep Charcoal) ── */
+  --bg: #FAF8F4;          /* Warm linen — cooler, cleaner than before */
+  --bg-deep: #F2EFE9;
+  --bg-alt: #FDFBF8;
+  --surface: #FFFFFF;        /* Cards: pure white for crisp contrast */
+  --surface-card: #FDFBF8;   /* Slightly off-white card surface */
+  --surface-elevated: #FFFFFF;
+  --surface-soft: #F5F2EC;
+  --surface-2: #F5F2EC;
+  --surface-3: #FFFFFF;
+  --vellum: #FFFFFF;
+  --vellum-warm: #F8F5EF;
   --ink: #000000;
   --ink-soft: #1a1a1a;
   --ink-faint: #7a6040;
@@ -62,10 +68,10 @@
   --shadow-card: 0 2px 12px rgba(42,31,14,0.09), 0 1px 4px rgba(42,31,14,0.06);
   --shadow-lg: 0 8px 32px rgba(42,31,14,0.14), 0 4px 16px rgba(42,31,14,0.08);
   --shadow-terracotta: 0 5px 20px rgba(184,76,42,0.22);
-  --radius-sm: 8px;
-  --radius-card: 8px;
-  --radius-lg: 14px;
-  --radius-pill: 999px;
+  --radius-sm: 12px;       /* Inputs, small elements */
+  --radius-card: 22px;     /* Cards — rounded but not excessive */
+  --radius-lg: 32px;       /* Large panels */
+  --radius-pill: 999px;    /* Buttons — full pill shape */
   --max-reader: min(105ch, 1100px);
   --max-reader-wide: 1344px;
   --progress: 0%;
@@ -79,21 +85,22 @@
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #11100e;
-  --bg-deep: #0d0c0b;
-  --bg-alt: #171512;
-  --surface: #1a1815;
-  --surface-card: #1e1b17;
-  --surface-elevated: #24201b;
-  --surface-soft: #1e1b17;
-  --surface-2: #1e1b17;
-  --surface-3: #24201b;
-  --vellum: #1e1b17;
-  --vellum-warm: #1a1815;
-  --ink: #ffffff;
-  --ink-soft: #e5e5e5;
-  --ink-faint: #b5a182;
-  --muted: #9d8564;
+  /* Kit dark palette: Matte Jet Black + crisp charcoal surfaces */
+  --bg: #0E0E0E;          /* Kit: Matte Jet Black Background */
+  --bg-deep: #090909;
+  --bg-alt: #141414;
+  --surface: #181818;        /* Kit: Soft Charcoal Surface */
+  --surface-card: #1C1C1C;
+  --surface-elevated: #222222;
+  --surface-soft: #1C1C1C;
+  --surface-2: #1C1C1C;
+  --surface-3: #222222;
+  --vellum: #1C1C1C;
+  --vellum-warm: #181818;
+  --ink: #F4F4F4;           /* Kit: Crisp White Ink */
+  --ink-soft: #E0E0E0;
+  --ink-faint: #A0A0A0;     /* Kit: Muted Grey */
+  --muted: #808080;
   --gold: #c9963a;
   --gold-bright: #dfb86a;
   --gold-soft: #a87830;
@@ -117,21 +124,22 @@
   --aged-jade: #7a9e8a;
   --saffron-muted: #c89038;
   --charcoal-line: #f0e6d0;
-  --ink-wash: rgba(220, 200, 160, 0.04);
-  --ink-wash-strong: rgba(220, 200, 160, 0.07);
+  --ink-wash: rgba(255, 255, 255, 0.03);
+  --ink-wash-strong: rgba(255, 255, 255, 0.06);
   --marginalia: rgba(201, 150, 58, 0.18);
   --thread-line: rgba(201, 150, 58, 0.24);
   --lamp-glow: rgba(201, 150, 58, 0.18);
-  --border: rgba(220,200,160,0.11);
-  --border-subtle: rgba(220,200,160,0.07);
+  /* Kit dark borders: #282828 hairline */
+  --border: rgba(255,255,255,0.08);
+  --border-subtle: rgba(255,255,255,0.05);
   --border-gold: rgba(201,150,58,0.30);
-  --border-ink: rgba(220,200,160,0.18);
-  --border-strong: rgba(220,200,160,0.28);
+  --border-ink: rgba(255,255,255,0.12);
+  --border-strong: rgba(255,255,255,0.20);
   --border-terracotta: rgba(201,104,72,0.34);
   --border-rose: rgba(184,110,122,0.30);
-  --shadow-sm: 0 1px 8px rgba(0,0,0,0.60);
-  --shadow-card: 0 2px 14px rgba(0,0,0,0.50), 0 1px 4px rgba(0,0,0,0.40);
-  --shadow-lg: 0 12px 42px rgba(0,0,0,0.65), 0 4px 18px rgba(0,0,0,0.50);
+  --shadow-sm: 0 1px 8px rgba(0,0,0,0.70);
+  --shadow-card: 0 2px 14px rgba(0,0,0,0.60), 0 1px 4px rgba(0,0,0,0.50);
+  --shadow-lg: 0 12px 42px rgba(0,0,0,0.75), 0 4px 18px rgba(0,0,0,0.60);
   --shadow-terracotta: 0 5px 22px rgba(201,104,72,0.18);
   --parchment: var(--ink);
 }
@@ -147,13 +155,13 @@ body {
   margin: 0;
   color: var(--ink);
   font-family: var(--font-body);
-  background:
-    radial-gradient(circle at 12% 0%, rgba(201,136,61,0.13), transparent 24rem),
-    radial-gradient(circle at 82% 9%, rgba(95,122,105,0.12), transparent 22rem),
-    linear-gradient(180deg, rgba(255,255,255,0.16), transparent 18rem),
-    var(--bg);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.7;
+  background: var(--bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
 }
 
 body::before {
@@ -716,12 +724,11 @@ button {
 .parchment-card {
   position: relative;
   overflow: hidden;
-  border: 1px solid var(--border-gold);
+  /* Minimal Aesthetic: hairline border + generous radius + clean white surface */
+  border: 1px solid rgba(42, 31, 14, 0.10);
   border-radius: var(--radius-card);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.22), rgba(0,0,0,0.012)),
-    var(--surface-card);
-  box-shadow: var(--shadow-card);
+  background: var(--surface-card);
+  box-shadow: 0 1px 4px rgba(42,31,14,0.06), 0 4px 20px rgba(42,31,14,0.04);
   transition:
     transform var(--motion) var(--ease-archive),
     box-shadow var(--motion) var(--ease-archive),
@@ -738,8 +745,9 @@ button {
 .parchment-card:hover,
 .domain-card:hover {
   transform: translateY(-3px);
-  border-color: rgba(42,31,14,0.2);
-  box-shadow: var(--shadow-lg);
+  /* On hover: border brightens toward deep ink — editorial premium feel */
+  border-color: rgba(20, 20, 20, 0.22);
+  box-shadow: 0 2px 8px rgba(42,31,14,0.08), 0 8px 32px rgba(42,31,14,0.10);
 }
 
 .card-corners::before,
@@ -796,13 +804,14 @@ button {
   justify-content: center;
   gap: .5rem;
   min-height: 2.35rem;
-  padding: .7rem 1.15rem;
-  border-radius: var(--radius-sm);
+  padding: .65rem 1.4rem;
+  /* Minimal Aesthetic: pill-shaped buttons */
+  border-radius: var(--radius-pill);
   border: 1px solid var(--border-gold);
   font-family: var(--font-ui);
-  font-size: .72rem;
+  font-size: .68rem;
   font-weight: 700;
-  letter-spacing: .12em;
+  letter-spacing: .18em;
   line-height: 1;
   text-transform: uppercase;
   text-decoration: none;
@@ -917,9 +926,10 @@ button {
 .type-gold-label {
   display: block;
   font-family: var(--font-ui);
-  font-size: .68rem;
-  font-weight: 800;
-  letter-spacing: .2em;
+  /* Minimal Aesthetic: 10px, uppercase, wide tracking 0.28em — Montserrat */
+  font-size: .625rem;
+  font-weight: 700;
+  letter-spacing: .28em;
   text-transform: uppercase;
 }
 
@@ -934,7 +944,8 @@ button {
 }
 
 .type-gold-label {
-  color: var(--ink-soft);
+  color: var(--gold);
+  letter-spacing: .28em;
 }
 
 .glyph-tag {
@@ -979,8 +990,11 @@ button {
   max-width: var(--max-reader);
   color: var(--ink-soft);
   font-family: var(--font-body);
-  font-size: 1.08rem;
-  line-height: 1.85;
+  /* Inter reads best at slightly smaller size than EB Garamond */
+  font-size: 1.02rem;
+  line-height: 1.9;
+  font-weight: 400;
+  letter-spacing: -0.01em;
 }
 
 .prose-anv > p:first-child,
@@ -4939,4 +4953,53 @@ input[type="search"]::-webkit-search-decoration {
 .prose-editor-content blockquote,
 .prose-editor blockquote {
   color: var(--ink) !important;
+}
+
+/* ==========================================================================
+   MINIMAL AESTHETIC DESIGN KIT — Utility Classes
+   From: Desktop/Minimal_Aesthetic_Design_Kit/theme.css
+   ========================================================================== */
+
+/* Frosted Glass Floating Pill — for overlays, floating controls, nav badges */
+.glass-pill {
+  background-color: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9999px;
+  color: #ffffff;
+}
+
+/* Light glass variant for light backgrounds */
+.glass-pill-light {
+  background-color: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(42, 31, 14, 0.10);
+  border-radius: 9999px;
+  color: var(--ink);
+  box-shadow: 0 2px 12px rgba(42, 31, 14, 0.06);
+}
+
+/* Editorial card with generous rounding — kit's aesthetic-card */
+.aesthetic-card {
+  background-color: var(--surface-card);
+  border: 1px solid rgba(42, 31, 14, 0.09);
+  border-radius: 2.25rem;
+  transition: border-color 0.28s ease, transform 0.28s ease, box-shadow 0.28s ease;
+}
+
+.aesthetic-card:hover {
+  border-color: rgba(20, 20, 20, 0.20);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 32px rgba(42, 31, 14, 0.10);
+}
+
+/* Tracking label — Montserrat, 10px, uppercase, 0.28em spacing */
+.label-tracking {
+  font-family: var(--font-ui);
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  font-weight: 700;
 }
