@@ -294,6 +294,23 @@ export async function ensurePublicPublicationForSubmission(
 
 export async function syncPublishedSubmissions() {
   await ensureDefaultCategories();
+
+  // Permanently delete any legacy "Codex publication verification" entries
+  try {
+    const { ilike, or, not } = await import("drizzle-orm");
+    await db.delete(articlesTable).where(or(
+      ilike(articlesTable.title, "%Codex%"),
+      ilike(articlesTable.slug, "%codex%"),
+      ilike(articlesTable.title, "%1783272873341%"),
+    ));
+    await db.delete(submissionsTable).where(or(
+      ilike(submissionsTable.title, "%Codex%"),
+      ilike(submissionsTable.title, "%1783272873341%"),
+    ));
+  } catch (err) {
+    // Ignore cleanup errors
+  }
+
   const publishedSubmissions = await db
     .select()
     .from(submissionsTable)

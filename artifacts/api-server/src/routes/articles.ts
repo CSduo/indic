@@ -16,8 +16,11 @@ router.get("/articles", async (req, res) => {
     const { category, featured, q, limit: lim, offset: off } = req.query;
     const { limit, offset } = parsePagination(lim, off);
 
-    const conditions = [
+    const { not } = await import("drizzle-orm");
+    const conditions: any[] = [
       eq(articlesTable.status, "PUBLISHED"),
+      not(ilike(articlesTable.title, "%Codex%")),
+      not(ilike(articlesTable.title, "%1783272873341%")),
     ];
     if (category) {
       const normalizedCategory = sql<string>`trim(both '-' from lower(regexp_replace(replace(${articlesTable.categorySlug}, '_', '-'), '[^a-z0-9]+', '-', 'g')))`;

@@ -449,8 +449,8 @@ export default function ArticlePage() {
       </section>
 
       <section className="article-reader-shell pb-16">
-        <div className="flex flex-col md:flex-row gap-8 max-w-[var(--max-reader-wide)] mx-auto px-4 md:px-8">
-          <div className="w-full md:w-[75%] max-w-[var(--max-reader)] mx-auto md:mx-0">
+        <div className="w-full max-w-5xl mx-auto px-4 md:px-8">
+          <div className="w-full mx-auto">
             <article className="w-full" ref={articleContentRef}>
               <OrnamentDivider className="mb-8" />
           
@@ -899,11 +899,6 @@ export default function ArticlePage() {
               </div>
             )}
             </article>
-          </div>
-          
-          {/* TOC Sidebar */}
-          <div className="hidden md:block w-1/4 sticky top-24 self-start pl-4 border-l border-[var(--border-subtle)] h-[calc(100vh-8rem)] overflow-y-auto no-scrollbar">
-            <TableOfContents contentRef={articleContentRef} />
           </div>
         </div>
       </section>

@@ -4,6 +4,7 @@ import { BookMarked, LogOut, Menu, Search, User, X } from "lucide-react";
 import { toast } from "sonner";
 import { GlobalSidebar } from "@/components/sacred/GlobalSidebar";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { Emblem } from "@/components/brand/Emblem";
 
 export function SacredHeader() {
   const [loc, navigate] = useLocation();
@@ -41,14 +42,14 @@ export function SacredHeader() {
 
         <div className="container-anv">
           {/* ── ROW 1: Primary Top Header Bar ── */}
-          <div className="sacred-header-row flex items-center justify-between py-3">
+          <div className="sacred-header-row flex items-center justify-between py-2.5 md:py-3">
 
-            {/* Far Left: Hamburger Menu Trigger (Prominent, separated from logo/text) */}
-            <div className="flex items-center">
+            {/* Far Left: Hamburger Menu Trigger */}
+            <div className="flex items-center w-20 md:w-28 shrink-0 justify-start">
               <button
                 type="button"
                 onClick={() => setSidebarOpen(true)}
-                className="sacred-icon-btn mr-4 md:mr-8 hover:bg-[var(--surface-soft)] p-2 rounded-lg transition-colors text-[var(--ink)]"
+                className="sacred-icon-btn hover:bg-[var(--surface-soft)] p-2 rounded-lg transition-colors text-[var(--ink)]"
                 aria-label="Open navigation sidebar"
                 title="Open navigation menu & settings"
               >
@@ -56,15 +57,15 @@ export function SacredHeader() {
               </button>
             </div>
 
-            {/* Center: Monochromatic B&W Favicon Emblem */}
-            <Link href="/" className="sacred-brand flex items-center justify-center mx-auto" aria-label="Ānvīkṣikī home">
-              <div className="w-11 h-11 md:w-12 md:h-12 rounded-full border-2 border-[var(--ink)] flex items-center justify-center p-1.5 bg-transparent shrink-0 shadow-sm">
-                <img src="/favicon.svg" alt="Ānvīkṣikī Emblem" className="w-full h-full object-contain filter grayscale dark:invert" />
+            {/* Center: Monochromatic Emblem Logo */}
+            <Link href="/" className="sacred-brand flex-1 flex items-center justify-center text-center" aria-label="Ānvīkṣikī home">
+              <div className="w-11 h-11 md:w-12 md:h-12 rounded-full border-2 border-[var(--ink)] flex items-center justify-center p-1 bg-[var(--surface)] shrink-0 shadow-sm transition-transform hover:scale-105">
+                <Emblem size={28} className="text-[var(--ink)]" />
               </div>
             </Link>
 
             {/* Far Right: Search & Account */}
-            <div className="sacred-actions flex items-center gap-3">
+            <div className="sacred-actions flex items-center gap-2 md:gap-3 w-20 md:w-28 shrink-0 justify-end">
               <Link
                 href="/search"
                 className="sacred-icon-btn text-[var(--ink)] hover:text-[var(--gold)]"
@@ -128,8 +129,8 @@ export function SacredHeader() {
 
           </div>
 
-          {/* ── ROW 2: Secondary Sub-Header Navigation Bar ── */}
-          <nav className="sacred-sub-header border-t border-[var(--border-gold)]/40 py-2 flex items-center justify-center gap-6 md:gap-10 overflow-x-auto no-scrollbar font-ui text-xs md:text-sm font-extrabold uppercase tracking-[0.16em]">
+          {/* ── ROW 2: Secondary Sub-Header Navigation Bar (Hidden on Mobile) ── */}
+          <nav className="sacred-sub-header border-t border-[var(--border-gold)]/40 py-2 hidden md:flex items-center justify-center gap-6 md:gap-10 overflow-x-auto no-scrollbar font-ui text-xs md:text-sm font-extrabold uppercase tracking-[0.16em]">
             <Link href="/" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
               Home
             </Link>
