@@ -72,6 +72,8 @@ router.get("/articles", async (req, res) => {
 router.get("/articles/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
+    const cleanSlug = slug.replace(/-[a-f0-9]{4,8}$/, "");
+
     const [row] = await db
       .select({
         article: articlesTable,
@@ -84,7 +86,10 @@ router.get("/articles/:slug", async (req, res) => {
       .leftJoin(categoriesTable, eq(articlesTable.categorySlug, categoriesTable.slug))
       .leftJoin(submissionsTable, eq(articlesTable.submissionId, submissionsTable.id))
       .leftJoin(usersTable, eq(submissionsTable.userId, usersTable.id))
-      .where(and(eq(articlesTable.slug, slug), eq(articlesTable.status, "PUBLISHED")))
+      .where(and(
+        or(eq(articlesTable.slug, slug), eq(articlesTable.slug, cleanSlug), ilike(articlesTable.slug, `${cleanSlug}%`)),
+        eq(articlesTable.status, "PUBLISHED")
+      ))
       .limit(1);
 
     if (!row) return res.status(404).json({ error: "Article not found" });

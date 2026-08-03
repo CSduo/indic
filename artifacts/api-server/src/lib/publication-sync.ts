@@ -146,25 +146,31 @@ async function resolveCategorySlug(rawCategory: string | null | undefined) {
 }
 
 async function uniqueArticleSlug(baseSlug: string, submissionId: string) {
-  const preferred = `${baseSlug}-${submissionId.slice(0, 8)}`;
+  const words = baseSlug.split("-").filter(w => w && !["a", "an", "the", "in", "of", "on", "at", "to", "for", "with", "is", "and"].includes(w));
+  const cleanBase = (words.length > 7 ? words.slice(0, 7) : words).join("-") || "article";
+
   const [existing] = await db
     .select({ id: articlesTable.id })
     .from(articlesTable)
-    .where(eq(articlesTable.slug, preferred))
+    .where(eq(articlesTable.slug, cleanBase))
     .limit(1);
 
-  return existing ? `${preferred}-${Date.now()}` : preferred;
+  if (!existing) return cleanBase;
+  return `${cleanBase}-${submissionId.slice(0, 4)}`;
 }
 
 async function uniquePaperSlug(baseSlug: string, submissionId: string) {
-  const preferred = `${baseSlug}-${submissionId.slice(0, 8)}`;
+  const words = baseSlug.split("-").filter(w => w && !["a", "an", "the", "in", "of", "on", "at", "to", "for", "with", "is", "and"].includes(w));
+  const cleanBase = (words.length > 7 ? words.slice(0, 7) : words).join("-") || "paper";
+
   const [existing] = await db
     .select({ id: papersTable.id })
     .from(papersTable)
-    .where(eq(papersTable.slug, preferred))
+    .where(eq(papersTable.slug, cleanBase))
     .limit(1);
 
-  return existing ? `${preferred}-${Date.now()}` : preferred;
+  if (!existing) return cleanBase;
+  return `${cleanBase}-${submissionId.slice(0, 4)}`;
 }
 
 export async function ensurePublicPublicationForSubmission(

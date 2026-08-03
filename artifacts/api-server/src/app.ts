@@ -9,6 +9,8 @@ import { logger } from "./lib/logger";
 import { syncPublishedSubmissions, ensureDefaultCategories } from "./lib/publication-sync";
 import { UPLOADS_DIR } from "./routes/submissions";
 import healthRouter from "./routes/health";
+import { db, articlesTable, papersTable } from "@workspace/db";
+import { eq, and, or, ilike } from "drizzle-orm";
 
 const app: Express = express();
 const isProduction = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
@@ -216,6 +218,107 @@ app.use("/api/uploads", express.static(UPLOADS_DIR, {
 }));
 
 app.use("/api", router);
+
+// OpenGraph SSR Meta Tags handler for Social Link Previews (WhatsApp, Instagram, Twitter, iMessage, Facebook, LinkedIn)
+app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
+  try {
+    const rawSlug = req.params.slug;
+    const cleanSlug = rawSlug.replace(/-[a-f0-9]{4,8}$/, "");
+
+    const isPaper = req.path.startsWith("/papers");
+
+    let title = "Ānvīkṣikī Journal & Research Platform";
+    let excerpt = "Anvikshiki is an open journal & research platform across Indic philosophy, history, science, and civilizational thought.";
+    let imageUrl = "https://anvikshikijournal.in/brand-emblem.svg";
+    let canonicalUrl = `https://anvikshikijournal.in${req.path}`;
+
+    if (isPaper) {
+      const [paper] = await db
+        .select()
+        .from(papersTable)
+        .where(and(
+          or(eq(papersTable.slug, rawSlug), eq(papersTable.slug, cleanSlug), ilike(papersTable.slug, `${cleanSlug}%`)),
+          eq(papersTable.status, "PUBLISHED"),
+          eq(papersTable.deleted, false)
+        ))
+        .limit(1);
+
+      if (paper) {
+        title = paper.title;
+        excerpt = paper.abstract || paper.title;
+        if (paper.coverImageUrl) imageUrl = paper.coverImageUrl;
+        canonicalUrl = `https://anvikshikijournal.in/papers/${paper.slug}`;
+      }
+    } else {
+      const [article] = await db
+        .select()
+        .from(articlesTable)
+        .where(and(
+          or(eq(articlesTable.slug, rawSlug), eq(articlesTable.slug, cleanSlug), ilike(articlesTable.slug, `${cleanSlug}%`)),
+          eq(articlesTable.status, "PUBLISHED"),
+          eq(articlesTable.deleted, false)
+        ))
+        .limit(1);
+
+      if (article) {
+        title = article.title;
+        excerpt = article.excerpt || article.subtitle || article.title;
+        if (article.heroImageUrl) imageUrl = article.heroImageUrl;
+        canonicalUrl = `https://anvikshikijournal.in/articles/${article.slug}`;
+      }
+    }
+
+    // Resolve relative image URLs to absolute HTTPS URLs for social crawlers
+    if (imageUrl.startsWith("/")) {
+      imageUrl = `https://anvikshikijournal.in${imageUrl}`;
+    }
+
+    function escapeHtml(str: string) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${escapeHtml(title)} — Ānvīkṣikī Journal</title>
+    <meta name="description" content="${escapeHtml(excerpt)}" />
+    <meta property="og:site_name" content="Ānvīkṣikī Journal" />
+    <meta property="og:title" content="${escapeHtml(title)}" />
+    <meta property="og:description" content="${escapeHtml(excerpt)}" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="${escapeHtml(canonicalUrl)}" />
+    <meta property="og:image" content="${escapeHtml(imageUrl)}" />
+    <meta property="og:image:secure_url" content="${escapeHtml(imageUrl)}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${escapeHtml(title)}" />
+    <meta name="twitter:description" content="${escapeHtml(excerpt)}" />
+    <meta name="twitter:image" content="${escapeHtml(imageUrl)}" />
+    <link rel="canonical" href="${escapeHtml(canonicalUrl)}" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <script src="/theme-init.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Devanagari:wght@400;500;600;700&family=Noto+Serif+Sharada&family=Noto+Serif+Tamil:wght@400;500;600;700&family=Noto+Serif+Telugu:wght@400;500;600;700&family=Noto+Serif+Grantha&family=Noto+Serif+Kannada:wght@400;500&family=Noto+Serif+Malayalam:wght@400;500&family=Noto+Serif+Bengali:wght@400;500&family=Noto+Serif+Gurmukhi:wght@400;500&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>`;
+
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    return res.status(200).send(html);
+  } catch (err) {
+    next();
+  }
+});
 
 const errorHandler: ErrorRequestHandler = (err: unknown, req, res, _next) => {
   const malformedJson = err instanceof SyntaxError &&

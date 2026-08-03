@@ -30,6 +30,14 @@
       "destination": "/api/index"
     },
     {
+      "source": "/articles/:path*",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/papers/:path*",
+      "destination": "/api/index"
+    },
+    {
       "source": "/:path*",
       "destination": "/index.html"
     }
