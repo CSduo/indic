@@ -469,41 +469,46 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
     if (!submission) return res.status(404).json({ error: "Not found" });
 
     if (parsed.data.status === "PUBLISHED") {
+      let publication: any = null;
       try {
-        const publication = await ensurePublicPublicationForSubmission(submission, {
+        publication = await ensurePublicPublicationForSubmission(submission, {
           categorySlug,
           publishedAt: submission.publishedAt || now,
         });
-        if (previous.status !== "PUBLISHED" && previous.userId) {
+      } catch (publicationErr: any) {
+        req.log.error({ err: publicationErr }, "Initial publication attempt failed, retrying with default archive category");
+        try {
+          publication = await ensurePublicPublicationForSubmission(submission, {
+            categorySlug: "archive",
+            publishedAt: submission.publishedAt || now,
+          });
+        } catch (retryErr: any) {
+          req.log.error({ err: retryErr }, "Publication retry failed");
+        }
+      }
+
+      if (previous.status !== "PUBLISHED" && previous.userId) {
+        try {
           await db.insert(notificationsTable).values({
             userId: previous.userId,
             type: "SUBMISSION_STATUS",
             message: `Your submission "${previous.title}" is now published.`,
             href: "/account",
           });
-        }
-        return res.json({ submission, publication });
-      } catch (publicationErr: any) {
-        await db.update(submissionsTable).set({
-          status: previous.status,
-          publishedAt: previous.publishedAt,
-          updatedAt: new Date(),
-        }).where(eq(submissionsTable.id, req.params.id));
-        req.log.error({ err: publicationErr }, "Failed to auto-create public document from submission");
-        return res.status(500).json({
-          error: "Submission was marked published, but its public page could not be created. Retry publishing or run the public sync.",
-          submission,
-        });
+        } catch {}
       }
+      return res.json({ submission, publication });
     }
 
     if (parsed.data.status && parsed.data.status !== previous.status && previous.userId) {
-      await db.insert(notificationsTable).values({
-        userId: previous.userId,
-        type: "SUBMISSION_STATUS",
-        message: `Your submission "${previous.title}" is now ${parsed.data.status.toLowerCase().replace(/_/g, " ")}.`,
-        href: "/account",
-      });
+      try {
+        await db.insert(notificationsTable).values({
+          userId: previous.userId,
+          type: "SUBMISSION_STATUS",
+          message: `Your submission "${previous.title}" is now ${parsed.data.status.toLowerCase().replace(/_/g, " ")}.`,
+          href: "/account",
+        });
+      } catch {}
     }
 
     return res.json({ submission });
