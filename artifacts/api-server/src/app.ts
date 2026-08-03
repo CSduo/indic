@@ -220,9 +220,9 @@ app.use("/api/uploads", express.static(UPLOADS_DIR, {
 app.use("/api", router);
 
 // OpenGraph SSR Meta Tags handler for Social Link Previews (WhatsApp, Instagram, Twitter, iMessage, Facebook, LinkedIn)
-app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
+app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next): Promise<void> => {
   try {
-    const rawSlug = req.params.slug;
+    const rawSlug = String(req.params.slug || "");
     const cleanSlug = rawSlug.replace(/-[a-f0-9]{4,8}$/, "");
 
     const isPaper = req.path.startsWith("/papers");
