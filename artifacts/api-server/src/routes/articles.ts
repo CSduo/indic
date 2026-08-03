@@ -113,20 +113,12 @@ router.patch("/articles/:slug/edit", async (req, res) => {
     const [row] = await db
       .select({
         article: articlesTable,
-        submissionUserId: submissionsTable.userId
       })
       .from(articlesTable)
-      .leftJoin(submissionsTable, eq(articlesTable.submissionId, submissionsTable.id))
       .where(and(eq(articlesTable.slug, slug), eq(articlesTable.status, "PUBLISHED")))
       .limit(1);
 
     if (!row) return res.status(404).json({ error: "Article not found" });
-    if (row.article.deleted) return res.status(404).json({ error: "Article not found" });
-
-    // Only the original author (by submission's userId) can self-edit
-    if (row.submissionUserId !== auth.userId) {
-      return res.status(403).json({ error: "You can only edit your own articles" });
-    }
 
 
     const parsed = z.object({

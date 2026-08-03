@@ -100,7 +100,6 @@ export default function DomainPage() {
           imageAlt={`${meta.label} domain illustration`}
           eyebrow="Domain"
           title={meta.label}
-          subtitle={meta.animal}
           description={meta.description}
           glyph={key}
           focal="center"

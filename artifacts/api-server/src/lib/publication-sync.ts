@@ -177,7 +177,7 @@ export async function ensurePublicPublicationForSubmission(
   submission: Submission,
   options: { categorySlug?: string | null; publishedAt?: Date } = {},
 ): Promise<PublicPublicationResult> {
-  if (!PUBLIC_SUBMISSION_STATUSES.includes(submission.status as typeof PUBLIC_SUBMISSION_STATUSES[number]) || submission.deleted) {
+  if (!PUBLIC_SUBMISSION_STATUSES.includes(submission.status as typeof PUBLIC_SUBMISSION_STATUSES[number])) {
     return { kind: null, status: "skipped", reason: "submission-not-public" };
   }
 
@@ -195,7 +195,7 @@ export async function ensurePublicPublicationForSubmission(
     const [existing] = await db
       .select({ id: papersTable.id, slug: papersTable.slug })
       .from(papersTable)
-      .where(eq(papersTable.submissionId, submission.id))
+      .where(eq(papersTable.title, submission.title || "Untitled Paper"))
       .limit(1);
 
     if (existing) {
@@ -210,16 +210,10 @@ export async function ensurePublicPublicationForSubmission(
           pdfUrl: submission.manuscriptUrl || (submission as any).fileUrl || null,
           coverImageUrl,
           status: "PUBLISHED",
-          deleted: false,
-          deletedAt: null,
           publishedAt,
           updatedAt: new Date(),
         })
         .where(eq(papersTable.id, existing.id));
-      await db
-        .update(articlesTable)
-        .set({ deleted: true, deletedAt: new Date(), updatedAt: new Date() })
-        .where(eq(articlesTable.submissionId, submission.id));
       return { kind, status: "existing", id: existing.id, slug: existing.slug };
     }
 
@@ -241,22 +235,8 @@ export async function ensurePublicPublicationForSubmission(
         paperType: "RESEARCH_PAPER",
         status: "PUBLISHED",
         publishedAt,
-        submissionId: submission.id,
       })
       .returning({ id: papersTable.id, slug: papersTable.slug });
-
-    const [oldArticle] = await db
-      .select({ id: articlesTable.id })
-      .from(articlesTable)
-      .where(eq(articlesTable.submissionId, submission.id))
-      .limit(1);
-
-    if (oldArticle) {
-      await db
-        .update(articlesTable)
-        .set({ deleted: true, deletedAt: new Date(), updatedAt: new Date() })
-        .where(eq(articlesTable.id, oldArticle.id));
-    }
 
     return { kind, status: "created", id: paper.id, slug: paper.slug };
   }
@@ -264,7 +244,7 @@ export async function ensurePublicPublicationForSubmission(
   const [existing] = await db
     .select({ id: articlesTable.id, slug: articlesTable.slug })
     .from(articlesTable)
-    .where(eq(articlesTable.submissionId, submission.id))
+    .where(eq(articlesTable.title, submission.title || "Untitled Article"))
     .limit(1);
 
   if (existing) {
@@ -280,16 +260,10 @@ export async function ensurePublicPublicationForSubmission(
         heroImageAlt: submission.title || "Article Cover",
         audioUrl: (submission as any).audioUrl || null,
         status: "PUBLISHED",
-        deleted: false,
-        deletedAt: null,
         publishedAt,
         updatedAt: new Date(),
       })
       .where(eq(articlesTable.id, existing.id));
-    await db
-      .update(papersTable)
-      .set({ deleted: true, deletedAt: new Date(), updatedAt: new Date() })
-      .where(eq(papersTable.submissionId, submission.id));
     return { kind, status: "existing", id: existing.id, slug: existing.slug };
   }
 
@@ -312,22 +286,8 @@ export async function ensurePublicPublicationForSubmission(
       status: "PUBLISHED",
       featured: false,
       publishedAt,
-      submissionId: submission.id,
     })
     .returning({ id: articlesTable.id, slug: articlesTable.slug });
-
-  const [oldPaper] = await db
-    .select({ id: papersTable.id })
-    .from(papersTable)
-    .where(eq(papersTable.submissionId, submission.id))
-    .limit(1);
-
-  if (oldPaper) {
-    await db
-      .update(papersTable)
-      .set({ deleted: true, deletedAt: new Date(), updatedAt: new Date() })
-      .where(eq(papersTable.id, oldPaper.id));
-  }
 
   return { kind, status: "created", id: article.id, slug: article.slug };
 }
@@ -337,10 +297,7 @@ export async function syncPublishedSubmissions() {
   const publishedSubmissions = await db
     .select()
     .from(submissionsTable)
-    .where(and(
-      inArray(submissionsTable.status, [...PUBLIC_SUBMISSION_STATUSES]),
-      eq(submissionsTable.deleted, false),
-    ));
+    .where(inArray(submissionsTable.status, [...PUBLIC_SUBMISSION_STATUSES]));
 
   const summary = {
     checked: publishedSubmissions.length,

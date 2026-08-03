@@ -239,7 +239,6 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
         .where(and(
           or(eq(papersTable.slug, rawSlug), eq(papersTable.slug, cleanSlug), ilike(papersTable.slug, `${cleanSlug}%`)),
           eq(papersTable.status, "PUBLISHED"),
-          eq(papersTable.deleted, false)
         ))
         .limit(1);
 
@@ -256,7 +255,6 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
         .where(and(
           or(eq(articlesTable.slug, rawSlug), eq(articlesTable.slug, cleanSlug), ilike(articlesTable.slug, `${cleanSlug}%`)),
           eq(articlesTable.status, "PUBLISHED"),
-          eq(articlesTable.deleted, false)
         ))
         .limit(1);
 

@@ -20,7 +20,6 @@ export type DomainKey =
 
 export type DomainMeta = {
   label: string;
-  animal: string;
   color: string;
   description: string;
   route: string;
@@ -30,7 +29,6 @@ export type DomainMeta = {
 export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   philosophy: {
     label: "Philosophy",
-    animal: "Serpent",
     color: "var(--terracotta)",
     description: "Reality, reasoning, self, knowledge, and truth.",
     route: "/domains/philosophy",
@@ -38,7 +36,6 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   history: {
     label: "History",
-    animal: "Ram",
     color: "var(--gold)",
     description: "Civilizations, memory, events, eras, and inheritance.",
     route: "/domains/history",
@@ -46,7 +43,6 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   psychology: {
     label: "Psychology",
-    animal: "Monkey",
     color: "var(--dusty-rose)",
     description: "Mind, behavior, consciousness, and inner landscapes.",
     route: "/domains/psychology",
@@ -54,7 +50,6 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   sociology: {
     label: "Sociology",
-    animal: "Crane",
     color: "var(--aged-jade)",
     description: "Communities, institutions, cultures, and shared patterns.",
     route: "/domains/sociology",
@@ -62,7 +57,6 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   science: {
     label: "Science",
-    animal: "Spider",
     color: "var(--manuscript-blue)",
     description: "Observation, logic, nature, systems, and discovery.",
     route: "/domains/science",
@@ -70,7 +64,6 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   geopolitics: {
     label: "Geopolitics",
-    animal: "Elephant",
     color: "var(--olive)",
     description: "Power, geography, statecraft, strategy, and place.",
     route: "/domains/geopolitics",
@@ -78,7 +71,6 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   papers: {
     label: "Papers",
-    animal: "Leopard",
     color: "var(--saffron-muted)",
     description: "Research manuscripts, working papers, and scholarship.",
     route: "/papers",
@@ -86,7 +78,6 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   archive: {
     label: "Archive",
-    animal: "Bull",
     color: "var(--gold)",
     description: "Texts, records, timelines, sources, and living memory.",
     route: "/archive",
@@ -94,7 +85,6 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   civilization: {
     label: "Civilization",
-    animal: "Peacock",
     color: "var(--aged-jade)",
     description: "Living traditions, long memory, and cultural worlds.",
     route: "/domains/civilization",
@@ -102,7 +92,6 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   "civilizational-thought": {
     label: "Civilizational Thought",
-    animal: "Peacock",
     color: "var(--aged-jade)",
     description: "Long-arc inquiry into culture, tradition, and society.",
     route: "/domains/civilizational-thought",
@@ -110,7 +99,6 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   aesthetics: {
     label: "Aesthetics",
-    animal: "Peacock Lotus",
     color: "var(--dusty-rose)",
     description: "Art, beauty, literature, music, symbol, and form.",
     route: "/domains/aesthetics",
@@ -118,7 +106,6 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   sanskrit: {
     label: "Sanskrit Studies",
-    animal: "Crane Pen",
     color: "var(--gold)",
     description: "Language, shastra, grammar, and textual traditions.",
     route: "/domains/sanskrit-studies",
@@ -126,7 +113,6 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   "sanskrit-studies": {
     label: "Sanskrit Studies",
-    animal: "Crane Pen",
     color: "var(--gold)",
     description: "Language, shastra, grammar, and textual traditions.",
     route: "/domains/sanskrit-studies",
@@ -134,7 +120,6 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   "political-theory": {
     label: "Political Theory",
-    animal: "Lion",
     color: "var(--terracotta)",
     description: "State, order, sovereignty, justice, and power.",
     route: "/domains/political-theory",
@@ -142,7 +127,6 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   translations: {
     label: "Translations",
-    animal: "Two Birds",
     color: "var(--manuscript-blue)",
     description: "Texts moving between languages, worlds, and eras.",
     route: "/domains/translations",
@@ -150,7 +134,6 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   multimedia: {
     label: "Multimedia",
-    animal: "Bird",
     color: "var(--saffron-muted)",
     description: "Visual stories, lectures, audio, and interactive work.",
     route: "/domains/multimedia",
@@ -158,14 +141,12 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   community: {
     label: "Community",
-    animal: "Crane Pair",
     color: "var(--aged-jade)",
     description: "Conversation, gathering, contribution, and shared inquiry.",
     route: "/community",
   },
   submit: {
     label: "Submit",
-    animal: "Leopard Scroll",
     color: "var(--terracotta)",
     description: "Send your work into the living archive.",
     route: "/submit",

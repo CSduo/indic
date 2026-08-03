@@ -272,8 +272,7 @@ router.patch("/admin/articles/:id", requireAdmin, requireAdminRole("ADMIN", "EDI
 router.delete("/admin/articles/:id", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
   try {
     const now = new Date();
-    const [article] = await db.update(articlesTable)
-      .set({ deleted: true, deletedAt: now, updatedAt: now })
+    const [article] = await db.delete(articlesTable)
       .where(eq(articlesTable.id, req.params.id))
       .returning({ id: articlesTable.id });
     if (!article) return res.status(404).json({ error: "Not found" });
@@ -376,8 +375,7 @@ router.patch("/admin/papers/:id", requireAdmin, requireAdminRole("ADMIN", "EDITO
 router.delete("/admin/papers/:id", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
   try {
     const now = new Date();
-    const [paper] = await db.update(papersTable)
-      .set({ deleted: true, deletedAt: now, updatedAt: now })
+    const [paper] = await db.delete(papersTable)
       .where(eq(papersTable.id, req.params.id))
       .returning({ id: papersTable.id });
     if (!paper) return res.status(404).json({ error: "Not found" });
@@ -393,11 +391,9 @@ router.delete("/admin/papers/:id", requireAdmin, requireAdminRole("ADMIN", "EDIT
 // of the requested status filter.
 router.get("/admin/submissions", requireAdmin, async (req, res) => {
   try {
-    const { status, deleted } = req.query;
-    const showDeleted = deleted === "true";
+    const { status } = req.query;
     const conditions = [
       ne(submissionsTable.status, "DRAFT"),
-      eq(submissionsTable.deleted, showDeleted)
     ];
     const parsedStatus = z.enum(["RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "ACCEPTED", "REJECTED", "PUBLISHED", "ARCHIVED"]).safeParse(status);
     if (status && !parsedStatus.success) return res.status(400).json({ error: "Invalid status" });
@@ -522,35 +518,7 @@ router.delete("/admin/submissions/:id", requireAdmin, requireAdminRole("ADMIN", 
       .where(eq(submissionsTable.id, req.params.id)).limit(1);
     if (!existing) return res.status(404).json({ error: "Submission not found" });
 
-    const now = new Date();
-    await db.update(submissionsTable)
-      .set({ deleted: true, deletedAt: now, updatedAt: now })
-      .where(eq(submissionsTable.id, req.params.id));
-
-    // Also soft-delete any linked public article/paper.
-    try {
-      const [bySubId] = await db.select({ id: articlesTable.id })
-        .from(articlesTable)
-        .where(eq(articlesTable.submissionId, existing.id))
-        .limit(1);
-      if (bySubId) {
-        await db.update(articlesTable)
-          .set({ deleted: true, deletedAt: now, updatedAt: now })
-          .where(eq(articlesTable.id, bySubId.id));
-      }
-
-      const [paperBySubId] = await db.select({ id: papersTable.id })
-        .from(papersTable)
-        .where(eq(papersTable.submissionId, existing.id))
-        .limit(1);
-      if (paperBySubId) {
-        await db.update(papersTable)
-          .set({ deleted: true, deletedAt: now, updatedAt: now })
-          .where(eq(papersTable.id, paperBySubId.id));
-      }
-    } catch {
-      // Best effort
-    }
+    await db.delete(submissionsTable).where(eq(submissionsTable.id, req.params.id));
 
     return res.json({ success: true });
   } catch (err) {
