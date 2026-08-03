@@ -112,7 +112,7 @@ export default function ArchivePage() {
 
       <div className="container-anv relative z-10">
         {/* Breadcrumb */}
-        <nav className="mb-6 flex items-center gap-2 font-ui text-xs font-bold uppercase tracking-widest text-white/70">
+        <nav className="mb-6 flex items-center gap-2 font-ui text-xs font-bold uppercase tracking-widest text-[var(--ink-soft)]">
           <Link href="/" className="hover:text-[var(--gold)]">Home</Link>
           <span>/</span>
           <span className="text-[var(--gold)]">All Archives</span>
@@ -120,10 +120,10 @@ export default function ArchivePage() {
 
         {/* Page Title */}
         <div className="mb-8 text-center md:text-left">
-          <h1 className="text-3xl md:text-5xl font-extrabold uppercase tracking-[0.16em] text-white">
+          <h1 className="text-3xl md:text-5xl font-extrabold uppercase tracking-[0.16em] text-[var(--ink)]">
             All Archives &amp; Manuscripts
           </h1>
-          <p className="mt-2 text-sm md:text-base text-white/80 max-w-2xl">
+          <p className="mt-2 text-sm md:text-base text-[var(--ink-soft)] max-w-2xl">
             Explore the complete repository of published essays, research papers, and civilizational scholarship sorted from latest to oldest.
           </p>
         </div>

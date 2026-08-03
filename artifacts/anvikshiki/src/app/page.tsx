@@ -295,11 +295,11 @@ export default function HomePage() {
           <section className="home-v3-section py-12">
             <div className="container-anv">
               <div className="flex flex-col items-center justify-center text-center mb-10">
-                <h2 className="text-center text-3xl md:text-5xl font-extrabold uppercase tracking-[0.18em] text-white" style={{ color: "#FFFFFF", fontWeight: 800 }}>
+                <h2 className="text-center text-3xl md:text-5xl font-extrabold uppercase tracking-[0.18em] text-[var(--ink)]">
                   Recently Submitted
                 </h2>
                 <div className="w-24 h-1 bg-[var(--gold)] my-4 rounded-full" />
-                <Link href="/archive" className="home-v3-view-all text-sm uppercase tracking-widest font-bold mt-1 text-white hover:text-[var(--gold)]" style={{ color: "#FFFFFF" }}>
+                <Link href="/archive" className="home-v3-view-all text-sm uppercase tracking-widest font-bold mt-1 text-[var(--ink)] hover:text-[var(--gold)]">
                   View All Archives <ArrowRight size={14} />
                 </Link>
               </div>
