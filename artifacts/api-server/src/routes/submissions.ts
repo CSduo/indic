@@ -594,61 +594,6 @@ router.put("/submissions/:id", async (req, res) => {
     return res.json({
       success: true,
       submission: { ...submission, body: sanitizeArticleBody(submission.body) },
-      publication,
-    });
-  } catch (err) {
-    req.log.error(err);
-    return res.status(500).json({ error: "Failed to update submission" });
-  }
-});
-
-// DELETE /api/submissions/:id — owner deletes their own submission/draft
-// as long as it has not yet been accepted/published by an admin.
-router.delete("/submissions/:id", async (req, res) => {
-  try {
-    const auth = await getUserAuth(req);
-    if (!auth) return res.status(401).json({ error: "Unauthorized" });
-
-    const [existing] = await db.select().from(submissionsTable)
-      .where(eq(submissionsTable.id, req.params.id)).limit(1);
-    if (!existing) return res.status(404).json({ error: "Submission not found" });
-    if (existing.userId !== auth.userId) return res.status(403).json({ error: "Forbidden" });
-    if (!USER_DELETABLE_STATUSES.includes(existing.status)) {
-      return res.status(403).json({ error: "This submission has already been approved and can no longer be deleted" });
-    }
-      submitterEmail: data.submitterEmail || auth?.email || "",
-      type: data.type || "ESSAY",
-      title: data.title || "Untitled draft",
-      domain: data.domain ? normalizeCategorySlug(data.domain) : null,
-      abstract: data.abstract || "",
-      body: sanitizeArticleBody(data.body || ""),
-      notes: data.notes || null,
-      consent: !isDraft,
-      status: isDraft ? "DRAFT" : "RECEIVED",
-      audioUrl: data.audioUrl || null,
-      audioPublicId: data.audioPublicId || null,
-    }).returning();
-
-    const publication = isDraft
-      ? null
-      : await ensurePublicPublicationForSubmission(submission);
-
-    if (!isDraft) {
-      sendSubmissionNotification(submission).catch((err) => {
-        req.log.error(err, "Failed to send write submission notification");
-      });
-    }
-
-    return res.status(201).json({ success: true, submission, publication });
-  } catch (err) {
-    req.log.error(err);
-    return res.status(500).json({ error: "Write submission failed" });
-  }
-});
-
-// GET /api/submissions (user's own — includes drafts, never shown to admin)
-// ?deleted=true returns only soft-deleted submissions; otherwise excludes them
-router.get("/submissions", async (req, res) => {
   try {
     const auth = await getUserAuth(req);
     if (!auth) return res.status(401).json({ error: "Unauthorized" });
