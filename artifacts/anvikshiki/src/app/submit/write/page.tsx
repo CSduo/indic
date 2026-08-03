@@ -1202,96 +1202,13 @@ export default function SubmitWritePage() {
                 </div>
               )}
 
-              {/* Editable area */}
-              <div
-                ref={editorRef}
-                contentEditable
-                onInput={e => {
-                  set("body", e.currentTarget.innerHTML);
-                  updateEditorStates();
-                }}
-                onPaste={handleEditorPaste}
-                onBlur={e => set("body", e.currentTarget.innerHTML)}
-                onKeyUp={updateEditorStates}
-                onMouseUp={updateEditorStates}
-                onClick={updateEditorStates}
-                onFocus={updateEditorStates}
-                className="w-full p-6 md:p-8 min-h-[560px] outline-none bg-transparent text-[var(--ink)] font-body leading-[1.85] overflow-y-auto prose-editor"
-                data-placeholder="Begin writing your sacred manuscript here..."
-                style={{ boxSizing: "border-box" }}
-              />
-
-              {/* Inline Audio Upload Hidden Input */}
-              <input
-                type="file"
-                ref={inlineAudioInputRef}
-                onChange={handleInlineAudioUpload}
-                accept="audio/*"
-                className="sr-only"
-              />
-
-              {/* Inline VN Recorder Strip */}
-              {showInlineVNRecorder && (
-                <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[var(--surface-elevated)] border-t border-[rgba(201,152,58,0.15)]">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${inlineRecording ? 'bg-rose-500 animate-pulse' : 'bg-[var(--gold)]'}`} />
-                    <span className="font-ui text-xs text-[var(--ink-soft)]">
-                      {inlineRecording 
-                        ? `Recording: ${Math.floor(inlineRecordTime / 60)}:${(inlineRecordTime % 60).toString().padStart(2, '0')} / 5:00` 
-                        : uploadingInlineAudio 
-                        ? 'Uploading voice note…' 
-                        : 'Record or upload a voice note to insert at cursor'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {!inlineRecording && !uploadingInlineAudio && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={startInlineRecording}
-                          className="px-2.5 py-1 rounded bg-[rgba(201,152,58,0.15)] hover:bg-[rgba(201,152,58,0.25)] text-xs text-[var(--gold-bright)] font-ui font-semibold cursor-pointer border-none"
-                        >
-                          Record
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => inlineAudioInputRef.current?.click()}
-                          className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-xs text-[var(--ink-soft)] font-ui font-semibold cursor-pointer border-none"
-                        >
-                          Upload File
-                        </button>
-                      </>
-                    )}
-                    {inlineRecording && (
-                      <button
-                        type="button"
-                        onClick={stopInlineRecording}
-                        className="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-700 text-xs text-white font-ui font-semibold animate-pulse cursor-pointer border-none"
-                      >
-                        Stop & Insert
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (inlineRecording) stopInlineRecording();
-                        setShowInlineVNRecorder(false);
-                      }}
-                      disabled={uploadingInlineAudio}
-                      className="px-2.5 py-1 rounded hover:bg-white/5 text-xs text-[var(--ink-faint)] font-ui cursor-pointer border-none bg-transparent"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Rich Text Toolbar (placed at the bottom) */}
-              <div className="flex flex-wrap items-center gap-2 p-2 bg-[var(--surface-elevated)] border-t border-[rgba(201,152,58,0.15)] select-none">
+              {/* Sticky Top Toolbar */}
+              <div className="flex flex-wrap items-center gap-2 p-2.5 bg-[var(--surface-elevated)] border-b border-[rgba(201,152,58,0.15)] sticky top-0 z-10 select-none shadow-sm overflow-x-auto">
                 {/* Font Selector */}
                 <select
                   className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
                   onChange={e => execCmd("fontName", e.target.value)}
+                  onMouseDown={e => e.stopPropagation()}
                   defaultValue="Garamond"
                 >
                   <option value="Garamond">Garamond (Default)</option>
@@ -1306,6 +1223,7 @@ export default function SubmitWritePage() {
                 <select
                   className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
                   onChange={e => execCmd("formatBlock", e.target.value)}
+                  onMouseDown={e => e.stopPropagation()}
                   value={currentBlockType}
                 >
                   <option value="p">Paragraph</option>
@@ -1320,7 +1238,8 @@ export default function SubmitWritePage() {
                 {/* Basic styles */}
                 <button
                   type="button"
-                  onClick={() => execCmd("bold")}
+                  onMouseDown={e => { e.preventDefault(); execCmd("bold"); }}
+                  onTouchStart={e => { e.preventDefault(); execCmd("bold"); }}
                   className="p-1 px-2.5 rounded hover:bg-white/5 font-bold text-xs border-none cursor-pointer transition-all"
                   style={{
                     color: isBold ? "var(--gold)" : "var(--ink-soft)",
@@ -1332,7 +1251,8 @@ export default function SubmitWritePage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => execCmd("italic")}
+                  onMouseDown={e => { e.preventDefault(); execCmd("italic"); }}
+                  onTouchStart={e => { e.preventDefault(); execCmd("italic"); }}
                   className="p-1 px-2.5 rounded hover:bg-white/5 italic text-xs border-none cursor-pointer transition-all"
                   style={{
                     color: isItalic ? "var(--gold)" : "var(--ink-soft)",
@@ -1344,7 +1264,8 @@ export default function SubmitWritePage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => execCmd("underline")}
+                  onMouseDown={e => { e.preventDefault(); execCmd("underline"); }}
+                  onTouchStart={e => { e.preventDefault(); execCmd("underline"); }}
                   className="p-1 px-2.5 rounded hover:bg-white/5 underline text-xs border-none cursor-pointer transition-all"
                   style={{
                     color: isUnderline ? "var(--gold)" : "var(--ink-soft)",
@@ -1356,7 +1277,8 @@ export default function SubmitWritePage() {
                 </button>
                 <button
                   type="button"
-                  onClick={toggleBlockquote}
+                  onMouseDown={e => { e.preventDefault(); toggleBlockquote(); }}
+                  onTouchStart={e => { e.preventDefault(); toggleBlockquote(); }}
                   className="p-1 px-2.5 rounded hover:bg-white/5 text-xs border-none cursor-pointer transition-all"
                   style={{
                     color: isQuoteActive ? "var(--gold)" : "var(--ink-soft)",
@@ -1374,6 +1296,7 @@ export default function SubmitWritePage() {
                 <select
                   className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
                   onChange={e => execCmd("foreColor", e.target.value)}
+                  onMouseDown={e => e.stopPropagation()}
                   defaultValue=""
                 >
                   <option value="">Text Color</option>
@@ -1385,6 +1308,7 @@ export default function SubmitWritePage() {
                 <select
                   className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
                   onChange={e => execCmd("hiliteColor", e.target.value)}
+                  onMouseDown={e => e.stopPropagation()}
                   defaultValue=""
                 >
                   <option value="">Highlight</option>
@@ -1404,7 +1328,8 @@ export default function SubmitWritePage() {
                 />
                 <button
                   type="button"
-                  onClick={() => inlineImgInputRef.current?.click()}
+                  onMouseDown={e => { e.preventDefault(); inlineImgInputRef.current?.click(); }}
+                  onTouchStart={e => { e.preventDefault(); inlineImgInputRef.current?.click(); }}
                   disabled={insertingImage}
                   className="flex items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent"
                   style={{ color: "var(--gold-soft)" }}
@@ -1417,14 +1342,14 @@ export default function SubmitWritePage() {
                 {/* Voice Note inline recorder toggle */}
                 <button
                   type="button"
-                  onClick={() => setShowInlineVNRecorder(v => !v)}
-                  disabled={uploadingInlineAudio}
-                  className="flex items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent"
+                  onMouseDown={e => { e.preventDefault(); setShowInlineVNRecorder(prev => !prev); }}
+                  onTouchStart={e => { e.preventDefault(); setShowInlineVNRecorder(prev => !prev); }}
+                  className="flex items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent animate-none"
                   style={{ color: "var(--gold-soft)" }}
-                  title="Insert Voice Note"
+                  title="Add Voice Note"
                 >
                   <Mic size={13} />
-                  <span>{uploadingInlineAudio ? "Uploading…" : "Add VN"}</span>
+                  <span>Voice Note</span>
                 </button>
 
                 <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />

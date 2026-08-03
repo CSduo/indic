@@ -413,16 +413,134 @@ export default function EditArticlePage() {
               </span>
             </div>
 
-            {/* Editable area */}
-            <div
-              ref={editorRef}
-              contentEditable
-              onInput={e => setBody(e.currentTarget.innerHTML)}
-              onBlur={e => setBody(e.currentTarget.innerHTML)}
-              className="w-full p-6 min-h-[420px] max-h-[600px] outline-none bg-transparent text-[var(--ink)] font-body leading-[1.85] overflow-y-auto prose-editor"
-              data-placeholder="Begin writing your sacred manuscript here..."
-              style={{ boxSizing: "border-box" }}
-            />
+            {/* Sticky Top Toolbar */}
+            <div className="flex flex-wrap items-center gap-2 p-2.5 bg-[var(--surface-elevated)] border-b border-[rgba(201,152,58,0.15)] sticky top-0 z-10 select-none shadow-sm overflow-x-auto">
+              {/* Font Selector */}
+              <select
+                className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
+                onChange={e => execCmd("fontName", e.target.value)}
+                onMouseDown={e => e.stopPropagation()}
+                defaultValue="Garamond"
+              >
+                <option value="Garamond">Garamond (Default)</option>
+                <option value="'Noto Serif Devanagari', serif">Devanagari</option>
+                <option value="'Noto Serif Sharada', serif">Sharada</option>
+                <option value="'Noto Serif Tamil', serif">Tamil</option>
+                <option value="'Noto Serif Telugu', serif">Telugu</option>
+                <option value="'Noto Serif Gurmukhi', serif">Gurmukhi</option>
+              </select>
+
+              {/* Block Format */}
+              <select
+                className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
+                onChange={e => execCmd("formatBlock", e.target.value)}
+                onMouseDown={e => e.stopPropagation()}
+                defaultValue="p"
+              >
+                <option value="p">Paragraph</option>
+                <option value="h1">Main Heading (H1)</option>
+                <option value="h2">Subheading (H2)</option>
+                <option value="h3">Third Heading (H3)</option>
+                <option value="h4">Fourth Heading (H4)</option>
+                <option value="blockquote">Quote block</option>
+              </select>
+
+              <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+
+              {/* Basic styles */}
+              <button
+                type="button"
+                onMouseDown={e => { e.preventDefault(); execCmd("bold"); }}
+                onTouchStart={e => { e.preventDefault(); execCmd("bold"); }}
+                className="p-1 px-2.5 rounded hover:bg-white/5 font-bold text-xs border-none bg-transparent cursor-pointer"
+                style={{ color: "var(--ink-soft)" }}
+                title="Bold"
+              >
+                B
+              </button>
+              <button
+                type="button"
+                onMouseDown={e => { e.preventDefault(); execCmd("italic"); }}
+                onTouchStart={e => { e.preventDefault(); execCmd("italic"); }}
+                className="p-1 px-2.5 rounded hover:bg-white/5 italic text-xs border-none bg-transparent cursor-pointer"
+                style={{ color: "var(--ink-soft)" }}
+                title="Italic"
+              >
+                I
+              </button>
+              <button
+                type="button"
+                onMouseDown={e => { e.preventDefault(); execCmd("underline"); }}
+                onTouchStart={e => { e.preventDefault(); execCmd("underline"); }}
+                className="p-1 px-2.5 rounded hover:bg-white/5 underline text-xs border-none bg-transparent cursor-pointer"
+                style={{ color: "var(--ink-soft)" }}
+                title="Underline"
+              >
+                U
+              </button>
+
+              <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+
+              {/* Colors */}
+              <select
+                className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
+                onChange={e => execCmd("foreColor", e.target.value)}
+                onMouseDown={e => e.stopPropagation()}
+                defaultValue=""
+              >
+                <option value="">Text Color</option>
+                <option value="#ffffff">White</option>
+                <option value="#a3a3a3">Muted Gray</option>
+              </select>
+
+              {/* Highlights */}
+              <select
+                className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
+                onChange={e => execCmd("hiliteColor", e.target.value)}
+                onMouseDown={e => e.stopPropagation()}
+                defaultValue=""
+              >
+                <option value="">Highlight</option>
+                <option value="rgba(255,255,255,0.15)">White glow</option>
+                <option value="transparent">None</option>
+              </select>
+
+              <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+
+              {/* Image upload inline */}
+              <input
+                type="file"
+                ref={inlineImgInputRef}
+                onChange={handleInlineImageUpload}
+                accept="image/*"
+                className="sr-only"
+              />
+              <button
+                type="button"
+                onMouseDown={e => { e.preventDefault(); inlineImgInputRef.current?.click(); }}
+                onTouchStart={e => { e.preventDefault(); inlineImgInputRef.current?.click(); }}
+                disabled={insertingImage}
+                className="flex items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent"
+                style={{ color: "var(--gold-soft)" }}
+                title="Insert Inline Image"
+              >
+                <ImageIcon size={13} />
+                <span>{insertingImage ? "Uploading…" : "Add Image"}</span>
+              </button>
+
+              {/* Voice Note inline recorder toggle */}
+              <button
+                type="button"
+                onMouseDown={e => { e.preventDefault(); setShowInlineVNRecorder(prev => !prev); }}
+                onTouchStart={e => { e.preventDefault(); setShowInlineVNRecorder(prev => !prev); }}
+                className="flex items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent animate-none"
+                style={{ color: "var(--gold-soft)" }}
+                title="Add Voice Note"
+              >
+                <Mic size={13} />
+                <span>Voice Note</span>
+              </button>
+            </div>
 
             {/* Inline Audio Upload Hidden Input */}
             <input
@@ -435,7 +553,7 @@ export default function EditArticlePage() {
 
             {/* Inline VN Recorder Strip */}
             {showInlineVNRecorder && (
-              <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[var(--surface-elevated)] border-t border-[rgba(201,152,58,0.15)]">
+              <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[var(--surface-elevated)] border-b border-[rgba(201,152,58,0.15)]">
                 <div className="flex items-center gap-2">
                   <div className={`w-2 h-2 rounded-full ${inlineRecording ? 'bg-rose-500 animate-pulse' : 'bg-[var(--gold)]'}`} />
                   <span className="font-ui text-xs text-[var(--ink-soft)]">
@@ -489,125 +607,16 @@ export default function EditArticlePage() {
               </div>
             )}
 
-            {/* Rich Text Toolbar */}
-            <div className="flex flex-wrap items-center gap-2 p-2 bg-[var(--surface-elevated)] border-t border-[rgba(201,152,58,0.15)] select-none">
-              {/* Font Selector */}
-              <select
-                className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
-                onChange={e => execCmd("fontName", e.target.value)}
-                defaultValue="Garamond"
-              >
-                <option value="Garamond">Garamond (Default)</option>
-                <option value="'Noto Serif Devanagari', serif">Devanagari</option>
-                <option value="'Noto Serif Sharada', serif">Sharada</option>
-                <option value="'Noto Serif Tamil', serif">Tamil</option>
-                <option value="'Noto Serif Telugu', serif">Telugu</option>
-                <option value="'Noto Serif Gurmukhi', serif">Gurmukhi</option>
-              </select>
-
-              {/* Block Format */}
-              <select
-                className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
-                onChange={e => execCmd("formatBlock", e.target.value)}
-                defaultValue="p"
-              >
-                <option value="p">Paragraph</option>
-                <option value="h1">Main Heading (H1)</option>
-                <option value="h2">Subheading (H2)</option>
-                <option value="h3">Third Heading (H3)</option>
-                <option value="h4">Fourth Heading (H4)</option>
-                <option value="blockquote">Quote block</option>
-              </select>
-
-              <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
-
-              {/* Basic styles */}
-              <button
-                type="button"
-                onClick={() => execCmd("bold")}
-                className="p-1 px-2.5 rounded hover:bg-white/5 font-bold text-xs border-none bg-transparent cursor-pointer"
-                style={{ color: "var(--ink-soft)" }}
-                title="Bold"
-              >
-                B
-              </button>
-              <button
-                type="button"
-                onClick={() => execCmd("italic")}
-                className="p-1 px-2.5 rounded hover:bg-white/5 italic text-xs border-none bg-transparent cursor-pointer"
-                style={{ color: "var(--ink-soft)" }}
-                title="Italic"
-              >
-                I
-              </button>
-              <button
-                type="button"
-                onClick={() => execCmd("underline")}
-                className="p-1 px-2.5 rounded hover:bg-white/5 underline text-xs border-none bg-transparent cursor-pointer"
-                style={{ color: "var(--ink-soft)" }}
-                title="Underline"
-              >
-                U
-              </button>
-
-              <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
-
-              {/* Colors */}
-              <select
-                className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
-                onChange={e => execCmd("foreColor", e.target.value)}
-                defaultValue=""
-              >
-                <option value="">Text Color</option>
-                <option value="#ffffff">White</option>
-                <option value="#a3a3a3">Muted Gray</option>
-              </select>
-
-              {/* Highlights */}
-              <select
-                className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
-                onChange={e => execCmd("hiliteColor", e.target.value)}
-                defaultValue=""
-              >
-                <option value="">Highlight</option>
-                <option value="rgba(255,255,255,0.15)">White glow</option>
-                <option value="transparent">None</option>
-              </select>
-
-              <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
-
-              {/* Image upload inline */}
-              <input
-                type="file"
-                ref={inlineImgInputRef}
-                onChange={handleInlineImageUpload}
-                accept="image/*"
-                className="sr-only"
-              />
-              <button
-                type="button"
-                onClick={() => inlineImgInputRef.current?.click()}
-                disabled={insertingImage}
-                className="flex items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent"
-                style={{ color: "var(--gold-soft)" }}
-                title="Insert Inline Image"
-              >
-                <ImageIcon size={13} />
-                <span>{insertingImage ? "Uploading…" : "Add Image"}</span>
-              </button>
-
-              {/* Voice Note inline recorder toggle */}
-              <button
-                type="button"
-                onClick={() => setShowInlineVNRecorder(prev => !prev)}
-                className="flex items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent animate-none"
-                style={{ color: "var(--gold-soft)" }}
-                title="Add Voice Note"
-              >
-                <Mic size={13} />
-                <span>Voice Note</span>
-              </button>
-            </div>
+            {/* Editable area */}
+            <div
+              ref={editorRef}
+              contentEditable
+              onInput={e => setBody(e.currentTarget.innerHTML)}
+              onBlur={e => setBody(e.currentTarget.innerHTML)}
+              className="w-full p-6 min-h-[420px] max-h-[600px] outline-none bg-transparent text-[var(--ink)] font-body leading-[1.85] overflow-y-auto prose-editor"
+              data-placeholder="Begin writing your sacred manuscript here..."
+              style={{ boxSizing: "border-box" }}
+            />
           </div>
 
           {/* Actions */}
