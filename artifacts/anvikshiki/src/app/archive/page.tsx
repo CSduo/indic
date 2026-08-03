@@ -1,208 +1,322 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link } from "wouter";
-import { ArrowRight, Search, SlidersHorizontal } from "lucide-react";
-import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
-import { GlyphTag } from "@/components/manuscript/GlyphTag";
-import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
-import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
-import { EmptyState } from "@/components/sacred/EmptyState";
+import { ArrowRight, Search, SlidersHorizontal, ChevronLeft, ChevronRight, Filter } from "lucide-react";
 import { AmbientPetals, FloralCorner } from "@/components/sacred/FloralDecor";
-import { DOMAIN_ORDER } from "@/lib/domainMeta";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
+
+const ALL_DOMAINS = [
+  { slug: "all", label: "All Domains" },
+  { slug: "philosophy", label: "Philosophy" },
+  { slug: "history", label: "History" },
+  { slug: "political-theory", label: "Political Theory" },
+  { slug: "psychology", label: "Psychology" },
+  { slug: "sociology", label: "Sociology" },
+  { slug: "science", label: "Science" },
+  { slug: "geopolitics", label: "Geopolitics" },
+  { slug: "archive", label: "Archive" },
+  { slug: "civilizational-thought", label: "Civilizational Thought" },
+  { slug: "aesthetics", label: "Aesthetics" },
+  { slug: "sanskrit-studies", label: "Sanskrit Studies" },
+  { slug: "translations", label: "Translations" },
+  { slug: "multimedia", label: "Multimedia" },
+];
 
 export default function ArchivePage() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [selectedDomain, setSelectedDomain] = useState("all");
+  const [selectedKind, setSelectedKind] = useState("all"); // "all", "article", "paper"
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 8;
 
   useEffect(() => {
     Promise.all([
-      fetch(`${base()}/api/articles?limit=50`).then((response) => response.json()).catch(() => ({ articles: [] })),
-      fetch(`${base()}/api/papers?limit=50`).then((response) => response.json()).catch(() => ({ papers: [] })),
+      fetch(`${base()}/api/articles?limit=100`, { credentials: "include" }).then((r) => r.json()).catch(() => ({ articles: [] })),
+      fetch(`${base()}/api/papers?limit=100`, { credentials: "include" }).then((r) => r.json()).catch(() => ({ papers: [] })),
     ]).then(([articles, papers]) => {
-      const all = [
-        ...(articles.articles || []).map((article: any) => ({ ...article, kind: "essay" })),
-        ...(papers.papers || []).map((paper: any) => ({ ...paper, kind: "paper" })),
-      ].sort((a, b) => new Date(b.createdAt || b.publishedAt || 0).getTime() - new Date(a.createdAt || a.publishedAt || 0).getTime());
-      setItems(all);
+      const allArticles = (articles.articles || []).map((a: any) => ({
+        id: a.id,
+        kind: "article",
+        slug: a.slug,
+        title: a.title,
+        summary: a.excerpt,
+        imageUrl: a.heroImageUrl || "/images/provided/champa-temple.jpg",
+        categorySlug: a.categorySlug || "history",
+        categoryName: a.category?.name || "Essay",
+        authorName: a.authorName || "Editorial",
+        publishedAt: a.publishedAt || a.createdAt || "2026-08-04T00:00:00.000Z",
+        readingMinutes: a.readingMinutes || 15,
+      }));
+
+      const allPapers = (papers.papers || []).map((p: any) => ({
+        id: p.id,
+        kind: "paper",
+        slug: p.slug,
+        title: p.title,
+        summary: p.abstract,
+        imageUrl: p.coverImageUrl || "/images/provided/about-hero.jpg",
+        categorySlug: p.categorySlug || "philosophy",
+        categoryName: p.category?.name || "Research Paper",
+        authorName: p.authorName || "Editorial",
+        publishedAt: p.publishedAt || p.createdAt || "2026-08-04T00:00:00.000Z",
+        readingMinutes: p.readingMinutes || 25,
+      }));
+
+      setItems([...allArticles, ...allPapers]);
       setLoading(false);
     });
   }, []);
 
-  const filtered = query
-    ? items.filter((item) => item.title?.toLowerCase().includes(query.toLowerCase()) || item.authorName?.toLowerCase().includes(query.toLowerCase()))
-    : items;
+  // Filter & Sort
+  const filteredAndSorted = useMemo(() => {
+    let result = [...items];
 
-  const byYear: Record<string, any[]> = {};
-  for (const item of filtered) {
-    const year = item.createdAt || item.publishedAt ? new Date(item.createdAt || item.publishedAt).getFullYear().toString() : "Undated";
-    if (!byYear[year]) byYear[year] = [];
-    byYear[year].push(item);
-  }
-  const years = Object.keys(byYear).sort((a, b) => b.localeCompare(a));
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      result = result.filter(
+        (item) => item.title?.toLowerCase().includes(q) || item.summary?.toLowerCase().includes(q) || item.authorName?.toLowerCase().includes(q)
+      );
+    }
+
+    if (selectedDomain !== "all") {
+      result = result.filter(
+        (item) => item.categorySlug?.toLowerCase() === selectedDomain.toLowerCase() || item.categoryName?.toLowerCase() === selectedDomain.toLowerCase()
+      );
+    }
+
+    if (selectedKind !== "all") {
+      result = result.filter((item) => item.kind === selectedKind);
+    }
+
+    result.sort((a, b) => {
+      const timeA = new Date(a.publishedAt).getTime();
+      const timeB = new Date(b.publishedAt).getTime();
+      return sortOrder === "newest" ? timeB - timeA : timeA - timeB;
+    });
+
+    return result;
+  }, [items, query, selectedDomain, selectedKind, sortOrder]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredAndSorted.length / ITEMS_PER_PAGE));
+  const paginatedItems = filteredAndSorted.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   return (
-    <div className="relative bg-[var(--bg)] overflow-hidden">
+    <div className="relative bg-[var(--bg)] min-h-screen text-white py-8">
       <AmbientPetals />
-      <FloralCorner position="tl" size={80} className="absolute top-0 left-0 text-[var(--gold)] opacity-40" />
-      <FloralCorner position="tr" size={80} className="absolute top-0 right-0 text-[var(--gold)] opacity-40" />
-      <section className="container-anv relative z-10 py-6 md:py-10">
-        <nav className="mb-4 flex items-center gap-2 font-ui text-xs font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]" aria-label="Breadcrumb">
-          <Link href="/" className="hover:text-[var(--terracotta)]">Home</Link>
+      <FloralCorner position="tl" size={80} className="absolute top-0 left-0 text-[var(--gold)] opacity-30" />
+      <FloralCorner position="tr" size={80} className="absolute top-0 right-0 text-[var(--gold)] opacity-30" />
+
+      <div className="container-anv relative z-10">
+        {/* Breadcrumb */}
+        <nav className="mb-6 flex items-center gap-2 font-ui text-xs font-bold uppercase tracking-widest text-white/70">
+          <Link href="/" className="hover:text-[var(--gold)]">Home</Link>
           <span>/</span>
-          <span className="text-[var(--terracotta)]">Archive</span>
+          <span className="text-[var(--gold)]">All Archives</span>
         </nav>
 
-        <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)_240px]">
-          <ParchmentCard className="hidden p-5 lg:block">
-            <p className="type-section-label mb-4">Timeline</p>
-            <ol className="space-y-4 font-ui text-xs text-[var(--ink-faint)]">
-              {["Before 3000 BCE", "3000-1000 BCE", "1000-500 BCE", "500 BCE-500 CE", "500-1500 CE", "1500-Present"].map((period, index) => (
-                <li key={period} className="flex gap-3">
-                  <span className="mt-1 h-3 w-3 rounded-full border border-[var(--gold)] bg-[var(--surface)]" />
-                  <span><strong className="block text-[var(--ink)]">{period}</strong>{index === 0 ? "Origins & Cosmos" : index === 5 ? "Modern inquiry" : "Archive layer"}</span>
-                </li>
-              ))}
-            </ol>
-          </ParchmentCard>
-
-          <ParchmentCard className="overflow-hidden" corners={false}>
-            <div className="relative min-h-[420px]">
-              <img src={asset("/images/provided/archive-voyage-harbor-hero.jpg")} alt="Illustrated ship arriving at an ornate harbor city under a bright sun" className="absolute inset-0 h-full w-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg)] via-[var(--bg)]/15 to-transparent" aria-hidden="true" />
-              <div className="absolute inset-x-0 bottom-0 p-7 text-center">
-                <h1 className="font-display text-[clamp(2.5rem,6vw,4.8rem)] leading-none text-[var(--ink)]">Archive / Knowledge Map</h1>
-                <p className="mx-auto mt-3 max-w-xl font-body text-lg leading-8 text-[var(--ink-soft)]">
-                  Navigate time, place, and idea through the living archive of inquiry.
-                </p>
-              </div>
-            </div>
-          </ParchmentCard>
-
-          <ParchmentCard className="hidden p-5 lg:block">
-            <p className="type-section-label mb-4">Symbolic Taxonomy</p>
-            <div className="grid grid-cols-3 gap-2">
-              {DOMAIN_ORDER.slice(0, 12).map((domain) => (
-                <Link key={domain} href={`/domains/${domain}`}>
-                  <span className="grid aspect-square place-items-center rounded-[8px] border border-[var(--border)] bg-[var(--surface)] text-[var(--gold)] hover:border-[var(--terracotta)]">
-                    <AnimalGlyph domain={domain} size={28} />
-                  </span>
-                </Link>
-              ))}
-            </div>
-            <Link href="/browse" className="btn-ink mt-4 w-full">View Glyphs <ArrowRight size={14} /></Link>
-          </ParchmentCard>
+        {/* Page Title */}
+        <div className="mb-8 text-center md:text-left">
+          <h1 className="text-3xl md:text-5xl font-extrabold uppercase tracking-[0.16em] text-white">
+            All Archives &amp; Manuscripts
+          </h1>
+          <p className="mt-2 text-sm md:text-base text-white/80 max-w-2xl">
+            Explore the complete repository of published essays, research papers, and civilizational scholarship sorted from latest to oldest.
+          </p>
         </div>
-      </section>
 
-      <section className="container-anv pb-14">
-        <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)_240px]">
-          <aside className="hidden space-y-4 lg:block">
-            <ParchmentCard className="p-5">
-              <p className="type-section-label mb-4">Regions</p>
-              <div className="rounded-[8px] border border-[var(--border)] bg-[var(--ink-wash)] p-4 text-center font-ui text-xs text-[var(--ink-faint)]">
-                Cultural and geographic filters
+        {/* Main 2-Column Grid: Left Filter Sidebar + Right Archives List */}
+        <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
+          
+          {/* Left Sidebar Filter Mechanism */}
+          <aside className="bg-[#1c1c1e] border-2 border-[#333336] rounded-2xl p-6 h-fit space-y-6">
+            <div className="flex items-center gap-2 text-white font-extrabold uppercase tracking-widest text-sm border-b border-[#333336] pb-3">
+              <Filter size={16} className="text-[var(--gold)]" /> Filter Archives
+            </div>
+
+            {/* Content Type Filter */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-white/70 mb-2">Content Type</label>
+              <select
+                value={selectedKind}
+                onChange={(e) => { setSelectedKind(e.target.value); setCurrentPage(1); }}
+                className="w-full bg-[#120b05] border border-[#333336] text-white rounded-xl p-3 text-xs font-bold uppercase tracking-wider focus:border-[var(--gold)] outline-none"
+              >
+                <option value="all">All Types</option>
+                <option value="article">Essays</option>
+                <option value="paper">Research Papers</option>
+              </select>
+            </div>
+
+            {/* Sort Order */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-white/70 mb-2">Sort Order</label>
+              <select
+                value={sortOrder}
+                onChange={(e) => { setSortOrder(e.target.value as "newest" | "oldest"); setCurrentPage(1); }}
+                className="w-full bg-[#120b05] border border-[#333336] text-white rounded-xl p-3 text-xs font-bold uppercase tracking-wider focus:border-[var(--gold)] outline-none"
+              >
+                <option value="newest">Latest to Oldest</option>
+                <option value="oldest">Oldest to Latest</option>
+              </select>
+            </div>
+
+            {/* Domains List Filter */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-white/70 mb-3">Domains of Inquiry</label>
+              <div className="flex flex-col gap-1.5 max-h-[380px] overflow-y-auto pr-1">
+                {ALL_DOMAINS.map((domain) => {
+                  const isActive = selectedDomain === domain.slug;
+                  return (
+                    <button
+                      key={domain.slug}
+                      onClick={() => { setSelectedDomain(domain.slug); setCurrentPage(1); }}
+                      className={`text-left px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-between ${
+                        isActive ? "bg-[var(--terracotta)] text-white shadow-md" : "bg-[#120b05] text-white/80 hover:bg-[#252528] hover:text-white"
+                      }`}
+                    >
+                      <span>{domain.label}</span>
+                      {isActive && <span className="w-2 h-2 rounded-full bg-white" />}
+                    </button>
+                  );
+                })}
               </div>
-            </ParchmentCard>
-            <ParchmentCard className="p-5">
-              <p className="type-section-label mb-4">Civilizations</p>
-              <div className="space-y-2">
-                {["Indus Valley", "Ancient Egypt", "Vedic Bharat", "Classical Greece", "Han China"].map((item, index) => (
-                  <div key={item} className="flex items-center gap-2 font-ui text-xs text-[var(--ink-faint)]">
-                    <AnimalGlyph domain={DOMAIN_ORDER[index]} size={18} /> {item}
-                  </div>
-                ))}
-              </div>
-            </ParchmentCard>
+            </div>
           </aside>
 
-          <main>
-            <ParchmentCard className="mb-6 grid gap-3 p-4 md:grid-cols-[1fr_auto]">
-              <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" aria-hidden="true" />
-                <input
-                  type="search"
-                  className="input-sacred pl-10"
-                  placeholder="Search archive titles and authors..."
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  aria-label="Search archive"
-                />
-              </div>
-              <button type="button" className="btn-ink"><SlidersHorizontal size={14} /> Filters</button>
-            </ParchmentCard>
-
-            <OrnamentDivider className="mb-8" />
-
-            {loading ? (
-              <div className="grid gap-4 md:grid-cols-2">
-                {[0, 1, 2, 3].map((item) => <div key={item} className="h-44 animate-pulse rounded-[8px] bg-[var(--ink-wash-strong)]" />)}
-              </div>
-            ) : filtered.length === 0 ? (
-              <EmptyState
-                title={query ? "No results found" : "Archive is empty"}
-                description={query ? `No works match "${query}". Try a different search.` : "Published essays and papers will appear here once the editorial team approves and publishes them."}
-                action={<Link href="/submit" className="btn-terracotta">Submit Work <ArrowRight size={14} /></Link>}
+          {/* Right Main Content */}
+          <main className="space-y-6">
+            {/* Search Bar */}
+            <div className="relative">
+              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/50" />
+              <input
+                type="search"
+                className="w-full bg-[#1c1c1e] border-2 border-[#333336] rounded-2xl pl-12 pr-4 py-3.5 text-sm text-white placeholder-white/50 font-medium focus:border-[var(--gold)] outline-none"
+                placeholder="Search archive by title, excerpt, or author..."
+                value={query}
+                onChange={(e) => { setQuery(e.target.value); setCurrentPage(1); }}
               />
+            </div>
+
+            {/* Results Count Bar */}
+            <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-white/70 px-1">
+              <span>Showing {filteredAndSorted.length} Archives</span>
+              <span>Page {currentPage} of {totalPages}</span>
+            </div>
+
+            {/* Archives Cards List */}
+            {loading ? (
+              <div className="space-y-6">
+                {[1, 2, 3].map((n) => (
+                  <div key={n} className="h-64 rounded-3xl bg-[#1c1c1e] animate-pulse border-2 border-[#333336]" />
+                ))}
+              </div>
+            ) : paginatedItems.length === 0 ? (
+              <div className="bg-[#1c1c1e] border-2 border-[#333336] rounded-3xl p-12 text-center text-white">
+                <p className="text-xl font-bold mb-2">No matching archives found</p>
+                <p className="text-sm text-white/70 mb-6">Try adjusting your filters or search terms.</p>
+                <button
+                  onClick={() => { setSelectedDomain("all"); setSelectedKind("all"); setQuery(""); setCurrentPage(1); }}
+                  className="px-6 py-2.5 rounded-xl bg-[var(--terracotta)] text-white font-bold text-xs uppercase tracking-wider"
+                >
+                  Reset All Filters
+                </button>
+              </div>
             ) : (
-              <div>
-                {years.map((year) => (
-                  <section key={year} className="mb-10">
-                    <div className="mb-5 flex items-center gap-3">
-                      <h2 className="font-display text-3xl text-[var(--gold)]">{year}</h2>
-                      <div className="h-px flex-1 bg-gradient-to-r from-[var(--border-gold)] to-transparent" aria-hidden="true" />
-                      <span className="font-ui text-xs text-[var(--muted)]">{byYear[year].length} works</span>
+              <div className="flex flex-col gap-8">
+                {paginatedItems.map((publication) => (
+                  <Link
+                    key={`${publication.kind}-${publication.id}`}
+                    href={`/${publication.kind === "paper" ? "papers" : "articles"}/${publication.slug}`}
+                    className="group relative w-full rounded-3xl overflow-hidden border-2 border-[#333336] bg-[#1c1c1e] shadow-2xl block transition-all duration-500 hover:scale-[1.01] hover:border-[var(--gold)]"
+                  >
+                    {publication.imageUrl && (
+                      <div className="w-full h-[280px] md:h-[360px] overflow-hidden relative bg-black">
+                        <img
+                          src={publication.imageUrl}
+                          alt={publication.title}
+                          className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      </div>
+                    )}
+                    <div className="p-6 md:p-8 flex flex-col justify-between text-white bg-[#1c1c1e]">
+                      <h3 className="text-xl md:text-3xl font-extrabold text-white mb-2 leading-snug tracking-tight group-hover:text-[var(--gold-bright)] transition-colors" style={{ color: "#FFFFFF" }}>
+                        {publication.title}
+                      </h3>
+                      {publication.summary && (
+                        <p className="text-xs md:text-base text-white opacity-95 line-clamp-2 font-body leading-relaxed mb-2" style={{ color: "#FFFFFF" }}>
+                          {publication.summary}
+                        </p>
+                      )}
+                      
+                      {/* Sectional Divider Line */}
+                      <div className="h-px w-full bg-[#333336] my-4" />
+
+                      <div className="flex items-center justify-between gap-3 font-ui text-xs md:text-sm font-bold uppercase tracking-wider text-white w-full" style={{ color: "#FFFFFF" }}>
+                        <div className="flex items-center gap-2 overflow-hidden flex-wrap flex-1">
+                          <span className="font-extrabold text-white tracking-widest shrink-0" style={{ color: "#FFFFFF" }}>{publication.authorName || "Editorial"}</span>
+                          <span className="px-3 py-1 rounded-full text-[10px] md:text-[11px] font-extrabold uppercase tracking-widest bg-[#C84A10] text-white border border-white/20 shadow-sm shrink-0" style={{ color: "#FFFFFF" }}>
+                            {publication.categoryName || publication.categorySlug || (publication.kind === "paper" ? "Paper" : "Essay")}
+                          </span>
+                          {publication.readingMinutes && (
+                            <span className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-white bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 shrink-0" style={{ color: "#FFFFFF" }}>
+                              {publication.readingMinutes} min read
+                            </span>
+                          )}
+                        </div>
+                        {publication.publishedAt && (
+                          <span className="text-white opacity-90 font-extrabold shrink-0 text-right ml-auto" style={{ color: "#FFFFFF" }}>
+                            {new Date(publication.publishedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      {byYear[year].map((item) => {
-                        const href = item.kind === "paper" ? `/papers/${item.slug || item.id}` : `/articles/${item.slug || item.id}`;
-                        return (
-                          <Link key={`${item.kind}-${item.id}`} href={href}>
-                            <ParchmentCard className="flex h-full min-h-44 flex-col p-5">
-                              <div className="mb-3 flex flex-wrap gap-2">
-                                <span className={item.kind === "paper" ? "badge badge-published" : "badge badge-received"}>{item.kind}</span>
-                                <GlyphTag domain={item.categorySlug || item.categoryId || item.discipline || item.kind} />
-                              </div>
-                              <h3 className="font-display text-2xl leading-tight text-[var(--ink)]">{item.title}</h3>
-                              <div className="mt-auto flex items-center justify-between border-t border-[var(--border)] pt-3">
-                                <span className="font-ui text-xs text-[var(--ink-faint)]">{item.authorName || "Editorial"}</span>
-                                <ArrowRight size={14} className="text-[var(--gold)]" />
-                              </div>
-                            </ParchmentCard>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  </section>
+                  </Link>
                 ))}
               </div>
             )}
-          </main>
 
-          <aside className="hidden lg:block">
-            <ParchmentCard className="sticky top-28 p-5">
-              <p className="type-section-label mb-4">Knowledge Map</p>
-              <svg viewBox="0 0 220 220" className="h-56 w-full" aria-hidden="true">
-                {[
-                  [110, 36, 50, 92],
-                  [110, 36, 170, 88],
-                  [50, 92, 92, 158],
-                  [170, 88, 92, 158],
-                  [92, 158, 166, 174],
-                ].map(([x1, y1, x2, y2], index) => <line key={index} x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--border-gold)" />)}
-                {[[110, 36], [50, 92], [170, 88], [92, 158], [166, 174]].map(([x, y], index) => <circle key={index} cx={x} cy={y} r="20" fill="var(--surface)" stroke="var(--border-gold)" />)}
-              </svg>
-              <div className="-mt-56 grid h-56 place-items-center text-[var(--gold)]">
-                <div className="grid grid-cols-2 gap-7">
-                  {["philosophy", "history", "science", "sociology"].map((domain) => <AnimalGlyph key={domain} domain={domain} size={28} />)}
-                </div>
+            {/* Numerical Pagination Controls (1, 2, 3...) */}
+            {totalPages > 1 && (
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-6">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2.5 rounded-xl bg-[#1c1c1e] text-white font-bold disabled:opacity-30 border border-[#333336] hover:border-[var(--gold)] flex items-center gap-1.5 text-xs uppercase tracking-wider"
+                >
+                  <ChevronLeft size={14} /> Prev
+                </button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`w-10 h-10 rounded-xl text-xs font-extrabold flex items-center justify-center transition-all ${
+                      currentPage === pageNum
+                        ? "bg-[var(--terracotta)] text-white shadow-lg scale-105 border border-white/20"
+                        : "bg-[#1c1c1e] text-white/80 border border-[#333336] hover:border-[var(--gold)] hover:text-white"
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-4 py-2.5 rounded-xl bg-[#1c1c1e] text-white font-bold disabled:opacity-30 border border-[#333336] hover:border-[var(--gold)] flex items-center gap-1.5 text-xs uppercase tracking-wider"
+                >
+                  Next <ChevronRight size={14} />
+                </button>
               </div>
-            </ParchmentCard>
-          </aside>
+            )}
+          </main>
         </div>
-      </section>
+      </div>
     </div>
   );
 }

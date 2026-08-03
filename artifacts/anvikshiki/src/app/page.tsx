@@ -50,6 +50,7 @@ const DOMAIN_SILVER = "#B8B8C2";
 const HOME_DOMAINS = [
   { label: "Philosophy",             domain: "philosophy",             href: "/domains/philosophy",             color: DOMAIN_SILVER, emoji: "🔮", desc: "Reality, reasoning, self, knowledge, and truth." },
   { label: "History",                domain: "history",                href: "/domains/history",                color: DOMAIN_SILVER, emoji: "📜", desc: "Civilizations, memory, events, eras, and inheritance." },
+  { label: "Political Theory",       domain: "political-theory",       href: "/domains/political-theory",       color: DOMAIN_SILVER, emoji: "⚖️", desc: "State, order, sovereignty, justice, and power." },
   { label: "Psychology",             domain: "psychology",             href: "/domains/psychology",             color: DOMAIN_SILVER, emoji: "🧠", desc: "Mind, behavior, consciousness, and inner landscapes." },
   { label: "Sociology",              domain: "sociology",              href: "/domains/sociology",              color: DOMAIN_SILVER, emoji: "🌿", desc: "Communities, institutions, cultures, and shared patterns." },
   { label: "Science",                domain: "science",                href: "/domains/science",                color: DOMAIN_SILVER, emoji: "🔭", desc: "Observation, logic, nature, systems, and discovery." },
@@ -59,7 +60,8 @@ const HOME_DOMAINS = [
   { label: "Civilizational Thought", domain: "civilizational-thought", href: "/domains/civilizational-thought", color: DOMAIN_SILVER, emoji: "🏛️", desc: "Long-arc inquiry into culture, tradition, and society." },
   { label: "Aesthetics",             domain: "aesthetics",             href: "/domains/aesthetics",             color: DOMAIN_SILVER, emoji: "🎨", desc: "Art, beauty, literature, music, symbol, and form." },
   { label: "Sanskrit Studies",       domain: "sanskrit-studies",       href: "/domains/sanskrit-studies",       color: DOMAIN_SILVER, emoji: "🪔", desc: "Language, shastra, grammar, and textual traditions." },
-  { label: "Political Theory",       domain: "political-theory",       href: "/domains/political-theory",       color: DOMAIN_SILVER, emoji: "⚖️", desc: "State, order, sovereignty, justice, and power." },
+  { label: "Translations",           domain: "translations",           href: "/domains/translations",           color: DOMAIN_SILVER, emoji: "📖", desc: "Texts moving between languages, worlds, and eras." },
+  { label: "Multimedia",             domain: "multimedia",             href: "/domains/aesthetics",             color: DOMAIN_SILVER, emoji: "🎬", desc: "Visual stories, lectures, audio, and interactive work." },
 ];
 
 /* ── Stats ── */
@@ -148,7 +150,7 @@ const INITIAL_RECENT_PUBLICATIONS: RecentPublication[] = [
     slug: "beyond-angkor-why-is-vietnam-frequently-excluded",
     title: "Beyond Angkor: Why Is Vietnam Frequently Excluded from the History of Hindu Influence in Southeast Asia?",
     summary: "Exploring Champa architecture, Sanskrit inscriptions, and the deep civilizational heritage of coastal Vietnam.",
-    imageUrl: "/images/provided/home-falcon-city-panorama-hero.jpg",
+    imageUrl: "/images/provided/champa-temple.jpg",
     categorySlug: "history",
     categoryName: "History",
     authorName: "Chaitanya",
@@ -173,6 +175,7 @@ const INITIAL_RECENT_PUBLICATIONS: RecentPublication[] = [
 export default function HomePage() {
   const [featuredEssays, setFeaturedEssays] = useState<any[]>([]);
   const [recentPublications, setRecentPublications] = useState<RecentPublication[]>(INITIAL_RECENT_PUBLICATIONS);
+  const [recentPage, setRecentPage] = useState(1);
   const recentTrackRef = useRef<HTMLDivElement>(null);
 
   const loadData = useCallback(() => {
@@ -271,7 +274,7 @@ export default function HomePage() {
 
       {/* ─── HERO ─── */}
       <section className="home-v3-hero">
-        <picture className="home-v3-video-wrap" aria-hidden="true">
+        <picture className="home-v3-video-wrap">
           <source media="(min-width: 769px)" srcSet={asset("/images/provided/home-falcon-banner-desktop.jpg")} />
           <img
             src={asset("/images/provided/home-falcon-city-panorama-hero.jpg")}
@@ -280,125 +283,111 @@ export default function HomePage() {
             style={{ objectFit: "cover", width: "100%", height: "100%" }}
           />
         </picture>
-
-        <div className="container-anv home-v3-hero-inner">
-          <div className="home-v3-text">
-            <p className="home-v3-eyebrow">
-              <span className="home-v3-eyebrow-diamond">✦</span>
-              Journal &amp; Research Platform
-              <span className="home-v3-eyebrow-diamond">✦</span>
-            </p>
-
-            <h1 className="home-v3-headline">
-              Where Inquiry<br />Becomes Insight.
-            </h1>
-
-            <p className="home-v3-subhead">
-              A home for essays, research papers, and long-form ideas at the
-              intersection of history, philosophy, civilization, and the arts.
-            </p>
-
-            <div className="home-v3-cta-row">
-              <Link href="/browse" className="home-v3-btn-primary">
-                <BookOpen size={15} /> Explore Journal
-              </Link>
-              <Link href="/submit" className="home-v3-btn-outline">
-                <Send size={15} /> Submit Work
-              </Link>
-            </div>
-
-            {/* Domain chips — silver, monochrome */}
-            <div className="home-v3-chips">
-              {HOME_DOMAINS.map(d => (
-                <Link key={d.label} href={d.href} className="home-v3-chip"
-                  style={{
-                    color: d.color,
-                    borderColor: `${d.color}66`,
-                    background: `${d.color}12`,
-                  }}>
-                  {d.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-
       </section>
 
       {/* ─── RECENTLY UPLOADED ─── */}
-      {recentPublications.length > 0 && (
-        <section className="home-v3-section py-12">
-          <div className="container-anv">
-            <div className="flex flex-col items-center justify-center text-center mb-10">
-              <h2 className="text-center text-3xl md:text-5xl font-extrabold uppercase tracking-[0.18em] text-white" style={{ color: "#FFFFFF", fontWeight: 800 }}>
-                Recently Submitted
-              </h2>
-              <div className="w-24 h-1 bg-[var(--gold)] my-4 rounded-full" />
-              <Link href="/browse" className="home-v3-view-all text-sm uppercase tracking-widest font-bold mt-1 text-white hover:text-[var(--gold)]" style={{ color: "#FFFFFF" }}>
-                View All Archives <ArrowRight size={14} />
-              </Link>
-            </div>
+      {recentPublications.length > 0 && (() => {
+        const RECENT_PER_PAGE = 6;
+        const totalRecentPages = Math.max(1, Math.ceil(recentPublications.length / RECENT_PER_PAGE));
+        const paginatedRecent = recentPublications.slice((recentPage - 1) * RECENT_PER_PAGE, recentPage * RECENT_PER_PAGE);
 
-            <div className="flex flex-col gap-10">
-              {recentPublications.map((publication) => {
-                const readingTimeText = publication.readingMinutes
-                  ? `${publication.readingMinutes} min read`
-                  : null;
-                return (
-                  <Link
-                    key={`${publication.kind}-${publication.id}`}
-                    href={`/${publication.kind === "paper" ? "papers" : "articles"}/${publication.slug}`}
-                    className="group relative w-full rounded-3xl overflow-hidden border-2 border-[var(--border-gold)] bg-[#120b05] shadow-2xl block transition-all duration-500 hover:scale-[1.01] hover:border-[var(--gold)]"
-                  >
-                    {publication.imageUrl && (
-                      <div className="w-full h-[260px] md:h-[340px] overflow-hidden relative bg-black">
-                        <img
-                          src={publication.imageUrl}
-                          alt={publication.imageAlt || publication.title}
-                          className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                        />
-                      </div>
-                    )}
-                    <div className="p-6 md:p-8 flex flex-col justify-between text-white bg-[#120b05]">
-                      <h3 className="text-xl md:text-3xl font-extrabold text-white mb-2 leading-snug tracking-tight group-hover:text-[var(--gold-bright)] transition-colors" style={{ color: "#FFFFFF" }}>
-                        {publication.title}
-                      </h3>
-                      {publication.summary && (
-                        <p className="text-xs md:text-base text-white opacity-90 line-clamp-2 font-body leading-relaxed mb-2" style={{ color: "#FFFFFF" }}>
-                          {publication.summary}
-                        </p>
+        return (
+          <section className="home-v3-section py-12">
+            <div className="container-anv">
+              <div className="flex flex-col items-center justify-center text-center mb-10">
+                <h2 className="text-center text-3xl md:text-5xl font-extrabold uppercase tracking-[0.18em] text-white" style={{ color: "#FFFFFF", fontWeight: 800 }}>
+                  Recently Submitted
+                </h2>
+                <div className="w-24 h-1 bg-[var(--gold)] my-4 rounded-full" />
+                <Link href="/archive" className="home-v3-view-all text-sm uppercase tracking-widest font-bold mt-1 text-white hover:text-[var(--gold)]" style={{ color: "#FFFFFF" }}>
+                  View All Archives <ArrowRight size={14} />
+                </Link>
+              </div>
+
+              <div className="flex flex-col gap-10">
+                {paginatedRecent.map((publication) => {
+                  const readingTimeText = publication.readingMinutes
+                    ? `${publication.readingMinutes} min read`
+                    : null;
+                  return (
+                    <Link
+                      key={`${publication.kind}-${publication.id}`}
+                      href={`/${publication.kind === "paper" ? "papers" : "articles"}/${publication.slug}`}
+                      className="group relative w-full rounded-3xl overflow-hidden border-2 border-[#333336] bg-[#1c1c1e] shadow-2xl block transition-all duration-500 hover:scale-[1.01] hover:border-[var(--gold)]"
+                    >
+                      {publication.imageUrl && (
+                        <div className="w-full h-[320px] md:h-[420px] overflow-hidden relative bg-black">
+                          <img
+                            src={publication.imageUrl}
+                            alt={publication.imageAlt || publication.title}
+                            className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                          />
+                        </div>
                       )}
-                      
-                      {/* Sectional Divider Line */}
-                      <div className="h-px w-full bg-[var(--border-gold)] opacity-40 my-4" />
+                      <div className="p-6 md:p-8 flex flex-col justify-between text-white bg-[#1c1c1e]">
+                        <h3 className="text-xl md:text-3xl font-extrabold text-white mb-2 leading-snug tracking-tight group-hover:text-[var(--gold-bright)] transition-colors" style={{ color: "#FFFFFF" }}>
+                          {publication.title}
+                        </h3>
+                        {publication.summary && (
+                          <p className="text-xs md:text-base text-white opacity-95 line-clamp-2 font-body leading-relaxed mb-2" style={{ color: "#FFFFFF" }}>
+                            {publication.summary}
+                          </p>
+                        )}
+                        
+                        {/* Sectional Divider Line */}
+                        <div className="h-px w-full bg-[#333336] my-4" />
 
-                      <div className="flex flex-wrap items-center justify-between gap-4 font-ui text-xs md:text-sm font-bold uppercase tracking-wider text-white" style={{ color: "#FFFFFF" }}>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <span className="font-extrabold text-white tracking-widest" style={{ color: "#FFFFFF" }}>{publication.authorName || "Editorial"}</span>
-                          <span className="px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-widest bg-[#C84A10] text-white border border-white/20 shadow-sm" style={{ color: "#FFFFFF" }}>
-                            {publication.categoryName || publication.categorySlug || (publication.kind === "paper" ? "Paper" : "Essay")}
-                          </span>
-                          {readingTimeText && (
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-white bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/20" style={{ color: "#FFFFFF" }}>
-                              {readingTimeText}
+                        <div className="flex items-center justify-between gap-3 font-ui text-xs md:text-sm font-bold uppercase tracking-wider text-white w-full" style={{ color: "#FFFFFF" }}>
+                          <div className="flex items-center gap-2 overflow-hidden flex-wrap flex-1">
+                            <span className="font-extrabold text-white tracking-widest shrink-0" style={{ color: "#FFFFFF" }}>{publication.authorName || "Editorial"}</span>
+                            <span className="px-3 py-1 rounded-full text-[10px] md:text-[11px] font-extrabold uppercase tracking-widest bg-[#C84A10] text-white border border-white/20 shadow-sm shrink-0" style={{ color: "#FFFFFF" }}>
+                              {publication.categoryName || publication.categorySlug || (publication.kind === "paper" ? "Paper" : "Essay")}
+                            </span>
+                            {readingTimeText && (
+                              <span className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-white bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 shrink-0" style={{ color: "#FFFFFF" }}>
+                                {readingTimeText}
+                              </span>
+                            )}
+                          </div>
+                          {publication.publishedAt && (
+                            <span className="text-white opacity-90 font-extrabold shrink-0 text-right ml-auto" style={{ color: "#FFFFFF" }}>
+                              {new Date(publication.publishedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                             </span>
                           )}
                         </div>
-                        {publication.publishedAt && (
-                          <span className="text-white opacity-90 font-bold" style={{ color: "#FFFFFF" }}>
-                            {new Date(publication.publishedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-                          </span>
-                        )}
                       </div>
-                    </div>
-                  </Link>
-                );
-              })}
+                    </Link>
+                  );
+                })}
+              </div>
+
+              {/* Pagination Controls */}
+              {totalRecentPages > 1 && (
+                <div className="flex items-center justify-center gap-4 mt-10">
+                  <button
+                    onClick={() => setRecentPage(p => Math.max(1, p - 1))}
+                    disabled={recentPage === 1}
+                    className="px-5 py-2.5 rounded-xl bg-[#1c1c1e] text-white font-bold disabled:opacity-30 border border-[#333336] hover:border-[var(--gold)] flex items-center gap-2 text-xs uppercase tracking-wider"
+                  >
+                    <ChevronLeft size={16} /> Previous
+                  </button>
+                  <span className="font-ui text-sm font-extrabold text-white uppercase tracking-widest px-3">
+                    Page {recentPage} of {totalRecentPages}
+                  </span>
+                  <button
+                    onClick={() => setRecentPage(p => Math.min(totalRecentPages, p + 1))}
+                    disabled={recentPage === totalRecentPages}
+                    className="px-5 py-2.5 rounded-xl bg-[#1c1c1e] text-white font-bold disabled:opacity-30 border border-[#333336] hover:border-[var(--gold)] flex items-center gap-2 text-xs uppercase tracking-wider"
+                  >
+                    Next <ChevronRight size={16} />
+                  </button>
+                </div>
+              )}
             </div>
-          </div>
-        </section>
-      )}
+          </section>
+        );
+      })()}
 
       {/* ─── FEATURED ESSAYS (API data only) ─── */}
       {realEssays && (
