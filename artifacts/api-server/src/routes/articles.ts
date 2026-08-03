@@ -95,6 +95,14 @@ router.get("/articles/:slug", async (req, res) => {
     if (!row) return res.status(404).json({ error: "Article not found" });
     // Filter out soft-deleted articles
     if (row.article.deleted) return res.status(404).json({ error: "Article not found" });
+    
+    // Increment view count asynchronously
+    db.update(articlesTable)
+      .set({ viewCount: sql`${articlesTable.viewCount} + 1` })
+      .where(eq(articlesTable.id, row.article.id))
+      .execute()
+      .catch(e => req.log.error("Failed to increment viewCount", e));
+
     return res.json({
       article: {
         ...row.article,
@@ -170,12 +178,6 @@ router.patch("/articles/:slug/edit", async (req, res) => {
     req.log.error(err);
     return res.status(500).json({ error: "Failed to update article" });
   }
-});
-
-router.get("/debug-env", (req, res) => {
-  return res.json({
-    dbUrl: process.env.DATABASE_URL
-  });
 });
 
 export default router;

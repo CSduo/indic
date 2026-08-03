@@ -42,25 +42,30 @@ function FooterNewsletter() {
 
   if (status === "ok") {
     return (
-      <div className="flex items-center gap-2 rounded-[8px] border border-[var(--border-gold)] bg-[var(--surface)] px-3 py-2 text-[var(--gold)]">
-        <span className="font-display text-sm" style={{ color: 'var(--gold)' }}>✦</span>
-        <span className="font-ui text-xs font-bold uppercase tracking-[0.12em]">Connected</span>
+      <div className="flex flex-col gap-2 animate-in fade-in zoom-in duration-500">
+        <div className="flex items-center gap-2 rounded-[8px] border border-[var(--gold)] bg-[var(--surface)] px-4 py-3 text-[var(--gold)] shadow-sm">
+          <span className="font-display text-sm animate-pulse">✦</span>
+          <span className="font-ui text-xs font-bold uppercase tracking-[0.12em]">Connected</span>
+        </div>
+        <p className="font-body text-xs text-[var(--ink-soft)] font-medium text-center mt-1 animate-in slide-in-from-bottom-2">Thank you for subscribing!</p>
       </div>
     );
   }
+
+  const isInvalid = email.length > 0 && !/^[^@]+@[^@]+\.[^@]+$/.test(email);
 
   return (
     <form onSubmit={join} className="flex gap-2">
       <input
         type="email"
         placeholder="Email address"
-        className="input-sacred"
+        className={`input-sacred transition-colors ${isInvalid ? 'border-[var(--terracotta)] text-[var(--terracotta)]' : ''}`}
         value={email}
         onChange={(event) => setEmail(event.target.value)}
         required
         aria-label="Email for newsletter"
       />
-      <button className="btn-terracotta shrink-0 px-3" type="submit" disabled={status === "loading"}>
+      <button className="btn-terracotta shrink-0 px-3 transition-transform hover:scale-105 active:scale-95" type="submit" disabled={status === "loading" || isInvalid}>
         {status === "loading" ? "..." : <ArrowRight size={15} />}
       </button>
     </form>
@@ -104,7 +109,7 @@ export function SacredFooter() {
             </ul>
           </section>
 
-          <section className="col-span-2 md:col-span-1">
+          <section id="newsletter-subscribe" className="col-span-2 md:col-span-1 scroll-m-20">
             <h2 className="type-section-label mb-3 text-[var(--ink)] font-extrabold uppercase tracking-wider text-xs md:text-sm">Stay Connected</h2>
             <p className="mb-3 font-body text-xs md:text-sm leading-5 text-[var(--ink-soft)] font-medium">No noise. Only inquiry, new essays, and notes from the archive.</p>
             <FooterNewsletter />

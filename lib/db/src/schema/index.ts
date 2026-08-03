@@ -79,6 +79,7 @@ export const articlesTable = pgTable("articles", {
   deletedAt: timestamp("deleted_at"),
   submissionId: text("submission_id"),
   publishedAt: timestamp("published_at"),
+  viewCount: integer("view_count").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
@@ -114,6 +115,7 @@ export const papersTable = pgTable("papers", {
   deletedAt: timestamp("deleted_at"),
   submissionId: text("submission_id"),
   publishedAt: timestamp("published_at"),
+  viewCount: integer("view_count").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [

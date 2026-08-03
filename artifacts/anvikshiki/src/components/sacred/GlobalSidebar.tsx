@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Home, Compass, Grid3X3, FileText, Archive, Search, Send,
@@ -7,6 +7,10 @@ import {
 import { PUBLIC_NAV_LINKS, ACCOUNT_NAV_LINKS, ADMIN_NAV_LINK } from "@/lib/navigation";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useTheme } from "@/components/providers/ThemeProvider";
+import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
+import { DOMAIN_ORDER, DOMAIN_META } from "@/lib/domainMeta";
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number; strokeWidth?: number }>> = {
   "/":          Home,
@@ -30,10 +34,34 @@ interface GlobalSidebarProps {
 }
 
 export function GlobalSidebar({ open, onClose }: GlobalSidebarProps) {
-  const [loc] = useLocation();
+  const [loc, setLoc] = useLocation();
   const { user } = useAuthContext();
   const { resolvedTheme, toggleTheme } = useTheme();
   const drawerRef = useRef<HTMLElement>(null);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [latestPub, setLatestPub] = useState<{ title: string; slug: string } | null>(null);
+
+  useEffect(() => {
+    if (open && !latestPub) {
+      fetch(`${base}/api/articles?limit=1`)
+        .then(r => r.json())
+        .then(d => {
+          if (d.articles?.[0]) {
+            setLatestPub({ title: d.articles[0].title, slug: d.articles[0].slug });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [open, latestPub]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      setLoc(`/search?q=${encodeURIComponent(searchQuery)}`);
+      onClose();
+    }
+  };
 
   // Close on Escape
   const handleKeyDown = useCallback(
@@ -98,6 +126,20 @@ export function GlobalSidebar({ open, onClose }: GlobalSidebarProps) {
           </button>
         </div>
 
+        {/* Quick Search */}
+        <div className="global-sidebar-search">
+          <form onSubmit={handleSearch} className="relative">
+            <Search size={16} className="global-sidebar-search-icon" />
+            <input
+              type="text"
+              placeholder="Search Anvikshiki..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="global-sidebar-search-input"
+            />
+          </form>
+        </div>
+
         {/* Navigation */}
         <nav className="global-sidebar-nav" aria-label="Main navigation">
           <div className="global-sidebar-section-label">Navigate</div>
@@ -117,6 +159,28 @@ export function GlobalSidebar({ open, onClose }: GlobalSidebarProps) {
               </Link>
             );
           })}
+
+          {/* Domains */}
+          <div className="global-sidebar-divider" />
+          <div className="global-sidebar-section-label">Domains</div>
+          {DOMAIN_ORDER.slice(0, 5).map(key => {
+            const meta = DOMAIN_META[key];
+            if (!meta) return null;
+            return (
+              <Link
+                key={key}
+                href={meta.route}
+                onClick={handleLinkClick}
+                className="global-sidebar-link"
+              >
+                <AnimalGlyph domain={key} size={18} />
+                <span className="ml-1">{meta.label}</span>
+              </Link>
+            )
+          })}
+          <Link href="/domains" onClick={handleLinkClick} className="global-sidebar-link text-xs uppercase tracking-widest text-[var(--gold)] mt-2">
+            View All Domains →
+          </Link>
 
           {/* Appearance / Theme Switcher */}
           <div className="global-sidebar-divider" />
@@ -173,6 +237,14 @@ export function GlobalSidebar({ open, onClose }: GlobalSidebarProps) {
             </>
           )}
         </nav>
+
+        {/* Latest Publication */}
+        {latestPub && (
+          <Link href={`/articles/${latestPub.slug}`} onClick={handleLinkClick} className="sidebar-latest-card">
+            <span className="sidebar-latest-label">Latest Essay</span>
+            <span className="sidebar-latest-title">{latestPub.title}</span>
+          </Link>
+        )}
 
         {/* Footer */}
         <div className="global-sidebar-footer">

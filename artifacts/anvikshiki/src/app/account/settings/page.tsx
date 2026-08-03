@@ -18,6 +18,35 @@ export default function SettingsPage() {
   const [confirmPw, setConfirmPw] = useState("");
   const [pwSaving, setPwSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
+  
+  const [emailNotifs, setEmailNotifs] = useState(() => localStorage.getItem("anv-email-notifs") !== "false");
+  const [fontSize, setFontSize] = useState(() => Number(localStorage.getItem("anv-font-size")) || 16);
+
+  const toggleEmailNotifs = () => {
+    const val = !emailNotifs;
+    setEmailNotifs(val);
+    localStorage.setItem("anv-email-notifs", String(val));
+    toast.success(`Email notifications ${val ? 'enabled' : 'disabled'}`);
+  };
+
+  const handleFontSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = Number(e.target.value);
+    setFontSize(val);
+    localStorage.setItem("anv-font-size", String(val));
+    document.documentElement.style.setProperty('--user-font-size', `${val}px`);
+  };
+
+  const handleExportData = () => {
+    if (!user) return;
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(user, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "anvikshiki-profile-data.json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+    toast.success("Data exported successfully");
+  };
 
   if (!user) {
     return (
@@ -108,6 +137,55 @@ export default function SettingsPage() {
               <Check size={14} /> {pwSaving ? "Saving…" : "Update Password"}
             </button>
           </form>
+        </ParchmentCard>
+
+        {/* Preferences */}
+        <ParchmentCard className="p-6 mb-5">
+          <h2 className="font-display text-xl text-[var(--ink)] mb-4">Preferences</h2>
+          <div className="grid gap-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-ui text-sm font-bold text-[var(--ink)]">Email Notifications</p>
+                <p className="font-body text-xs text-[var(--muted)] mt-1">Receive updates on your submissions and digest.</p>
+              </div>
+              <button 
+                type="button" 
+                role="switch" 
+                aria-checked={emailNotifs}
+                onClick={toggleEmailNotifs}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${emailNotifs ? 'bg-[var(--gold)]' : 'bg-[var(--border)]'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${emailNotifs ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+            
+            <div className="pt-4 border-t border-[var(--border)]">
+              <label className="font-ui text-sm font-bold text-[var(--ink)] block mb-1">Reading Font Size: {fontSize}px</label>
+              <p className="font-body text-xs text-[var(--muted)] mb-3">Adjust the default reading size for articles and papers.</p>
+              <div className="flex items-center gap-4">
+                <span className="font-body text-sm text-[var(--ink)]">A</span>
+                <input 
+                  type="range" 
+                  min="14" 
+                  max="24" 
+                  step="1" 
+                  value={fontSize} 
+                  onChange={handleFontSizeChange}
+                  className="flex-1 accent-[var(--gold)]" 
+                />
+                <span className="font-body text-xl text-[var(--ink)]">A</span>
+              </div>
+            </div>
+          </div>
+        </ParchmentCard>
+        
+        {/* Data Export */}
+        <ParchmentCard className="p-6 mb-5">
+          <h2 className="font-display text-xl text-[var(--ink)] mb-3">Your Data</h2>
+          <p className="font-body text-sm text-[var(--ink-soft)] mb-4">Download a copy of your profile data as a JSON file.</p>
+          <button type="button" onClick={handleExportData} className="btn-ink w-full justify-center">
+            Export My Data
+          </button>
         </ParchmentCard>
 
         {/* Session */}

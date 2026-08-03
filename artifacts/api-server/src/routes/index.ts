@@ -17,6 +17,8 @@ import mediaRouter from "./media";
 import extractUrlRouter from "./extract-url";
 import commentsRouter from "./comments";
 import backupRouter from "./backup";
+import rssRouter from "./rss";
+import sitemapRouter from "./sitemap";
 
 const router: IRouter = Router();
 
@@ -38,5 +40,7 @@ router.use(mediaRouter);
 router.use(extractUrlRouter);
 router.use(commentsRouter);
 router.use(backupRouter);
+router.use(rssRouter);
+router.use(sitemapRouter);
 
 export default router;

@@ -9,6 +9,7 @@ import { LoadingScreen } from "@/components/sacred/LoadingScreen";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { PageTransition } from "@/components/providers/PageTransition";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 
 /* ── Public pages ── */
 import HomePage         from "@/app/page";
@@ -88,6 +89,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
 }
 
 function Router() {
+  useKeyboardShortcuts();
   return (
     <>
       <ScrollToTop />

@@ -38,6 +38,16 @@ export default function AccountPage() {
   const [showLightbox, setShowLightbox] = useState(false);
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [permDeletingId, setPermDeletingId] = useState<string | null>(null);
+  const [readingHistory, setReadingHistory] = useState<any[]>([]);
+
+  useEffect(() => {
+    try {
+      const history = JSON.parse(localStorage.getItem("anv-reading-history") || "[]");
+      setReadingHistory(history.slice(0, 5));
+    } catch (e) {
+      // ignore
+    }
+  }, []);
 
   const loadSubmissions = () => {
     Promise.all([
@@ -141,11 +151,43 @@ export default function AccountPage() {
   const drafts = submissions.filter((s) => s.status === "DRAFT");
   const published = submissions.filter((s) => s.status !== "DRAFT");
 
+  const renderProgressTracker = (status: string) => {
+    // Only show tracker for standard progression statuses
+    if (["REVISION_REQUESTED", "REJECTED", "ARCHIVED", "DRAFT"].includes(status)) return null;
+    const steps = ["RECEIVED", "UNDER_REVIEW", "ACCEPTED", "PUBLISHED"];
+    let currentIndex = steps.indexOf(status);
+    if (currentIndex === -1) currentIndex = 0;
+
+    return (
+      <div className="mt-5 mb-4 flex items-center justify-between relative w-full pt-1 px-2">
+        <div className="absolute left-2 right-2 top-1.5 h-[2px] bg-[var(--border)] z-0"></div>
+        <div 
+          className="absolute left-2 top-1.5 h-[2px] bg-[var(--gold)] z-0 transition-all duration-500"
+          style={{ width: `calc(${(currentIndex / (steps.length - 1)) * 100}% - 16px)` }}
+        ></div>
+        {steps.map((step, idx) => {
+          const isCompleted = idx <= currentIndex;
+          const isCurrent = idx === currentIndex;
+          return (
+            <div key={step} className="relative z-10 flex flex-col items-center">
+              <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[7px] font-bold border-[1.5px] transition-colors ${isCompleted ? 'bg-[var(--gold)] border-[var(--gold)] text-[var(--bg)]' : 'bg-[var(--surface)] border-[var(--border)] text-transparent'}`}>
+                {isCompleted && "✓"}
+              </div>
+              <span className={`text-[8px] font-ui font-bold uppercase tracking-widest absolute top-5 w-max text-center ${isCurrent ? 'text-[var(--ink)]' : 'text-[var(--muted)]'}`}>
+                {STATUS_LABELS[step]?.label || step}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   const renderCard = (submission: any, isDraft: boolean) => {
     const status = STATUS_LABELS[submission.status] || { label: submission.status || "Received", className: "badge-received" };
     const canDelete = USER_DELETABLE_STATUSES.has(submission.status);
     return (
-      <div key={submission.id} className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-4">
+      <div key={submission.id} className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-4 flex flex-col">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-3 min-w-0">
             <AnimalGlyph domain={submission.domain || "papers"} size={28} className="mt-1 shrink-0 text-[var(--gold)]" />
@@ -184,6 +226,7 @@ export default function AccountPage() {
             </div>
           </div>
         </div>
+        {!isDraft && renderProgressTracker(submission.status)}
       </div>
     );
   };
@@ -329,7 +372,22 @@ export default function AccountPage() {
             </ParchmentCard>
           </aside>
 
-          <main className="space-y-6">
+          <main className="space-y-6 min-w-0">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <Link href="/submit" className="flex flex-col items-center justify-center gap-2 rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-5 hover:border-[var(--border-gold)] transition-colors group text-center">
+                <Edit3 size={24} className="text-[var(--gold)] group-hover:scale-110 transition-transform" />
+                <span className="font-ui text-sm font-bold text-[var(--ink)]">Write New Work</span>
+              </Link>
+              <Link href="/account/collections" className="flex flex-col items-center justify-center gap-2 rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-5 hover:border-[var(--border-gold)] transition-colors group text-center">
+                <FileText size={24} className="text-[var(--gold)] group-hover:scale-110 transition-transform" />
+                <span className="font-ui text-sm font-bold text-[var(--ink)]">My Collections</span>
+              </Link>
+              <Link href="/saved" className="flex flex-col items-center justify-center gap-2 rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-5 hover:border-[var(--border-gold)] transition-colors group text-center">
+                <BookMarked size={24} className="text-[var(--gold)] group-hover:scale-110 transition-transform" />
+                <span className="font-ui text-sm font-bold text-[var(--ink)]">Saved Items</span>
+              </Link>
+            </div>
+
             <ParchmentCard className="p-6">
               <p className="type-section-label mb-2">Scholar's Desk</p>
               <h2 className="font-display text-4xl text-[var(--ink)]">Your Profile</h2>
@@ -386,6 +444,27 @@ export default function AccountPage() {
                   </p>
                 </div>
                 <div className="space-y-3">{deletedSubmissions.map((s) => renderDeletedCard(s))}</div>
+              </ParchmentCard>
+            ) : null}
+
+            {readingHistory.length > 0 ? (
+              <ParchmentCard className="p-6">
+                <div className="mb-5">
+                  <p className="type-section-label mb-2">Library</p>
+                  <h2 className="font-display text-3xl text-[var(--ink)]">Recently Read</h2>
+                </div>
+                <div className="space-y-3">
+                  {readingHistory.map((item, i) => (
+                    <Link key={i} href={item.url} className="block rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-4 hover:border-[var(--border-gold)] transition-colors">
+                      <div className="flex flex-col">
+                        <h3 className="font-display text-xl leading-tight text-[var(--ink)]">{item.title}</h3>
+                        <p className="mt-1 font-ui text-xs text-[var(--muted)]">
+                          Viewed {new Date(item.timestamp).toLocaleDateString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
               </ParchmentCard>
             ) : null}
           </main>

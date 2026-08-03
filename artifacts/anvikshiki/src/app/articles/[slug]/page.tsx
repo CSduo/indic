@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { Link, useRoute } from "wouter";
-import { ArrowLeft, Clock, Eye, MessageSquare, Play, Pause, Volume2 } from "lucide-react";
+import { ArrowLeft, Clock, Eye, MessageSquare, Play, Pause, Volume2, Share2, Copy } from "lucide-react";
 import { ArticleActionBar } from "@/components/manuscript/ArticleActionBar";
+import { TableOfContents } from "@/components/sacred/TableOfContents";
 import { GlyphTag } from "@/components/manuscript/GlyphTag";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
@@ -46,6 +47,8 @@ export default function ArticlePage() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const articleContentRef = useRef<HTMLElement>(null);
+  const [relatedArticles, setRelatedArticles] = useState<any[]>([]);
 
   const togglePlay = () => {
     if (!audioRef.current) return;
@@ -124,6 +127,17 @@ export default function ArticlePage() {
               if (!(commentError instanceof DOMException && commentError.name === "AbortError")) setComments([]);
             });
         }
+        // Load related articles
+        const category = art.categorySlug || art.categoryId;
+        if (category) {
+          fetch(`${base()}/api/articles?limit=4&categorySlug=${category}`, { signal: controller.signal })
+            .then(r => r.json())
+            .then(d => {
+              const rel = (d.articles || []).filter((a: any) => a.id !== art.id).slice(0, 3);
+              setRelatedArticles(rel);
+            })
+            .catch(() => {});
+        }
       })
       .catch(fetchError => {
         if (fetchError instanceof DOMException && fetchError.name === "AbortError") return;
@@ -153,6 +167,32 @@ export default function ArticlePage() {
       articleSection: article.categorySlug || article.categoryId || undefined,
     } : null,
   });
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: article.title,
+          text: articleDescription,
+          url: url,
+        });
+      } catch (err) {
+        console.error("Share failed", err);
+      }
+    } else {
+      navigator.clipboard.writeText(url);
+      toast.success("Link copied to clipboard");
+    }
+  };
+
+  const handleCopyCitation = () => {
+    const author = article.authorName || "Anvikshiki Journal";
+    const year = article.publishedAt ? new Date(article.publishedAt).getFullYear() : new Date().getFullYear();
+    const citation = `${author} (${year}). ${article.title}. Ānvīkṣikī. Retrieved from ${window.location.href}`;
+    navigator.clipboard.writeText(citation);
+    toast.success("Citation copied to clipboard");
+  };
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -409,8 +449,10 @@ export default function ArticlePage() {
       </section>
 
       <section className="article-reader-shell pb-16">
-        <article className="w-full">
-          <OrnamentDivider className="mb-8" />
+        <div className="flex flex-col md:flex-row gap-8 max-w-[var(--max-reader-wide)] mx-auto px-4 md:px-8">
+          <div className="w-full md:w-[75%] max-w-[var(--max-reader)] mx-auto md:mx-0">
+            <article className="w-full" ref={articleContentRef}>
+              <OrnamentDivider className="mb-8" />
           
           {/* Custom Voice Note player in the middle */}
           {article.audioUrl && (
@@ -458,7 +500,7 @@ export default function ArticlePage() {
           {article.body ? (
             <div
               className="prose-anv prose-editor-content"
-              dangerouslySetInnerHTML={{ __html: article.body }}
+              dangerouslySetInnerHTML={{ __html: article.body.replace(/<img /g, '<img loading="lazy" ') }}
             />
           ) : (
             <ParchmentCard className="p-8 text-center">
@@ -466,6 +508,16 @@ export default function ArticlePage() {
               <p className="mt-3 font-body text-[var(--ink-soft)]">The editorial team has not yet released the complete article body.</p>
             </ParchmentCard>
           )}
+
+          {/* Action box: Share & Citation */}
+          <div className="flex flex-wrap gap-4 mt-8 share-buttons">
+            <button onClick={handleShare} className="btn-ink flex-1 md:flex-none justify-center gap-2">
+              <Share2 size={16} /> Share Article
+            </button>
+            <button onClick={handleCopyCitation} className="btn-ink flex-1 md:flex-none justify-center gap-2">
+              <Copy size={16} /> Copy Citation
+            </button>
+          </div>
 
           {/* Author profile card at the end of the text */}
           <div className="card-sacred p-6 mt-12 flex flex-col md:flex-row items-center gap-5" style={{ borderLeft: "3px solid var(--gold)" }}>
@@ -817,14 +869,43 @@ export default function ArticlePage() {
             </div>
 
             <div className="mt-10">
-              <ParchmentCard className="p-4 text-center">
+              <ParchmentCard className="p-4 text-center citation-box">
                 <p className="type-section-label mb-2">Citation Note</p>
                 <p className="font-body text-xs leading-normal text-[var(--ink-soft)] max-w-lg mx-auto">
                   Cite this essay with the copied citation action. Include the access date for web references.
                 </p>
               </ParchmentCard>
             </div>
-          </article>
+
+            {/* Related Articles */}
+            {relatedArticles.length > 0 && (
+              <div className="mt-16 border-t border-[var(--border)] pt-12">
+                <h3 className="font-display text-2xl text-[var(--ink)] mb-6 text-center">Related Essays</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {relatedArticles.map((rel: any) => (
+                    <ParchmentCard key={rel.id} className="p-5 flex flex-col h-full hover:-translate-y-1 transition-transform">
+                      <Link href={`/articles/${rel.slug || rel.id}`} className="block">
+                        {rel.coverImage || rel.heroImageUrl ? (
+                          <div className="h-32 mb-4 rounded overflow-hidden">
+                            <img src={rel.coverImage || rel.heroImageUrl} alt={rel.title} className="w-full h-full object-cover" loading="lazy" />
+                          </div>
+                        ) : null}
+                        <h4 className="font-display text-lg leading-snug mb-2 text-[var(--ink)]">{rel.title}</h4>
+                        {rel.authorName && <p className="font-ui text-[10px] uppercase text-[var(--ink-faint)]">By {rel.authorName}</p>}
+                      </Link>
+                    </ParchmentCard>
+                  ))}
+                </div>
+              </div>
+            )}
+            </article>
+          </div>
+          
+          {/* TOC Sidebar */}
+          <div className="hidden md:block w-1/4 sticky top-24 self-start pl-4 border-l border-[var(--border-subtle)] h-[calc(100vh-8rem)] overflow-y-auto no-scrollbar">
+            <TableOfContents contentRef={articleContentRef} />
+          </div>
+        </div>
       </section>
 
       <div className="fixed inset-x-4 bottom-4 z-40 rounded-full border border-[var(--border-gold)] bg-[var(--surface)]/95 px-4 py-3 shadow-[var(--shadow-lg)] backdrop-blur md:hidden">

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { ArrowRight, BookOpen, ChevronLeft, ChevronRight, Clock3, Compass, Feather, Globe, Layers, Send, Users } from "lucide-react";
+import { ArrowRight, BookOpen, ChevronLeft, ChevronRight, Clock3, Compass, Feather, Globe, Layers, Send, Users, FileText, Grid3X3 } from "lucide-react";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { PrismaticBurst, YantraPattern } from "@/components/sacred/ColorfulDecor";
+import { DOMAIN_META, DOMAIN_ORDER } from "@/lib/domainMeta";
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (p: string) => `${base}${p.startsWith("/") ? p : `/${p}`}`;
@@ -44,25 +45,7 @@ function SectionMandala({ size = 52, color = "currentColor" }: { size?: number; 
   );
 }
 
-/* ── Silver, monochrome domain styling — no per-domain color ── */
-const DOMAIN_SILVER = "#B8B8C2";
-
-const HOME_DOMAINS = [
-  { label: "Philosophy",             domain: "philosophy",             href: "/domains/philosophy",             color: DOMAIN_SILVER, emoji: "🔮", desc: "Reality, reasoning, self, knowledge, and truth." },
-  { label: "History",                domain: "history",                href: "/domains/history",                color: DOMAIN_SILVER, emoji: "📜", desc: "Civilizations, memory, events, eras, and inheritance." },
-  { label: "Political Theory",       domain: "political-theory",       href: "/domains/political-theory",       color: DOMAIN_SILVER, emoji: "⚖️", desc: "State, order, sovereignty, justice, and power." },
-  { label: "Psychology",             domain: "psychology",             href: "/domains/psychology",             color: DOMAIN_SILVER, emoji: "🧠", desc: "Mind, behavior, consciousness, and inner landscapes." },
-  { label: "Sociology",              domain: "sociology",              href: "/domains/sociology",              color: DOMAIN_SILVER, emoji: "🌿", desc: "Communities, institutions, cultures, and shared patterns." },
-  { label: "Science",                domain: "science",                href: "/domains/science",                color: DOMAIN_SILVER, emoji: "🔭", desc: "Observation, logic, nature, systems, and discovery." },
-  { label: "Geopolitics",            domain: "geopolitics",            href: "/domains/geopolitics",            color: DOMAIN_SILVER, emoji: "🌐", desc: "Power, geography, statecraft, strategy, and place." },
-  { label: "Papers",                 domain: "papers",                 href: "/papers",                         color: DOMAIN_SILVER, emoji: "📋", desc: "Research manuscripts, working papers, and scholarship." },
-  { label: "Archive",                domain: "archive",                href: "/archive",                        color: DOMAIN_SILVER, emoji: "🗂️", desc: "Texts, records, timelines, sources, and living memory." },
-  { label: "Civilizational Thought", domain: "civilizational-thought", href: "/domains/civilizational-thought", color: DOMAIN_SILVER, emoji: "🏛️", desc: "Long-arc inquiry into culture, tradition, and society." },
-  { label: "Aesthetics",             domain: "aesthetics",             href: "/domains/aesthetics",             color: DOMAIN_SILVER, emoji: "🎨", desc: "Art, beauty, literature, music, symbol, and form." },
-  { label: "Sanskrit Studies",       domain: "sanskrit-studies",       href: "/domains/sanskrit-studies",       color: DOMAIN_SILVER, emoji: "🪔", desc: "Language, shastra, grammar, and textual traditions." },
-  { label: "Translations",           domain: "translations",           href: "/domains/translations",           color: DOMAIN_SILVER, emoji: "📖", desc: "Texts moving between languages, worlds, and eras." },
-  { label: "Multimedia",             domain: "multimedia",             href: "/domains/aesthetics",             color: DOMAIN_SILVER, emoji: "🎬", desc: "Visual stories, lectures, audio, and interactive work." },
-];
+/* Removed HOME_DOMAINS in favor of DOMAIN_META */
 
 /* ── Stats ── */
 const STATS = [
@@ -143,6 +126,39 @@ function WisdomStrip() {
   );
 }
 
+function AnimatedCounter({ value, duration = 2000 }: { value: number; duration?: number }) {
+  const [count, setCount] = useState(0);
+  const ref = useRef<HTMLSpanElement>(null);
+  
+  useEffect(() => {
+    const observer = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) {
+        let start = 0;
+        const end = value;
+        if (end === 0) return;
+        const incrementTime = 20;
+        const steps = duration / incrementTime;
+        const increment = end / steps;
+        
+        const timer = setInterval(() => {
+          start += increment;
+          if (start >= end) {
+            setCount(end);
+            clearInterval(timer);
+          } else {
+            setCount(Math.floor(start));
+          }
+        }, incrementTime);
+        observer.disconnect();
+      }
+    });
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [value, duration]);
+  
+  return <span ref={ref}>{count}</span>;
+}
+
 const INITIAL_RECENT_PUBLICATIONS: RecentPublication[] = [
   {
     id: "init-1",
@@ -177,6 +193,9 @@ export default function HomePage() {
   const [recentPublications, setRecentPublications] = useState<RecentPublication[]>(INITIAL_RECENT_PUBLICATIONS);
   const [recentPage, setRecentPage] = useState(1);
   const recentTrackRef = useRef<HTMLDivElement>(null);
+  
+  const [stats, setStats] = useState({ articles: 0, papers: 0, domains: DOMAIN_ORDER.length });
+  const [domainCounts, setDomainCounts] = useState<Record<string, number>>({});
 
   const loadData = useCallback(() => {
     fetch(`${base}/api/articles?featured=true&limit=4`, { credentials: "include" })
@@ -187,8 +206,26 @@ export default function HomePage() {
     Promise.all([
       fetch(`${base}/api/articles?limit=24`, { credentials: "include" }).then(r => r.json()),
       fetch(`${base}/api/papers?limit=24`, { credentials: "include" }).then(r => r.json()),
+      fetch(`${base}/api/articles?limit=1`, { credentials: "include" }).then(r => r.json()),
+      fetch(`${base}/api/papers?limit=1`, { credentials: "include" }).then(r => r.json()),
     ])
-      .then(([articleData, paperData]) => {
+      .then(([articleData, paperData, artStats, paperStats]) => {
+        setStats(s => ({ 
+          ...s, 
+          articles: artStats.pagination?.totalItems || artStats.total || artStats.articles?.length || 0,
+          papers: paperStats.pagination?.totalItems || paperStats.total || paperStats.papers?.length || 0
+        }));
+        
+        const counts: Record<string, number> = {};
+        (articleData.articles || []).forEach((a: any) => {
+          const cat = a.categorySlug || "philosophy";
+          counts[cat] = (counts[cat] || 0) + 1;
+        });
+        (paperData.papers || []).forEach((p: any) => {
+          const cat = p.categorySlug || "papers";
+          counts[cat] = (counts[cat] || 0) + 1;
+        });
+        setDomainCounts(counts);
         const articles: RecentPublication[] = (articleData.articles || []).map((article: any) => ({
           id: article.id,
           kind: "article",
@@ -283,6 +320,27 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ─── STATS SECTION ─── */}
+      <section className="home-v3-stats-section">
+        <div className="home-v3-stats-grid">
+          <div className="home-v3-stat-card">
+            <BookOpen size={32} strokeWidth={1.5} className="home-v3-stat-icon" />
+            <div className="home-v3-stat-number"><AnimatedCounter value={stats.articles} /></div>
+            <div className="home-v3-stat-label">Total Articles</div>
+          </div>
+          <div className="home-v3-stat-card">
+            <FileText size={32} strokeWidth={1.5} className="home-v3-stat-icon" />
+            <div className="home-v3-stat-number"><AnimatedCounter value={stats.papers} /></div>
+            <div className="home-v3-stat-label">Research Papers</div>
+          </div>
+          <div className="home-v3-stat-card">
+            <Grid3X3 size={32} strokeWidth={1.5} className="home-v3-stat-icon" />
+            <div className="home-v3-stat-number"><AnimatedCounter value={stats.domains} /></div>
+            <div className="home-v3-stat-label">Domains</div>
+          </div>
+        </div>
+      </section>
+
       {/* ─── RECENTLY UPLOADED ─── */}
       {recentPublications.length > 0 && (() => {
         const RECENT_PER_PAGE = 6;
@@ -311,45 +369,45 @@ export default function HomePage() {
                     <Link
                       key={`${publication.kind}-${publication.id}`}
                       href={`/${publication.kind === "paper" ? "papers" : "articles"}/${publication.slug}`}
-                      className="group relative w-full rounded-3xl overflow-hidden border-2 border-[#333336] bg-[#1c1c1e] shadow-2xl block transition-all duration-500 hover:scale-[1.01] hover:border-[var(--gold)]"
+                      className="article-card-enhanced group relative w-full rounded-3xl block"
                     >
                       {publication.imageUrl && (
-                        <div className="w-full h-[320px] md:h-[420px] overflow-hidden relative bg-black">
+                        <div className="article-card-img-wrap w-full h-[320px] md:h-[420px]">
                           <img
                             src={publication.imageUrl}
                             alt={publication.imageAlt || publication.title}
-                            className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
+                            className="w-full h-full object-cover object-center"
                             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                           />
                         </div>
                       )}
-                      <div className="p-6 md:p-8 flex flex-col justify-between text-white bg-[#1c1c1e]">
-                        <h3 className="text-xl md:text-3xl font-extrabold text-white mb-2 leading-snug tracking-tight group-hover:text-[var(--gold-bright)] transition-colors" style={{ color: "#FFFFFF" }}>
+                      <div className="p-6 md:p-8 flex flex-col justify-between" style={{ backgroundColor: 'var(--surface-card)', color: 'var(--ink)' }}>
+                        <h3 className="article-card-title text-xl md:text-3xl font-extrabold mb-2 leading-snug tracking-tight">
                           {publication.title}
                         </h3>
                         {publication.summary && (
-                          <p className="text-xs md:text-base text-white opacity-95 line-clamp-2 font-body leading-relaxed mb-2" style={{ color: "#FFFFFF" }}>
+                          <p className="text-xs md:text-base opacity-90 line-clamp-2 font-body leading-relaxed mb-2" style={{ color: 'var(--ink-soft)' }}>
                             {publication.summary}
                           </p>
                         )}
                         
                         {/* Sectional Divider Line */}
-                        <div className="h-px w-full bg-[#333336] my-4" />
+                        <div className="h-px w-full my-4" style={{ backgroundColor: 'var(--border)' }} />
 
-                        <div className="flex items-center justify-between gap-3 font-ui text-xs md:text-sm font-bold uppercase tracking-wider text-white w-full" style={{ color: "#FFFFFF" }}>
+                        <div className="flex items-center justify-between gap-3 font-ui text-xs md:text-sm font-bold uppercase tracking-wider w-full">
                           <div className="flex items-center gap-2 overflow-hidden flex-wrap flex-1">
-                            <span className="font-extrabold text-white tracking-widest shrink-0" style={{ color: "#FFFFFF" }}>{publication.authorName || "Editorial"}</span>
-                            <span className="px-3 py-1 rounded-full text-[10px] md:text-[11px] font-extrabold uppercase tracking-widest bg-[#C84A10] text-white border border-white/20 shadow-sm shrink-0" style={{ color: "#FFFFFF" }}>
+                            <span className="font-extrabold tracking-widest shrink-0">{publication.authorName || "Editorial"}</span>
+                            <span className="px-3 py-1 rounded-full text-[10px] md:text-[11px] font-extrabold uppercase tracking-widest bg-[var(--surface-alt)] border border-[var(--border)] shadow-sm shrink-0">
                               {publication.categoryName || publication.categorySlug || (publication.kind === "paper" ? "Paper" : "Essay")}
                             </span>
                             {readingTimeText && (
-                              <span className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-white bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 shrink-0" style={{ color: "#FFFFFF" }}>
+                              <span className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider bg-[var(--surface-alt)] px-3 py-1 rounded-full border border-[var(--border)] shrink-0">
                                 {readingTimeText}
                               </span>
                             )}
                           </div>
                           {publication.publishedAt && (
-                            <span className="text-white opacity-90 font-extrabold shrink-0 text-right ml-auto" style={{ color: "#FFFFFF" }}>
+                            <span className="opacity-80 font-extrabold shrink-0 text-right ml-auto">
                               {new Date(publication.publishedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                             </span>
                           )}
@@ -430,18 +488,21 @@ export default function HomePage() {
           </p>
 
           <div className="home-v3-domains home-v3-domains-expanded">
-            {HOME_DOMAINS.map(d => (
-              <Link key={d.label} href={d.href} className="home-v3-domain-card">
-                <div className="home-v3-domain-icon-wrap">
-                  <div className="home-v3-domain-icon home-v3-domain-icon-vivid">
-                    <AnimalGlyph domain={d.domain} size={50} />
+            {DOMAIN_ORDER.map(key => {
+              const d = DOMAIN_META[key];
+              if (!d) return null;
+              return (
+                <Link key={key} href={d.route} className="home-v3-domain-card">
+                  <div className="home-v3-domain-icon-wrap">
+                    <AnimalGlyph domain={key} size={32} />
                   </div>
-                </div>
-
-                <div className="home-v3-domain-name">{d.label}</div>
-                <p className="home-v3-domain-desc">{d.desc}</p>
-              </Link>
-            ))}
+                  <div className="home-v3-domain-name">{d.label}</div>
+                  <div className="home-v3-domain-badge">
+                    {domainCounts[key] || 0} {d.countLabel || "Items"}
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </section>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useRoute } from "wouter";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ExternalLink, Download, FileText } from "lucide-react";
+import { toast } from "sonner";
 import { ArticleActionBar } from "@/components/manuscript/ArticleActionBar";
 import { GlyphTag } from "@/components/manuscript/GlyphTag";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
@@ -65,6 +66,20 @@ export default function PaperDetailPage() {
     } : null,
   });
 
+  const handleBibtexExport = () => {
+    const author = paper.authorName ? paper.authorName.replace(/\s+/g, "_") : "Unknown";
+    const year = paper.year || new Date().getFullYear();
+    const bibtex = `@article{${author}_${year},
+  title={${paper.title}},
+  author={${paper.authorName || "Unknown"}},
+  journal={Ānvīkṣikī Journal},
+  year={${year}},
+  url={${window.location.href}}
+}`;
+    navigator.clipboard.writeText(bibtex);
+    toast.success("BibTeX citation copied to clipboard");
+  };
+
   if (loading) {
     return (
       <div className="grid min-h-[60vh] place-items-center bg-[var(--bg)]">
@@ -97,11 +112,35 @@ export default function PaperDetailPage() {
             {paper.peerReviewed ? <span className="badge badge-approved">Peer Reviewed</span> : null}
             {paper.year ? <span className="badge badge-received">{paper.year}</span> : null}
             <GlyphTag domain={paper.categorySlug || paper.categoryId || paper.discipline || "papers"} />
+            {paper.keywords && Array.isArray(paper.keywords) ? (
+              paper.keywords.map((kw: string) => (
+                <span key={kw} className="keyword-chip font-ui text-[10px] px-2 py-0.5 rounded-full border border-[var(--border)] text-[var(--ink-faint)] uppercase tracking-wider bg-[var(--surface)]">{kw}</span>
+              ))
+            ) : typeof paper.keywords === 'string' ? (
+              paper.keywords.split(',').map((kw: string) => (
+                <span key={kw.trim()} className="keyword-chip font-ui text-[10px] px-2 py-0.5 rounded-full border border-[var(--border)] text-[var(--ink-faint)] uppercase tracking-wider bg-[var(--surface)]">{kw.trim()}</span>
+              ))
+            ) : null}
           </div>
           <h1 className="font-display text-[clamp(2.1rem,5vw,4.2rem)] leading-[1.08] text-[var(--ink)]">{paper.title}</h1>
+          {paper.doi && (
+            <a href={`https://doi.org/${paper.doi}`} target="_blank" rel="noreferrer" className="doi-badge inline-flex items-center gap-1 mt-3 font-ui text-xs px-2.5 py-1 rounded-md bg-[var(--surface-soft)] text-[var(--ink-soft)] hover:bg-[var(--surface-elevated)] border border-[var(--border-subtle)] transition-colors">
+              <ExternalLink size={12} className="text-[var(--gold)]" /> DOI: {paper.doi}
+            </a>
+          )}
           {paper.authorName ? <p className="mt-4 font-ui text-sm uppercase tracking-[0.08em] text-[var(--muted)]">by {paper.authorName}</p> : null}
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
-            <ArticleActionBar title={paper.title} downloadUrl={paper.pdfUrl || paper.fileUrl} />
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--border-subtle)] pt-6">
+            <div className="flex gap-2 items-center flex-wrap">
+              <ArticleActionBar title={paper.title} downloadUrl={paper.pdfUrl || paper.fileUrl} />
+              <button onClick={handleBibtexExport} className="btn-ink px-3 py-1.5 text-xs h-9 flex items-center gap-2">
+                <FileText size={14} /> Cite (BibTeX)
+              </button>
+              {paper.pdfUrl && (
+                <a href={paper.pdfUrl} target="_blank" rel="noreferrer" className="btn-terracotta px-4 py-1.5 text-xs h-9 flex items-center gap-2">
+                  <Download size={14} /> Download PDF
+                </a>
+              )}
+            </div>
             <div className="flex items-center gap-3">
               <span className="font-ui text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--ink-faint)]">Reading theme</span>
               <ThemeToggle />
