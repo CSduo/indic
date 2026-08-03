@@ -359,9 +359,9 @@ export default function ArticlePage() {
 
       <section className="container-anv py-8 md:py-16 text-center max-w-4xl mx-auto">
         <nav className="mb-6 flex items-center justify-center gap-2 font-ui text-xs font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]" aria-label="Breadcrumb">
-          <Link href="/browse" className="inline-flex items-center gap-1 hover:text-[var(--terracotta)]"><ArrowLeft size={13} /> Journal</Link>
+          <Link href="/browse" className="inline-flex items-center gap-1 hover:text-[var(--ink)]"><ArrowLeft size={13} /> Journal</Link>
           <span>/</span>
-          <span className="text-[var(--terracotta)]">Essay</span>
+          <span className="text-[var(--ink)]">Essay</span>
         </nav>
 
         <div className="space-y-6">
@@ -371,7 +371,7 @@ export default function ArticlePage() {
           <h1 className="font-display text-[clamp(2.2rem,5vw,4.2rem)] leading-[1.08] text-[var(--ink)] max-w-4xl mx-auto">{article.title}</h1>
           {article.excerpt ? (
             <div className="max-w-2xl mx-auto space-y-1">
-              <p className="font-ui text-[10px] uppercase tracking-[0.18em] text-[var(--gold-soft)] opacity-70">Abstract</p>
+              <p className="font-ui text-[10px] uppercase tracking-[0.18em] text-[var(--ink-faint)] opacity-80">Abstract</p>
               <p className="font-body text-base leading-relaxed text-[var(--ink-soft)] italic">{article.excerpt}</p>
             </div>
           ) : null}

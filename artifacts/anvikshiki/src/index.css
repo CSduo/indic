@@ -13,65 +13,70 @@
 
 :root {
   color-scheme: light;
-  /* ── Minimal Editorial Palette (Warm Linen + Deep Charcoal) ── */
-  --bg: #FAF8F4;          /* Warm linen — cooler, cleaner than before */
-  --bg-deep: #F2EFE9;
-  --bg-alt: #FDFBF8;
-  --surface: #FFFFFF;        /* Cards: pure white for crisp contrast */
-  --surface-card: #FDFBF8;   /* Slightly off-white card surface */
+  /* ── Substack-Style High-Contrast Light Theme (Pure White & Pitch Black) ── */
+  --bg: #FFFFFF;          /* Pure, bright, clean white */
+  --bg-deep: #FAFAFA;
+  --bg-alt: #F5F5F5;
+  --surface: #FFFFFF;        /* Pure white cards */
+  --surface-card: #FFFFFF;   /* Pure white card surface */
   --surface-elevated: #FFFFFF;
-  --surface-soft: #F5F2EC;
-  --surface-2: #F5F2EC;
+  --surface-soft: #F5F5F5;
+  --surface-2: #F5F5F5;
   --surface-3: #FFFFFF;
   --vellum: #FFFFFF;
-  --vellum-warm: #F8F5EF;
-  --ink: #000000;
-  --ink-soft: #1a1a1a;
-  --ink-faint: #7a6040;
-  --muted: #9a7850;
-  --gold: #8b6020;
-  --gold-bright: #a07030;
-  --gold-soft: #c49a50;
-  --gold-pale: #e8d5a0;
-  --terracotta: #b84c2a;
-  --terracotta-soft: #d4826a;
-  --terracotta-pale: #f0ddd8;
-  --sage: #4a7060;
-  --sage-soft: #7aa090;
-  --sage-pale: #e0ece8;
-  --dusty-rose: #9a5060;
-  --rose: #9a5060;
-  --rose-bright: #b84c2a;
-  --lotus: #9a5060;
-  --moon: #385268;
-  --peacock: #4a7060;
-  --clay: #c07050;
-  --olive: #6a7840;
-  --indigo-faded: #5060a0;
-  --manuscript-blue: #385268;
-  --aged-jade: #5f7a69;
-  --saffron-muted: #c9883d;
-  --charcoal-line: #2e271d;
-  --ink-wash: rgba(42, 31, 14, 0.045);
-  --ink-wash-strong: rgba(42, 31, 14, 0.075);
-  --marginalia: rgba(139, 96, 32, 0.16);
-  --thread-line: rgba(139, 96, 32, 0.22);
-  --lamp-glow: rgba(210, 150, 60, 0.22);
-  --border: rgba(42,31,14,0.12);
-  --border-subtle: rgba(42,31,14,0.09);
-  --border-gold: rgba(139,96,32,0.28);
-  --border-ink: rgba(42,31,14,0.18);
-  --border-strong: rgba(42,31,14,0.30);
-  --border-terracotta: rgba(184,76,42,0.32);
-  --border-rose: rgba(154,80,96,0.28);
-  --shadow-sm: 0 1px 6px rgba(42,31,14,0.08);
-  --shadow-card: 0 2px 12px rgba(42,31,14,0.09), 0 1px 4px rgba(42,31,14,0.06);
-  --shadow-lg: 0 8px 32px rgba(42,31,14,0.14), 0 4px 16px rgba(42,31,14,0.08);
-  --shadow-terracotta: 0 5px 20px rgba(184,76,42,0.22);
-  --radius-sm: 12px;       /* Inputs, small elements */
-  --radius-card: 22px;     /* Cards — rounded but not excessive */
-  --radius-lg: 32px;       /* Large panels */
-  --radius-pill: 999px;    /* Buttons — full pill shape */
+  --vellum-warm: #FAFAFA;
+  --ink: #000000;         /* Pitch Black */
+  --ink-soft: #171717;    /* Charcoal Black */
+  --ink-faint: #525252;   /* Neutral Grey */
+  --muted: #737373;
+  
+  /* ZERO Yellow & ZERO Red — High contrast monochrome */
+  --gold: #000000;        /* Pitch Black */
+  --gold-bright: #171717;
+  --gold-soft: #404040;
+  --gold-pale: #F5F5F5;
+  --terracotta: #171717;  /* Dark Neutral */
+  --terracotta-soft: #404040;
+  --terracotta-pale: #F5F5F5;
+  --sage: #404040;
+  --sage-soft: #737373;
+  --sage-pale: #F5F5F5;
+  --dusty-rose: #404040;
+  --rose: #171717;
+  --rose-bright: #000000;
+  --lotus: #171717;
+  --moon: #404040;
+  --peacock: #404040;
+  --clay: #404040;
+  --olive: #404040;
+  --indigo-faded: #404040;
+  --manuscript-blue: #404040;
+  --aged-jade: #404040;
+  --saffron-muted: #404040;
+  --charcoal-line: #171717;
+  --ink-wash: rgba(0, 0, 0, 0.04);
+  --ink-wash-strong: rgba(0, 0, 0, 0.08);
+  --marginalia: rgba(0, 0, 0, 0.08);
+  --thread-line: rgba(0, 0, 0, 0.12);
+  --lamp-glow: rgba(0, 0, 0, 0.05);
+  
+  /* Crisp hairline borders */
+  --border: #E5E5E5;
+  --border-subtle: #F5F5F5;
+  --border-gold: #E5E5E5;
+  --border-ink: #D4D4D4;
+  --border-strong: #A3A3A3;
+  --border-terracotta: #E5E5E5;
+  --border-rose: #E5E5E5;
+  
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+  --shadow-card: 0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.03);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.08);
+  --shadow-terracotta: 0 4px 16px rgba(0,0,0,0.06);
+  --radius-sm: 12px;
+  --radius-card: 22px;
+  --radius-lg: 32px;
+  --radius-pill: 999px;
   --max-reader: min(105ch, 1100px);
   --max-reader-wide: 1344px;
   --progress: 0%;
@@ -85,62 +90,66 @@
 
 [data-theme="dark"] {
   color-scheme: dark;
-  /* Kit dark palette: Matte Jet Black + crisp charcoal surfaces */
-  --bg: #0E0E0E;          /* Kit: Matte Jet Black Background */
-  --bg-deep: #090909;
-  --bg-alt: #141414;
-  --surface: #181818;        /* Kit: Soft Charcoal Surface */
-  --surface-card: #1C1C1C;
-  --surface-elevated: #222222;
-  --surface-soft: #1C1C1C;
-  --surface-2: #1C1C1C;
-  --surface-3: #222222;
-  --vellum: #1C1C1C;
-  --vellum-warm: #181818;
-  --ink: #F4F4F4;           /* Kit: Crisp White Ink */
-  --ink-soft: #E0E0E0;
-  --ink-faint: #A0A0A0;     /* Kit: Muted Grey */
-  --muted: #808080;
-  --gold: #c9963a;
-  --gold-bright: #dfb86a;
-  --gold-soft: #a87830;
-  --gold-pale: rgba(201,150,58,0.15);
-  --terracotta: #c96848;
-  --terracotta-soft: #d98a6a;
-  --terracotta-pale: rgba(201,104,72,0.14);
-  --sage: #7a9e8a;
-  --sage-soft: #90b29e;
-  --sage-pale: rgba(122,158,138,0.14);
-  --dusty-rose: #b86e7a;
-  --rose: #b86e7a;
-  --rose-bright: #d47068;
-  --lotus: #b86e7a;
-  --moon: #7a9eb0;
-  --peacock: #7a9e8a;
-  --clay: #c87c58;
-  --olive: #909860;
-  --indigo-faded: #8090c0;
-  --manuscript-blue: #7a9eb0;
-  --aged-jade: #7a9e8a;
-  --saffron-muted: #c89038;
-  --charcoal-line: #f0e6d0;
-  --ink-wash: rgba(255, 255, 255, 0.03);
-  --ink-wash-strong: rgba(255, 255, 255, 0.06);
-  --marginalia: rgba(201, 150, 58, 0.18);
-  --thread-line: rgba(201, 150, 58, 0.24);
-  --lamp-glow: rgba(201, 150, 58, 0.18);
-  /* Kit dark borders: #282828 hairline */
-  --border: rgba(255,255,255,0.08);
-  --border-subtle: rgba(255,255,255,0.05);
-  --border-gold: rgba(201,150,58,0.30);
-  --border-ink: rgba(255,255,255,0.12);
-  --border-strong: rgba(255,255,255,0.20);
-  --border-terracotta: rgba(201,104,72,0.34);
-  --border-rose: rgba(184,110,122,0.30);
-  --shadow-sm: 0 1px 8px rgba(0,0,0,0.70);
-  --shadow-card: 0 2px 14px rgba(0,0,0,0.60), 0 1px 4px rgba(0,0,0,0.50);
-  --shadow-lg: 0 12px 42px rgba(0,0,0,0.75), 0 4px 18px rgba(0,0,0,0.60);
-  --shadow-terracotta: 0 5px 22px rgba(201,104,72,0.18);
+  /* ── Substack-Style High-Contrast Dark Theme (Pitch Black & Piercing White) ── */
+  --bg: #000000;          /* Pitch dark black */
+  --bg-deep: #050505;
+  --bg-alt: #0A0A0A;
+  --surface: #0F0F0F;        /* Pitch dark card surface */
+  --surface-card: #0F0F0F;
+  --surface-elevated: #141414;
+  --surface-soft: #141414;
+  --surface-2: #141414;
+  --surface-3: #1A1A1A;
+  --vellum: #0F0F0F;
+  --vellum-warm: #0A0A0A;
+  --ink: #FFFFFF;         /* Piercing Pure White */
+  --ink-soft: #F5F5F5;
+  --ink-faint: #A3A3A3;   /* Light Neutral Grey */
+  --muted: #888888;
+  
+  /* ZERO Yellow & ZERO Red — High contrast monochrome */
+  --gold: #FFFFFF;        /* Pure Piercing White */
+  --gold-bright: #FFFFFF;
+  --gold-soft: #D4D4D4;
+  --gold-pale: rgba(255,255,255,0.08);
+  --terracotta: #FFFFFF;  /* Pure Piercing White */
+  --terracotta-soft: #E5E5E5;
+  --terracotta-pale: rgba(255,255,255,0.06);
+  --sage: #A3A3A3;
+  --sage-soft: #737373;
+  --sage-pale: rgba(255,255,255,0.06);
+  --dusty-rose: #A3A3A3;
+  --rose: #FFFFFF;
+  --rose-bright: #FFFFFF;
+  --lotus: #FFFFFF;
+  --moon: #A3A3A3;
+  --peacock: #A3A3A3;
+  --clay: #A3A3A3;
+  --olive: #A3A3A3;
+  --indigo-faded: #A3A3A3;
+  --manuscript-blue: #A3A3A3;
+  --aged-jade: #A3A3A3;
+  --saffron-muted: #D4D4D4;
+  --charcoal-line: #F5F5F5;
+  --ink-wash: rgba(255, 255, 255, 0.04);
+  --ink-wash-strong: rgba(255, 255, 255, 0.08);
+  --marginalia: rgba(255, 255, 255, 0.08);
+  --thread-line: rgba(255, 255, 255, 0.12);
+  --lamp-glow: rgba(255, 255, 255, 0.05);
+  
+  /* Hairline dark borders */
+  --border: #262626;
+  --border-subtle: #1A1A1A;
+  --border-gold: #262626;
+  --border-ink: #333333;
+  --border-strong: #525252;
+  --border-terracotta: #262626;
+  --border-rose: #262626;
+  
+  --shadow-sm: 0 1px 8px rgba(0,0,0,0.80);
+  --shadow-card: 0 2px 14px rgba(0,0,0,0.70), 0 1px 4px rgba(0,0,0,0.60);
+  --shadow-lg: 0 12px 42px rgba(0,0,0,0.85), 0 4px 18px rgba(0,0,0,0.70);
+  --shadow-terracotta: 0 5px 22px rgba(0,0,0,0.60);
   --parchment: var(--ink);
 }
 
@@ -165,18 +174,7 @@ body {
 }
 
 body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  opacity: .38;
-  background-image:
-    radial-gradient(circle at 20% 30%, rgba(42,31,14,.05) 0 1px, transparent 1px),
-    radial-gradient(circle at 80% 10%, rgba(139,96,32,.055) 0 1px, transparent 1px),
-    linear-gradient(90deg, rgba(139,96,32,.025), transparent 42%, rgba(42,31,14,.018));
-  background-size: 34px 34px, 47px 47px, 100% 100%;
-  mix-blend-mode: multiply;
+  display: none !important;
 }
 
 /* ── Dark mode: pure black background, no warm gradients ── */
@@ -186,7 +184,7 @@ body::before {
 }
 
 [data-theme="dark"] body::before {
-  display: none;
+  display: none !important;
 }
 
 a {

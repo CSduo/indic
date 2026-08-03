@@ -92,9 +92,9 @@ const PILLARS = [
 ];
 
 const ACTION_ROWS = [
-  { label: "Submit Your Work", sub: "Share your original essays and research with a global audience.", href: "/submit",    Icon: Send,     bg: "var(--terracotta)", text: "var(--surface)" },
-  { label: "Explore Journal",  sub: "Dive into essays, papers, and ideas from thinkers worldwide.",   href: "/browse",    Icon: BookOpen, bg: "var(--ink-soft)",   text: "var(--bg-deep)" },
-  { label: "Join Community",   sub: "Connect with scholars, readers, and creators of knowledge.",     href: "/community", Icon: Users,    bg: "var(--gold-pale)",  text: "var(--ink)" },
+  { label: "Submit Your Work", sub: "Share your original essays and research with a global audience.", href: "/submit", Icon: Send, bg: "var(--surface-card)", text: "var(--ink)" },
+  { label: "Explore Journal", sub: "Dive into essays, papers, and ideas from thinkers worldwide.", href: "/browse", Icon: BookOpen, bg: "var(--surface-card)", text: "var(--ink)" },
+  { label: "Join Community", sub: "Connect with scholars, readers, and creators of knowledge.", href: "/community", Icon: Users, bg: "var(--surface-card)", text: "var(--ink)" },
 ] as const;
 
 /* ── Wisdom Carousel — auto-cycles through aphorisms ── */
@@ -115,37 +115,26 @@ function WisdomStrip() {
 
   const w = WISDOMS[idx];
   return (
-    <section className="home-wisdom-strip" aria-label="Sanskrit aphorism of the day">
-      {/* Decorative yantra bg */}
-      <div className="home-wisdom-yantra" aria-hidden="true">
-        <YantraPattern size={260} style={{ opacity: 0.07 }} />
-      </div>
-
-      <div className="container-anv home-wisdom-body" style={{ opacity: fade ? 1 : 0, transition: "opacity 0.42s ease" }}>
-        <div className="home-wisdom-left" aria-hidden="true">
-          <PrismaticBurst size={72} style={{ opacity: 0.65 }} />
-        </div>
+    <section className="home-wisdom-strip border-y border-[var(--border)] py-8" aria-label="Sanskrit aphorism of the day">
+      <div className="container-anv home-wisdom-body text-center max-w-2xl mx-auto" style={{ opacity: fade ? 1 : 0, transition: "opacity 0.42s ease" }}>
         <div className="home-wisdom-center">
-          <p className="home-wisdom-label">✦ Aphorism from the Archive ✦</p>
-          <p className="home-wisdom-deva" lang="sa">{w.devanagari}</p>
-          <p className="home-wisdom-roman">{w.transliteration}</p>
-          <p className="home-wisdom-trans">"{w.translation}"</p>
-          <p className="home-wisdom-source">— {w.source} &nbsp;·&nbsp; {w.domain}</p>
-        </div>
-        <div className="home-wisdom-right" aria-hidden="true">
-          <PrismaticBurst size={72} style={{ opacity: 0.65, transform: "scaleX(-1)" }} />
+          <p className="home-wisdom-label text-[10px] uppercase font-bold tracking-[0.24em] text-[var(--ink-faint)] mb-2">Aphorism from the Archive</p>
+          <p className="home-wisdom-deva font-display text-2xl mb-1 text-[var(--ink)]" lang="sa">{w.devanagari}</p>
+          <p className="home-wisdom-roman font-body text-sm text-[var(--ink-soft)] italic mb-1">{w.transliteration}</p>
+          <p className="home-wisdom-trans font-body text-sm font-medium text-[var(--ink)] mb-2">"{w.translation}"</p>
+          <p className="home-wisdom-source font-ui text-[11px] uppercase tracking-wider text-[var(--ink-faint)]">— {w.source} &nbsp;·&nbsp; {w.domain}</p>
         </div>
       </div>
 
       {/* Progress dots */}
-      <div className="home-wisdom-dots" aria-hidden="true">
+      <div className="home-wisdom-dots flex items-center justify-center gap-2 mt-4" aria-hidden="true">
         {WISDOMS.map((_, i) => (
           <button
             key={i}
             type="button"
             aria-label={`Aphorism ${i + 1}`}
-            className="home-wisdom-dot"
-            style={{ background: i === idx ? "var(--gold)" : "var(--border-gold)", opacity: i === idx ? 1 : 0.4 }}
+            className="home-wisdom-dot w-2 h-2 rounded-full transition-all"
+            style={{ background: i === idx ? "var(--ink)" : "var(--border)", opacity: i === idx ? 1 : 0.4 }}
             onClick={() => { setFade(false); setTimeout(() => { setIdx(i); setFade(true); }, 250); }}
           />
         ))}
@@ -325,7 +314,6 @@ export default function HomePage() {
         <section className="home-v3-section">
           <div className="container-anv">
             <div className="home-v3-section-head">
-              <span className="home-v3-lotus-mark">✦</span>
               <h2 className="home-v3-section-title">Recently Submitted</h2>
               <div className="home-recent-actions">
                 {recentPublications.length > 4 && (
@@ -376,7 +364,7 @@ export default function HomePage() {
                         <span className="home-v3-essay-author-mini">{publication.authorName || "Editorial"}</span>
                         {readingTimeText && <span>{readingTimeText}</span>}
                       </div>
-                      <div className="font-ui text-[8px] opacity-80 mt-1 flex items-center justify-between" style={{ color: "rgba(255,255,255,0.4)" }}>
+                      <div className="font-ui text-[8px] opacity-80 mt-1 flex items-center justify-between">
                         <span>Published</span>
                         {publication.publishedAt && (
                           <span>
@@ -398,7 +386,6 @@ export default function HomePage() {
         <section className="home-v3-section">
           <div className="container-anv">
             <div className="home-v3-section-head">
-              <span className="home-v3-lotus-mark">✦</span>
               <h2 className="home-v3-section-title">Featured Essays</h2>
               <Link href="/browse" className="home-v3-view-all">View All <ArrowRight size={14} /></Link>
             </div>
@@ -407,7 +394,7 @@ export default function HomePage() {
                 <Link key={essay.title} href={essay.href} className="home-v3-essay-card">
                   <div className="home-v3-essay-meta">
                     <AnimalGlyph domain={essay.domain} size={34} />
-                    <span className="home-v3-essay-cat" style={{ color: essay.color }}>{essay.category}</span>
+                    <span className="home-v3-essay-cat">{essay.category}</span>
                   </div>
                   <h3 className="home-v3-essay-title">{essay.title}</h3>
                   <div className="home-v3-essay-foot">
@@ -423,14 +410,8 @@ export default function HomePage() {
 
       {/* ─── BROWSE BY DOMAIN ─── */}
       <section className="home-v3-section home-v3-domains-section" style={{ position: "relative", overflow: "hidden" }}>
-        {/* Background Yantra watermark */}
-        <div className="home-domains-yantra" aria-hidden="true">
-          <YantraPattern size={400} style={{ opacity: 0.04 }} />
-        </div>
-
         <div className="container-anv" style={{ position: "relative", zIndex: 1 }}>
           <div className="home-v3-section-head centered">
-            <SectionMandala size={48} />
             <h2 className="home-v3-section-title">Browse by Domain</h2>
           </div>
 
@@ -441,25 +422,15 @@ export default function HomePage() {
 
           <div className="home-v3-domains home-v3-domains-expanded">
             {HOME_DOMAINS.map(d => (
-              <Link key={d.label} href={d.href} className="home-v3-domain-card"
-                style={{ "--card-color": d.color } as React.CSSProperties}>
-
-                {/* Icon with vivid ring */}
+              <Link key={d.label} href={d.href} className="home-v3-domain-card">
                 <div className="home-v3-domain-icon-wrap">
-                  <div className="home-v3-domain-icon home-v3-domain-icon-vivid"
-                    style={{ "--icon-color": d.color } as React.CSSProperties}>
+                  <div className="home-v3-domain-icon home-v3-domain-icon-vivid">
                     <AnimalGlyph domain={d.domain} size={50} />
                   </div>
                 </div>
 
                 <div className="home-v3-domain-name">{d.label}</div>
                 <p className="home-v3-domain-desc">{d.desc}</p>
-
-                <div className="home-v3-domain-ornament">
-                  <span style={{ color: d.color }}>✦</span>
-                  <span style={{ color: d.color, opacity: 0.5 }}>✦</span>
-                  <span style={{ color: d.color }}>✦</span>
-                </div>
               </Link>
             ))}
           </div>
@@ -467,22 +438,16 @@ export default function HomePage() {
       </section>
 
       {/* ─── FEATURED QUOTE ─── */}
-      <section className="home-quote-section">
-        <div className="container-anv home-quote-inner">
-          <div className="home-quote-prism" aria-hidden="true">
-            <PrismaticBurst size={100} style={{ opacity: 0.5 }} />
-          </div>
+      <section className="home-quote-section py-16 border-y border-[var(--border)]">
+        <div className="container-anv home-quote-inner text-center max-w-2xl mx-auto">
           <blockquote className="home-quote-block">
-            <p className="home-quote-text">
+            <p className="home-quote-text font-display text-2xl md:text-3xl italic text-[var(--ink)]">
               "Inquiry is not a method — it is a disposition of the soul toward truth."
             </p>
-            <footer className="home-quote-attr">
-              <span className="home-quote-dash">—</span> Editorial, Anvikshiki
+            <footer className="home-quote-attr font-ui text-xs uppercase tracking-widest text-[var(--ink-faint)] mt-4">
+              — Editorial, Anvikshiki
             </footer>
           </blockquote>
-          <div className="home-quote-prism home-quote-prism-right" aria-hidden="true">
-            <PrismaticBurst size={100} style={{ opacity: 0.5, transform: "scaleX(-1)" }} />
-          </div>
         </div>
       </section>
 
@@ -504,10 +469,6 @@ export default function HomePage() {
                 <ArrowRight size={20} strokeWidth={1.5} className="home-v3-action-arrow" />
               </Link>
             ))}
-          </div>
-
-          <div className="home-v3-ornament">
-            <span /><i>✦</i><b>❧</b><i>✦</i><span />
           </div>
         </div>
       </section>

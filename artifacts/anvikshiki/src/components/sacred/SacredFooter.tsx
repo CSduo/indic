@@ -71,32 +71,15 @@ export function SacredFooter() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="relative border-t border-[var(--border-gold)] bg-[var(--bg-deep)] overflow-hidden" role="contentinfo">
-      <div className="h-px bg-gradient-to-r from-transparent via-[var(--border-ink)] to-transparent" aria-hidden="true" />
-
+    <footer className="relative border-t border-[var(--border)] bg-[var(--bg)] overflow-hidden" role="contentinfo">
       <div className="container-anv py-8 relative z-10">
-        <OrnamentDivider variant="grand" className="mb-10" />
+        <div className="mb-8 h-px bg-[var(--border)] opacity-60" aria-hidden="true" />
 
         <div className="grid gap-8 md:grid-cols-[1.25fr_.8fr_.8fr_1fr]">
           <section>
-            <div className="mb-4 flex items-center gap-3">
-              <div
-                aria-hidden="true"
-                style={{
-                  width: 44, height: 44, flexShrink: 0,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  borderRadius: 8,
-                  border: "1px solid var(--border-gold)",
-                  background: "linear-gradient(135deg, var(--surface) 0%, var(--bg-deep) 100%)",
-                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 8px rgba(139,96,32,0.12)",
-                }}
-              >
-                <LotusIcon size={28} style={{ color: "var(--gold)" }} />
-              </div>
-              <div>
-                <div className="font-display text-xl tracking-[0.18em]" style={{ color: 'var(--gold)' }}>ĀNVĪKṢIKĪ</div>
-                <div className="font-ui text-[0.58rem] font-bold uppercase tracking-[0.24em] text-[var(--ink-faint)]">Journal &amp; Research Platform</div>
-              </div>
+            <div className="mb-4">
+              <div className="font-display text-xl tracking-[0.18em] text-[var(--ink)]">ĀNVĪKṢIKĪ</div>
+              <div className="font-ui text-[0.58rem] font-bold uppercase tracking-[0.24em] text-[var(--ink-faint)]">Journal &amp; Research Platform</div>
             </div>
             <p className="max-w-sm font-body text-sm leading-7 text-[var(--ink-soft)]">
               A living archive of inquiry across philosophy, history, science, and civilizational thought.
@@ -107,7 +90,7 @@ export function SacredFooter() {
             <h2 className="type-section-label mb-4">Explore</h2>
             <ul className="space-y-2 font-ui text-sm text-[var(--ink-faint)]">
               {[["Browse", "/browse"], ["Archive", "/archive"], ["Papers", "/papers"], ["Search", "/search"]].map(([label, href]) => (
-                <li key={href}><Link href={href} className="hover:text-[var(--terracotta)]">{label}</Link></li>
+                <li key={href}><Link href={href} className="hover:text-[var(--ink)]">{label}</Link></li>
               ))}
             </ul>
           </section>
@@ -116,7 +99,7 @@ export function SacredFooter() {
             <h2 className="type-section-label mb-4">Community</h2>
             <ul className="space-y-2 font-ui text-sm text-[var(--ink-faint)]">
               {[["Submit Work", "/submit"], ["Community", "/community"], ["Account", "/account"], ["About", "/about"]].map(([label, href]) => (
-                <li key={href}><Link href={href} className="hover:text-[var(--terracotta)]">{label}</Link></li>
+                <li key={href}><Link href={href} className="hover:text-[var(--ink)]">{label}</Link></li>
               ))}
             </ul>
           </section>
@@ -128,17 +111,18 @@ export function SacredFooter() {
           </section>
         </div>
 
-        <OrnamentDivider variant="floral" className="my-10" />
+        <div className="my-8 h-px bg-[var(--border)] opacity-60" aria-hidden="true" />
 
         <div className="flex flex-col items-center justify-between gap-3 font-ui text-[0.72rem] uppercase tracking-[0.12em] text-[var(--ink-faint)] md:flex-row">
           <p>Copyright {year} Anvikshiki</p>
           <div className="flex flex-wrap items-center justify-center gap-4">
-            <Link href="/privacy" className="hover:text-[var(--terracotta)]">Privacy</Link>
-            <Link href="/terms" className="hover:text-[var(--terracotta)]">Terms</Link>
-            <span className="text-[var(--gold)]">✦ Inquiry · Wisdom · Truth ✦</span>
+            <Link href="/privacy" className="hover:text-[var(--ink)]">Privacy</Link>
+            <Link href="/terms" className="hover:text-[var(--ink)]">Terms</Link>
+            <span className="text-[var(--ink-faint)]">Inquiry · Wisdom · Truth</span>
           </div>
         </div>
       </div>
     </footer>
   );
 }
+

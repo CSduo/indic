@@ -2,10 +2,11 @@ import { useEffect, useCallback, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Home, Compass, Grid3X3, FileText, Archive, Search, Send,
-  Users, Info, Mail, User, BookMarked, ShieldCheck, X,
+  Users, Info, Mail, User, BookMarked, ShieldCheck, X, Sun, Moon,
 } from "lucide-react";
 import { PUBLIC_NAV_LINKS, ACCOUNT_NAV_LINKS, ADMIN_NAV_LINK } from "@/lib/navigation";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useTheme } from "@/components/providers/ThemeProvider";
 
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number; strokeWidth?: number }>> = {
   "/":          Home,
@@ -31,6 +32,7 @@ interface GlobalSidebarProps {
 export function GlobalSidebar({ open, onClose }: GlobalSidebarProps) {
   const [loc] = useLocation();
   const { user } = useAuthContext();
+  const { resolvedTheme, toggleTheme } = useTheme();
   const drawerRef = useRef<HTMLElement>(null);
 
   // Close on Escape
@@ -45,7 +47,6 @@ export function GlobalSidebar({ open, onClose }: GlobalSidebarProps) {
     if (open) {
       document.addEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "hidden";
-      // Focus the drawer
       drawerRef.current?.focus();
     } else {
       document.body.style.overflow = "";
@@ -117,6 +118,25 @@ export function GlobalSidebar({ open, onClose }: GlobalSidebarProps) {
             );
           })}
 
+          {/* Appearance / Theme Switcher */}
+          <div className="global-sidebar-divider" />
+          <div className="global-sidebar-section-label">Theme</div>
+          <button
+            type="button"
+            onClick={() => {
+              toggleTheme();
+            }}
+            className="global-sidebar-link flex items-center justify-between w-full text-left"
+          >
+            <div className="flex items-center gap-3">
+              {resolvedTheme === "dark" ? <Moon size={18} strokeWidth={1.5} /> : <Sun size={18} strokeWidth={1.5} />}
+              <span>{resolvedTheme === "dark" ? "Dark Mode" : "Light Mode"}</span>
+            </div>
+            <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-[var(--border)] tracking-wider">
+              {resolvedTheme === "dark" ? "Pitch Dark" : "Pure White"}
+            </span>
+          </button>
+
           {/* Account section (signed in only) */}
           {user && (
             <>
@@ -162,3 +182,4 @@ export function GlobalSidebar({ open, onClose }: GlobalSidebarProps) {
     </div>
   );
 }
+
