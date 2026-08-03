@@ -19,8 +19,8 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: "dark",
-  resolvedTheme: "dark",
+  theme: "light",
+  resolvedTheme: "light",
   setTheme: () => {},
   toggleTheme: () => {},
 });
@@ -32,7 +32,7 @@ function storedPreference(): ThemePreference {
   } catch {
     // Storage can be unavailable in privacy-restricted contexts.
   }
-  return "dark";
+  return "light";
 }
 
 function systemTheme(): ResolvedTheme {

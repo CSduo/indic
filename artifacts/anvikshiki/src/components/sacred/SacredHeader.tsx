@@ -40,34 +40,41 @@ export function SacredHeader() {
         </a>
 
         <div className="container-anv">
-          <div className="sacred-header-row">
+          {/* ── ROW 1: Primary Top Header Bar ── */}
+          <div className="sacred-header-row flex items-center justify-between py-3">
 
-            {/* Hamburger menu trigger — visible on ALL breakpoints */}
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(true)}
-              className="sacred-icon-btn"
-              aria-label="Open navigation"
-            >
-              <Menu size={22} strokeWidth={1.6} />
-            </button>
+            {/* Far Left: Hamburger Menu Trigger (Prominent, separated from logo/text) */}
+            <div className="flex items-center">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(true)}
+                className="sacred-icon-btn mr-4 md:mr-8 hover:bg-[var(--surface-soft)] p-2 rounded-lg transition-colors text-[var(--ink)]"
+                aria-label="Open navigation sidebar"
+                title="Open navigation menu & settings"
+              >
+                <Menu size={26} strokeWidth={1.8} />
+              </button>
+            </div>
 
-            {/* Brand identity — text only, no emblem */}
-            <Link href="/" className="sacred-brand" aria-label="Ānvīkṣikī home">
-              <span className="sacred-brand-text">
-                <span className="sacred-brand-name">ĀNVĪKṢIKĪ</span>
-                <span className="sacred-brand-sub">Journal &amp; Research Platform</span>
+            {/* Center: Monochromatic B&W Favicon Emblem + Brand Identity */}
+            <Link href="/" className="sacred-brand flex items-center gap-3 text-center sm:text-left mx-auto sm:mx-0" aria-label="Ānvīkṣikī home">
+              <div className="w-9 h-9 md:w-10 md:h-10 rounded-full border-2 border-[var(--ink)] flex items-center justify-center p-1.5 bg-transparent shrink-0 shadow-sm">
+                <img src="/favicon.svg" alt="Ānvīkṣikī Emblem" className="w-full h-full object-contain filter grayscale dark:invert" />
+              </div>
+              <span className="sacred-brand-text flex flex-col">
+                <span className="sacred-brand-name font-display text-lg md:text-2xl font-bold tracking-[0.16em] text-[var(--ink)] leading-none">ĀNVĪKṢIKĪ</span>
+                <span className="sacred-brand-sub font-ui text-[0.55rem] md:text-[0.62rem] font-extrabold uppercase tracking-[0.22em] text-[var(--ink-faint)] mt-0.5">Journal &amp; Research Platform</span>
               </span>
             </Link>
 
-            {/* Right actions — Search, Sign In, Theme toggle */}
-            <div className="sacred-actions">
+            {/* Far Right: Search, Account & Subscribe Button */}
+            <div className="sacred-actions flex items-center gap-3">
               <Link
                 href="/search"
-                className="sacred-icon-btn hidden sm:inline-flex"
+                className="sacred-icon-btn text-[var(--ink)] hover:text-[var(--gold)]"
                 aria-label="Search the journal"
               >
-                <Search size={19} strokeWidth={1.6} />
+                <Search size={20} strokeWidth={1.8} />
               </Link>
 
               {user ? (
@@ -87,7 +94,7 @@ export function SacredHeader() {
                       </span>
                     )}
                   </span>
-                  {user.name?.split(" ")[0] || "Account"}
+                  <span className="hidden sm:inline">{user.name?.split(" ")[0] || "Account"}</span>
                   </button>
 
                   {accountOpen ? (
@@ -117,14 +124,46 @@ export function SacredHeader() {
                   ) : null}
                 </div>
               ) : (
-                <Link href="/login" className="sacred-account-icon-btn" aria-label="Sign in or create account">
-                  <User size={20} strokeWidth={1.6} />
+                <Link href="/login" className="font-ui text-xs font-extrabold uppercase tracking-widest text-[var(--ink)] hover:text-[var(--gold)] px-2" aria-label="Sign in">
+                  Sign in
                 </Link>
               )}
 
+              {/* Subscribe CTA Button */}
+              <Link 
+                href="/#newsletter-subscribe" 
+                className="px-4 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wider bg-[#F97316] text-white hover:bg-[#EA580C] transition-all shadow-sm shrink-0 inline-flex items-center justify-center"
+              >
+                Subscribe
+              </Link>
             </div>
 
           </div>
+
+          {/* ── ROW 2: Secondary Sub-Header Navigation Bar ── */}
+          <nav className="sacred-sub-header border-t border-[var(--border-gold)]/40 py-2 flex items-center justify-center gap-6 md:gap-10 overflow-x-auto no-scrollbar font-ui text-xs md:text-sm font-extrabold uppercase tracking-[0.16em]">
+            <Link href="/" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
+              Home
+            </Link>
+            <Link href="/browse" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/browse" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
+              Browse
+            </Link>
+            <Link href="/archive" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/archive" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
+              Archive
+            </Link>
+            <Link href="/papers" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/papers" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
+              Papers
+            </Link>
+            <Link href="/about" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/about" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
+              About
+            </Link>
+            <Link href="/submit" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/submit" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
+              Submit Work
+            </Link>
+            <Link href="/community" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/community" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
+              Community
+            </Link>
+          </nav>
         </div>
       </header>
 

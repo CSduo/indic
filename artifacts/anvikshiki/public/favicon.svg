@@ -1,18 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="128" height="128">
-  <!-- 2D Minimalist Sacred Lotus with Transparent Background -->
-  <g fill="none" stroke="#C9983A" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 2D Minimalist Sacred Lotus Emblem -->
+  <g fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
     <!-- Center Petal -->
-    <path d="M50 14 Q38 42 50 78 Q62 42 50 14 Z" fill="rgba(201, 152, 58, 0.15)"/>
+    <path d="M50 14 Q38 42 50 78 Q62 42 50 14 Z" fill="currentColor" fill-opacity="0.15"/>
     <!-- Inner Left Petal -->
-    <path d="M50 78 Q28 48 30 28 Q42 46 50 78 Z" fill="rgba(201, 152, 58, 0.10)"/>
+    <path d="M50 78 Q28 48 30 28 Q42 46 50 78 Z" fill="currentColor" fill-opacity="0.10"/>
     <!-- Inner Right Petal -->
-    <path d="M50 78 Q72 48 70 28 Q58 46 50 78 Z" fill="rgba(201, 152, 58, 0.10)"/>
+    <path d="M50 78 Q72 48 70 28 Q58 46 50 78 Z" fill="currentColor" fill-opacity="0.10"/>
     <!-- Outer Left Petal -->
-    <path d="M50 78 Q12 55 18 40 Q34 55 50 78 Z" fill="rgba(201, 152, 58, 0.05)"/>
+    <path d="M50 78 Q12 55 18 40 Q34 55 50 78 Z" fill="currentColor" fill-opacity="0.05"/>
     <!-- Outer Right Petal -->
-    <path d="M50 78 Q88 55 82 40 Q66 55 50 78 Z" fill="rgba(201, 152, 58, 0.05)"/>
+    <path d="M50 78 Q88 55 82 40 Q66 55 50 78 Z" fill="currentColor" fill-opacity="0.05"/>
     <!-- Lotus Base Crescent -->
-    <path d="M22 78 Q50 89 78 78" stroke-width="4"/>
-    <circle cx="50" cy="85" r="3" fill="#C9983A"/>
+    <path d="M22 78 Q50 89 78 78" stroke-width="4.5"/>
+    <circle cx="50" cy="85" r="3.5" fill="currentColor"/>
   </g>
 </svg>

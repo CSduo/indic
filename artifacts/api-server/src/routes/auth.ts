@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { articlesTable, papersTable, submissionsTable, usersTable } from "@workspace/db";
+import { articlesTable, newsletterSubscribersTable, papersTable, submissionsTable, usersTable } from "@workspace/db";
 import { and, desc, eq, ilike, or } from "drizzle-orm";
 import {
   hashPassword, comparePassword, createUserToken,
@@ -85,6 +85,16 @@ router.post("/auth/signup", async (req, res) => {
     }
     const hashedPassword = await hashPassword(password);
     const [user] = await db.insert(usersTable).values({ name, email, password: hashedPassword }).returning();
+    
+    // Automatically collect registered user email into newsletter subscriber database
+    await db.insert(newsletterSubscribersTable)
+      .values({ email, name })
+      .onConflictDoUpdate({
+        target: newsletterSubscribersTable.email,
+        set: { isActive: true, ...(name ? { name } : {}) },
+      })
+      .catch(() => {});
+
     const token = await createUserToken(user.id, user.email);
     setUserCookie(res, token);
     sendNewMemberNotification(user.name || name, user.email)
