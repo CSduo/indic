@@ -1,11 +1,12 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { submissionsTable, articlesTable, papersTable } from "@workspace/db";
-import { eq, and, or, ilike, isNull } from "drizzle-orm";
+import { eq, and, or, ilike, isNull, inArray, notInArray } from "drizzle-orm";
 import { getUserAuth } from "../lib/auth";
 import {
   ensurePublicPublicationForSubmission,
   normalizeCategorySlug,
+  slugify,
 } from "../lib/publication-sync";
 import { z } from "zod";
 import multer from "multer";
@@ -368,7 +369,7 @@ router.post(
 // Users can soft-delete any of their own submissions at any time; the article soft-delete
 // is handled separately and the admin panel still sees the submissions (just marked deleted).
 const USER_DELETABLE_STATUSES = ["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "REJECTED", "ACCEPTED", "PUBLISHED", "ARCHIVED"];
-const USER_EDITABLE_STATUSES = ["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED"];
+const USER_EDITABLE_STATUSES = ["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "ACCEPTED", "PUBLISHED", "ARCHIVED"];
 
 // POST /api/submissions/write — full essay written in browser
 router.post("/submissions/write", async (req, res) => {
@@ -633,19 +634,33 @@ router.get("/submissions", async (req, res) => {
     const auth = await getUserAuth(req);
     if (!auth) return res.status(401).json({ error: "Unauthorized" });
 
+    const isDeletedQuery = req.query.deleted === "true";
+
     const conditions = [
       eq(submissionsTable.userId, auth.userId),
     ];
+
+    if (isDeletedQuery) {
+      conditions.push(inArray(submissionsTable.status, ["ARCHIVED", "REJECTED"]));
+    } else {
+      conditions.push(notInArray(submissionsTable.status, ["ARCHIVED", "REJECTED"]));
+    }
 
     const submissions = await db.select().from(submissionsTable)
       .where(and(...conditions))
       .orderBy(submissionsTable.createdAt);
 
-    const enriched = submissions.map(s => ({
-      ...s,
-      body: sanitizeArticleBody(s.body),
-      slug: null,
-    }));
+    const articles = await db.select({ slug: articlesTable.slug, title: articlesTable.title }).from(articlesTable);
+
+    const enriched = submissions.map(s => {
+      const slugCandidate = slugify(s.title);
+      const matchingArt = articles.find(a => (a.title || "").toLowerCase().trim() === (s.title || "").toLowerCase().trim() || a.slug === slugCandidate);
+      return {
+        ...s,
+        body: sanitizeArticleBody(s.body),
+        slug: matchingArt ? matchingArt.slug : slugCandidate,
+      };
+    });
 
     return res.json({ submissions: enriched });
   } catch (err) {
@@ -667,8 +682,7 @@ router.get("/submissions/:id", async (req, res) => {
 
     if (!submission) return res.status(404).json({ error: "Submission not found" });
 
-    // Only the owning user (or an admin via separate admin routes) can view
-    if (submission.userId !== auth.userId) {
+    if (submission.userId !== auth.userId && (auth as any).role !== "ADMIN") {
       return res.status(403).json({ error: "Forbidden" });
     }
 
@@ -690,7 +704,7 @@ router.put("/submissions/:id", async (req, res) => {
     const [existing] = await db.select().from(submissionsTable)
       .where(eq(submissionsTable.id, req.params.id)).limit(1);
     if (!existing) return res.status(404).json({ error: "Submission not found" });
-    if (existing.userId !== auth.userId) return res.status(403).json({ error: "Forbidden" });
+    if (existing.userId !== auth.userId && (auth as any).role !== "ADMIN") return res.status(403).json({ error: "Forbidden" });
     if (!USER_EDITABLE_STATUSES.includes(existing.status)) {
       return res.status(403).json({ error: "This submission can no longer be edited" });
     }
@@ -705,7 +719,7 @@ router.put("/submissions/:id", async (req, res) => {
       body: z.string().max(500_000).optional(),
       notes: z.string().max(5000).optional(),
       consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).optional(),
-      status: z.enum(["DRAFT", "RECEIVED"]).optional(),
+      status: z.enum(["DRAFT", "RECEIVED", "PUBLISHED"]).optional(),
       audioUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
       audioPublicId: z.string().max(500).optional().or(z.literal("")).or(z.null()),
       coverUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
@@ -763,7 +777,7 @@ router.put("/submissions/:id", async (req, res) => {
       .where(eq(submissionsTable.id, req.params.id))
       .returning();
 
-    const publication = wantsSubmit
+    const publication = wantsSubmit || submission.status === "PUBLISHED"
       ? await ensurePublicPublicationForSubmission(submission)
       : null;
     return res.json({
@@ -777,8 +791,7 @@ router.put("/submissions/:id", async (req, res) => {
   }
 });
 
-// DELETE /api/submissions/:id — owner deletes their own submission/draft
-// as long as it has not yet been accepted/published by an admin.
+// DELETE /api/submissions/:id — move submission to trash bin (sets status = ARCHIVED)
 router.delete("/submissions/:id", async (req, res) => {
   try {
     const auth = await getUserAuth(req);
@@ -787,16 +800,58 @@ router.delete("/submissions/:id", async (req, res) => {
     const [existing] = await db.select().from(submissionsTable)
       .where(eq(submissionsTable.id, req.params.id)).limit(1);
     if (!existing) return res.status(404).json({ error: "Submission not found" });
-    if (existing.userId !== auth.userId) return res.status(403).json({ error: "Forbidden" });
-    if (!USER_DELETABLE_STATUSES.includes(existing.status)) {
-      return res.status(403).json({ error: "This submission has already been approved and can no longer be deleted" });
-    }
+    if (existing.userId !== auth.userId && (auth as any).role !== "ADMIN") return res.status(403).json({ error: "Forbidden" });
+
+    await db.update(submissionsTable)
+      .set({ status: "ARCHIVED", updatedAt: new Date() })
+      .where(eq(submissionsTable.id, req.params.id));
+
+    return res.json({ success: true });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed to delete submission" });
+  }
+});
+
+// POST /api/submissions/:id/restore — restore submission from trash back to DRAFT
+router.post("/submissions/:id/restore", async (req, res) => {
+  try {
+    const auth = await getUserAuth(req);
+    if (!auth) return res.status(401).json({ error: "Unauthorized" });
+
+    const [existing] = await db.select().from(submissionsTable)
+      .where(eq(submissionsTable.id, req.params.id)).limit(1);
+    if (!existing) return res.status(404).json({ error: "Submission not found" });
+    if (existing.userId !== auth.userId && (auth as any).role !== "ADMIN") return res.status(403).json({ error: "Forbidden" });
+
+    const [submission] = await db.update(submissionsTable)
+      .set({ status: "DRAFT", updatedAt: new Date() })
+      .where(eq(submissionsTable.id, req.params.id))
+      .returning();
+
+    return res.json({ success: true, submission });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed to restore submission" });
+  }
+});
+
+// DELETE /api/submissions/:id/permanent — permanently erase submission from DB
+router.delete("/submissions/:id/permanent", async (req, res) => {
+  try {
+    const auth = await getUserAuth(req);
+    if (!auth) return res.status(401).json({ error: "Unauthorized" });
+
+    const [existing] = await db.select().from(submissionsTable)
+      .where(eq(submissionsTable.id, req.params.id)).limit(1);
+    if (!existing) return res.status(404).json({ error: "Submission not found" });
+    if (existing.userId !== auth.userId && (auth as any).role !== "ADMIN") return res.status(403).json({ error: "Forbidden" });
 
     await db.delete(submissionsTable).where(eq(submissionsTable.id, req.params.id));
     return res.json({ success: true });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed to delete submission" });
+    return res.status(500).json({ error: "Failed to permanently delete submission" });
   }
 });
 

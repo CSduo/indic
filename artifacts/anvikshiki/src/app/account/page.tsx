@@ -202,16 +202,9 @@ export default function AccountPage() {
           <div className="flex flex-row items-center justify-between gap-2 sm:flex-col sm:items-end shrink-0">
             <span className={`badge ${status.className} text-[10px]`}>{status.label}</span>
             <div className="flex items-center gap-1.5 flex-wrap justify-end">
-              {isDraft ? (
-                <Link href={`/submit/write?draftId=${submission.id}`} className="btn-ink px-2 py-1 text-[10px]">
-                  <Edit3 size={12} /> Resume
-                </Link>
-              ) : null}
-              {submission.status === "PUBLISHED" && submission.slug ? (
-                <Link href={`/account/edit/${submission.slug}`} className="btn-ink px-2 py-1 text-[10px]" style={{ color: "var(--gold)" }}>
-                  <Edit3 size={12} /> Edit Post
-                </Link>
-              ) : null}
+              <Link href={`/submit/write?draftId=${submission.id}`} className="btn-ink px-2 py-1 text-[10px]" style={{ color: "var(--gold)" }}>
+                <Edit3 size={12} /> {isDraft ? "Resume" : "Edit"}
+              </Link>
 
               <button
                 type="button"
