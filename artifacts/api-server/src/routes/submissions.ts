@@ -616,19 +616,19 @@ router.delete("/submissions/:id", async (req, res) => {
     if (!USER_DELETABLE_STATUSES.includes(existing.status)) {
       return res.status(403).json({ error: "This submission has already been approved and can no longer be deleted" });
     }
+      submitterEmail: data.submitterEmail || auth?.email || "",
+      type: data.type || "ESSAY",
+      title: data.title || "Untitled draft",
+      domain: data.domain ? normalizeCategorySlug(data.domain) : null,
+      abstract: data.abstract || "",
+      body: sanitizeArticleBody(data.body || ""),
+      notes: data.notes || null,
+      consent: !isDraft,
+      status: isDraft ? "DRAFT" : "RECEIVED",
+      audioUrl: data.audioUrl || null,
+      audioPublicId: data.audioPublicId || null,
+    }).returning();
 
-    await db.delete(submissionsTable).where(eq(submissionsTable.id, req.params.id));
-    return res.json({ success: true });
-  } catch (err) {
-    req.log.error(err);
-    return res.status(500).json({ error: "Failed to delete submission" });
-  }
-});
-
-// POST /api/submissions/:id/restore — restore a soft-deleted submission
-router.post("/submissions/:id/restore", async (req, res) => {
-  try {
-    const auth = await getUserAuth(req);
     const publication = isDraft
       ? null
       : await ensurePublicPublicationForSubmission(submission);
