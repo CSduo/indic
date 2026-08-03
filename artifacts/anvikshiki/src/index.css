@@ -2749,12 +2749,12 @@ body:has(.sacred-drawer) {
   display: flex;
   align-items: center;
   flex: 1;
-  padding-top: 4.5rem;
-  padding-bottom: 4rem;
+  padding-top: 3.5rem;
+  padding-bottom: 1.25rem;
 }
 
 .home-v3-text {
-  max-width: 500px;
+  max-width: 520px;
 }
 
 .home-v3-eyebrow {
@@ -2792,7 +2792,7 @@ body:has(.sacred-drawer) {
   font-size: 1rem;
   line-height: 1.8;
   color: rgba(255, 248, 232, 0.88);
-  margin-bottom: 2rem;
+  margin-bottom: 1.75rem;
   text-shadow: 0 1px 10px rgba(0,0,0,0.65);
 }
 
@@ -2802,14 +2802,16 @@ body:has(.sacred-drawer) {
   flex-wrap: nowrap !important;
   align-items: center !important;
   gap: 0.75rem !important;
-  margin-bottom: 1.75rem;
+  margin-bottom: 1.5rem;
 }
 
 .home-v3-btn-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.72rem 1.4rem;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.65rem !important;
+  padding: 0.75rem 1.4rem !important;
   background: #C84A10 !important;
   color: #FFFFFF !important;
   font-family: var(--font-ui);
@@ -2820,6 +2822,7 @@ body:has(.sacred-drawer) {
   border-radius: var(--radius-pill);
   border: 1px solid #C84A10;
   text-decoration: none;
+  white-space: nowrap !important;
   box-shadow: 0 4px 16px rgba(200, 74, 16, 0.4);
   transition: background var(--motion-fast), transform var(--motion-fast) var(--ease-archive);
 }
@@ -2830,10 +2833,12 @@ body:has(.sacred-drawer) {
 }
 
 .home-v3-btn-outline {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.72rem 1.4rem;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.65rem !important;
+  padding: 0.75rem 1.4rem !important;
   background: var(--surface-card);
   color: var(--ink) !important;
   font-family: var(--font-ui);
@@ -2844,6 +2849,7 @@ body:has(.sacred-drawer) {
   border-radius: var(--radius-pill);
   border: 1px solid var(--border-strong);
   text-decoration: none;
+  white-space: nowrap !important;
   transition: background var(--motion-fast), transform var(--motion-fast) var(--ease-archive);
 }
 .home-v3-btn-outline:hover {
@@ -2861,8 +2867,10 @@ body:has(.sacred-drawer) {
 .home-v3-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem 0.35rem;
+  align-items: center;
+  gap: 0.45rem 0.4rem;
   overflow: visible;
+  margin-top: 0.5rem;
 }
 
 .home-v3-chip {

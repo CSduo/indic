@@ -60,8 +60,6 @@ const HOME_DOMAINS = [
   { label: "Aesthetics",             domain: "aesthetics",             href: "/domains/aesthetics",             color: DOMAIN_SILVER, emoji: "🎨", desc: "Art, beauty, literature, music, symbol, and form." },
   { label: "Sanskrit Studies",       domain: "sanskrit-studies",       href: "/domains/sanskrit-studies",       color: DOMAIN_SILVER, emoji: "🪔", desc: "Language, shastra, grammar, and textual traditions." },
   { label: "Political Theory",       domain: "political-theory",       href: "/domains/political-theory",       color: DOMAIN_SILVER, emoji: "⚖️", desc: "State, order, sovereignty, justice, and power." },
-  { label: "Translations",           domain: "translations",           href: "/domains/translations",           color: DOMAIN_SILVER, emoji: "📖", desc: "Texts moving between languages, worlds, and eras." },
-  { label: "Multimedia",             domain: "multimedia",             href: "/domains/aesthetics",             color: DOMAIN_SILVER, emoji: "🎬", desc: "Visual stories, lectures, audio, and interactive work." },
 ];
 
 /* ── Stats ── */
@@ -324,9 +322,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="container-anv my-6" aria-hidden="true">
-          <div className="h-px w-full bg-[var(--border)]" />
-        </div>
       </section>
 
       {/* ─── WISDOM STRIP ─── */}
