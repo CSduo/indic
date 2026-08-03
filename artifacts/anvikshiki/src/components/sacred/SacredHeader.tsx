@@ -57,15 +57,26 @@ export function SacredHeader() {
               </button>
             </div>
 
-            {/* Center: Monochromatic Emblem Logo */}
-            <Link href="/" className="sacred-brand flex-1 flex items-center justify-center text-center" aria-label="Ānvīkṣikī home">
-              <div className="w-11 h-11 md:w-12 md:h-12 rounded-full border-2 border-[var(--ink)] flex items-center justify-center p-1 bg-[var(--surface)] shrink-0 shadow-sm transition-transform hover:scale-105">
-                <Emblem size={28} className="text-[var(--ink)]" />
-              </div>
+            {/* Center: Website Name Text */}
+            <Link href="/" className="sacred-brand flex-1 flex flex-col items-center justify-center text-center" aria-label="Ānvīkṣikī home">
+              <span className="font-display text-2xl md:text-3xl font-bold tracking-tight text-[var(--ink)] leading-none hover:text-[var(--gold)] transition-colors">
+                Ānvīkṣikī
+              </span>
+              <span className="font-ui text-[9px] md:text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--gold)] mt-0.5">
+                Journal of Encyclopaedic Inquiry
+              </span>
             </Link>
 
-            {/* Far Right: Account & Sign In */}
-            <div className="sacred-actions flex items-center justify-end w-24 md:w-32 shrink-0">
+            {/* Far Right: Search & Account */}
+            <div className="sacred-actions flex items-center justify-end gap-2 md:gap-3 w-24 md:w-36 shrink-0">
+              <Link
+                href="/search"
+                className="sacred-icon-btn text-[var(--ink)] hover:text-[var(--gold)] p-1.5"
+                aria-label="Search the journal"
+              >
+                <Search size={20} strokeWidth={1.8} />
+              </Link>
+
               {user ? (
                 <div className="relative">
                   <button

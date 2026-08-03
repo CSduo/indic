@@ -229,7 +229,7 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
 
     let title = "Ānvīkṣikī Journal & Research Platform";
     let excerpt = "Anvikshiki is an open journal & research platform across Indic philosophy, history, science, and civilizational thought.";
-    let imageUrl = "https://anvikshikijournal.in/brand-emblem.svg";
+    let imageUrl = "";
     let canonicalUrl = `https://anvikshikijournal.in${req.path}`;
 
     if (isPaper) {
@@ -245,7 +245,7 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
       if (paper) {
         title = paper.title;
         excerpt = paper.abstract || paper.title;
-        if (paper.coverImageUrl) imageUrl = paper.coverImageUrl;
+        imageUrl = paper.coverImageUrl || "";
         canonicalUrl = `https://anvikshikijournal.in/papers/${paper.slug}`;
       }
     } else {
@@ -261,19 +261,28 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
       if (article) {
         title = article.title;
         excerpt = article.excerpt || article.subtitle || article.title;
-        if (article.heroImageUrl) imageUrl = article.heroImageUrl;
+        imageUrl = article.heroImageUrl || "";
         canonicalUrl = `https://anvikshikijournal.in/articles/${article.slug}`;
       }
     }
 
     // Resolve relative image URLs to absolute HTTPS URLs for social crawlers
-    if (imageUrl.startsWith("/")) {
+    if (imageUrl && imageUrl.startsWith("/")) {
       imageUrl = `https://anvikshikijournal.in${imageUrl}`;
     }
 
     function escapeHtml(str: string) {
       return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
     }
+
+    const imageMetaTags = imageUrl
+      ? `<meta property="og:image" content="${escapeHtml(imageUrl)}" />
+    <meta property="og:image:secure_url" content="${escapeHtml(imageUrl)}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="${escapeHtml(imageUrl)}" />`
+      : `<meta name="twitter:card" content="summary" />`;
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -287,15 +296,12 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
     <meta property="og:description" content="${escapeHtml(excerpt)}" />
     <meta property="og:type" content="article" />
     <meta property="og:url" content="${escapeHtml(canonicalUrl)}" />
-    <meta property="og:image" content="${escapeHtml(imageUrl)}" />
-    <meta property="og:image:secure_url" content="${escapeHtml(imageUrl)}" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="${escapeHtml(title)}" />
-    <meta name="twitter:description" content="${escapeHtml(excerpt)}" />
-    <meta name="twitter:image" content="${escapeHtml(imageUrl)}" />
-    <link rel="canonical" href="${escapeHtml(canonicalUrl)}" />
+    ${imageMetaTags}
+    <link rel="canonical" href="${escapeHtml(canonicalUrl)}" />` + `
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
