@@ -324,9 +324,6 @@ export default function HomePage() {
 
       </section>
 
-      {/* ─── WISDOM STRIP ─── */}
-      <WisdomStrip />
-
       {/* ─── RECENTLY UPLOADED ─── */}
       {recentPublications.length > 0 && (
         <section className="home-v3-section py-12">
@@ -364,28 +361,28 @@ export default function HomePage() {
                       </div>
                     )}
                     <div className="absolute bottom-0 left-0 right-0 p-6 md:p-12 flex flex-col justify-end text-white z-10">
-                      <div className="flex items-center gap-3 mb-3">
-                        <span className="px-3.5 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-widest bg-[var(--terracotta)] text-white shadow-md">
-                          {publication.categoryName || publication.categorySlug || (publication.kind === "paper" ? "Paper" : "Essay")}
-                        </span>
-                        {readingTimeText && (
-                          <span className="text-xs font-bold uppercase tracking-wider text-white bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20">
-                            {readingTimeText}
-                          </span>
-                        )}
-                      </div>
                       <h3 className="text-2xl md:text-4xl font-extrabold text-white mb-3 leading-tight tracking-tight group-hover:text-[var(--gold-bright)] transition-colors" style={{ color: "#FFFFFF" }}>
                         {publication.title}
                       </h3>
                       {publication.summary && (
-                        <p className="text-sm md:text-lg text-white opacity-95 line-clamp-2 max-w-4xl mb-4 font-body leading-relaxed" style={{ color: "#FFFFFF" }}>
+                        <p className="text-sm md:text-lg text-white opacity-95 line-clamp-2 max-w-4xl mb-6 font-body leading-relaxed" style={{ color: "#FFFFFF" }}>
                           {publication.summary}
                         </p>
                       )}
-                      <div className="flex items-center justify-between font-ui text-xs md:text-sm font-bold uppercase tracking-wider text-white border-t border-white/20 pt-3" style={{ color: "#FFFFFF" }}>
-                        <span>{publication.authorName || "Editorial"}</span>
+                      <div className="flex flex-wrap items-center justify-between gap-4 font-ui text-xs md:text-sm font-bold uppercase tracking-wider text-white border-t border-white/20 pt-4" style={{ color: "#FFFFFF" }}>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span className="font-extrabold text-white tracking-widest">{publication.authorName || "Editorial"}</span>
+                          <span className="px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-widest bg-[#C84A10] text-white border border-white/20 shadow-sm" style={{ color: "#FFFFFF" }}>
+                            {publication.categoryName || publication.categorySlug || (publication.kind === "paper" ? "Paper" : "Essay")}
+                          </span>
+                          {readingTimeText && (
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-white bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/20" style={{ color: "#FFFFFF" }}>
+                              {readingTimeText}
+                            </span>
+                          )}
+                        </div>
                         {publication.publishedAt && (
-                          <span>
+                          <span className="text-white opacity-90">
                             {new Date(publication.publishedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                           </span>
                         )}
@@ -425,6 +422,9 @@ export default function HomePage() {
           </div>
         </section>
       )}
+
+      {/* ─── WISDOM STRIP (Aphorisms from Archive) ─── */}
+      <WisdomStrip />
 
       {/* ─── BROWSE BY DOMAIN ─── */}
       <section className="home-v3-section home-v3-domains-section" style={{ position: "relative", overflow: "hidden" }}>
