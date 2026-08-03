@@ -143,9 +143,38 @@ function WisdomStrip() {
   );
 }
 
+const INITIAL_RECENT_PUBLICATIONS: RecentPublication[] = [
+  {
+    id: "init-1",
+    kind: "article",
+    slug: "beyond-angkor-why-is-vietnam-frequently-excluded",
+    title: "Beyond Angkor: Why Is Vietnam Frequently Excluded from the History of Hindu Influence in Southeast Asia?",
+    summary: "Exploring Champa architecture, Sanskrit inscriptions, and the deep civilizational heritage of coastal Vietnam.",
+    imageUrl: "/images/provided/home-falcon-city-panorama-hero.jpg",
+    categorySlug: "history",
+    categoryName: "History",
+    authorName: "Chaitanya",
+    publishedAt: "2026-08-04T00:00:00.000Z",
+    readingMinutes: 20,
+  },
+  {
+    id: "init-2",
+    kind: "article",
+    slug: "why-this-website-exists",
+    title: "Why This Website Exists",
+    summary: "An introduction to Anvikshiki and the vision of open civilizational scholarship.",
+    imageUrl: "/images/provided/about-hero.jpg",
+    categorySlug: "psychology",
+    categoryName: "Psychology",
+    authorName: "Xiyato Saanvi",
+    publishedAt: "2026-07-07T00:00:00.000Z",
+    readingMinutes: 1,
+  },
+];
+
 export default function HomePage() {
   const [featuredEssays, setFeaturedEssays] = useState<any[]>([]);
-  const [recentPublications, setRecentPublications] = useState<RecentPublication[]>([]);
+  const [recentPublications, setRecentPublications] = useState<RecentPublication[]>(INITIAL_RECENT_PUBLICATIONS);
   const recentTrackRef = useRef<HTMLDivElement>(null);
 
   const loadData = useCallback(() => {
@@ -428,20 +457,6 @@ export default function HomePage() {
               </Link>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* ─── FEATURED QUOTE ─── */}
-      <section className="home-quote-section py-16 border-y border-[var(--border)]">
-        <div className="container-anv home-quote-inner text-center max-w-2xl mx-auto">
-          <blockquote className="home-quote-block">
-            <p className="home-quote-text font-display text-2xl md:text-3xl italic text-[var(--ink)]">
-              "Inquiry is not a method — it is a disposition of the soul toward truth."
-            </p>
-            <footer className="home-quote-attr font-ui text-xs uppercase tracking-widest text-[var(--ink-faint)] mt-4">
-              — Editorial, Anvikshiki
-            </footer>
-          </blockquote>
         </div>
       </section>
 

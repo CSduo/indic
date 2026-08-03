@@ -2797,11 +2797,12 @@ body:has(.sacred-drawer) {
 }
 
 .home-v3-cta-row {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
   margin-bottom: 1.75rem;
-  align-items: center;
 }
 
 .home-v3-btn-primary {
@@ -3039,11 +3040,11 @@ body:has(.sacred-drawer) {
 .home-recent-card {
   position: relative;
   min-width: 0;
-  height: 250px;
-  border-radius: 8px;
+  height: 380px;
+  border-radius: 16px;
   overflow: hidden;
   border: 1px solid var(--border-gold);
-  background: var(--surface);
+  background: var(--surface-card);
   transition: transform var(--motion-normal) var(--ease-archive), box-shadow var(--motion-normal) var(--ease-archive);
   isolation: isolate;
   -webkit-transform: translate3d(0, 0, 0);
@@ -3051,13 +3052,13 @@ body:has(.sacred-drawer) {
 }
 
 .home-recent-card:hover {
-  transform: translate3d(0, -4px, 0);
-  box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+  transform: translate3d(0, -6px, 0);
+  box-shadow: 0 16px 32px rgba(0,0,0,0.45);
   border-color: var(--gold);
 }
 
 .home-recent-track .home-recent-card {
-  flex: 0 0 clamp(200px, 20vw, 240px);
+  flex: 0 0 clamp(320px, 46vw, 500px);
   scroll-snap-align: start;
 }
 
@@ -3085,7 +3086,7 @@ body:has(.sacred-drawer) {
 }
 
 .home-recent-card:hover .home-recent-image img {
-  transform: scale(1.05);
+  transform: scale(1.08);
 }
 
 .home-recent-content {
@@ -3093,26 +3094,27 @@ body:has(.sacred-drawer) {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 70%;
+  height: 75%;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  padding: 0.85rem;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.6) 60%, rgba(0, 0, 0, 0) 100%);
+  padding: 1.25rem;
+  background: linear-gradient(to top, rgba(8, 5, 2, 0.98) 0%, rgba(8, 5, 2, 0.8) 55%, rgba(8, 5, 2, 0.25) 85%, rgba(0, 0, 0, 0) 100%);
   color: #ffffff;
   pointer-events: none;
 }
 
 .home-recent-title {
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: 1.15rem;
+  font-weight: 700;
   color: #ffffff;
-  margin-bottom: 0.25rem;
-  line-height: 1.3;
+  margin-bottom: 0.4rem;
+  line-height: 1.35;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.85);
 }
 
 .home-recent-summary {
