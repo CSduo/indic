@@ -11,12 +11,13 @@ export default function AdminArticlesPage() {
   const [, navigate] = useLocation();
   const [articles, setArticles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = () => {
     fetch(`${base()}/api/admin/articles`, { credentials: "include" })
-      .then(r => { if (r.status === 401) { navigate("/admin/login"); return null; } return r.json(); })
+      .then(r => { if (r.status === 401) { navigate("/admin/login"); return null; } if (!r.ok) throw new Error("Failed"); return r.json(); })
       .then(d => d && (setArticles(d.articles || []), setLoading(false)))
-      .catch(() => setLoading(false));
+      .catch(() => { setLoading(false); setError("Failed to load articles."); });
   };
   useEffect(() => { load(); }, []);
 
@@ -40,6 +41,11 @@ export default function AdminArticlesPage() {
           <h1 className="font-display text-2xl" style={{ color: "var(--gold-bright)" }}>Articles</h1>
           <Link href="/admin/articles/new" className="btn-sacred btn-gold text-xs"><Plus size={14} /> New Article</Link>
         </div>
+        {error && (
+          <div className="mb-6 p-4 rounded-lg" style={{ background: "rgba(225,29,72,0.1)", border: "1px solid rgba(225,29,72,0.3)", color: "var(--rose-bright)" }}>
+            {error}
+          </div>
+        )}
         <div className="card-sacred" style={{ overflow: "hidden" }}>
           {loading ? (
             <div className="flex justify-center py-10">

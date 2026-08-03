@@ -1,0 +1,12 @@
+
+> @workspace/anvikshiki@0.0.0 dev C:\Users\ADMIN\Documents\Codex\2026-07-15\csduo-indic-https-github-com-csduo\artifacts\anvikshiki
+> vite --config vite.config.ts --host 0.0.0.0
+
+
+  [32m[1mVITE[22m v7.3.5[39m  [2mready in [0m[1m3153[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.0.103:[1m5173[22m/[39m
+C:\Users\ADMIN\Documents\Codex\2026-07-15\csduo-indic-https-github-com-csduo\artifacts\anvikshiki:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/anvikshiki@0.0.0 dev: `vite --config vite.config.ts --host 0.0.0.0`
+Exit status 4294967295

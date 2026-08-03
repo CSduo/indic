@@ -82,16 +82,20 @@ export default function AdminSettingsPage() {
   const [, navigate] = useLocation();
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadSettings = useCallback(async () => {
     try {
       const r = await fetch(`${base()}/api/admin/site-settings`, { credentials: "include" });
       if (r.status === 401) { navigate("/admin/login"); return; }
+      if (!r.ok) throw new Error("Failed to load settings");
       const d = await r.json();
       const map: Record<string, string> = {};
       for (const s of (d.settings || [])) map[s.key] = s.value;
       setSettings(map);
-    } catch {}
+    } catch {
+      setError("Failed to load settings. Please try again.");
+    }
     setLoading(false);
   }, [navigate]);
 
@@ -133,6 +137,12 @@ export default function AdminSettingsPage() {
               Edit visible text across the site. Changes are stored in the database and take effect immediately. Leave empty to use the default built-in text.
             </p>
           </div>
+
+          {error && (
+            <div className="mb-6 p-4 rounded-lg" style={{ background: "rgba(225,29,72,0.1)", border: "1px solid rgba(225,29,72,0.3)", color: "var(--rose-bright)" }}>
+              {error}
+            </div>
+          )}
 
           {loading ? (
             <div className="flex justify-center py-10">

@@ -9,21 +9,25 @@ const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState({ articles: 0, papers: 0, pending: 0, subscribers: 0 });
   const [recent, setRecent] = useState<any[]>([]);
+  const [error, setError] = useState<string|null>(null);
   const [, navigate] = useLocation();
 
   useEffect(() => {
     const b = base();
     fetch(`${b}/api/admin/stats`, { credentials: "include" })
-      .then(r => { if (r.status === 401) { navigate("/admin/login"); return null; } return r.json(); })
+      .then(r => { if (r.status === 401) { navigate("/admin/login"); return null; } if (!r.ok) throw new Error("Failed"); return r.json(); })
       .then(d => d && setStats({
         articles: d.articles?.total || 0,
         papers: d.papers?.total || 0,
         pending: d.submissions?.new || 0,
         subscribers: d.newsletter?.subscribers || 0,
       }))
-      .catch(() => {});
+      .catch(() => setError("Failed to load dashboard stats."));
+
     fetch(`${b}/api/admin/submissions?limit=5`, { credentials: "include" })
-      .then(r => r.json()).then(d => setRecent(d.submissions || [])).catch(() => {});
+      .then(r => { if (r.status === 401) { navigate("/admin/login"); return null; } if (!r.ok) throw new Error("Failed"); return r.json(); })
+      .then(d => d && setRecent(d.submissions || []))
+      .catch(() => setError("Failed to load recent submissions."));
   }, []);
 
   const STAT_CARDS = [
@@ -46,6 +50,12 @@ export default function AdminDashboardPage() {
             <Plus size={14} /> New Article
           </Link>
         </div>
+
+        {error && (
+          <div className="mb-6 p-4 rounded-lg" style={{ background: "rgba(225,29,72,0.1)", border: "1px solid rgba(225,29,72,0.3)", color: "var(--rose-bright)" }}>
+            {error}
+          </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, Link } from "wouter";
-import { Check, X, Trash2, Globe, ArchiveRestore, Download, ChevronDown } from "lucide-react";
+import { Check, X, Trash2, Globe, ArchiveRestore, Download, ChevronDown, Clock, Edit3 } from "lucide-react";
 import { toast } from "sonner";
 import { AdminSidebar } from "@/components/sacred/AdminSidebar";
 import { LotusIcon } from "@/components/sacred/LotusIcon";
@@ -9,24 +9,8 @@ const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const STATUS_MAP: Record<string, string> = {
   approve: "ACCEPTED", reject: "REJECTED", publish: "PUBLISHED", unpublish: "ACCEPTED",
+  under_review: "UNDER_REVIEW", revision_requested: "REVISION_REQUESTED",
 };
-
-const CATEGORIES = [
-  { slug: "philosophy",            label: "Philosophy" },
-  { slug: "history",               label: "History" },
-  { slug: "psychology",            label: "Psychology" },
-  { slug: "sociology",             label: "Sociology" },
-  { slug: "science",               label: "Science" },
-  { slug: "geopolitics",           label: "Geopolitics" },
-  { slug: "civilizational-thought",label: "Civilizational Thought" },
-  { slug: "aesthetics",            label: "Aesthetics" },
-  { slug: "sanskrit-studies",      label: "Sanskrit Studies" },
-  { slug: "political-theory",      label: "Political Theory" },
-  { slug: "translations",          label: "Translations" },
-  { slug: "multimedia",            label: "Multimedia" },
-  { slug: "papers",                label: "Papers" },
-  { slug: "archive",               label: "Archive" },
-];
 
 function Confirm({ msg, onYes, onNo }: { msg: string; onYes: () => void; onNo: () => void }) {
   return (
@@ -48,6 +32,7 @@ function statusBadge(status: string) {
   if (s === "received" || s === "under_review") return "pending";
   if (s === "rejected") return "rejected";
   if (s === "published") return "published";
+  if (s === "revision_requested") return "draft";
   return "draft";
 }
 
@@ -60,9 +45,12 @@ function extractCoverFromNotes(notes?: string | null): string | null {
 
 export default function AdminSubmissionsPage() {
   const [submissions, setSubmissions] = useState<any[]>([]);
+  const [categories, setCategories] = useState<{slug: string; name: string}[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [filter, setFilter] = useState("all");
   const [selected, setSelected] = useState<any | null>(null);
+  const [editorNotes, setEditorNotes] = useState("");
   const [confirm, setConfirm] = useState<{ msg: string; action: () => void } | null>(null);
   const [publishCategory, setPublishCategory] = useState("philosophy");
   const [, navigate] = useLocation();
@@ -71,36 +59,64 @@ export default function AdminSubmissionsPage() {
     fetch(`${base()}/api/admin/submissions?limit=100`, { credentials: "include" })
       .then(r => { if (r.status === 401) { navigate("/admin/login"); return null; } return r.json(); })
       .then(d => d && (setSubmissions(d.submissions || []), setLoading(false)))
-      .catch(() => setLoading(false));
+      .catch((err) => { toast.error("Failed to load submissions"); setLoading(false); });
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { 
+    load(); 
+    fetch(`${base()}/api/admin/categories`, { credentials: "include" })
+      .then(r => r.json())
+      .then(d => { if (d.categories) setCategories(d.categories); })
+      .catch(() => {});
+  }, []);
 
   const patchAction = async (id: string, act: string, extra?: Record<string, any>) => {
+    setActionLoading(act);
     const status = STATUS_MAP[act] || act.toUpperCase();
-    const body: Record<string, any> = { status, ...extra };
-    const r = await fetch(`${base()}/api/admin/submissions/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      credentials: "include",
-    });
-    if (r.ok) {
-      toast.success(`Submission ${act}ed successfully`);
-      load();
-      setSelected((prev: any) => prev?.id === id ? { ...prev, status } : prev);
-    } else toast.error(`Failed to ${act} submission`);
+    const body: Record<string, any> = { status, editorNotes, ...extra };
+    try {
+      const r = await fetch(`${base()}/api/admin/submissions/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        credentials: "include",
+      });
+      if (r.ok) {
+        toast.success(`Submission ${act.replace(/_/g, " ")}ed successfully`);
+        setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status, editorNotes } : s));
+        setSelected((prev: any) => prev?.id === id ? { ...prev, status, editorNotes } : prev);
+        load();
+      } else {
+        const errData = await r.json().catch(() => ({}));
+        toast.error(errData.error || `Failed to ${act.replace(/_/g, " ")} submission`);
+      }
+    } catch (err) {
+      toast.error(`Network error: Failed to ${act.replace(/_/g, " ")} submission`);
+    } finally {
+      setActionLoading(null);
+      if (confirm) setConfirm(null);
+    }
   };
 
   const del = (id: string) => {
     setConfirm({ msg: "Delete this submission permanently? This cannot be undone.", action: async () => {
-      const r = await fetch(`${base()}/api/admin/submissions/${id}`, { method: "DELETE", credentials: "include" });
-      if (r.ok) { toast.success("Deleted"); load(); setConfirm(null); setSelected(null); }
-      else toast.error("Delete failed");
+      setActionLoading("delete");
+      try {
+        const r = await fetch(`${base()}/api/admin/submissions/${id}`, { method: "DELETE", credentials: "include" });
+        if (r.ok) { toast.success("Deleted"); load(); setConfirm(null); setSelected(null); }
+        else {
+          const errData = await r.json().catch(() => ({}));
+          toast.error(errData.error || "Delete failed");
+        }
+      } catch (err) {
+        toast.error("Network error: Delete failed");
+      } finally {
+        setActionLoading(null);
+      }
     }});
   };
 
-  const FILTER_OPTS = ["all","received","accepted","rejected","published"];
+  const FILTER_OPTS = ["all","received","under_review","revision_requested","accepted","rejected","published"];
   const filtered = filter === "all" ? submissions : submissions.filter(s => (s.status || "RECEIVED").toLowerCase() === filter || (filter === "received" && !s.status));
 
   return (
@@ -115,8 +131,8 @@ export default function AdminSubmissionsPage() {
           </div>
           <div className="flex gap-1.5 flex-wrap">
             {FILTER_OPTS.map(f => (
-              <button key={f} type="button" onClick={() => setFilter(f)} className="text-xs py-1 px-3 rounded-lg transition-all" style={{ background: filter === f ? "rgba(201,152,58,0.15)" : "transparent", border: `1px solid ${filter === f ? "var(--border-gold)" : "var(--border)"}`, color: filter === f ? "var(--gold-bright)" : "var(--muted)", fontFamily: "var(--font-ui)", fontWeight: 500, cursor: "pointer" }}>
-                {f}
+              <button key={f} type="button" onClick={() => setFilter(f)} className="text-xs py-1 px-3 rounded-lg transition-all capitalize" style={{ background: filter === f ? "rgba(201,152,58,0.15)" : "transparent", border: `1px solid ${filter === f ? "var(--border-gold)" : "var(--border)"}`, color: filter === f ? "var(--gold-bright)" : "var(--muted)", fontFamily: "var(--font-ui)", fontWeight: 500, cursor: "pointer" }}>
+                {f.replace(/_/g, " ")}
               </button>
             ))}
           </div>
@@ -133,13 +149,13 @@ export default function AdminSubmissionsPage() {
               ) : filtered.length === 0 ? (
                 <div className="flex flex-col items-center py-10 gap-3">
                   <LotusIcon size={32} style={{ color: "var(--gold)", opacity: 0.3 }} />
-                  <p className="font-ui text-sm" style={{ color: "var(--muted)" }}>No {filter === "all" ? "" : filter} submissions</p>
+                  <p className="font-ui text-sm" style={{ color: "var(--muted)" }}>No {filter === "all" ? "" : filter.replace(/_/g, " ")} submissions</p>
                 </div>
               ) : filtered.map(s => (
                 <button
                   key={s.id}
                   type="button"
-                  onClick={() => { setSelected(s); setPublishCategory("philosophy"); }}
+                  onClick={() => { setSelected(s); setEditorNotes(s.editorNotes || ""); setPublishCategory(categories[0]?.slug || "philosophy"); }}
                   className="w-full text-left px-4 py-3 transition-colors"
                   style={{ borderBottom: "1px solid var(--border)", background: selected?.id === s.id ? "rgba(201,152,58,0.07)" : "transparent" }}
                 >
@@ -218,10 +234,22 @@ export default function AdminSubmissionsPage() {
                 {/* Notes */}
                 {selected.notes && (
                   <div className="mb-4">
-                    <div className="form-label mb-1">Notes</div>
+                    <div className="form-label mb-1">Author Notes</div>
                     <div className="font-body text-sm p-3 rounded-lg" style={{ background: "var(--surface-3)", color: "var(--ink-faint)", whiteSpace: "pre-wrap" }}>{selected.notes}</div>
                   </div>
                 )}
+
+                {/* Editor Notes */}
+                <div className="mb-4">
+                  <div className="form-label mb-1">Editor Notes (Internal)</div>
+                  <textarea
+                    value={editorNotes}
+                    onChange={(e) => setEditorNotes(e.target.value)}
+                    placeholder="Add notes before changing status..."
+                    className="input-sacred w-full font-body text-sm"
+                    style={{ minHeight: "80px", resize: "vertical", background: "var(--surface-3)", color: "var(--ink-soft)" }}
+                  />
+                </div>
 
                 {/* Manuscript download */}
                 {(selected.manuscriptUrl || selected.fileUrl) && (
@@ -250,8 +278,8 @@ export default function AdminSubmissionsPage() {
                           className="input-sacred w-full pr-8 text-sm appearance-none"
                           style={{ color: "var(--ink-soft)", background: "var(--surface-3)", cursor: "pointer" }}
                         >
-                          {CATEGORIES.map(c => (
-                            <option key={c.slug} value={c.slug}>{c.label}</option>
+                          {categories.map(c => (
+                            <option key={c.slug} value={c.slug}>{c.name}</option>
                           ))}
                         </select>
                         <ChevronDown size={14} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" style={{ color: "var(--muted)" }} />
@@ -268,11 +296,19 @@ export default function AdminSubmissionsPage() {
                 {/* Actions */}
                 <div className="flex flex-wrap gap-2 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
                   {(!selected.status || selected.status === "RECEIVED" || selected.status === "UNDER_REVIEW") && (<>
-                    <button type="button" onClick={() => patchAction(selected.id, "approve")} className="btn-sacred text-xs py-1.5 px-3 inline-flex items-center gap-1.5" style={{ background: "rgba(26,74,56,0.3)", border: "1px solid rgba(74,222,128,0.3)", color: "#4ade80" }}>
-                      <Check size={12} /> Approve
+                    <button type="button" disabled={!!actionLoading} onClick={() => patchAction(selected.id, "approve")} className="btn-sacred text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50" style={{ background: "rgba(26,74,56,0.3)", border: "1px solid rgba(74,222,128,0.3)", color: "#4ade80" }}>
+                      {actionLoading === "approve" ? <span className="animate-spin text-xs">↻</span> : <Check size={12} />} Approve
                     </button>
-                    <button type="button" onClick={() => patchAction(selected.id, "reject")} className="btn-sacred text-xs py-1.5 px-3 inline-flex items-center gap-1.5" style={{ background: "rgba(139,26,74,0.2)", border: "1px solid var(--border-rose)", color: "var(--lotus)" }}>
-                      <X size={12} /> Reject
+                    {(!selected.status || selected.status === "RECEIVED") && (
+                      <button type="button" disabled={!!actionLoading} onClick={() => patchAction(selected.id, "under_review")} className="btn-sacred btn-ghost text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50">
+                        {actionLoading === "under_review" ? <span className="animate-spin text-xs">↻</span> : <Clock size={12} />} Under Review
+                      </button>
+                    )}
+                    <button type="button" disabled={!!actionLoading} onClick={() => patchAction(selected.id, "revision_requested")} className="btn-sacred btn-ghost text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50">
+                      {actionLoading === "revision_requested" ? <span className="animate-spin text-xs">↻</span> : <Edit3 size={12} />} Request Revision
+                    </button>
+                    <button type="button" disabled={!!actionLoading} onClick={() => setConfirm({ msg: 'Reject this submission? The author will be notified.', action: () => patchAction(selected.id, 'reject') })} className="btn-sacred text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50" style={{ background: "rgba(139,26,74,0.2)", border: "1px solid var(--border-rose)", color: "var(--lotus)" }}>
+                      {actionLoading === "reject" ? <span className="animate-spin text-xs">↻</span> : <X size={12} />} Reject
                     </button>
                   </>)}
                   {selected.status === "ACCEPTED" && (() => {
@@ -280,21 +316,21 @@ export default function AdminSubmissionsPage() {
                     return (
                       <button
                         type="button"
-                        disabled={!imgUrl}
+                        disabled={!imgUrl || !!actionLoading}
                         onClick={() => patchAction(selected.id, "publish", { categorySlug: publishCategory })}
                         className="btn-sacred btn-gold text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
-                        <Globe size={12} /> Publish as Article
+                        {actionLoading === "publish" ? <span className="animate-spin text-xs">↻</span> : <Globe size={12} />} Publish as Article
                       </button>
                     );
                   })()}
                   {selected.status === "PUBLISHED" && (
-                    <button type="button" onClick={() => patchAction(selected.id, "unpublish")} className="btn-sacred btn-ghost text-xs py-1.5 px-3 inline-flex items-center gap-1.5">
-                      <ArchiveRestore size={12} /> Unpublish
+                    <button type="button" disabled={!!actionLoading} onClick={() => patchAction(selected.id, "unpublish")} className="btn-sacred btn-ghost text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50">
+                      {actionLoading === "unpublish" ? <span className="animate-spin text-xs">↻</span> : <ArchiveRestore size={12} />} Unpublish
                     </button>
                   )}
-                  <button type="button" onClick={() => del(selected.id)} className="btn-sacred text-xs py-1.5 px-3 ml-auto inline-flex items-center gap-1.5" style={{ background: "rgba(139,26,74,0.12)", border: "1px solid rgba(139,26,74,0.3)", color: "var(--rose-bright)" }}>
-                    <Trash2 size={12} /> Delete
+                  <button type="button" disabled={!!actionLoading} onClick={() => del(selected.id)} className="btn-sacred text-xs py-1.5 px-3 ml-auto inline-flex items-center gap-1.5 disabled:opacity-50" style={{ background: "rgba(139,26,74,0.12)", border: "1px solid rgba(139,26,74,0.3)", color: "var(--rose-bright)" }}>
+                    {actionLoading === "delete" ? <span className="animate-spin text-xs">↻</span> : <Trash2 size={12} />} Delete
                   </button>
                 </div>
               </div>

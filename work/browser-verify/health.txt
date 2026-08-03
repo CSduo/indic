@@ -1,0 +1,1 @@
+{"ok":false,"service":"anvikshiki-api","time":"2026-07-15T10:57:19.813Z","environment":{"hasCloudinaryUrl":false,"storageProvider":"local"},"database":{"reachable":false,"schemaReady":false}}
