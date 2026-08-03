@@ -274,15 +274,13 @@ export default function HomePage() {
 
       {/* ─── HERO ─── */}
       <section className="home-v3-hero">
-        <picture className="home-v3-video-wrap">
-          <source media="(min-width: 769px)" srcSet={asset("/images/provided/home-falcon-banner-desktop.jpg")} />
+        <div className="home-v3-video-wrap">
           <img
             src={asset("/images/provided/home-falcon-city-panorama-hero.jpg")}
             alt="Illustrated scholar with falcon overlooking mountains and a luminous city"
             className="home-v3-video"
-            style={{ objectFit: "cover", width: "100%", height: "100%" }}
           />
-        </picture>
+        </div>
       </section>
 
       {/* ─── RECENTLY UPLOADED ─── */}
