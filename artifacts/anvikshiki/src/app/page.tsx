@@ -126,38 +126,6 @@ function WisdomStrip() {
   );
 }
 
-function AnimatedCounter({ value, duration = 2000 }: { value: number; duration?: number }) {
-  const [count, setCount] = useState(0);
-  const ref = useRef<HTMLSpanElement>(null);
-  
-  useEffect(() => {
-    const observer = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting) {
-        let start = 0;
-        const end = value;
-        if (end === 0) return;
-        const incrementTime = 20;
-        const steps = duration / incrementTime;
-        const increment = end / steps;
-        
-        const timer = setInterval(() => {
-          start += increment;
-          if (start >= end) {
-            setCount(end);
-            clearInterval(timer);
-          } else {
-            setCount(Math.floor(start));
-          }
-        }, incrementTime);
-        observer.disconnect();
-      }
-    });
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [value, duration]);
-  
-  return <span ref={ref}>{count}</span>;
-}
 
 const INITIAL_RECENT_PUBLICATIONS: RecentPublication[] = [
   {
@@ -317,27 +285,6 @@ export default function HomePage() {
             alt="Illustrated scholar with falcon overlooking mountains and a luminous city"
             className="home-v3-video"
           />
-        </div>
-      </section>
-
-      {/* ─── STATS SECTION ─── */}
-      <section className="home-v3-stats-section">
-        <div className="home-v3-stats-grid">
-          <div className="home-v3-stat-card">
-            <BookOpen size={32} strokeWidth={1.5} className="home-v3-stat-icon" />
-            <div className="home-v3-stat-number"><AnimatedCounter value={stats.articles} /></div>
-            <div className="home-v3-stat-label">Total Articles</div>
-          </div>
-          <div className="home-v3-stat-card">
-            <FileText size={32} strokeWidth={1.5} className="home-v3-stat-icon" />
-            <div className="home-v3-stat-number"><AnimatedCounter value={stats.papers} /></div>
-            <div className="home-v3-stat-label">Research Papers</div>
-          </div>
-          <div className="home-v3-stat-card">
-            <Grid3X3 size={32} strokeWidth={1.5} className="home-v3-stat-icon" />
-            <div className="home-v3-stat-number"><AnimatedCounter value={stats.domains} /></div>
-            <div className="home-v3-stat-label">Domains</div>
-          </div>
         </div>
       </section>
 
