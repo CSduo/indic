@@ -75,50 +75,50 @@ export function SacredFooter() {
       <div className="container-anv py-8 relative z-10">
         <div className="mb-8 h-px bg-[var(--border)] opacity-60" aria-hidden="true" />
 
-        <div className="grid gap-8 md:grid-cols-[1.25fr_.8fr_.8fr_1fr]">
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-[1.25fr_.8fr_.8fr_1fr] gap-6 text-white">
           <section>
             <div className="mb-4">
-              <div className="font-display text-xl tracking-[0.18em] text-[var(--ink)]">ĀNVĪKṢIKĪ</div>
-              <div className="font-ui text-[0.58rem] font-bold uppercase tracking-[0.24em] text-[var(--ink-faint)]">Journal &amp; Research Platform</div>
+              <div className="font-display text-xl font-bold tracking-[0.18em] text-white" style={{ color: "#FFFFFF" }}>ĀNVĪKṢIKĪ</div>
+              <div className="font-ui text-[0.62rem] font-extrabold uppercase tracking-[0.24em] text-white opacity-90" style={{ color: "#FFFFFF" }}>Journal &amp; Research Platform</div>
             </div>
-            <p className="max-w-sm font-body text-sm leading-7 text-[var(--ink-soft)]">
+            <p className="max-w-sm font-body text-sm leading-7 text-white font-medium opacity-95" style={{ color: "#FFFFFF" }}>
               A living archive of inquiry across philosophy, history, science, and civilizational thought.
             </p>
           </section>
 
           <section>
-            <h2 className="type-section-label mb-4">Explore</h2>
-            <ul className="space-y-2 font-ui text-sm text-[var(--ink-faint)]">
+            <h2 className="type-section-label mb-4 text-white font-bold uppercase tracking-wider" style={{ color: "#FFFFFF" }}>Explore</h2>
+            <ul className="space-y-2 font-ui text-sm text-white font-medium" style={{ color: "#FFFFFF" }}>
               {[["Browse", "/browse"], ["Archive", "/archive"], ["Papers", "/papers"], ["Search", "/search"]].map(([label, href]) => (
-                <li key={href}><Link href={href} className="hover:text-[var(--ink)]">{label}</Link></li>
+                <li key={href}><Link href={href} className="text-white hover:text-[var(--gold)] font-medium" style={{ color: "#FFFFFF" }}>{label}</Link></li>
               ))}
             </ul>
           </section>
 
           <section>
-            <h2 className="type-section-label mb-4">Community</h2>
-            <ul className="space-y-2 font-ui text-sm text-[var(--ink-faint)]">
+            <h2 className="type-section-label mb-4 text-white font-bold uppercase tracking-wider" style={{ color: "#FFFFFF" }}>Community</h2>
+            <ul className="space-y-2 font-ui text-sm text-white font-medium" style={{ color: "#FFFFFF" }}>
               {[["Submit Work", "/submit"], ["Community", "/community"], ["Account", "/account"], ["About", "/about"]].map(([label, href]) => (
-                <li key={href}><Link href={href} className="hover:text-[var(--ink)]">{label}</Link></li>
+                <li key={href}><Link href={href} className="text-white hover:text-[var(--gold)] font-medium" style={{ color: "#FFFFFF" }}>{label}</Link></li>
               ))}
             </ul>
           </section>
 
-          <section>
-            <h2 className="type-section-label mb-4">Stay Connected</h2>
-            <p className="mb-3 font-body text-sm leading-6 text-[var(--ink-soft)]">No noise. Only inquiry, new essays, and notes from the archive.</p>
+          <section className="col-span-2 sm:col-span-1">
+            <h2 className="type-section-label mb-4 text-white font-bold uppercase tracking-wider" style={{ color: "#FFFFFF" }}>Stay Connected</h2>
+            <p className="mb-3 font-body text-sm leading-6 text-white font-medium" style={{ color: "#FFFFFF" }}>No noise. Only inquiry, new essays, and notes from the archive.</p>
             <FooterNewsletter />
           </section>
         </div>
 
         <div className="my-8 h-px bg-[var(--border)] opacity-60" aria-hidden="true" />
 
-        <div className="flex flex-col items-center justify-between gap-3 font-ui text-[0.72rem] uppercase tracking-[0.12em] text-[var(--ink-faint)] md:flex-row">
-          <p>Copyright {year} Anvikshiki</p>
-          <div className="flex flex-wrap items-center justify-center gap-4">
-            <Link href="/privacy" className="hover:text-[var(--ink)]">Privacy</Link>
-            <Link href="/terms" className="hover:text-[var(--ink)]">Terms</Link>
-            <span className="text-[var(--ink-faint)]">Inquiry · Wisdom · Truth</span>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 font-ui text-[0.75rem] font-bold uppercase tracking-[0.12em] text-white" style={{ color: "#FFFFFF" }}>
+          <p style={{ color: "#FFFFFF" }}>Copyright {year} Anvikshiki</p>
+          <div className="flex flex-wrap items-center justify-center gap-4 text-white" style={{ color: "#FFFFFF" }}>
+            <Link href="/privacy" className="text-white hover:text-[var(--gold)]" style={{ color: "#FFFFFF" }}>Privacy</Link>
+            <Link href="/terms" className="text-white hover:text-[var(--gold)]" style={{ color: "#FFFFFF" }}>Terms</Link>
+            <span className="text-white font-bold" style={{ color: "#FFFFFF" }}>Inquiry · Wisdom · Truth</span>
           </div>
         </div>
       </div>

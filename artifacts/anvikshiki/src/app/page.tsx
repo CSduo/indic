@@ -334,28 +334,19 @@ export default function HomePage() {
 
       {/* ─── RECENTLY UPLOADED ─── */}
       {recentPublications.length > 0 && (
-        <section className="home-v3-section">
+        <section className="home-v3-section py-12">
           <div className="container-anv">
-            <div className="home-v3-section-head">
-              <h2 className="home-v3-section-title">Recently Submitted</h2>
-              <div className="home-recent-actions">
-                {recentPublications.length > 4 && (
-                  <div className="home-recent-nav" aria-label="Recently submitted navigation">
-                    <button type="button" onClick={() => moveRecentPublications(-1)} aria-label="Previous submissions" title="Previous submissions">
-                      <ChevronLeft size={17} />
-                    </button>
-                    <button type="button" onClick={() => moveRecentPublications(1)} aria-label="Next submissions" title="Next submissions">
-                      <ChevronRight size={17} />
-                    </button>
-                  </div>
-                )}
-                <Link href="/browse" className="home-v3-view-all">View All <ArrowRight size={14} /></Link>
-              </div>
+            <div className="flex flex-col items-center justify-center text-center mb-10">
+              <h2 className="text-center text-3xl md:text-5xl font-extrabold uppercase tracking-[0.18em] text-white" style={{ color: "#FFFFFF", fontWeight: 800 }}>
+                Recently Submitted
+              </h2>
+              <div className="w-24 h-1 bg-[var(--gold)] my-4 rounded-full" />
+              <Link href="/browse" className="home-v3-view-all text-sm uppercase tracking-widest font-bold mt-1 text-white hover:text-[var(--gold)]" style={{ color: "#FFFFFF" }}>
+                View All Archives <ArrowRight size={14} />
+              </Link>
             </div>
-            <div
-              ref={recentTrackRef}
-              className="home-recent-track"
-            >
+
+            <div className="flex flex-col gap-10">
               {recentPublications.map((publication) => {
                 const readingTimeText = publication.readingMinutes
                   ? `${publication.readingMinutes} min read`
@@ -364,31 +355,40 @@ export default function HomePage() {
                   <Link
                     key={`${publication.kind}-${publication.id}`}
                     href={`/${publication.kind === "paper" ? "papers" : "articles"}/${publication.slug}`}
-                    className="home-recent-card"
+                    className="group relative w-full h-[460px] md:h-[540px] rounded-3xl overflow-hidden border-2 border-[var(--border-gold)] bg-[#0c0804] shadow-2xl block transition-all duration-500 hover:scale-[1.01] hover:border-[var(--gold)]"
                   >
                     {publication.imageUrl && (
-                      <div className="home-recent-image">
+                      <div className="absolute inset-0 w-full h-full overflow-hidden">
                         <img
                           src={publication.imageUrl}
                           alt={publication.imageAlt || publication.title}
+                          className="w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
                           onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                         />
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#080502] via-[#080502]/85 to-transparent" />
                       </div>
                     )}
-                    <div className="home-recent-content">
-                      <div className="home-v3-essay-meta-mini">
-                        <AnimalGlyph domain={publication.categorySlug || (publication.kind === "paper" ? "papers" : "archive")} size={15} />
-                        <span>
+                    <div className="absolute bottom-0 left-0 right-0 p-6 md:p-12 flex flex-col justify-end text-white z-10">
+                      <div className="flex items-center gap-3 mb-3">
+                        <span className="px-3.5 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-widest bg-[var(--terracotta)] text-white shadow-md">
                           {publication.categoryName || publication.categorySlug || (publication.kind === "paper" ? "Paper" : "Essay")}
                         </span>
+                        {readingTimeText && (
+                          <span className="text-xs font-bold uppercase tracking-wider text-white bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20">
+                            {readingTimeText}
+                          </span>
+                        )}
                       </div>
-                      <h3 className="home-recent-title">{publication.title}</h3>
-                      <div className="home-v3-essay-foot-mini">
-                        <span className="home-v3-essay-author-mini">{publication.authorName || "Editorial"}</span>
-                        {readingTimeText && <span>{readingTimeText}</span>}
-                      </div>
-                      <div className="font-ui text-[8px] opacity-80 mt-1 flex items-center justify-between">
-                        <span>Published</span>
+                      <h3 className="text-2xl md:text-4xl font-extrabold text-white mb-3 leading-tight tracking-tight group-hover:text-[var(--gold-bright)] transition-colors" style={{ color: "#FFFFFF" }}>
+                        {publication.title}
+                      </h3>
+                      {publication.summary && (
+                        <p className="text-sm md:text-lg text-white opacity-95 line-clamp-2 max-w-4xl mb-4 font-body leading-relaxed" style={{ color: "#FFFFFF" }}>
+                          {publication.summary}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between font-ui text-xs md:text-sm font-bold uppercase tracking-wider text-white border-t border-white/20 pt-3" style={{ color: "#FFFFFF" }}>
+                        <span>{publication.authorName || "Editorial"}</span>
                         {publication.publishedAt && (
                           <span>
                             {new Date(publication.publishedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
