@@ -56,18 +56,14 @@ export function SacredHeader() {
               </button>
             </div>
 
-            {/* Center: Monochromatic B&W Favicon Emblem + Brand Identity */}
-            <Link href="/" className="sacred-brand flex items-center gap-3 text-center sm:text-left mx-auto sm:mx-0" aria-label="Ānvīkṣikī home">
-              <div className="w-9 h-9 md:w-10 md:h-10 rounded-full border-2 border-[var(--ink)] flex items-center justify-center p-1.5 bg-transparent shrink-0 shadow-sm">
+            {/* Center: Monochromatic B&W Favicon Emblem */}
+            <Link href="/" className="sacred-brand flex items-center justify-center mx-auto" aria-label="Ānvīkṣikī home">
+              <div className="w-11 h-11 md:w-12 md:h-12 rounded-full border-2 border-[var(--ink)] flex items-center justify-center p-1.5 bg-transparent shrink-0 shadow-sm">
                 <img src="/favicon.svg" alt="Ānvīkṣikī Emblem" className="w-full h-full object-contain filter grayscale dark:invert" />
               </div>
-              <span className="sacred-brand-text flex flex-col">
-                <span className="sacred-brand-name font-display text-lg md:text-2xl font-bold tracking-[0.16em] text-[var(--ink)] leading-none">ĀNVĪKṢIKĪ</span>
-                <span className="sacred-brand-sub font-ui text-[0.55rem] md:text-[0.62rem] font-extrabold uppercase tracking-[0.22em] text-[var(--ink-faint)] mt-0.5">Journal &amp; Research Platform</span>
-              </span>
             </Link>
 
-            {/* Far Right: Search, Account & Subscribe Button */}
+            {/* Far Right: Search & Account */}
             <div className="sacred-actions flex items-center gap-3">
               <Link
                 href="/search"
@@ -128,14 +124,6 @@ export function SacredHeader() {
                   Sign in
                 </Link>
               )}
-
-              {/* Subscribe CTA Button */}
-              <Link 
-                href="/#newsletter-subscribe" 
-                className="px-4 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wider bg-[#F97316] text-white hover:bg-[#EA580C] transition-all shadow-sm shrink-0 inline-flex items-center justify-center"
-              >
-                Subscribe
-              </Link>
             </div>
 
           </div>

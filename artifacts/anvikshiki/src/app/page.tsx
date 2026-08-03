@@ -278,13 +278,18 @@ export default function HomePage() {
     <div className="home-v3">
 
       {/* ─── HERO ─── */}
-      <section className="home-v3-hero">
+      <section className="home-v3-hero relative">
         <div className="home-v3-video-wrap">
           <img
             src={asset("/images/provided/home-falcon-city-panorama-hero.jpg")}
             alt="Illustrated scholar with falcon overlooking mountains and a luminous city"
             className="home-v3-video"
           />
+        </div>
+        <div className="absolute inset-0 flex flex-col items-center justify-end pb-12 md:pb-16 z-10" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.15) 50%, transparent 100%)' }}>
+          <h1 className="font-display text-white text-3xl md:text-5xl lg:text-6xl tracking-[0.18em] font-bold drop-shadow-lg" style={{ textShadow: '0 2px 16px rgba(0,0,0,0.5)' }}>ĀNVĪKṢIKĪ</h1>
+          <p className="font-ui text-white/80 text-xs md:text-sm uppercase tracking-[0.25em] mt-2 drop-shadow-md">Journal & Research Platform</p>
+          <a href="/browse" className="mt-5 px-6 py-2.5 rounded-full bg-white/90 text-[#1a1a1a] font-ui text-xs md:text-sm font-extrabold uppercase tracking-wider hover:bg-white transition-all shadow-lg">Explore the Archive</a>
         </div>
       </section>
 

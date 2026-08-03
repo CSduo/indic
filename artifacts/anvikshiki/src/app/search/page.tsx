@@ -159,17 +159,11 @@ export default function SearchPage() {
 
           <form onSubmit={onSubmit} className="mx-auto w-full max-w-2xl relative" role="search" ref={searchContainerRef}>
             <div className="relative">
-              {!query && (
-                <Search
-                  size={20}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--gold)] pointer-events-none"
-                  aria-hidden="true"
-                />
-              )}
+
               <input
                 id="search-input"
                 type="search"
-                className={`input-sacred h-14 pr-12 text-lg transition-all ${query ? "pl-4" : "pl-12"}`}
+                className="input-sacred h-14 pr-12 text-lg transition-all pl-4"
                 placeholder="Search essays, papers, authors…"
                 value={query}
                 onChange={(event) => {
