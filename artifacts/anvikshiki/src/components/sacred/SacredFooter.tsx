@@ -113,12 +113,12 @@ export function SacredFooter() {
 
         <div className="my-8 h-px bg-[var(--border)] opacity-60" aria-hidden="true" />
 
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 font-ui text-[0.75rem] font-bold uppercase tracking-[0.12em] text-white" style={{ color: "#FFFFFF" }}>
-          <p style={{ color: "#FFFFFF" }}>Copyright {year} Anvikshiki</p>
-          <div className="flex flex-wrap items-center justify-center gap-4 text-white" style={{ color: "#FFFFFF" }}>
-            <Link href="/privacy" className="text-white hover:text-[var(--gold)]" style={{ color: "#FFFFFF" }}>Privacy</Link>
-            <Link href="/terms" className="text-white hover:text-[var(--gold)]" style={{ color: "#FFFFFF" }}>Terms</Link>
-            <span className="text-white font-bold" style={{ color: "#FFFFFF" }}>Inquiry · Wisdom · Truth</span>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 font-ui text-xs md:text-sm font-extrabold uppercase tracking-[0.16em] text-white pt-2" style={{ color: "#FFFFFF" }}>
+          <p style={{ color: "#FFFFFF", fontWeight: 800 }}>COPYRIGHT {year} ANVIKSHIKI</p>
+          <div className="flex flex-wrap items-center justify-center gap-6 text-white font-extrabold" style={{ color: "#FFFFFF" }}>
+            <Link href="/privacy" className="text-white hover:text-[var(--gold)] font-extrabold" style={{ color: "#FFFFFF" }}>PRIVACY</Link>
+            <Link href="/terms" className="text-white hover:text-[var(--gold)] font-extrabold" style={{ color: "#FFFFFF" }}>TERMS</Link>
+            <span className="text-white font-extrabold tracking-widest" style={{ color: "#FFFFFF" }}>INQUIRY · WISDOM · TRUTH</span>
           </div>
         </div>
       </div>

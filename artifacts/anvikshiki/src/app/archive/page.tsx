@@ -139,11 +139,12 @@ export default function ArchivePage() {
 
             {/* Content Type Filter */}
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-white/70 mb-2">Content Type</label>
+              <label className="block text-xs font-bold uppercase tracking-wider text-white mb-2" style={{ color: "#FFFFFF" }}>Content Type</label>
               <select
                 value={selectedKind}
                 onChange={(e) => { setSelectedKind(e.target.value); setCurrentPage(1); }}
-                className="w-full bg-[#120b05] border border-[#333336] text-white rounded-xl p-3 text-xs font-bold uppercase tracking-wider focus:border-[var(--gold)] outline-none"
+                className="w-full bg-[#252528] border border-[#3c3c40] text-white rounded-xl p-3 text-xs font-bold uppercase tracking-wider focus:border-[var(--gold)] outline-none"
+                style={{ color: "#FFFFFF", backgroundColor: "#252528" }}
               >
                 <option value="all">All Types</option>
                 <option value="article">Essays</option>
@@ -153,11 +154,12 @@ export default function ArchivePage() {
 
             {/* Sort Order */}
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-white/70 mb-2">Sort Order</label>
+              <label className="block text-xs font-bold uppercase tracking-wider text-white mb-2" style={{ color: "#FFFFFF" }}>Sort Order</label>
               <select
                 value={sortOrder}
                 onChange={(e) => { setSortOrder(e.target.value as "newest" | "oldest"); setCurrentPage(1); }}
-                className="w-full bg-[#120b05] border border-[#333336] text-white rounded-xl p-3 text-xs font-bold uppercase tracking-wider focus:border-[var(--gold)] outline-none"
+                className="w-full bg-[#252528] border border-[#3c3c40] text-white rounded-xl p-3 text-xs font-bold uppercase tracking-wider focus:border-[var(--gold)] outline-none"
+                style={{ color: "#FFFFFF", backgroundColor: "#252528" }}
               >
                 <option value="newest">Latest to Oldest</option>
                 <option value="oldest">Oldest to Latest</option>
@@ -166,20 +168,23 @@ export default function ArchivePage() {
 
             {/* Domains List Filter */}
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-white/70 mb-3">Domains of Inquiry</label>
-              <div className="flex flex-col gap-1.5 max-h-[380px] overflow-y-auto pr-1">
+              <label className="block text-xs font-bold uppercase tracking-wider text-white mb-3" style={{ color: "#FFFFFF" }}>Domains of Inquiry</label>
+              <div className="flex flex-col gap-2 max-h-[420px] overflow-y-auto pr-1">
                 {ALL_DOMAINS.map((domain) => {
                   const isActive = selectedDomain === domain.slug;
                   return (
                     <button
                       key={domain.slug}
                       onClick={() => { setSelectedDomain(domain.slug); setCurrentPage(1); }}
-                      className={`text-left px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-between ${
-                        isActive ? "bg-[var(--terracotta)] text-white shadow-md" : "bg-[#120b05] text-white/80 hover:bg-[#252528] hover:text-white"
+                      className={`text-left px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-between ${
+                        isActive
+                          ? "bg-[#38383c] text-white font-extrabold border-2 border-[var(--gold)] shadow-md"
+                          : "bg-[#252528] text-white border border-[#38383c] hover:bg-[#323236]"
                       }`}
+                      style={{ color: "#FFFFFF" }}
                     >
-                      <span>{domain.label}</span>
-                      {isActive && <span className="w-2 h-2 rounded-full bg-white" />}
+                      <span style={{ color: "#FFFFFF" }}>{domain.label}</span>
+                      {isActive && <span className="w-2.5 h-2.5 rounded-full bg-[var(--gold)] shrink-0" />}
                     </button>
                   );
                 })}
