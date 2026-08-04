@@ -61,9 +61,6 @@ export function SacredHeader() {
               <span className="font-display text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-[var(--ink)] leading-none hover:text-[var(--gold)] transition-colors py-1">
                 Ānvīkṣikī
               </span>
-              <span className="font-ui text-[10px] sm:text-[11px] md:text-[13px] font-semibold uppercase tracking-[0.26em] text-[var(--gold)] mt-1.5">
-                Journal of Encyclopaedic Inquiry
-              </span>
             </Link>
 
             {/* Far Right Edge: Search & Account */}
