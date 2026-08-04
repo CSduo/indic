@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" fill="#120e0a" rx="100"/>
+  <circle cx="256" cy="256" r="236" fill="none" stroke="#c9983a" stroke-width="8"/>
+  <circle cx="256" cy="256" r="216" fill="none" stroke="#c9983a" stroke-width="4" stroke-dasharray="8 6"/>
+  <circle cx="256" cy="256" r="180" fill="none" stroke="#c9983a" stroke-width="6"/>
+  
+  <!-- Outer Gold Lotus Petals -->
+  <g fill="none" stroke="#d4af37" stroke-width="5">
+    <path d="M 256,76 C 280,140 280,180 256,220 C 232,180 232,140 256,76 Z" fill="#c9983a" fill-opacity="0.25"/>
+    <path d="M 256,436 C 280,372 280,332 256,292 C 232,332 232,372 256,436 Z" fill="#c9983a" fill-opacity="0.25"/>
+    <path d="M 76,256 C 140,280 180,280 220,256 C 180,232 140,232 76,256 Z" fill="#c9983a" fill-opacity="0.25"/>
+    <path d="M 436,256 C 372,280 332,280 292,256 C 332,232 372,232 436,256 Z" fill="#c9983a" fill-opacity="0.25"/>
+  </g>
+
+  <!-- Center Mandala Lotus Flower -->
+  <circle cx="256" cy="256" r="60" fill="#1b150e" stroke="#e6c280" stroke-width="5"/>
+  <circle cx="256" cy="256" r="24" fill="#c9983a"/>
+  
+  <!-- Outer Rings & Rays -->
+  <g stroke="#e6c280" stroke-width="3" opacity="0.8">
+    <line x1="256" y1="20" x2="256" y2="492"/>
+    <line x1="20" y1="256" x2="492" y2="256"/>
+    <line x1="89" y1="89" x2="423" y2="423"/>
+    <line x1="423" y1="89" x2="89" y2="423"/>
+  </g>
+</svg>
