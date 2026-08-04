@@ -40,9 +40,8 @@ export function SacredHeader() {
           Skip to main content
         </a>
 
-        <div className="container-anv">
-          {/* ── ROW 1: Primary Top Header Bar ── */}
-          <div className="sacred-header-row flex items-center justify-between py-2.5 md:py-3 px-2 md:px-4">
+        {/* ── ROW 1: Primary Top Header Bar (full-width, edge-to-edge) ── */}
+        <div className="sacred-header-row flex items-center justify-between py-2.5 md:py-3 px-3 md:px-6 lg:px-10">
 
             {/* Far Left Edge: Hamburger Menu Trigger */}
             <div className="flex items-center shrink-0">
@@ -128,11 +127,12 @@ export function SacredHeader() {
                   Sign in
                 </Link>
               )}
-            </div>
-
           </div>
 
-          {/* ── ROW 2: Secondary Sub-Header Navigation Bar (Hidden on Mobile) ── */}
+        </div>
+
+        {/* ── ROW 2: Secondary Sub-Header Navigation Bar (Hidden on Mobile) ── */}
+        <div className="container-anv">
           <nav className="sacred-sub-header border-t border-[var(--border-gold)]/40 py-2 hidden md:flex items-center justify-center gap-6 md:gap-10 overflow-x-auto no-scrollbar font-ui text-xs md:text-sm font-extrabold uppercase tracking-[0.16em]">
             <Link href="/" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
               Home
