@@ -1526,7 +1526,8 @@ button {
 .sacred-header-row {
   display: flex;
   align-items: center;
-  height: 88px;
+  min-height: 80px;
+  height: auto;
   overflow: visible;
   gap: 0;
 }
@@ -2386,7 +2387,8 @@ body {
 
 /* BASE (< 480px — small Androids: 320–479px) */
 .sacred-header-row {
-  height: 62px;
+  min-height: 70px;
+  height: auto;
   overflow: visible;
 }
 
@@ -2422,7 +2424,7 @@ body {
 
 /* SM (480px – 639px) */
 @media (min-width: 480px) {
-  .sacred-header-row  { height: 70px; overflow: visible; }
+  .sacred-header-row { min-height: 76px; height: auto; }
   .sacred-emblem-box  { width: 48px; height: 48px; }
   .sacred-brand       { gap: 0.7rem; padding-right: 0.75rem; }
   .sacred-brand-name  { font-size: 1.45rem; letter-spacing: 0.16em; }
