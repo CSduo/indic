@@ -107,8 +107,27 @@ export default function ArticlePage() {
   useEffect(() => {
     if (!slug) return;
     const controller = new AbortController();
-    setLoading(true);
-    setError(false);
+
+    // 0ms instant cache restore if previously visited
+    let hasCached = false;
+    try {
+      const cached = sessionStorage.getItem(`anv_article_${slug}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.title) {
+          setArticle(parsed);
+          setLoading(false);
+          setError(false);
+          hasCached = true;
+        }
+      }
+    } catch {}
+
+    if (!hasCached) {
+      setLoading(true);
+      setError(false);
+    }
+
     fetch(`${base()}/api/articles/${slug}`, { signal: controller.signal })
       .then((response) => {
         if (!response.ok) throw new Error();
@@ -118,6 +137,10 @@ export default function ArticlePage() {
         const art = data.article || data;
         setArticle(art);
         setLoading(false);
+        try {
+          sessionStorage.setItem(`anv_article_${slug}`, JSON.stringify(art));
+        } catch {}
+
         // Load comments
         if (art.id) {
           fetch(`${base()}/api/articles/${art.id}/comments`, { signal: controller.signal })
@@ -141,8 +164,10 @@ export default function ArticlePage() {
       })
       .catch(fetchError => {
         if (fetchError instanceof DOMException && fetchError.name === "AbortError") return;
-        setError(true);
-        setLoading(false);
+        if (!hasCached) {
+          setError(true);
+          setLoading(false);
+        }
       });
     return () => controller.abort();
   }, [slug]);

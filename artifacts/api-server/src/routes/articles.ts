@@ -36,8 +36,26 @@ router.get("/articles", async (req, res) => {
       )!);
     }
 
+    const includeBody = req.query.includeBody === "true";
+
     const articles = await db
-      .select({ article: articlesTable, category: categoriesTable })
+      .select({
+        id: articlesTable.id,
+        slug: articlesTable.slug,
+        title: articlesTable.title,
+        subtitle: articlesTable.subtitle,
+        excerpt: articlesTable.excerpt,
+        heroImageUrl: articlesTable.heroImageUrl,
+        categorySlug: articlesTable.categorySlug,
+        authorName: articlesTable.authorName,
+        featured: articlesTable.featured,
+        status: articlesTable.status,
+        readingMinutes: articlesTable.readingMinutes,
+        publishedAt: articlesTable.publishedAt,
+        updatedAt: articlesTable.updatedAt,
+        ...(includeBody ? { body: articlesTable.body } : {}),
+        category: categoriesTable,
+      })
       .from(articlesTable)
       .leftJoin(categoriesTable, eq(articlesTable.categorySlug, categoriesTable.slug))
       .where(and(...conditions))
@@ -50,18 +68,39 @@ router.get("/articles", async (req, res) => {
       .where(and(...conditions));
 
     const result = articles.map(r => {
-      const art = {
-        ...r.article,
-        body: sanitizeArticleBody(recoverLegacyInlineImages(r.article.slug, r.article.body)),
+      const art: any = {
+        id: r.id,
+        slug: r.slug,
+        title: r.title,
+        subtitle: r.subtitle,
+        excerpt: r.excerpt,
+        heroImageUrl: r.heroImageUrl,
+        categorySlug: r.categorySlug,
+        authorName: r.authorName,
+        featured: r.featured,
+        status: r.status,
+        publishedAt: r.publishedAt,
+        updatedAt: r.updatedAt,
         category: r.category,
       };
-      // If readingMinutes is not stored, compute from body word count
-      if (!art.readingMinutes && art.body) {
+
+      if (includeBody && (r as any).body) {
+        art.body = sanitizeArticleBody(recoverLegacyInlineImages(r.slug, (r as any).body));
+      }
+
+      if (r.readingMinutes) {
+        art.readingMinutes = r.readingMinutes;
+      } else if (art.body) {
         const words = art.body.replace(/<[^>]*>/g, ' ').trim().split(/\s+/).filter(Boolean).length;
         art.readingMinutes = Math.max(1, Math.round(words / 200));
+      } else {
+        art.readingMinutes = 5;
       }
+
       return art;
     });
+
+    res.setHeader("Cache-Control", "public, max-age=30, s-maxage=120, stale-while-revalidate=600");
     return res.json({ articles: result, total: Number(count), limit, offset });
 
   } catch (err: any) {

@@ -30,8 +30,25 @@ router.get("/papers", async (req, res) => {
       )!);
     }
 
+    const includeBody = req.query.includeBody === "true";
+
     const papers = await db
-      .select({ paper: papersTable, category: categoriesTable })
+      .select({
+        id: papersTable.id,
+        slug: papersTable.slug,
+        title: papersTable.title,
+        abstract: papersTable.abstract,
+        coverImageUrl: papersTable.coverImageUrl,
+        categorySlug: papersTable.categorySlug,
+        authorName: papersTable.authorName,
+        peerReviewed: papersTable.peerReviewed,
+        status: papersTable.status,
+        publishedAt: papersTable.publishedAt,
+        updatedAt: papersTable.updatedAt,
+        pdfUrl: papersTable.pdfUrl,
+        ...(includeBody ? { body: papersTable.body } : {}),
+        category: categoriesTable,
+      })
       .from(papersTable)
       .leftJoin(categoriesTable, eq(papersTable.categorySlug, categoriesTable.slug))
       .where(and(...conditions))
@@ -44,10 +61,23 @@ router.get("/papers", async (req, res) => {
       .where(and(...conditions));
 
     const result = papers.map(r => ({
-      ...r.paper,
-      body: sanitizeArticleBody(r.paper.body),
+      id: r.id,
+      slug: r.slug,
+      title: r.title,
+      abstract: r.abstract,
+      coverImageUrl: r.coverImageUrl,
+      categorySlug: r.categorySlug,
+      authorName: r.authorName,
+      peerReviewed: r.peerReviewed,
+      status: r.status,
+      publishedAt: r.publishedAt,
+      updatedAt: r.updatedAt,
+      pdfUrl: r.pdfUrl,
       category: r.category,
+      ...((includeBody && (r as any).body) ? { body: sanitizeArticleBody((r as any).body) } : {}),
     }));
+
+    res.setHeader("Cache-Control", "public, max-age=30, s-maxage=120, stale-while-revalidate=600");
     return res.json({ papers: result, total: Number(count), limit, offset });
   } catch (err) {
     req.log.error(err);

@@ -166,6 +166,17 @@ export default function HomePage() {
   const [domainCounts, setDomainCounts] = useState<Record<string, number>>({});
 
   const loadData = useCallback(() => {
+    // 0ms instant cache restore from sessionStorage
+    try {
+      const cached = sessionStorage.getItem("anv_cache_recent_pubs");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setRecentPublications(parsed);
+        }
+      }
+    } catch {}
+
     fetch(`${base}/api/articles?featured=true&limit=4`, { credentials: "include" })
       .then(r => r.json())
       .then(d => { if (d.articles?.length) setFeaturedEssays(d.articles); })
@@ -174,14 +185,12 @@ export default function HomePage() {
     Promise.all([
       fetch(`${base}/api/articles?limit=24`, { credentials: "include" }).then(r => r.json()),
       fetch(`${base}/api/papers?limit=24`, { credentials: "include" }).then(r => r.json()),
-      fetch(`${base}/api/articles?limit=1`, { credentials: "include" }).then(r => r.json()),
-      fetch(`${base}/api/papers?limit=1`, { credentials: "include" }).then(r => r.json()),
     ])
-      .then(([articleData, paperData, artStats, paperStats]) => {
+      .then(([articleData, paperData]) => {
         setStats(s => ({ 
           ...s, 
-          articles: artStats.pagination?.totalItems || artStats.total || artStats.articles?.length || 0,
-          papers: paperStats.pagination?.totalItems || paperStats.total || paperStats.papers?.length || 0
+          articles: articleData.total || articleData.articles?.length || 0,
+          papers: paperData.total || paperData.papers?.length || 0,
         }));
         
         const counts: Record<string, number> = {};
@@ -194,14 +203,15 @@ export default function HomePage() {
           counts[cat] = (counts[cat] || 0) + 1;
         });
         setDomainCounts(counts);
+
         const articles: RecentPublication[] = (articleData.articles || []).map((article: any) => ({
           id: article.id,
           kind: "article",
           slug: article.slug,
           title: article.title,
           summary: article.excerpt,
-          imageUrl: article.heroImageUrl,
-          imageAlt: article.heroImageAlt,
+          imageUrl: article.heroImageUrl || article.featuredImage || article.coverImage,
+          imageAlt: article.heroImageAlt || article.title,
           categorySlug: article.categorySlug,
           categoryName: article.category?.name,
           authorName: article.authorName,
@@ -223,16 +233,21 @@ export default function HomePage() {
           readingMinutes: paper.readingMinutes || undefined,
         }));
 
-        setRecentPublications(
-          [...articles, ...papers]
-            .sort((a, b) => {
-              const timeA = new Date(a.publishedAt || 0).getTime();
-              const timeB = new Date(b.publishedAt || 0).getTime();
-              if (timeB !== timeA) return timeB - timeA;
-              return b.id.localeCompare(a.id);
-            })
-            .slice(0, 24),
-        );
+        const merged = [...articles, ...papers]
+          .sort((a, b) => {
+            const timeA = new Date(a.publishedAt || 0).getTime();
+            const timeB = new Date(b.publishedAt || 0).getTime();
+            if (timeB !== timeA) return timeB - timeA;
+            return b.id.localeCompare(a.id);
+          })
+          .slice(0, 24);
+
+        if (merged.length > 0) {
+          setRecentPublications(merged);
+          try {
+            sessionStorage.setItem("anv_cache_recent_pubs", JSON.stringify(merged));
+          } catch {}
+        }
       })
       .catch(() => {});
   }, []);

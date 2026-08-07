@@ -219,12 +219,13 @@ app.use("/api/uploads", express.static(UPLOADS_DIR, {
 
 app.use("/api", router);
 
-// OpenGraph SSR Meta Tags handler for Social Link Previews (WhatsApp, Instagram, Twitter, iMessage, Facebook, LinkedIn)
-app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
+import fs from "fs";
+
+// OpenGraph SSR Meta Tags handler for Social Link Previews (WhatsApp, Instagram, X/Twitter, iMessage, Facebook, LinkedIn, Telegram)
+app.get(["/articles/:slug", "/essays/:slug", "/papers/:slug"], async (req, res, next) => {
   try {
     const rawSlug = String(req.params.slug || "");
     const cleanSlug = rawSlug.replace(/-[a-f0-9]{4,8}$/, "");
-
     const isPaper = req.path.startsWith("/papers");
 
     let title = "Ānvīkṣikī Journal & Research Platform";
@@ -272,44 +273,83 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
     }
 
     function escapeHtml(str: string) {
-      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
     }
 
-    const imageMetaTags = imageUrl
-      ? `<meta property="og:image" content="${escapeHtml(imageUrl)}" />
-    <meta property="og:image:secure_url" content="${escapeHtml(imageUrl)}" />
+    const cleanTitle = escapeHtml(title);
+    const cleanExcerpt = escapeHtml(excerpt.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 260));
+    const cleanUrl = escapeHtml(canonicalUrl);
+    const cleanImage = imageUrl ? escapeHtml(imageUrl) : "https://anvikshikijournal.in/favicon.png";
+
+    const ogTags = `
+    <!-- Dynamic Open Graph & Twitter Card Meta Tags -->
+    <title>${cleanTitle} — Ānvīkṣikī</title>
+    <meta name="description" content="${cleanExcerpt}" />
+    <meta property="og:site_name" content="Ānvīkṣikī Journal" />
+    <meta property="og:title" content="${cleanTitle}" />
+    <meta property="og:description" content="${cleanExcerpt}" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="${cleanUrl}" />
+    <meta property="og:image" content="${cleanImage}" />
+    <meta property="og:image:secure_url" content="${cleanImage}" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image" content="${escapeHtml(imageUrl)}" />`
-      : `<meta name="twitter:card" content="summary" />`;
+    <meta name="twitter:title" content="${cleanTitle}" />
+    <meta name="twitter:description" content="${cleanExcerpt}" />
+    <meta name="twitter:image" content="${cleanImage}" />
+    <link rel="canonical" href="${cleanUrl}" />
+    `;
 
-    const html = `<!DOCTYPE html>
+    // Try reading index.html from dist
+    const possiblePaths = [
+      path.join(process.cwd(), "artifacts", "anvikshiki", "dist", "public", "index.html"),
+      path.join(process.cwd(), "dist", "public", "index.html"),
+      path.join(__dirname, "..", "..", "anvikshiki", "dist", "public", "index.html"),
+      path.join(process.cwd(), "artifacts", "anvikshiki", "index.html"),
+    ];
+
+    let htmlTemplate = "";
+    for (const p of possiblePaths) {
+      if (fs.existsSync(p)) {
+        htmlTemplate = fs.readFileSync(p, "utf-8");
+        break;
+      }
+    }
+
+    if (htmlTemplate) {
+      // Inject Open Graph tags into existing index.html
+      const injectedHtml = htmlTemplate
+        .replace(/<title>.*?<\/title>/i, "")
+        .replace(/<meta property="og:.*?".*?>/gi, "")
+        .replace(/<meta name="twitter:.*?".*?>/gi, "")
+        .replace("</head>", `${ogTags}\n</head>`);
+
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
+      res.status(200).send(injectedHtml);
+      return;
+    }
+
+    // Fallback HTML if index.html template file is unavailable
+    const fallbackHtml = `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>${escapeHtml(title)} — Ānvīkṣikī Journal</title>
-    <meta name="description" content="${escapeHtml(excerpt)}" />
-    <meta property="og:site_name" content="Ānvīkṣikī Journal" />
-    <meta property="og:title" content="${escapeHtml(title)}" />
-    <meta property="og:description" content="${escapeHtml(excerpt)}" />
-    <meta property="og:type" content="article" />
-    <meta property="og:url" content="${escapeHtml(canonicalUrl)}" />
-    ${imageMetaTags}
-    <link rel="canonical" href="${escapeHtml(canonicalUrl)}" />` + `
+    ${ogTags}
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <script src="/theme-init.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Devanagari:wght@400;500;600;700&family=Noto+Serif+Sharada&family=Noto+Serif+Tamil:wght@400;500;600;700&family=Noto+Serif+Telugu:wght@400;500;600;700&family=Noto+Serif+Grantha&family=Noto+Serif+Kannada:wght@400;500&family=Noto+Serif+Malayalam:wght@400;500&family=Noto+Serif+Bengali:wght@400;500&family=Noto+Serif+Gurmukhi:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   </head>
   <body>
     <div id="root"></div>
@@ -318,7 +358,8 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
 </html>`;
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.status(200).send(html);
+    res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
+    res.status(200).send(fallbackHtml);
     return;
   } catch (err) {
     next();
