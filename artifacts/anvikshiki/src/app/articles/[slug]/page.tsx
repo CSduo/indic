@@ -22,17 +22,64 @@ const textSummary = (value: unknown, maxLength = 220) => String(value || "")
   .trim()
   .slice(0, maxLength);
 
-const getReadingTime = (bodyHtml: string) => {
-  if (!bodyHtml) return "1 min read";
-  const text = bodyHtml.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-  const wordCount = text ? text.split(/\s+/).length : 0;
-  if (wordCount < 100) {
-    const seconds = Math.max(5, Math.round((wordCount / 200) * 60));
-    return `${seconds} sec read`;
+import { FileText, BookOpen } from "lucide-react";
+
+export function getArticleStats(bodyHtmlOrText?: string, excerpt?: string) {
+  const content = bodyHtmlOrText || excerpt || "";
+  if (!content.trim()) {
+    return {
+      words: 0,
+      lines: 0,
+      readingMinutes: 1,
+      readingTimeText: "1 min read",
+    };
   }
-  const minutes = Math.max(1, Math.round(wordCount / 200));
-  return `${minutes} min read`;
-};
+
+  // Strip HTML tags and normalize whitespace
+  const cleanText = content
+    .replace(/<script[^>]*>([\S\s]*?)<\/script>/gim, "")
+    .replace(/<style[^>]*>([\S\s]*?)<\/style>/gim, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const words = cleanText ? cleanText.split(/\s+/).filter(Boolean).length : 0;
+
+  // Calculate actual lines / paragraph blocks
+  const blockLines = content
+    .split(/\r?\n|<br\s*\/?>|<\/p>|<\/div>|<\/li>|<\/h[1-6]>/i)
+    .map((l) => l.replace(/<[^>]*>/g, "").trim())
+    .filter(Boolean);
+
+  // Standard editorial lines estimate (~12-14 words per line if continuous prose)
+  const lines = Math.max(blockLines.length, words > 0 ? Math.ceil(words / 13) : 0);
+
+  // Reading speed: standard 200 words per minute
+  let readingMinutes = 1;
+  let readingTimeText = "1 min read";
+
+  if (words < 100) {
+    const seconds = Math.max(15, Math.round((words / 200) * 60));
+    readingMinutes = 1;
+    readingTimeText = `${seconds} sec read`;
+  } else {
+    readingMinutes = Math.max(1, Math.ceil(words / 200));
+    readingTimeText = `${readingMinutes} min read`;
+  }
+
+  return {
+    words,
+    lines,
+    readingMinutes,
+    readingTimeText,
+  };
+}
 
 export default function ArticlePage() {
   const [, articlesParams] = useRoute("/articles/:slug");
@@ -445,7 +492,26 @@ export default function ArticlePage() {
           <div className="flex flex-wrap items-center justify-center gap-4 font-ui text-xs uppercase tracking-[0.08em] text-[var(--ink-faint)]">
             {article.authorName ? <span>By {article.authorName}</span> : null}
             {article.publishedAt ? <span>{new Date(article.publishedAt).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })}</span> : null}
-            <span className="inline-flex items-center gap-1"><Clock size={13} /> {getReadingTime(article.body)}</span>
+            {(() => {
+              const stats = getArticleStats(article.body, article.excerpt);
+              return (
+                <>
+                  <span className="inline-flex items-center gap-1.5 font-semibold text-[var(--ink-soft)]" title={`${stats.words.toLocaleString()} words across ${stats.lines.toLocaleString()} lines`}>
+                    <Clock size={13} className="text-[var(--gold)]" /> {stats.readingTimeText}
+                  </span>
+                  {stats.words > 0 && (
+                    <span className="inline-flex items-center gap-1.5 text-[var(--ink-soft)]" title="Total Word Count">
+                      <BookOpen size={13} className="text-[var(--gold)]" /> {stats.words.toLocaleString()} words
+                    </span>
+                  )}
+                  {stats.lines > 0 && (
+                    <span className="inline-flex items-center gap-1.5 text-[var(--ink-soft)]" title="Line Count">
+                      <FileText size={13} className="text-[var(--gold)]" /> {stats.lines.toLocaleString()} lines
+                    </span>
+                  )}
+                </>
+              );
+            })()}
             {article.viewCount ? <span className="inline-flex items-center gap-1"><Eye size={13} /> {article.viewCount} reads</span> : null}
           </div>
           <div className="flex items-center justify-center gap-3 pt-1">

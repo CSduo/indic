@@ -22,6 +22,8 @@ type RecentPublication = {
   authorName?: string;
   publishedAt?: string;
   readingMinutes?: number;
+  wordCount?: number;
+  lineCount?: number;
 };
 
 
@@ -217,6 +219,8 @@ export default function HomePage() {
           authorName: article.authorName,
           publishedAt: article.publishedAt || article.createdAt,
           readingMinutes: article.readingMinutes || undefined,
+          wordCount: article.wordCount || undefined,
+          lineCount: article.lineCount || undefined,
         }));
         const papers: RecentPublication[] = (paperData.papers || []).map((paper: any) => ({
           id: paper.id,
@@ -231,6 +235,8 @@ export default function HomePage() {
           authorName: paper.authorName,
           publishedAt: paper.publishedAt || paper.createdAt,
           readingMinutes: paper.readingMinutes || undefined,
+          wordCount: paper.wordCount || undefined,
+          lineCount: paper.lineCount || undefined,
         }));
 
         const merged = [...articles, ...papers]
@@ -330,7 +336,7 @@ export default function HomePage() {
               <div className="flex flex-col gap-10">
                 {paginatedRecent.map((publication) => {
                   const readingTimeText = publication.readingMinutes
-                    ? `${publication.readingMinutes} min read`
+                    ? `${publication.readingMinutes} min read${publication.wordCount ? ` · ${publication.wordCount.toLocaleString()} words` : ""}`
                     : null;
                   return (
                     <Link

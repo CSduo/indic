@@ -45,6 +45,7 @@ router.get("/articles", async (req, res) => {
         title: articlesTable.title,
         subtitle: articlesTable.subtitle,
         excerpt: articlesTable.excerpt,
+        body: articlesTable.body,
         heroImageUrl: articlesTable.heroImageUrl,
         categorySlug: articlesTable.categorySlug,
         authorName: articlesTable.authorName,
@@ -53,7 +54,6 @@ router.get("/articles", async (req, res) => {
         readingMinutes: articlesTable.readingMinutes,
         publishedAt: articlesTable.publishedAt,
         updatedAt: articlesTable.updatedAt,
-        ...(includeBody ? { body: articlesTable.body } : {}),
         category: categoriesTable,
       })
       .from(articlesTable)
@@ -68,6 +68,21 @@ router.get("/articles", async (req, res) => {
       .where(and(...conditions));
 
     const result = articles.map(r => {
+      const rawText = (r.body || r.excerpt || "")
+        .replace(/<script[^>]*>([\S\s]*?)<\/script>/gim, "")
+        .replace(/<style[^>]*>([\S\s]*?)<\/style>/gim, "")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/gi, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      const words = rawText ? rawText.split(/\s+/).filter(Boolean).length : 0;
+      const blockLines = (r.body || r.excerpt || "")
+        .split(/\r?\n|<br\s*\/?>|<\/p>|<\/div>|<\/li>/i)
+        .map(l => l.replace(/<[^>]*>/g, "").trim())
+        .filter(Boolean);
+      const lines = Math.max(blockLines.length, words > 0 ? Math.ceil(words / 13) : 0);
+      const calcMinutes = words > 0 ? (words < 100 ? 1 : Math.max(1, Math.ceil(words / 200))) : (r.readingMinutes || 1);
+
       const art: any = {
         id: r.id,
         slug: r.slug,
@@ -79,22 +94,16 @@ router.get("/articles", async (req, res) => {
         authorName: r.authorName,
         featured: r.featured,
         status: r.status,
+        readingMinutes: calcMinutes,
+        wordCount: words,
+        lineCount: lines,
         publishedAt: r.publishedAt,
         updatedAt: r.updatedAt,
         category: r.category,
       };
 
-      if (includeBody && (r as any).body) {
-        art.body = sanitizeArticleBody(recoverLegacyInlineImages(r.slug, (r as any).body));
-      }
-
-      if (r.readingMinutes) {
-        art.readingMinutes = r.readingMinutes;
-      } else if (art.body) {
-        const words = art.body.replace(/<[^>]*>/g, ' ').trim().split(/\s+/).filter(Boolean).length;
-        art.readingMinutes = Math.max(1, Math.round(words / 200));
-      } else {
-        art.readingMinutes = 5;
+      if (includeBody && r.body) {
+        art.body = sanitizeArticleBody(recoverLegacyInlineImages(r.slug, r.body));
       }
 
       return art;
@@ -130,6 +139,21 @@ router.get("/articles/:slug", async (req, res) => {
 
     if (!row) return res.status(404).json({ error: "Article not found" });
 
+    const rawText = (row.article.body || row.article.excerpt || "")
+      .replace(/<script[^>]*>([\S\s]*?)<\/script>/gim, "")
+      .replace(/<style[^>]*>([\S\s]*?)<\/style>/gim, "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const words = rawText ? rawText.split(/\s+/).filter(Boolean).length : 0;
+    const blockLines = (row.article.body || row.article.excerpt || "")
+      .split(/\r?\n|<br\s*\/?>|<\/p>|<\/div>|<\/li>/i)
+      .map(l => l.replace(/<[^>]*>/g, "").trim())
+      .filter(Boolean);
+    const lines = Math.max(blockLines.length, words > 0 ? Math.ceil(words / 13) : 0);
+    const calcMinutes = words > 0 ? (words < 100 ? 1 : Math.max(1, Math.ceil(words / 200))) : (row.article.readingMinutes || 1);
+
     const [authorUser] = await db.select({
       id: usersTable.id,
       name: usersTable.name,
@@ -145,6 +169,9 @@ router.get("/articles/:slug", async (req, res) => {
     return res.json({
       article: {
         ...row.article,
+        readingMinutes: calcMinutes,
+        wordCount: words,
+        lineCount: lines,
         authorId: authorUser ? authorUser.id : "f6200aac-6489-49df-94d8-301aa3539557",
         authorAvatarUrl: authorUser?.avatarUrl || null,
         authorBio: authorUser?.bio || null,

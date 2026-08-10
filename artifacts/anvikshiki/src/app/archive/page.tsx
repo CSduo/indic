@@ -52,6 +52,8 @@ export default function ArchivePage() {
         authorName: a.authorName || "Editorial",
         publishedAt: a.publishedAt || a.createdAt,
         readingMinutes: a.readingMinutes,
+        wordCount: a.wordCount,
+        lineCount: a.lineCount,
       }));
 
       const allPapers = (papers.papers || []).map((p: any) => ({
@@ -66,6 +68,8 @@ export default function ArchivePage() {
         authorName: p.authorName || "Editorial",
         publishedAt: p.publishedAt || p.createdAt,
         readingMinutes: p.readingMinutes,
+        wordCount: p.wordCount,
+        lineCount: p.lineCount,
       }));
 
       setItems([...allArticles, ...allPapers]);
@@ -427,7 +431,7 @@ export default function ArchivePage() {
                         </span>
                         {publication.readingMinutes && (
                           <span className="px-2 py-0.5 rounded-sm text-[9px] font-bold uppercase tracking-widest border border-[var(--border)] text-[var(--ink-soft)]">
-                            {publication.readingMinutes} min read
+                            {publication.readingMinutes} min read{(publication as any).wordCount ? ` · ${(publication as any).wordCount.toLocaleString()} words` : ""}
                           </span>
                         )}
                       </div>
