@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { ArrowRight, BookOpen, ChevronLeft, ChevronRight, Clock3, Compass, Feather, Globe, Layers, Send, Users, FileText, Grid3X3 } from "lucide-react";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
@@ -159,112 +160,120 @@ const INITIAL_RECENT_PUBLICATIONS: RecentPublication[] = [
 ];
 
 export default function HomePage() {
-  const [featuredEssays, setFeaturedEssays] = useState<any[]>([]);
-  const [recentPublications, setRecentPublications] = useState<RecentPublication[]>(INITIAL_RECENT_PUBLICATIONS);
   const [recentPage, setRecentPage] = useState(1);
   const recentTrackRef = useRef<HTMLDivElement>(null);
-  
-  const [stats, setStats] = useState({ articles: 0, papers: 0, domains: DOMAIN_ORDER.length });
-  const [domainCounts, setDomainCounts] = useState<Record<string, number>>({});
 
-  const loadData = useCallback(() => {
-    // 0ms instant cache restore from sessionStorage
-    try {
-      const cached = sessionStorage.getItem("anv_cache_recent_pubs");
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setRecentPublications(parsed);
-        }
-      }
-    } catch {}
+  // ── Cached data fetching via React Query ─────────────────────────────────
+  // Data is served instantly from cache on repeat visits (10 min staleTime set
+  // globally in App.tsx). Only the very first visit triggers a network request.
 
-    fetch(`${base}/api/articles?featured=true&limit=4`, { credentials: "include" })
-      .then(r => r.json())
-      .then(d => { if (d.articles?.length) setFeaturedEssays(d.articles); })
-      .catch(() => {});
+  const { data: featuredData } = useQuery({
+    queryKey: ["home-featured"],
+    queryFn: () =>
+      fetch(`${base}/api/articles?featured=true&limit=4`, { credentials: "include" })
+        .then(r => r.json()),
+    staleTime: 1000 * 60 * 10,
+    placeholderData: { articles: [] },
+  });
 
-    Promise.all([
-      fetch(`${base}/api/articles?limit=24`, { credentials: "include" }).then(r => r.json()),
-      fetch(`${base}/api/papers?limit=24`, { credentials: "include" }).then(r => r.json()),
-    ])
-      .then(([articleData, paperData]) => {
-        setStats(s => ({ 
-          ...s, 
-          articles: articleData.total || articleData.articles?.length || 0,
-          papers: paperData.total || paperData.papers?.length || 0,
-        }));
-        
-        const counts: Record<string, number> = {};
-        (articleData.articles || []).forEach((a: any) => {
-          const cat = a.categorySlug || "philosophy";
-          counts[cat] = (counts[cat] || 0) + 1;
-        });
-        (paperData.papers || []).forEach((p: any) => {
-          const cat = p.categorySlug || "papers";
-          counts[cat] = (counts[cat] || 0) + 1;
-        });
-        setDomainCounts(counts);
+  const { data: articlesData } = useQuery({
+    queryKey: ["home-articles"],
+    queryFn: () =>
+      fetch(`${base}/api/articles?limit=24`, { credentials: "include" })
+        .then(r => r.json()),
+    staleTime: 1000 * 60 * 10,
+    placeholderData: { articles: [], total: 0 },
+  });
 
-        const articles: RecentPublication[] = (articleData.articles || []).map((article: any) => ({
-          id: article.id,
-          kind: "article",
-          slug: article.slug,
-          title: article.title,
-          summary: article.excerpt,
-          imageUrl: article.heroImageUrl || article.featuredImage || article.coverImage,
-          imageAlt: article.heroImageAlt || article.title,
-          categorySlug: article.categorySlug,
-          categoryName: article.category?.name,
-          authorName: article.authorName,
-          publishedAt: article.publishedAt || article.createdAt,
-          readingMinutes: article.readingMinutes || undefined,
-          wordCount: article.wordCount || undefined,
-          lineCount: article.lineCount || undefined,
-        }));
-        const papers: RecentPublication[] = (paperData.papers || []).map((paper: any) => ({
-          id: paper.id,
-          kind: "paper",
-          slug: paper.slug,
-          title: paper.title,
-          summary: paper.abstract,
-          imageUrl: paper.coverImageUrl,
-          imageAlt: paper.title,
-          categorySlug: paper.categorySlug,
-          categoryName: paper.category?.name,
-          authorName: paper.authorName,
-          publishedAt: paper.publishedAt || paper.createdAt,
-          readingMinutes: paper.readingMinutes || undefined,
-          wordCount: paper.wordCount || undefined,
-          lineCount: paper.lineCount || undefined,
-        }));
+  const { data: papersData } = useQuery({
+    queryKey: ["home-papers"],
+    queryFn: () =>
+      fetch(`${base}/api/papers?limit=24`, { credentials: "include" })
+        .then(r => r.json()),
+    staleTime: 1000 * 60 * 10,
+    placeholderData: { papers: [], total: 0 },
+  });
 
-        const merged = [...articles, ...papers]
-          .sort((a, b) => {
-            const timeA = new Date(a.publishedAt || 0).getTime();
-            const timeB = new Date(b.publishedAt || 0).getTime();
-            if (timeB !== timeA) return timeB - timeA;
-            return b.id.localeCompare(a.id);
-          })
-          .slice(0, 24);
+  const featuredEssays: any[] = featuredData?.articles || [];
 
-        if (merged.length > 0) {
-          setRecentPublications(merged);
-          try {
-            sessionStorage.setItem("anv_cache_recent_pubs", JSON.stringify(merged));
-          } catch {}
-        }
+  const articleList: any[] = articlesData?.articles || [];
+  const paperList: any[] = papersData?.papers || [];
+
+  const stats = {
+    articles: articlesData?.total || articleList.length,
+    papers: papersData?.total || paperList.length,
+    domains: DOMAIN_ORDER.length,
+  };
+
+  const domainCounts = (() => {
+    const counts: Record<string, number> = {};
+    articleList.forEach((a: any) => {
+      const cat = a.categorySlug || "philosophy";
+      counts[cat] = (counts[cat] || 0) + 1;
+    });
+    paperList.forEach((p: any) => {
+      const cat = p.categorySlug || "papers";
+      counts[cat] = (counts[cat] || 0) + 1;
+    });
+    return counts;
+  })();
+
+  const mergedPublications: RecentPublication[] = (() => {
+    const articles: RecentPublication[] = articleList.map((article: any) => ({
+      id: article.id,
+      kind: "article",
+      slug: article.slug,
+      title: article.title,
+      summary: article.excerpt,
+      imageUrl: article.heroImageUrl || article.featuredImage || article.coverImage,
+      imageAlt: article.heroImageAlt || article.title,
+      categorySlug: article.categorySlug,
+      categoryName: article.category?.name,
+      authorName: article.authorName,
+      publishedAt: article.publishedAt || article.createdAt,
+      readingMinutes: article.readingMinutes || undefined,
+      wordCount: article.wordCount || undefined,
+      lineCount: article.lineCount || undefined,
+    }));
+    const papers: RecentPublication[] = paperList.map((paper: any) => ({
+      id: paper.id,
+      kind: "paper",
+      slug: paper.slug,
+      title: paper.title,
+      summary: paper.abstract,
+      imageUrl: paper.coverImageUrl,
+      imageAlt: paper.title,
+      categorySlug: paper.categorySlug,
+      categoryName: paper.category?.name,
+      authorName: paper.authorName,
+      publishedAt: paper.publishedAt || paper.createdAt,
+      readingMinutes: paper.readingMinutes || undefined,
+      wordCount: paper.wordCount || undefined,
+      lineCount: paper.lineCount || undefined,
+    }));
+    const merged = [...articles, ...papers]
+      .sort((a, b) => {
+        const timeA = new Date(a.publishedAt || 0).getTime();
+        const timeB = new Date(b.publishedAt || 0).getTime();
+        if (timeB !== timeA) return timeB - timeA;
+        return b.id.localeCompare(a.id);
       })
-      .catch(() => {});
-  }, []);
+      .slice(0, 24);
+    return merged.length > 0 ? merged : INITIAL_RECENT_PUBLICATIONS;
+  })();
+
+  const recentPublications = mergedPublications;
+
+  // Re-fetch when content changes (e.g. after publish/delete from admin)
+  const { refetch: refetchArticles } = useQuery({ queryKey: ["home-articles"], queryFn: () => fetch(`${base}/api/articles?limit=24`, { credentials: "include" }).then(r => r.json()), enabled: false });
+  const { refetch: refetchPapers }   = useQuery({ queryKey: ["home-papers"],   queryFn: () => fetch(`${base}/api/papers?limit=24`,   { credentials: "include" }).then(r => r.json()), enabled: false });
+  const { refetch: refetchFeatured } = useQuery({ queryKey: ["home-featured"], queryFn: () => fetch(`${base}/api/articles?featured=true&limit=4`, { credentials: "include" }).then(r => r.json()), enabled: false });
 
   useEffect(() => {
-    loadData();
-    // Re-fetch whenever the account page signals that content has changed
-    // (e.g. after a delete, publish, or restore).
-    window.addEventListener("anv:content-changed", loadData);
-    return () => window.removeEventListener("anv:content-changed", loadData);
-  }, [loadData]);
+    const onContentChanged = () => { void refetchArticles(); void refetchPapers(); void refetchFeatured(); };
+    window.addEventListener("anv:content-changed", onContentChanged);
+    return () => window.removeEventListener("anv:content-changed", onContentChanged);
+  }, [refetchArticles, refetchPapers, refetchFeatured]);
 
   const moveRecentPublications = useCallback((direction: -1 | 1) => {
     const track = recentTrackRef.current;

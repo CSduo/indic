@@ -1394,6 +1394,30 @@ button {
   50% { opacity: .7; transform: scale(1.25); }
 }
 
+/* ── Page skeleton loading animation ── */
+@keyframes skeletonShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+:root {
+  --skeleton-base: linear-gradient(
+    90deg,
+    rgba(128,128,128,0.10) 25%,
+    rgba(128,128,128,0.20) 50%,
+    rgba(128,128,128,0.10) 75%
+  );
+}
+
+[data-theme="light"] {
+  --skeleton-base: linear-gradient(
+    90deg,
+    rgba(0,0,0,0.06) 25%,
+    rgba(0,0,0,0.12) 50%,
+    rgba(0,0,0,0.06) 75%
+  );
+}
+
 @keyframes rotateSlow {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }

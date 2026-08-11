@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
@@ -6,87 +7,150 @@ import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { SacredHeader } from "@/components/sacred/SacredHeader";
 import { SacredFooter } from "@/components/sacred/SacredFooter";
 import { LoadingScreen } from "@/components/sacred/LoadingScreen";
+import { PageSkeleton } from "@/components/sacred/PageSkeleton";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { PageTransition } from "@/components/providers/PageTransition";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 
-/* ── Public pages ── */
-import HomePage         from "@/app/page";
-import BrowsePage       from "@/app/browse/page";
-import DomainsPage      from "@/app/domains/page";
-import DomainPage       from "@/app/domains/[slug]/page";
-import ArticlePage      from "@/app/articles/[slug]/page";
-import PapersPage       from "@/app/papers/page";
-import PaperDetailPage  from "@/app/papers/[slug]/page";
-import SearchPage       from "@/app/search/page";
-import ArchivePage      from "@/app/archive/page";
-import AboutPage        from "@/app/about/page";
-import ContactPage      from "@/app/contact/page";
-import CommunityPage    from "@/app/community/page";
-import CommunityFeedPage     from "@/app/community/feed/page";
-import CommunityDiscussPage  from "@/app/community/discussions/page";
-import CommunityEventsPage   from "@/app/community/events/page";
-import LoginPage        from "@/app/login/page";
-import AccountPage      from "@/app/account/page";
-import ProfilePage      from "@/app/account/profile/page";
-import CollectionsPage  from "@/app/account/collections/page";
-import NotificationsPage from "@/app/account/notifications/page";
-import SettingsPage     from "@/app/account/settings/page";
-import EditArticlePage  from "@/app/account/edit/[slug]/page";
-import SubmitLandingPage  from "@/app/submit/page";
-import PublicUserProfilePage from "@/app/profile/[userId]/page";
+/* ── Public pages — lazy loaded (code splitting) ── */
+const HomePage              = lazy(() => import("@/app/page"));
+const BrowsePage            = lazy(() => import("@/app/browse/page"));
+const DomainsPage           = lazy(() => import("@/app/domains/page"));
+const DomainPage            = lazy(() => import("@/app/domains/[slug]/page"));
+const ArticlePage           = lazy(() => import("@/app/articles/[slug]/page"));
+const PapersPage            = lazy(() => import("@/app/papers/page"));
+const PaperDetailPage       = lazy(() => import("@/app/papers/[slug]/page"));
+const SearchPage            = lazy(() => import("@/app/search/page"));
+const ArchivePage           = lazy(() => import("@/app/archive/page"));
+const AboutPage             = lazy(() => import("@/app/about/page"));
+const ContactPage           = lazy(() => import("@/app/contact/page"));
+const CommunityPage         = lazy(() => import("@/app/community/page"));
+const CommunityFeedPage     = lazy(() => import("@/app/community/feed/page"));
+const CommunityDiscussPage  = lazy(() => import("@/app/community/discussions/page"));
+const CommunityEventsPage   = lazy(() => import("@/app/community/events/page"));
+const LoginPage             = lazy(() => import("@/app/login/page"));
+const AccountPage           = lazy(() => import("@/app/account/page"));
+const ProfilePage           = lazy(() => import("@/app/account/profile/page"));
+const CollectionsPage       = lazy(() => import("@/app/account/collections/page"));
+const NotificationsPage     = lazy(() => import("@/app/account/notifications/page"));
+const SettingsPage          = lazy(() => import("@/app/account/settings/page"));
+const EditArticlePage       = lazy(() => import("@/app/account/edit/[slug]/page"));
+const SubmitLandingPage     = lazy(() => import("@/app/submit/page"));
+const PublicUserProfilePage = lazy(() => import("@/app/profile/[userId]/page"));
+const SubmitDetailsPage     = lazy(() => import("@/app/submit/details/page"));
+const SubmitUploadPage      = lazy(() => import("@/app/submit/upload/page"));
+const SubmitWritePage       = lazy(() => import("@/app/submit/write/page"));
+const SubmitPreviewPage     = lazy(() => import("@/app/submit/preview/page"));
+const SubmitSuccessPage     = lazy(() => import("@/app/submit/success/page"));
+const SavedPage             = lazy(() => import("@/app/saved/page"));
+const PrivacyPage           = lazy(() => import("@/app/privacy/page"));
+const TermsPage             = lazy(() => import("@/app/terms/page"));
 
-import SubmitDetailsPage  from "@/app/submit/details/page";
-import SubmitUploadPage   from "@/app/submit/upload/page";
-import SubmitWritePage    from "@/app/submit/write/page";
-import SubmitPreviewPage  from "@/app/submit/preview/page";
-import SubmitSuccessPage  from "@/app/submit/success/page";
-import SavedPage        from "@/app/saved/page";
-import PrivacyPage      from "@/app/privacy/page";
-import TermsPage        from "@/app/terms/page";
+/* ── Admin pages — lazy loaded ── */
+const AdminLoginPage        = lazy(() => import("@/app/admin/login/page"));
+const AdminDashboardPage    = lazy(() => import("@/app/admin/page"));
+const AdminArticlesPage     = lazy(() => import("@/app/admin/articles/page"));
+const AdminNewArticlePage   = lazy(() => import("@/app/admin/articles/new/page"));
+const AdminPapersPage       = lazy(() => import("@/app/admin/papers/page"));
+const AdminNewPaperPage     = lazy(() => import("@/app/admin/papers/new/page"));
+const AdminSubmissionsPage  = lazy(() => import("@/app/admin/submissions/page"));
+const AdminNewsletterPage   = lazy(() => import("@/app/admin/newsletter/page"));
+const AdminSettingsPage     = lazy(() => import("@/app/admin/settings/page"));
+const AdminUsersPage        = lazy(() => import("@/app/admin/users/page"));
 
-/* ── Admin pages ── */
-import AdminLoginPage       from "@/app/admin/login/page";
-import AdminDashboardPage   from "@/app/admin/page";
-import AdminArticlesPage    from "@/app/admin/articles/page";
-import AdminNewArticlePage  from "@/app/admin/articles/new/page";
-import AdminPapersPage      from "@/app/admin/papers/page";
-import AdminNewPaperPage    from "@/app/admin/papers/new/page";
-import AdminSubmissionsPage from "@/app/admin/submissions/page";
-import AdminNewsletterPage  from "@/app/admin/newsletter/page";
-import AdminSettingsPage    from "@/app/admin/settings/page";
-import AdminUsersPage       from "@/app/admin/users/page";
+const NotFound = lazy(() => import("@/pages/not-found"));
 
-import NotFound from "@/pages/not-found";
-
+// ── 10-minute staleTime: content articles don't change every 2 minutes.
+// Using a long staleTime means navigating back to any page that used useQuery
+// returns data INSTANTLY from the in-memory cache rather than re-fetching.
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, staleTime: 1000 * 60 * 2 } },
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 1000 * 60 * 10,   // 10 minutes
+      gcTime: 1000 * 60 * 30,       // keep unused data in memory 30 minutes
+    },
+  },
 });
+
+// ── Stable shell wrappers ──────────────────────────────────────────────────
+// CRITICAL: these must be defined OUTSIDE the Router function as named
+// components. If they're inline arrow functions inside Route's `component`
+// prop, React sees a new reference on every render and unmounts/remounts the
+// entire page — causing the "hanging" between navigations.
 
 function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex flex-col min-h-[100dvh] cosmic-bg">
       <SacredHeader />
       <main id="main-content" className="flex-1">
-        <PageTransition>{children}</PageTransition>
+        <PageTransition>
+          <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
+        </PageTransition>
       </main>
       <SacredFooter />
     </div>
   );
 }
 
-function HomeShell({ children }: { children: React.ReactNode }) {
+function AdminShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="home-reference-stage">
-      <main id="main-content">{children}</main>
+    <div style={{ background: "var(--bg-deep)", minHeight: "100vh" }}>
+      <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
     </div>
   );
 }
 
-function AdminShell({ children }: { children: React.ReactNode }) {
-  return <div style={{ background: "var(--bg-deep)", minHeight: "100vh" }}>{children}</div>;
-}
+// ── Pre-defined stable route components ──────────────────────────────────
+// Each must be a named component (not an inline arrow) so React can keep the
+// DOM stable across renders. This eliminates the unmount-remount cycle.
+
+const RouteHome              = () => <AppShell><HomePage /></AppShell>;
+const RouteBrowse            = () => <AppShell><BrowsePage /></AppShell>;
+const RouteDomains           = () => <AppShell><DomainsPage /></AppShell>;
+const RouteDomain            = () => <AppShell><DomainPage /></AppShell>;
+const RouteArticle           = () => <AppShell><ArticlePage /></AppShell>;
+const RoutePapers            = () => <AppShell><PapersPage /></AppShell>;
+const RoutePaperDetail       = () => <AppShell><PaperDetailPage /></AppShell>;
+const RouteSearch            = () => <AppShell><SearchPage /></AppShell>;
+const RouteArchive           = () => <AppShell><ArchivePage /></AppShell>;
+const RouteAbout             = () => <AppShell><AboutPage /></AppShell>;
+const RouteContact           = () => <AppShell><ContactPage /></AppShell>;
+const RouteCommunity         = () => <AppShell><CommunityPage /></AppShell>;
+const RouteCommunityFeed     = () => <AppShell><CommunityFeedPage /></AppShell>;
+const RouteCommunityDiscuss  = () => <AppShell><CommunityDiscussPage /></AppShell>;
+const RouteCommunityEvents   = () => <AppShell><CommunityEventsPage /></AppShell>;
+const RouteLogin             = () => <AppShell><LoginPage /></AppShell>;
+const RouteAccount           = () => <AppShell><AccountPage /></AppShell>;
+const RouteProfile           = () => <AppShell><ProfilePage /></AppShell>;
+const RouteCollections       = () => <AppShell><CollectionsPage /></AppShell>;
+const RouteNotifications     = () => <AppShell><NotificationsPage /></AppShell>;
+const RouteSettings          = () => <AppShell><SettingsPage /></AppShell>;
+const RouteEditArticle       = () => <AppShell><EditArticlePage /></AppShell>;
+const RouteSubmit            = () => <AppShell><SubmitLandingPage /></AppShell>;
+const RoutePublicProfile     = () => <AppShell><PublicUserProfilePage /></AppShell>;
+const RouteSubmitDetails     = () => <AppShell><SubmitDetailsPage /></AppShell>;
+const RouteSubmitUpload      = () => <AppShell><SubmitUploadPage /></AppShell>;
+const RouteSubmitWrite       = () => <AppShell><SubmitWritePage /></AppShell>;
+const RouteSubmitPreview     = () => <AppShell><SubmitPreviewPage /></AppShell>;
+const RouteSubmitSuccess     = () => <AppShell><SubmitSuccessPage /></AppShell>;
+const RouteSaved             = () => <AppShell><SavedPage /></AppShell>;
+const RoutePrivacy           = () => <AppShell><PrivacyPage /></AppShell>;
+const RouteTerms             = () => <AppShell><TermsPage /></AppShell>;
+const RouteCategories        = () => <AppShell><DomainPage /></AppShell>;
+const RouteEssay             = () => <AppShell><ArticlePage /></AppShell>;
+
+const RouteAdminLogin        = () => <AdminShell><AdminLoginPage /></AdminShell>;
+const RouteAdminDashboard    = () => <AdminShell><AdminDashboardPage /></AdminShell>;
+const RouteAdminArticles     = () => <AdminShell><AdminArticlesPage /></AdminShell>;
+const RouteAdminNewArticle   = () => <AdminShell><AdminNewArticlePage /></AdminShell>;
+const RouteAdminPapers       = () => <AdminShell><AdminPapersPage /></AdminShell>;
+const RouteAdminNewPaper     = () => <AdminShell><AdminNewPaperPage /></AdminShell>;
+const RouteAdminSubmissions  = () => <AdminShell><AdminSubmissionsPage /></AdminShell>;
+const RouteAdminNewsletter   = () => <AdminShell><AdminNewsletterPage /></AdminShell>;
+const RouteAdminSettings     = () => <AdminShell><AdminSettingsPage /></AdminShell>;
+const RouteAdminUsers        = () => <AdminShell><AdminUsersPage /></AdminShell>;
 
 function Router() {
   useKeyboardShortcuts();
@@ -95,53 +159,53 @@ function Router() {
       <ScrollToTop />
       <Switch>
         {/* Public */}
-        <Route path="/"                        component={() => <AppShell><HomePage /></AppShell>} />
-        <Route path="/browse"                  component={() => <AppShell><BrowsePage /></AppShell>} />
-        <Route path="/domains"                 component={() => <AppShell><DomainsPage /></AppShell>} />
-        <Route path="/domains/:slug"           component={() => <AppShell><DomainPage /></AppShell>} />
-        <Route path="/articles/:slug"          component={() => <AppShell><ArticlePage /></AppShell>} />
-        <Route path="/essays/:slug"            component={() => <AppShell><ArticlePage /></AppShell>} />
-        <Route path="/papers"                  component={() => <AppShell><PapersPage /></AppShell>} />
-        <Route path="/papers/:slug"            component={() => <AppShell><PaperDetailPage /></AppShell>} />
-        <Route path="/search"                  component={() => <AppShell><SearchPage /></AppShell>} />
-        <Route path="/archive"                 component={() => <AppShell><ArchivePage /></AppShell>} />
-        <Route path="/about"                   component={() => <AppShell><AboutPage /></AppShell>} />
-        <Route path="/contact"                 component={() => <AppShell><ContactPage /></AppShell>} />
-        <Route path="/community"               component={() => <AppShell><CommunityPage /></AppShell>} />
-        <Route path="/community/feed"          component={() => <AppShell><CommunityFeedPage /></AppShell>} />
-        <Route path="/community/discussions"   component={() => <AppShell><CommunityDiscussPage /></AppShell>} />
-        <Route path="/community/events"        component={() => <AppShell><CommunityEventsPage /></AppShell>} />
-        <Route path="/login"                   component={() => <AppShell><LoginPage /></AppShell>} />
-        <Route path="/account"                 component={() => <AppShell><AccountPage /></AppShell>} />
-        <Route path="/account/profile"         component={() => <AppShell><ProfilePage /></AppShell>} />
-        <Route path="/account/collections"     component={() => <AppShell><CollectionsPage /></AppShell>} />
-        <Route path="/account/notifications"   component={() => <AppShell><NotificationsPage /></AppShell>} />
-        <Route path="/account/settings"        component={() => <AppShell><SettingsPage /></AppShell>} />
-        <Route path="/account/edit/:slug"       component={() => <AppShell><EditArticlePage /></AppShell>} />
-        <Route path="/submit"                  component={() => <AppShell><SubmitLandingPage /></AppShell>} />
-        <Route path="/profile/:userId"          component={() => <AppShell><PublicUserProfilePage /></AppShell>} />
-        <Route path="/submit/details"          component={() => <AppShell><SubmitDetailsPage /></AppShell>} />
-        <Route path="/submit/upload"           component={() => <AppShell><SubmitUploadPage /></AppShell>} />
-        <Route path="/submit/write"            component={() => <AppShell><SubmitWritePage /></AppShell>} />
-        <Route path="/submit/preview"          component={() => <AppShell><SubmitPreviewPage /></AppShell>} />
-        <Route path="/submit/success"          component={() => <AppShell><SubmitSuccessPage /></AppShell>} />
-        <Route path="/saved"                   component={() => <AppShell><SavedPage /></AppShell>} />
-        <Route path="/privacy"                 component={() => <AppShell><PrivacyPage /></AppShell>} />
-        <Route path="/terms"                   component={() => <AppShell><TermsPage /></AppShell>} />
+        <Route path="/"                        component={RouteHome} />
+        <Route path="/browse"                  component={RouteBrowse} />
+        <Route path="/domains"                 component={RouteDomains} />
+        <Route path="/domains/:slug"           component={RouteDomain} />
+        <Route path="/articles/:slug"          component={RouteArticle} />
+        <Route path="/essays/:slug"            component={RouteEssay} />
+        <Route path="/papers"                  component={RoutePapers} />
+        <Route path="/papers/:slug"            component={RoutePaperDetail} />
+        <Route path="/search"                  component={RouteSearch} />
+        <Route path="/archive"                 component={RouteArchive} />
+        <Route path="/about"                   component={RouteAbout} />
+        <Route path="/contact"                 component={RouteContact} />
+        <Route path="/community"               component={RouteCommunity} />
+        <Route path="/community/feed"          component={RouteCommunityFeed} />
+        <Route path="/community/discussions"   component={RouteCommunityDiscuss} />
+        <Route path="/community/events"        component={RouteCommunityEvents} />
+        <Route path="/login"                   component={RouteLogin} />
+        <Route path="/account"                 component={RouteAccount} />
+        <Route path="/account/profile"         component={RouteProfile} />
+        <Route path="/account/collections"     component={RouteCollections} />
+        <Route path="/account/notifications"   component={RouteNotifications} />
+        <Route path="/account/settings"        component={RouteSettings} />
+        <Route path="/account/edit/:slug"      component={RouteEditArticle} />
+        <Route path="/submit"                  component={RouteSubmit} />
+        <Route path="/profile/:userId"         component={RoutePublicProfile} />
+        <Route path="/submit/details"          component={RouteSubmitDetails} />
+        <Route path="/submit/upload"           component={RouteSubmitUpload} />
+        <Route path="/submit/write"            component={RouteSubmitWrite} />
+        <Route path="/submit/preview"          component={RouteSubmitPreview} />
+        <Route path="/submit/success"          component={RouteSubmitSuccess} />
+        <Route path="/saved"                   component={RouteSaved} />
+        <Route path="/privacy"                 component={RoutePrivacy} />
+        <Route path="/terms"                   component={RouteTerms} />
         {/* Legacy category routes */}
-        <Route path="/categories/:slug"        component={() => <AppShell><DomainPage /></AppShell>} />
+        <Route path="/categories/:slug"        component={RouteCategories} />
 
         {/* Admin */}
-        <Route path="/admin/login"           component={() => <AdminShell><AdminLoginPage /></AdminShell>} />
-        <Route path="/admin"                 component={() => <AdminShell><AdminDashboardPage /></AdminShell>} />
-        <Route path="/admin/articles"        component={() => <AdminShell><AdminArticlesPage /></AdminShell>} />
-        <Route path="/admin/articles/new"    component={() => <AdminShell><AdminNewArticlePage /></AdminShell>} />
-        <Route path="/admin/papers"          component={() => <AdminShell><AdminPapersPage /></AdminShell>} />
-        <Route path="/admin/papers/new"      component={() => <AdminShell><AdminNewPaperPage /></AdminShell>} />
-        <Route path="/admin/submissions"     component={() => <AdminShell><AdminSubmissionsPage /></AdminShell>} />
-        <Route path="/admin/newsletter"      component={() => <AdminShell><AdminNewsletterPage /></AdminShell>} />
-        <Route path="/admin/settings"        component={() => <AdminShell><AdminSettingsPage /></AdminShell>} />
-        <Route path="/admin/users"           component={() => <AdminShell><AdminUsersPage /></AdminShell>} />
+        <Route path="/admin/login"             component={RouteAdminLogin} />
+        <Route path="/admin"                   component={RouteAdminDashboard} />
+        <Route path="/admin/articles"          component={RouteAdminArticles} />
+        <Route path="/admin/articles/new"      component={RouteAdminNewArticle} />
+        <Route path="/admin/papers"            component={RouteAdminPapers} />
+        <Route path="/admin/papers/new"        component={RouteAdminNewPaper} />
+        <Route path="/admin/submissions"       component={RouteAdminSubmissions} />
+        <Route path="/admin/newsletter"        component={RouteAdminNewsletter} />
+        <Route path="/admin/settings"          component={RouteAdminSettings} />
+        <Route path="/admin/users"             component={RouteAdminUsers} />
 
         <Route component={NotFound} />
       </Switch>
