@@ -550,9 +550,12 @@ export default function ArticlePage() {
             <div className="card-sacred p-5 mb-8 space-y-3" style={{ background: "linear-gradient(135deg, rgba(201,152,58,0.03) 0%, rgba(201,152,58,0.08) 100%)" }}>
               <div className="flex items-center gap-3">
                 <button
+                  type="button"
                   onClick={togglePlay}
-                  className="h-10 w-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 shrink-0 animate-pulse"
+                  className="h-11 w-11 rounded-full flex items-center justify-center transition-transform hover:scale-105 shrink-0 animate-pulse"
                   style={{ background: "var(--gold-bright)", color: "var(--bg)" }}
+                  aria-label={isPlaying ? "Pause article audio" : "Play article audio"}
+                  aria-pressed={isPlaying}
                 >
                   {isPlaying ? <Pause size={16} fill="var(--bg)" /> : <Play size={16} fill="var(--bg)" className="ml-0.5" />}
                 </button>
@@ -573,6 +576,7 @@ export default function ArticlePage() {
                   onChange={handleSeek}
                   className="flex-1 h-1 bg-[var(--border)] rounded-lg appearance-none cursor-pointer accent-[var(--gold)]"
                   style={{ background: "rgba(255,255,255,0.05)" }}
+                  aria-label="Article audio progress"
                 />
                 <span className="font-ui text-[10px] text-[var(--ink-faint)]">{formatTime(duration)}</span>
               </div>
