@@ -29,6 +29,24 @@ router.get("/sync-live-publications", async (req, res) => {
   }
 });
 
+// GET /api/debug-submissions
+router.get("/debug-submissions", async (req, res) => {
+  try {
+    const subs = await db.select({
+      id: submissionsTable.id,
+      title: submissionsTable.title,
+      submitterName: submissionsTable.submitterName,
+      status: submissionsTable.status,
+      type: submissionsTable.type,
+      domain: submissionsTable.domain,
+      deletedAt: submissionsTable.deletedAt,
+    }).from(submissionsTable);
+    return res.json({ submissions: subs });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/articles
 router.get("/articles", async (req, res) => {
   try {
