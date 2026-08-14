@@ -12,7 +12,9 @@ export default function AdminArticlesPage() {
   const [articles, setArticles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<"active" | "trash">("active");
+  const [view, setView] = useState<"active" | "trash">(() =>
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "trash" ? "trash" : "active",
+  );
 
   const load = (trashed = view === "trash") => {
     setLoading(true);

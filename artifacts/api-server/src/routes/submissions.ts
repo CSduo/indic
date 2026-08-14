@@ -1,10 +1,9 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { submissionsTable, articlesTable } from "@workspace/db";
+import { submissionsTable, articlesTable, papersTable } from "@workspace/db";
 import { eq, and, isNull, isNotNull } from "drizzle-orm";
 import { getUserAuth } from "../lib/auth";
 import {
-  ensurePublicPublicationForSubmission,
   normalizeCategorySlug,
   slugify,
 } from "../lib/publication-sync";
@@ -158,14 +157,12 @@ router.post("/submissions", async (req, res) => {
       consent: true,
     }).returning();
 
-    const publication = await ensurePublicPublicationForSubmission(submission);
-    
     // Trigger SMS/WhatsApp/Telegram notification asynchronously
     sendSubmissionNotification(submission).catch((err) => {
       req.log.error(err, "Failed to send submission notification");
     });
 
-    return res.status(201).json({ success: true, submission, publication });
+    return res.status(201).json({ success: true, submission, publication: null });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed" });
@@ -358,8 +355,6 @@ router.post(
         audioPublicId,
       }).returning();
 
-      const publication = await ensurePublicPublicationForSubmission(submission);
-
       // Trigger notifications asynchronously
       sendSubmissionNotification(submission).catch((err) => {
         req.log.error(err, "Failed to send upload submission notification");
@@ -368,7 +363,7 @@ router.post(
       return res.status(201).json({
         success: true,
         submission,
-        publication,
+        publication: null,
         files: {
           manuscriptUrl,
           coverUrl: coverImageUrl,
@@ -382,9 +377,10 @@ router.post(
   }
 );
 
-// Users can soft-delete any of their own submissions at any time; the article soft-delete
-// is handled separately and the admin panel still sees the submissions (just marked deleted).
-const USER_EDITABLE_STATUSES = ["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "ACCEPTED", "PUBLISHED", "ARCHIVED"];
+// Publication is an editorial action. Authors may work on drafts and submitted
+// revisions, but cannot modify a published source or independently publish it.
+const USER_EDITABLE_STATUSES = ["DRAFT", "RECEIVED", "REVISION_REQUESTED"];
+const USER_DELETABLE_STATUSES = ["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "REJECTED"];
 
 // POST /api/submissions/write — full essay written in browser
 router.post("/submissions/write", async (req, res) => {
@@ -450,17 +446,13 @@ router.post("/submissions/write", async (req, res) => {
       audioPublicId: data.audioPublicId || null,
     }).returning();
 
-    const publication = isDraft
-      ? null
-      : await ensurePublicPublicationForSubmission(submission);
-
     if (!isDraft) {
       sendSubmissionNotification(submission).catch((err) => {
         req.log.error(err, "Failed to send write submission notification");
       });
     }
 
-    return res.status(201).json({ success: true, submission, publication });
+    return res.status(201).json({ success: true, submission, publication: null });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Write submission failed" });
@@ -485,12 +477,12 @@ router.get("/submissions", async (req, res) => {
       .where(and(...conditions))
       .orderBy(submissionsTable.createdAt);
 
-    const articles = await db.select({ slug: articlesTable.slug, title: articlesTable.title }).from(articlesTable)
+    const articles = await db.select({ slug: articlesTable.slug, sourceSubmissionId: articlesTable.sourceSubmissionId }).from(articlesTable)
       .where(isNull(articlesTable.deletedAt));
 
     const enriched = submissions.map(s => {
       const slugCandidate = slugify(s.title);
-      const matchingArt = articles.find(a => (a.title || "").toLowerCase().trim() === (s.title || "").toLowerCase().trim() || a.slug === slugCandidate);
+      const matchingArt = articles.find(a => a.sourceSubmissionId === s.id);
       return {
         ...s,
         body: sanitizeArticleBody(s.body),
@@ -560,7 +552,7 @@ router.put("/submissions/:id", async (req, res) => {
       body: z.string().max(500_000).optional(),
       notes: z.string().trim().max(5000).optional(),
       consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).optional(),
-      status: z.enum(["DRAFT", "RECEIVED", "PUBLISHED"]).optional(),
+      status: z.enum(["DRAFT", "RECEIVED"]).optional(),
       audioUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
       audioPublicId: z.string().max(500).optional().or(z.literal("")).or(z.null()),
       coverUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
@@ -618,13 +610,10 @@ router.put("/submissions/:id", async (req, res) => {
       .where(and(eq(submissionsTable.id, req.params.id), isNull(submissionsTable.deletedAt)))
       .returning();
 
-    const publication = wantsSubmit || submission.status === "PUBLISHED"
-      ? await ensurePublicPublicationForSubmission(submission)
-      : null;
     return res.json({
       success: true,
       submission: { ...submission, body: sanitizeArticleBody(submission.body) },
-      publication,
+      publication: null,
     });
   } catch (err) {
     req.log.error(err);
@@ -643,6 +632,9 @@ router.delete("/submissions/:id", async (req, res) => {
     if (!existing) return res.status(404).json({ error: "Submission not found" });
     if (existing.userId !== auth.userId && (auth as any).role !== "ADMIN") return res.status(403).json({ error: "Forbidden" });
     if (existing.deletedAt) return res.status(409).json({ error: "Submission is already in Trash" });
+    if (!USER_DELETABLE_STATUSES.includes(existing.status)) {
+      return res.status(409).json({ error: "This submission is managed by the editorial team and cannot be deleted from your account" });
+    }
 
     const now = new Date();
     const [submission] = await db.update(submissionsTable)
@@ -693,6 +685,18 @@ router.delete("/submissions/:id/permanent", async (req, res) => {
     if (!existing) return res.status(404).json({ error: "Submission not found" });
     if (existing.userId !== auth.userId && (auth as any).role !== "ADMIN") return res.status(403).json({ error: "Forbidden" });
     if (!existing.deletedAt) return res.status(409).json({ error: "Move the submission to Trash before permanently deleting it" });
+
+    const [linkedArticle] = await db.select({ id: articlesTable.id })
+      .from(articlesTable)
+      .where(eq(articlesTable.sourceSubmissionId, req.params.id))
+      .limit(1);
+    const [linkedPaper] = await db.select({ id: papersTable.id })
+      .from(papersTable)
+      .where(eq(papersTable.sourceSubmissionId, req.params.id))
+      .limit(1);
+    if (linkedArticle || linkedPaper) {
+      return res.status(409).json({ error: "Permanently delete the linked article or paper first" });
+    }
 
     await db.delete(submissionsTable)
       .where(and(eq(submissionsTable.id, req.params.id), isNotNull(submissionsTable.deletedAt)));

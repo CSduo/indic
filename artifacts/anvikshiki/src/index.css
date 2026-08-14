@@ -1356,6 +1356,44 @@ button {
   font-size: .875rem;
 }
 
+/* Submission review remains a two-column workspace on desktop while keeping
+   the selected record reachable on short mobile viewports. */
+.admin-submission-list {
+  max-height: 75vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.admin-submission-detail {
+  max-height: 82vh;
+  overflow-y: auto;
+}
+
+.admin-submission-filter,
+.admin-submission-action,
+.admin-submission-close {
+  touch-action: manipulation;
+}
+
+@media (max-width: 768px) {
+  .admin-submission-actions > .btn-sacred,
+  .admin-submission-category {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+}
+
+@media (max-width: 1023px) {
+  .admin-submission-list {
+    max-height: min(40vh, 22rem);
+  }
+
+  .admin-submission-detail {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
 .glyph-procession {
   mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
 }
@@ -3687,8 +3725,9 @@ body:has(.sacred-drawer) {
 .global-sidebar-close {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
   border-radius: 50%;
   border: 1px solid var(--border);
   color: var(--ink-soft);

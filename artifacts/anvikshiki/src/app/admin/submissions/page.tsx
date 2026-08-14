@@ -14,12 +14,12 @@ const STATUS_MAP: Record<string, string> = {
 
 function Confirm({ msg, onYes, onNo }: { msg: string; onYes: () => void; onNo: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.7)" }} role="dialog" aria-modal="true">
+    <div className="fixed inset-0 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.7)", zIndex: 110 }} role="dialog" aria-modal="true">
       <div className="card-sacred p-6 max-w-sm w-full mx-4" style={{ background: "var(--surface-2)" }}>
         <p className="font-body text-base mb-5" style={{ color: "var(--ink-soft)" }}>{msg}</p>
         <div className="flex gap-3 justify-end">
-          <button type="button" onClick={onNo} className="btn-sacred btn-ghost text-xs">Cancel</button>
-          <button type="button" onClick={onYes} className="btn-sacred btn-rose text-xs">Confirm</button>
+          <button type="button" onClick={onNo} className="btn-sacred btn-ghost min-h-11 text-xs">Cancel</button>
+          <button type="button" onClick={onYes} className="btn-sacred btn-rose min-h-11 text-xs">Confirm</button>
         </div>
       </div>
     </div>
@@ -117,7 +117,9 @@ export default function AdminSubmissionsPage() {
   const [categories, setCategories] = useState<{slug: string; name: string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState(() =>
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "trash" ? "trash" : "all",
+  );
   const [selected, setSelected] = useState<any | null>(null);
   const [editorNotes, setEditorNotes] = useState("");
   const [confirm, setConfirm] = useState<{ msg: string; action: () => void } | null>(null);
@@ -149,13 +151,13 @@ export default function AdminSubmissionsPage() {
       });
       const data = await r.json();
       if (r.ok) {
-        toast.success(data.message || "Public publication sync completed successfully!");
+          toast.success(data.message || "Linked public publications reconciled successfully.");
         load();
       } else {
-        toast.error(data.error || "Public sync failed");
+          toast.error(data.error || "Publication reconciliation failed");
       }
     } catch {
-      toast.error("Network error running public sync");
+        toast.error("Network error reconciling public publications");
     } finally {
       setSyncing(false);
     }
@@ -261,14 +263,15 @@ export default function AdminSubmissionsPage() {
       {/* Lightbox Modal */}
       {lightboxImg && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in"
+          className="fixed inset-0 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in"
+          style={{ zIndex: 110 }}
           onClick={() => setLightboxImg(null)}
         >
           <div className="relative max-w-4xl max-h-[90vh] w-full flex flex-col items-center justify-center" onClick={e => e.stopPropagation()}>
             <button
               type="button"
               onClick={() => setLightboxImg(null)}
-              className="absolute -top-10 right-0 text-white/80 hover:text-white p-2 text-sm font-ui"
+              className="absolute -top-11 right-0 min-h-11 min-w-11 text-white/80 hover:text-white p-2 text-sm font-ui"
             >
               ✕ Close Lightbox
             </button>
@@ -279,23 +282,23 @@ export default function AdminSubmissionsPage() {
 
       <AdminSidebar active="/admin/submissions" />
       <main className="admin-main">
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="font-display text-2xl" style={{ color: "var(--gold-bright)" }}>Submissions</h1>
             <p className="font-ui text-xs mt-1" style={{ color: "var(--muted)" }}>{submissions.length} total · {submissions.filter(s => !s.status || s.status === "RECEIVED").length} pending review</p>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex w-full flex-wrap items-stretch gap-2 sm:w-auto sm:items-center">
             <button
               type="button"
               disabled={syncing}
               onClick={runPublicSync}
-              className="text-xs py-1 px-3 rounded-lg bg-[rgba(201,152,58,0.15)] hover:bg-[rgba(201,152,58,0.25)] border border-[var(--border-gold)] text-[var(--gold-bright)] font-ui font-semibold inline-flex items-center gap-1.5 disabled:opacity-50"
+              className="admin-submission-filter min-h-11 px-3 rounded-lg bg-[rgba(201,152,58,0.15)] hover:bg-[rgba(201,152,58,0.25)] border border-[var(--border-gold)] text-xs text-[var(--gold-bright)] font-ui font-semibold inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
             >
               {syncing ? <span className="animate-spin text-xs">↻</span> : <Globe size={12} />}
-              {syncing ? "Syncing Public..." : "Run Public Sync"}
+              {syncing ? "Reconciling..." : "Reconcile Publications"}
             </button>
             {FILTER_OPTS.map(f => (
-              <button key={f} type="button" onClick={() => setFilter(f)} className="text-xs py-1 px-3 rounded-lg transition-all capitalize" style={{ background: filter === f ? "rgba(201,152,58,0.15)" : "transparent", border: `1px solid ${filter === f ? "var(--border-gold)" : "var(--border)"}`, color: filter === f ? "var(--gold-bright)" : "var(--muted)", fontFamily: "var(--font-ui)", fontWeight: 500, cursor: "pointer" }}>
+              <button key={f} type="button" onClick={() => setFilter(f)} className="admin-submission-filter min-h-11 px-3 rounded-lg text-xs transition-all capitalize" style={{ background: filter === f ? "rgba(201,152,58,0.15)" : "transparent", border: `1px solid ${filter === f ? "var(--border-gold)" : "var(--border)"}`, color: filter === f ? "var(--gold-bright)" : "var(--muted)", fontFamily: "var(--font-ui)", fontWeight: 500, cursor: "pointer" }}>
                 {f.replace(/_/g, " ")}
               </button>
             ))}
@@ -305,7 +308,7 @@ export default function AdminSubmissionsPage() {
         <div className="grid lg:grid-cols-5 gap-6" style={{ minHeight: "60vh" }}>
           {/* List */}
           <div className="lg:col-span-2">
-            <div className="card-sacred" style={{ overflow: "hidden", maxHeight: "75vh", overflowY: "auto" }}>
+            <div className="card-sacred admin-submission-list">
               {loading ? (
                 <div className="flex justify-center py-10">
                   <div style={{ width: 32, height: 32, border: "2px solid var(--border-gold)", borderTop: "2px solid var(--gold)", borderRadius: "50%", animation: "rotateSlow 0.8s linear infinite" }} role="status" aria-label="Loading submissions" />
@@ -381,7 +384,7 @@ export default function AdminSubmissionsPage() {
               const linkAssets = allAssets.filter(a => a.type === "link" || a.type === "pdf");
 
               return (
-                <div className="card-sacred p-6" style={{ background: "var(--surface-2)", maxHeight: "82vh", overflowY: "auto" }}>
+                <div className="card-sacred admin-submission-detail p-4 sm:p-6" style={{ background: "var(--surface-2)" }}>
                   {/* Header */}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1 mr-3">
@@ -392,26 +395,26 @@ export default function AdminSubmissionsPage() {
                         {selected.domain && <span className="badge badge-draft text-[0.6rem]">{selected.domain}</span>}
                       </div>
                     </div>
-                    <button type="button" onClick={() => setSelected(null)} className="font-ui text-sm shrink-0" style={{ color: "var(--muted)" }}>✕</button>
+                    <button type="button" onClick={() => setSelected(null)} className="admin-submission-close grid min-h-11 min-w-11 shrink-0 place-items-center font-ui text-sm" style={{ color: "var(--muted)" }} aria-label="Close submission details">✕</button>
                   </div>
 
                   {/* Embedded PDF / Document Viewer Frame */}
                   {activePreviewUrl && activePreviewType === "pdf" && (
                     <div className="mb-5 rounded-xl overflow-hidden border border-[var(--border-gold)] bg-[var(--surface-3)]">
-                      <div className="flex items-center justify-between p-3 bg-[var(--surface-elevated)] border-b border-[var(--border)]">
-                        <span className="font-ui text-xs text-[var(--gold)] font-semibold flex items-center gap-1.5">
+                      <div className="flex flex-col gap-2 p-3 bg-[var(--surface-elevated)] border-b border-[var(--border)] sm:flex-row sm:items-center sm:justify-between">
+                        <span className="font-ui text-xs text-[var(--gold)] font-semibold flex items-center gap-1.5 min-w-0">
                           <FileText size={14} /> Embedded Document / PDF Viewer
                         </span>
-                        <div className="flex items-center gap-3">
-                          <a href={activePreviewUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-[var(--ink-soft)] hover:text-white flex items-center gap-1 font-ui">
+                        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                          <a href={activePreviewUrl} target="_blank" rel="noopener noreferrer" className="admin-submission-action min-h-11 px-3 text-xs text-[var(--ink-soft)] hover:text-white flex items-center justify-center gap-1 font-ui">
                             <ExternalLink size={12} /> Open Full Frame ↗
                           </a>
-                          <button type="button" onClick={() => { setActivePreviewUrl(null); setActivePreviewType(null); }} className="text-xs text-[var(--muted)] hover:text-white font-ui">
+                          <button type="button" onClick={() => { setActivePreviewUrl(null); setActivePreviewType(null); }} className="admin-submission-action min-h-11 px-3 text-xs text-[var(--muted)] hover:text-white font-ui">
                             ✕ Close Viewer
                           </button>
                         </div>
                       </div>
-                      <iframe src={activePreviewUrl} className="w-full h-[500px] border-none bg-white" title="Uploaded Document Preview" />
+                      <iframe src={activePreviewUrl} className="w-full h-[360px] border-none bg-white sm:h-[500px]" title="Uploaded Document Preview" />
                     </div>
                   )}
 
@@ -431,7 +434,7 @@ export default function AdminSubmissionsPage() {
                   )}
 
                   {/* Meta grid */}
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-2 mb-5">
+                  <div className="grid grid-cols-1 gap-x-6 gap-y-2 mb-5 sm:grid-cols-2">
                     {[
                       ["Author", selected.submitterName],
                       ["Email", selected.submitterEmail],
@@ -462,12 +465,12 @@ export default function AdminSubmissionsPage() {
                               </div>
                               <div className="font-mono text-[11px] text-[var(--muted)] break-all">{assetItem.url}</div>
                             </div>
-                            <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex w-full flex-col items-stretch gap-2 shrink-0 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
                               {assetItem.type === "pdf" && (
                                 <button
                                   type="button"
                                   onClick={() => { setActivePreviewUrl(assetItem.url); setActivePreviewType("pdf"); }}
-                                  className="px-2.5 py-1 rounded bg-[rgba(201,152,58,0.15)] hover:bg-[rgba(201,152,58,0.25)] text-xs text-[var(--gold-bright)] font-ui font-semibold inline-flex items-center gap-1"
+                                  className="admin-submission-action min-h-11 w-full px-3 rounded bg-[rgba(201,152,58,0.15)] hover:bg-[rgba(201,152,58,0.25)] text-xs text-[var(--gold-bright)] font-ui font-semibold inline-flex items-center justify-center gap-1 sm:w-auto"
                                 >
                                   <Eye size={12} /> Preview PDF
                                 </button>
@@ -476,7 +479,7 @@ export default function AdminSubmissionsPage() {
                                 <button
                                   type="button"
                                   onClick={() => setLightboxImg(assetItem.url)}
-                                  className="px-2.5 py-1 rounded bg-emerald-950/40 hover:bg-emerald-900/50 text-xs text-emerald-300 font-ui font-semibold inline-flex items-center gap-1 border border-emerald-800/40"
+                                  className="admin-submission-action min-h-11 w-full px-3 rounded bg-emerald-950/40 hover:bg-emerald-900/50 text-xs text-emerald-300 font-ui font-semibold inline-flex items-center justify-center gap-1 border border-emerald-800/40 sm:w-auto"
                                 >
                                   <Eye size={12} /> View Image
                                 </button>
@@ -485,14 +488,14 @@ export default function AdminSubmissionsPage() {
                                 href={assetItem.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-xs text-[var(--ink-soft)] font-ui font-medium inline-flex items-center gap-1"
+                                className="admin-submission-action min-h-11 w-full px-3 rounded bg-white/5 hover:bg-white/10 text-xs text-[var(--ink-soft)] font-ui font-medium inline-flex items-center justify-center gap-1 sm:w-auto"
                               >
                                 <ExternalLink size={12} /> Open ↗
                               </a>
                               <a
                                 href={assetItem.url}
                                 download
-                                className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-xs text-[var(--ink-soft)] font-ui font-medium inline-flex items-center gap-1"
+                                className="admin-submission-action min-h-11 w-full px-3 rounded bg-white/5 hover:bg-white/10 text-xs text-[var(--ink-soft)] font-ui font-medium inline-flex items-center justify-center gap-1 sm:w-auto"
                               >
                                 <Download size={12} /> Download
                               </a>
@@ -583,7 +586,7 @@ export default function AdminSubmissionsPage() {
                             id="publish-category-select"
                             value={publishCategory}
                             onChange={e => setPublishCategory(e.target.value)}
-                            className="input-sacred w-full pr-8 text-sm appearance-none"
+                            className="admin-submission-category input-sacred min-h-11 w-full pr-8 text-sm appearance-none"
                             style={{ color: "var(--ink-soft)", background: "var(--surface-3)", cursor: "pointer" }}
                           >
                             {categories.map(c => (
@@ -602,7 +605,7 @@ export default function AdminSubmissionsPage() {
                   })()}
 
                   {/* Actions */}
-                  <div className="flex flex-wrap gap-2 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
+                  <div className="admin-submission-actions flex flex-wrap gap-2 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
                     {selected.deletedAt && <>
                       <button type="button" disabled={!!actionLoading} onClick={() => restore(selected.id)} className="btn-sacred btn-ghost text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50">
                         {actionLoading === "restore" ? <span className="animate-spin text-xs">Restoring</span> : <ArchiveRestore size={12} />} Restore

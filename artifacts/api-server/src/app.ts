@@ -6,7 +6,7 @@ import { rateLimit } from "express-rate-limit";
 import path from "path";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { syncPublishedSubmissions, ensureDefaultCategories } from "./lib/publication-sync";
+import { ensureDefaultCategories } from "./lib/publication-sync";
 import { UPLOADS_DIR } from "./routes/submissions";
 import healthRouter from "./routes/health";
 import { db, articlesTable, papersTable } from "@workspace/db";
@@ -157,16 +157,6 @@ app.use(async (req, res, next) => {
     });
   }
 });
-
-// Reconcile only explicitly published submissions; review-stage content never
-// becomes public.
-if (process.env.DATABASE_URL) {
-  setTimeout(() => {
-    syncPublishedSubmissions()
-      .then(summary => logger.info({ summary }, "Published submissions sync completed"))
-      .catch(err => logger.warn({ err }, "Failed to sync published submissions"));
-  }, 1000);
-}
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

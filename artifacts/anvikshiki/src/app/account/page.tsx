@@ -21,8 +21,10 @@ const STATUS_LABELS: Record<string, { label: string; className: string }> = {
   ARCHIVED: { label: "Archived", className: "badge-draft" },
 };
 
-// A user may move any of their own submissions to Trash; Restore retains its status.
-const USER_DELETABLE_STATUSES = new Set(["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "REJECTED", "ACCEPTED", "PUBLISHED", "ARCHIVED"]);
+// Editorially accepted/published work is managed from the public-content desk,
+// so it cannot be mistaken for a user-deleted draft in Account Trash.
+const USER_EDITABLE_STATUSES = new Set(["DRAFT", "RECEIVED", "REVISION_REQUESTED"]);
+const USER_DELETABLE_STATUSES = new Set(["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "REJECTED"]);
 
 export default function AccountPage() {
   const [, navigate] = useLocation();
@@ -184,6 +186,7 @@ export default function AccountPage() {
 
   const renderCard = (submission: any, isDraft: boolean) => {
     const status = STATUS_LABELS[submission.status] || { label: submission.status || "Received", className: "badge-received" };
+    const canEdit = USER_EDITABLE_STATUSES.has(submission.status);
     const canDelete = USER_DELETABLE_STATUSES.has(submission.status);
     return (
       <div key={submission.id} className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-4 flex flex-col">
@@ -201,10 +204,13 @@ export default function AccountPage() {
           <div className="flex flex-row items-center justify-between gap-2 sm:flex-col sm:items-end shrink-0">
             <span className={`badge ${status.className} text-[10px]`}>{status.label}</span>
             <div className="flex items-center gap-1.5 flex-wrap justify-end">
-              <Link href={`/submit/write?draftId=${submission.id}`} className="btn-ink px-2 py-1 text-[10px]" style={{ color: "var(--gold)" }}>
-                <Edit3 size={12} /> {isDraft ? "Resume" : "Edit"}
-              </Link>
+              {canEdit ? (
+                <Link href={`/submit/write?draftId=${submission.id}`} className="btn-ink px-2 py-1 text-[10px]" style={{ color: "var(--gold)" }}>
+                  <Edit3 size={12} /> {isDraft ? "Resume" : "Edit"}
+                </Link>
+              ) : null}
 
+              {canDelete ? (
               <button
                 type="button"
                 onClick={() => deleteSubmission(submission.id)}
@@ -214,6 +220,7 @@ export default function AccountPage() {
               >
                 <Trash2 size={12} /> {deletingId === submission.id ? "Deleting…" : "Delete"}
               </button>
+              ) : null}
 
             </div>
           </div>
@@ -326,17 +333,17 @@ export default function AccountPage() {
                   <button type="button" onClick={() => { setEditing(false); setEditName(user.name || ""); }} className="text-[var(--terracotta)]"><X size={18} /></button>
                 </div>
               ) : (
-                <div className="flex items-center justify-center gap-2">
-                  <h1 className="font-display text-3xl text-[var(--ink)]">{user.name || "My Account"}</h1>
+                <div className="flex min-w-0 items-center justify-center gap-2">
+                  <h1 className="min-w-0 break-words text-center font-display text-3xl text-[var(--ink)]">{user.name || "My Account"}</h1>
                   <button type="button" onClick={() => setEditing(true)} className="text-[var(--gold)]" aria-label="Edit profile name">
                     <Edit3 size={15} />
                   </button>
                 </div>
               )}
-              <div className="mt-2 flex items-center justify-center gap-2 font-ui text-sm text-[var(--muted)]">
-                <Mail size={14} /> {user.email}
+              <div className="mt-2 flex min-w-0 items-center justify-center gap-2 break-all text-center font-ui text-sm text-[var(--muted)]">
+                <Mail size={14} className="shrink-0" /> <span className="min-w-0">{user.email}</span>
               </div>
-              {user.institution ? <p className="mt-1 font-ui text-xs text-[var(--muted)]">{user.institution}</p> : null}
+              {user.institution ? <p className="mt-1 break-words text-center font-ui text-xs text-[var(--muted)]">{user.institution}</p> : null}
               <span className="badge badge-received mt-4">{user.role === "ADMIN" ? "Admin" : "Member"}</span>
               <OrnamentDivider variant="minimal" className="my-5" />
               <button type="button" onClick={handleLogout} className="btn-ink w-full justify-center">

@@ -19,10 +19,11 @@ export async function publishSubmission(submissionId: string, categoryOverride?:
 
   return ensurePublicPublicationForSubmission(submission, {
     categorySlug: categoryOverride,
+    allowCreate: true,
   });
 }
 
 export async function syncPublishedArchives() {
   const summary = await syncPublishedSubmissions();
-  return summary.createdArticles + summary.createdPapers;
+  return summary.updatedArticles + summary.updatedPapers;
 }

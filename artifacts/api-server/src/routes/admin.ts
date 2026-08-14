@@ -14,6 +14,7 @@ import {
   ensurePublicPublicationForSubmission,
   normalizeCategorySlug,
   syncPublishedSubmissions,
+  unpublishPublicPublicationForSubmission,
 } from "../lib/publication-sync";
 import { z } from "zod";
 import { sanitizeArticleBody } from "../lib/content";
@@ -154,6 +155,9 @@ router.get("/admin/stats", requireAdmin, async (req, res) => {
       [{ total: publishedPapers }],
       [{ total: newSubmissions }],
       [{ total: totalSubmissions }],
+      [{ total: trashedArticles }],
+      [{ total: trashedPapers }],
+      [{ total: trashedSubmissions }],
       [{ total: newsletterCount }],
       recentSubmissions,
     ] = await Promise.all([
@@ -164,6 +168,9 @@ router.get("/admin/stats", requireAdmin, async (req, res) => {
       db.select({ total: sql<number>`count(*)` }).from(papersTable).where(and(isNull(papersTable.deletedAt), eq(papersTable.status, "PUBLISHED"))),
       db.select({ total: sql<number>`count(*)` }).from(submissionsTable).where(and(isNull(submissionsTable.deletedAt), eq(submissionsTable.status, "RECEIVED"))),
       db.select({ total: sql<number>`count(*)` }).from(submissionsTable).where(and(isNull(submissionsTable.deletedAt), ne(submissionsTable.status, "DRAFT"))),
+      db.select({ total: sql<number>`count(*)` }).from(articlesTable).where(isNotNull(articlesTable.deletedAt)),
+      db.select({ total: sql<number>`count(*)` }).from(papersTable).where(isNotNull(papersTable.deletedAt)),
+      db.select({ total: sql<number>`count(*)` }).from(submissionsTable).where(isNotNull(submissionsTable.deletedAt)),
       db.select({ total: sql<number>`count(*)` }).from(newsletterSubscribersTable).where(eq(newsletterSubscribersTable.isActive, true)),
       db.select().from(submissionsTable).where(and(isNull(submissionsTable.deletedAt), ne(submissionsTable.status, "DRAFT"))).orderBy(desc(submissionsTable.createdAt)).limit(5),
     ]);
@@ -172,6 +179,7 @@ router.get("/admin/stats", requireAdmin, async (req, res) => {
       articles: { total: Number(totalArticles), published: Number(publishedArticles), drafts: Number(draftArticles) },
       papers: { total: Number(totalPapers), published: Number(publishedPapers) },
       submissions: { total: Number(totalSubmissions), new: Number(newSubmissions) },
+      trash: { articles: Number(trashedArticles), papers: Number(trashedPapers), submissions: Number(trashedSubmissions) },
       newsletter: { subscribers: Number(newsletterCount) },
       recentSubmissions,
     });
@@ -483,6 +491,7 @@ router.get("/admin/submissions", requireAdmin, async (req, res) => {
 });
 
 // POST /api/admin/submissions/sync-public
+// Reconciles already-linked public records only; it never backfills or creates content.
 router.post("/admin/submissions/sync-public", requireAdmin, requireAdminRole("ADMIN"), async (req, res) => {
   try {
     const summary = await syncPublishedSubmissions();
@@ -524,19 +533,26 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
       ...submissionPatch,
       updatedAt: now,
     };
+    const isPublishing = parsed.data.status === "PUBLISHED" && previous.status !== "PUBLISHED";
+    const isUnpublishing = Boolean(
+      previous.status === "PUBLISHED"
+      && parsed.data.status
+      && parsed.data.status !== "PUBLISHED",
+    );
     if (updates.domain) updates.domain = normalizeCategorySlug(updates.domain);
-    if (parsed.data.status === "PUBLISHED") updates.publishedAt = now;
+    if (isPublishing) updates.publishedAt = now;
 
     const [submission] = await db.update(submissionsTable).set(updates)
       .where(and(eq(submissionsTable.id, req.params.id), isNull(submissionsTable.deletedAt))).returning();
     if (!submission) return res.status(404).json({ error: "Not found" });
 
-    if (parsed.data.status === "PUBLISHED") {
+    if (isPublishing) {
       let publication: any = null;
       try {
         publication = await ensurePublicPublicationForSubmission(submission, {
           categorySlug,
           publishedAt: submission.publishedAt || now,
+          allowCreate: true,
         });
       } catch (publicationErr: any) {
         req.log.error({ err: publicationErr }, "Initial publication attempt failed, retrying with default archive category");
@@ -544,6 +560,7 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
           publication = await ensurePublicPublicationForSubmission(submission, {
             categorySlug: "archive",
             publishedAt: submission.publishedAt || now,
+            allowCreate: true,
           });
         } catch (retryErr: any) {
           req.log.error({ err: retryErr }, "Publication retry failed");
@@ -561,6 +578,10 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
         } catch {}
       }
       return res.json({ submission, publication });
+    }
+
+    if (isUnpublishing) {
+      await unpublishPublicPublicationForSubmission(submission.id);
     }
 
     if (parsed.data.status && parsed.data.status !== previous.status && previous.userId) {
@@ -588,6 +609,20 @@ router.delete("/admin/submissions/:id", requireAdmin, requireAdminRole("ADMIN", 
       .where(eq(submissionsTable.id, req.params.id)).limit(1);
     if (!existing) return res.status(404).json({ error: "Submission not found" });
     if (existing.deletedAt) return res.status(409).json({ error: "Submission is already in Trash" });
+
+    const [linkedArticle] = await db.select({ id: articlesTable.id })
+      .from(articlesTable)
+      .where(and(eq(articlesTable.sourceSubmissionId, existing.id), isNull(articlesTable.deletedAt)))
+      .limit(1);
+    const [linkedPaper] = await db.select({ id: papersTable.id })
+      .from(papersTable)
+      .where(and(eq(papersTable.sourceSubmissionId, existing.id), isNull(papersTable.deletedAt)))
+      .limit(1);
+    if (linkedArticle || linkedPaper) {
+      return res.status(409).json({
+        error: "Move the linked public article or paper to Trash before deleting this submission",
+      });
+    }
 
     const now = new Date();
     const [submission] = await db.update(submissionsTable)
@@ -623,6 +658,20 @@ router.delete("/admin/submissions/:id/permanent", requireAdmin, requireAdminRole
       .from(submissionsTable).where(eq(submissionsTable.id, req.params.id)).limit(1);
     if (!existing) return res.status(404).json({ error: "Submission not found" });
     if (!existing.deletedAt) return res.status(409).json({ error: "Move the submission to Trash before permanently deleting it" });
+
+    const [linkedArticle] = await db.select({ id: articlesTable.id })
+      .from(articlesTable)
+      .where(eq(articlesTable.sourceSubmissionId, req.params.id))
+      .limit(1);
+    const [linkedPaper] = await db.select({ id: papersTable.id })
+      .from(papersTable)
+      .where(eq(papersTable.sourceSubmissionId, req.params.id))
+      .limit(1);
+    if (linkedArticle || linkedPaper) {
+      return res.status(409).json({
+        error: "Permanently delete the linked article or paper first",
+      });
+    }
 
     await db.delete(submissionsTable)
       .where(and(eq(submissionsTable.id, req.params.id), isNotNull(submissionsTable.deletedAt)));
@@ -777,15 +826,15 @@ router.put("/admin/site-settings/:key", requireAdmin, requireAdminRole("ADMIN"),
   }
 });
 
-// POST /api/admin/submissions/sync-public-archives - manually sync and backfill published submissions
+// POST /api/admin/submissions/sync-public-archives - reconcile already-linked publications
 router.post("/admin/submissions/sync-public-archives", requireAdmin, requireAdminRole("ADMIN"), async (req, res) => {
   try {
     const { syncPublishedArchives } = await import("../lib/publishHelper");
     const count = await syncPublishedArchives();
-    return res.json({ success: true, message: `Successfully synchronized public archives. Restored ${count} publications.` });
+    return res.json({ success: true, message: `Reconciled ${count} linked public publication${count === 1 ? "" : "s"}.` });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Sync failed", detail: err instanceof Error ? err.message : String(err) });
+    return res.status(500).json({ error: "Sync failed" });
   }
 });
 

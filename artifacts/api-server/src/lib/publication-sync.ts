@@ -175,7 +175,7 @@ async function uniquePaperSlug(baseSlug: string, submissionId: string) {
 
 export async function ensurePublicPublicationForSubmission(
   submission: Submission,
-  options: { categorySlug?: string | null; publishedAt?: Date } = {},
+  options: { categorySlug?: string | null; publishedAt?: Date; allowCreate?: boolean } = {},
 ): Promise<PublicPublicationResult> {
   if (submission.deletedAt) {
     return { kind: null, status: "skipped", reason: "submission-trashed" };
@@ -186,23 +186,31 @@ export async function ensurePublicPublicationForSubmission(
   }
 
   const kind: PublicationKind = submission.type === "PAPER" ? "paper" : "article";
-  const categorySlug = await resolveCategorySlug(
-    options.categorySlug || getSubmissionDomain(submission) || "archive",
-  );
-  const baseSlug = slugify(submission.title || "untitled-submission");
-  const publishedAt = options.publishedAt || submission.publishedAt || submission.updatedAt || new Date();
-  const body = sanitizeArticleBody(submission.body || submission.abstract || submission.title || "No body content provided.");
-  const authorName = submission.submitterName || "Anonymous Scholar";
-  const coverImageUrl = getSubmissionCoverImage(submission) || "/images/provided/home-falcon-city-panorama-hero.jpg";
+  const allowCreate = options.allowCreate === true;
 
   if (kind === "paper") {
     const [existing] = await db
-      .select({ id: papersTable.id, slug: papersTable.slug })
+      .select({ id: papersTable.id, slug: papersTable.slug, status: papersTable.status, deletedAt: papersTable.deletedAt })
       .from(papersTable)
-      .where(eq(papersTable.title, submission.title || "Untitled Paper"))
+      .where(eq(papersTable.sourceSubmissionId, submission.id))
       .limit(1);
 
     if (existing) {
+      if (existing.deletedAt) {
+        return { kind, status: "skipped", id: existing.id, slug: existing.slug, reason: "publication-trashed" };
+      }
+      // Reconciliation must never turn an intentionally archived record back
+      // into public content. An explicit admin publish transition may do that.
+      if (existing.status !== "PUBLISHED" && !allowCreate) {
+        return { kind, status: "skipped", id: existing.id, slug: existing.slug, reason: "publication-not-public" };
+      }
+      const categorySlug = await resolveCategorySlug(
+        options.categorySlug || getSubmissionDomain(submission) || "archive",
+      );
+      const publishedAt = options.publishedAt || submission.publishedAt || submission.updatedAt || new Date();
+      const body = sanitizeArticleBody(submission.body || submission.abstract || submission.title || "No body content provided.");
+      const authorName = submission.submitterName || "Anonymous Scholar";
+      const coverImageUrl = getSubmissionCoverImage(submission) || "/images/provided/home-falcon-city-panorama-hero.jpg";
       await db
         .update(papersTable)
         .set({
@@ -217,10 +225,22 @@ export async function ensurePublicPublicationForSubmission(
           publishedAt,
           updatedAt: new Date(),
         })
-        .where(eq(papersTable.id, existing.id));
+        .where(and(eq(papersTable.id, existing.id), isNull(papersTable.deletedAt)));
       return { kind, status: "existing", id: existing.id, slug: existing.slug };
     }
 
+    if (!allowCreate) {
+      return { kind, status: "skipped", reason: "publication-not-linked" };
+    }
+
+    const categorySlug = await resolveCategorySlug(
+      options.categorySlug || getSubmissionDomain(submission) || "archive",
+    );
+    const baseSlug = slugify(submission.title || "untitled-submission");
+    const publishedAt = options.publishedAt || submission.publishedAt || submission.updatedAt || new Date();
+    const body = sanitizeArticleBody(submission.body || submission.abstract || submission.title || "No body content provided.");
+    const authorName = submission.submitterName || "Anonymous Scholar";
+    const coverImageUrl = getSubmissionCoverImage(submission) || "/images/provided/home-falcon-city-panorama-hero.jpg";
     const slug = await uniquePaperSlug(baseSlug, submission.id);
     const [paper] = await db
       .insert(papersTable)
@@ -239,19 +259,44 @@ export async function ensurePublicPublicationForSubmission(
         paperType: "RESEARCH_PAPER",
         status: "PUBLISHED",
         publishedAt,
+        sourceSubmissionId: submission.id,
       })
+      .onConflictDoNothing({ target: papersTable.sourceSubmissionId })
       .returning({ id: papersTable.id, slug: papersTable.slug });
 
-    return { kind, status: "created", id: paper.id, slug: paper.slug };
+    if (paper) return { kind, status: "created", id: paper.id, slug: paper.slug };
+
+    const [concurrent] = await db
+      .select({ id: papersTable.id, slug: papersTable.slug })
+      .from(papersTable)
+      .where(eq(papersTable.sourceSubmissionId, submission.id))
+      .limit(1);
+    if (!concurrent) throw new Error("Publication link could not be created");
+    return { kind, status: "existing", id: concurrent.id, slug: concurrent.slug };
   }
 
   const [existing] = await db
-    .select({ id: articlesTable.id, slug: articlesTable.slug })
+    .select({ id: articlesTable.id, slug: articlesTable.slug, status: articlesTable.status, deletedAt: articlesTable.deletedAt })
     .from(articlesTable)
-    .where(eq(articlesTable.title, submission.title || "Untitled Article"))
+    .where(eq(articlesTable.sourceSubmissionId, submission.id))
     .limit(1);
 
   if (existing) {
+    if (existing.deletedAt) {
+      return { kind, status: "skipped", id: existing.id, slug: existing.slug, reason: "publication-trashed" };
+    }
+    // Reconciliation must never turn an intentionally archived record back
+    // into public content. An explicit admin publish transition may do that.
+    if (existing.status !== "PUBLISHED" && !allowCreate) {
+      return { kind, status: "skipped", id: existing.id, slug: existing.slug, reason: "publication-not-public" };
+    }
+    const categorySlug = await resolveCategorySlug(
+      options.categorySlug || getSubmissionDomain(submission) || "archive",
+    );
+    const publishedAt = options.publishedAt || submission.publishedAt || submission.updatedAt || new Date();
+    const body = sanitizeArticleBody(submission.body || submission.abstract || submission.title || "No body content provided.");
+    const authorName = submission.submitterName || "Anonymous Scholar";
+    const coverImageUrl = getSubmissionCoverImage(submission) || "/images/provided/home-falcon-city-panorama-hero.jpg";
     await db
       .update(articlesTable)
       .set({
@@ -267,10 +312,22 @@ export async function ensurePublicPublicationForSubmission(
         publishedAt,
         updatedAt: new Date(),
       })
-      .where(eq(articlesTable.id, existing.id));
+      .where(and(eq(articlesTable.id, existing.id), isNull(articlesTable.deletedAt)));
     return { kind, status: "existing", id: existing.id, slug: existing.slug };
   }
 
+  if (!allowCreate) {
+    return { kind, status: "skipped", reason: "publication-not-linked" };
+  }
+
+  const categorySlug = await resolveCategorySlug(
+    options.categorySlug || getSubmissionDomain(submission) || "archive",
+  );
+  const baseSlug = slugify(submission.title || "untitled-submission");
+  const publishedAt = options.publishedAt || submission.publishedAt || submission.updatedAt || new Date();
+  const body = sanitizeArticleBody(submission.body || submission.abstract || submission.title || "No body content provided.");
+  const authorName = submission.submitterName || "Anonymous Scholar";
+  const coverImageUrl = getSubmissionCoverImage(submission) || "/images/provided/home-falcon-city-panorama-hero.jpg";
   const slug = await uniqueArticleSlug(baseSlug, submission.id);
   const [article] = await db
     .insert(articlesTable)
@@ -290,10 +347,35 @@ export async function ensurePublicPublicationForSubmission(
       status: "PUBLISHED",
       featured: false,
       publishedAt,
+      sourceSubmissionId: submission.id,
     })
+    .onConflictDoNothing({ target: articlesTable.sourceSubmissionId })
     .returning({ id: articlesTable.id, slug: articlesTable.slug });
 
-  return { kind, status: "created", id: article.id, slug: article.slug };
+  if (article) return { kind, status: "created", id: article.id, slug: article.slug };
+
+  const [concurrent] = await db
+    .select({ id: articlesTable.id, slug: articlesTable.slug })
+    .from(articlesTable)
+    .where(eq(articlesTable.sourceSubmissionId, submission.id))
+    .limit(1);
+  if (!concurrent) throw new Error("Publication link could not be created");
+  return { kind, status: "existing", id: concurrent.id, slug: concurrent.slug };
+}
+
+export async function unpublishPublicPublicationForSubmission(submissionId: string) {
+  const now = new Date();
+  const [article] = await db
+    .update(articlesTable)
+    .set({ status: "ARCHIVED", updatedAt: now })
+    .where(and(eq(articlesTable.sourceSubmissionId, submissionId), isNull(articlesTable.deletedAt)))
+    .returning({ id: articlesTable.id });
+  const [paper] = await db
+    .update(papersTable)
+    .set({ status: "ARCHIVED", updatedAt: now })
+    .where(and(eq(papersTable.sourceSubmissionId, submissionId), isNull(papersTable.deletedAt)))
+    .returning({ id: papersTable.id });
+  return { articleId: article?.id, paperId: paper?.id };
 }
 
 export async function syncPublishedSubmissions() {
@@ -309,42 +391,20 @@ export async function syncPublishedSubmissions() {
 
   const summary = {
     checked: publishedSubmissions.length,
-    createdArticles: 0,
-    createdPapers: 0,
-    existing: 0,
+    updatedArticles: 0,
+    updatedPapers: 0,
     skipped: 0,
   };
 
   for (const submission of publishedSubmissions) {
-    const result = await ensurePublicPublicationForSubmission(submission);
-    if (result.status === "existing") summary.existing += 1;
+    // Reconciliation is deliberately update-only. A missing link is not a
+    // license to create a public record: only an explicit admin publish
+    // transition may create one.
+    const result = await ensurePublicPublicationForSubmission(submission, { allowCreate: false });
+    if (result.status === "existing" && result.kind === "article") summary.updatedArticles += 1;
+    if (result.status === "existing" && result.kind === "paper") summary.updatedPapers += 1;
     if (result.status === "skipped") summary.skipped += 1;
-    if (result.status === "created" && result.kind === "article") summary.createdArticles += 1;
-    if (result.status === "created" && result.kind === "paper") summary.createdPapers += 1;
   }
 
   return summary;
-}
-
-let scheduledSync: Promise<unknown> | null = null;
-
-export function schedulePublishedSubmissionSync(logger: {
-  info?: (value: unknown, message?: string) => void;
-  warn?: (value: unknown, message?: string) => void;
-} = {}) {
-  if (scheduledSync || !process.env.DATABASE_URL) return scheduledSync;
-
-  scheduledSync = new Promise((resolve) => {
-    setTimeout(resolve, 0);
-  })
-    .then(() => syncPublishedSubmissions())
-    .then((summary) => {
-      logger.info?.({ summary }, "Published submissions synchronized");
-      return summary;
-    })
-    .catch((err) => {
-      logger.warn?.({ err }, "Failed to synchronize published submissions");
-    });
-
-  return scheduledSync;
 }

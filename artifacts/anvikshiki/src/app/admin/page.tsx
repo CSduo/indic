@@ -1,13 +1,19 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { FileText, ScrollText, Inbox, Mail, Plus } from "lucide-react";
+import { FileText, ScrollText, Inbox, Mail, Plus, Trash2 } from "lucide-react";
 import { AdminSidebar } from "@/components/sacred/AdminSidebar";
 import { LotusIcon } from "@/components/sacred/LotusIcon";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export default function AdminDashboardPage() {
-  const [stats, setStats] = useState({ articles: 0, papers: 0, pending: 0, subscribers: 0 });
+  const [stats, setStats] = useState({
+    articles: 0,
+    papers: 0,
+    pending: 0,
+    subscribers: 0,
+    trash: { articles: 0, papers: 0, submissions: 0 },
+  });
   const [recent, setRecent] = useState<any[]>([]);
   const [error, setError] = useState<string|null>(null);
   const [, navigate] = useLocation();
@@ -21,6 +27,11 @@ export default function AdminDashboardPage() {
         papers: d.papers?.total || 0,
         pending: d.submissions?.new || 0,
         subscribers: d.newsletter?.subscribers || 0,
+        trash: {
+          articles: d.trash?.articles || 0,
+          papers: d.trash?.papers || 0,
+          submissions: d.trash?.submissions || 0,
+        },
       }))
       .catch(() => setError("Failed to load dashboard stats."));
 
@@ -84,6 +95,32 @@ export default function AdminDashboardPage() {
             </Link>
           ))}
         </div>
+
+        <section className="card-sacred p-4 sm:p-6 mb-8" aria-labelledby="trash-heading">
+          <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+            <div>
+              <p className="section-label mb-1">Deleted Items</p>
+              <h2 id="trash-heading" className="font-display text-xl" style={{ color: "var(--gold-bright)" }}>Trash</h2>
+              <p className="font-ui text-xs mt-1" style={{ color: "var(--muted)" }}>Restore an item or delete it permanently from its content desk.</p>
+            </div>
+            <Trash2 size={20} aria-hidden="true" style={{ color: "var(--gold)" }} />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[
+              { href: "/admin/articles?view=trash", label: "Article Trash", count: stats.trash.articles, icon: <FileText size={16} /> },
+              { href: "/admin/papers?view=trash", label: "Paper Trash", count: stats.trash.papers, icon: <ScrollText size={16} /> },
+              { href: "/admin/submissions?view=trash", label: "Submission Trash", count: stats.trash.submissions, icon: <Inbox size={16} /> },
+            ].map(item => (
+              <Link key={item.href} href={item.href} className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-[var(--border)] p-4 hover:border-[var(--border-gold)] transition-colors">
+                <span className="flex min-w-0 items-center gap-2 font-ui text-sm" style={{ color: "var(--ink-soft)" }}>
+                  <span className="shrink-0" style={{ color: "var(--gold)" }}>{item.icon}</span>
+                  <span className="truncate">{item.label}</span>
+                </span>
+                <span className="badge badge-draft shrink-0">{item.count}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
 
         {/* Recent submissions */}
         <div className="card-sacred p-6">

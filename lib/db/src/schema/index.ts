@@ -77,6 +77,7 @@ export const articlesTable = pgTable("articles", {
   featured: boolean("featured").notNull().default(false),
   publishedAt: timestamp("published_at"),
   deletedAt: timestamp("deleted_at"),
+  sourceSubmissionId: text("source_submission_id").references(() => submissionsTable.id, { onDelete: "restrict" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
@@ -84,6 +85,7 @@ export const articlesTable = pgTable("articles", {
   index("articles_category_idx").on(t.categorySlug),
   index("articles_published_at_idx").on(t.publishedAt),
   index("articles_deleted_at_idx").on(t.deletedAt),
+  uniqueIndex("articles_source_submission_id_idx").on(t.sourceSubmissionId),
 ]);
 
 // Papers
@@ -110,12 +112,14 @@ export const papersTable = pgTable("papers", {
   status: contentStatusEnum("status").notNull().default("DRAFT"),
   publishedAt: timestamp("published_at"),
   deletedAt: timestamp("deleted_at"),
+  sourceSubmissionId: text("source_submission_id").references(() => submissionsTable.id, { onDelete: "restrict" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   index("papers_status_idx").on(t.status),
   index("papers_category_idx").on(t.categorySlug),
   index("papers_deleted_at_idx").on(t.deletedAt),
+  uniqueIndex("papers_source_submission_id_idx").on(t.sourceSubmissionId),
 ]);
 
 // Submissions
