@@ -1,7 +1,7 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
 import { db } from "@workspace/db";
 import { submissionsTable, articlesTable, papersTable, usersTable, adminsTable } from "@workspace/db";
-import { eq, and, isNull, isNotNull, or, ilike, desc } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, or, ilike, desc, inArray, sql } from "drizzle-orm";
 import { getUserAuth } from "../lib/auth";
 import {
   normalizeCategorySlug,
@@ -382,6 +382,121 @@ router.post(
 const USER_EDITABLE_STATUSES = ["DRAFT", "RECEIVED", "REVISION_REQUESTED"];
 const USER_DELETABLE_STATUSES = ["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "REJECTED", "PUBLISHED", "ACCEPTED", "ARCHIVED"];
 
+/**
+ * Attribution key for a person. Names and email local parts are reduced to
+ * letters and digits so "Xiyato Saanvi", "xiyato saanvi" and the local part of
+ * "xiyatosaanvi@gmail.com" all resolve to the same author.
+ */
+function identityKey(value?: string | null): string {
+  return (value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+const normalizedAuthorSql = (column: any) =>
+  sql<string>`lower(regexp_replace(coalesce(${column}, ''), '[^a-zA-Z0-9]+', '', 'g'))`;
+
+type Viewer = {
+  userId: string;
+  email: string;
+  isAdmin: boolean;
+  /** Attribution keys that identify this person as the author of a work. */
+  identities: Set<string>;
+  name: string;
+};
+
+/**
+ * Resolve who is asking, together with the author identities their account owns.
+ * Published articles and papers carry only an author name, so the account desk
+ * matches them by identity rather than by a hardcoded email allowlist.
+ */
+async function resolveViewer(req: Request): Promise<Viewer | null> {
+  const auth = await getUserAuth(req);
+  if (!auth) return null;
+
+  const [dbUser] = await db.select().from(usersTable).where(eq(usersTable.id, auth.userId)).limit(1);
+  const [dbAdmin] = await db.select().from(adminsTable)
+    .where(auth.email
+      ? or(eq(adminsTable.id, auth.userId), ilike(adminsTable.email, auth.email))
+      : eq(adminsTable.id, auth.userId))
+    .limit(1);
+
+  const email = (auth.email || dbUser?.email || dbAdmin?.email || "").toLowerCase().trim();
+  const name = (dbUser?.name || dbAdmin?.name || "").trim();
+
+  // Keys shorter than four characters are too weak to attribute a work by.
+  const identities = new Set(
+    [name, email.split("@")[0]].map(identityKey).filter(key => key.length >= 4),
+  );
+
+  return {
+    userId: auth.userId,
+    email,
+    name,
+    isAdmin: (auth as any).role === "ADMIN" || dbUser?.role === "ADMIN" || Boolean(dbAdmin),
+    identities,
+  };
+}
+
+function ownsAuthoredWork(viewer: Viewer, authorName?: string | null): boolean {
+  if (viewer.isAdmin) return true;
+  const key = identityKey(authorName);
+  return key.length > 0 && viewer.identities.has(key);
+}
+
+const SUBMISSION_LIST_COLUMNS = {
+  id: submissionsTable.id,
+  userId: submissionsTable.userId,
+  submitterName: submissionsTable.submitterName,
+  submitterEmail: submissionsTable.submitterEmail,
+  type: submissionsTable.type,
+  title: submissionsTable.title,
+  domain: submissionsTable.domain,
+  abstract: submissionsTable.abstract,
+  notes: submissionsTable.notes,
+  coverImageUrl: submissionsTable.coverImageUrl,
+  manuscriptUrl: submissionsTable.manuscriptUrl,
+  audioUrl: submissionsTable.audioUrl,
+  status: submissionsTable.status,
+  publishedAt: submissionsTable.publishedAt,
+  deletedAt: submissionsTable.deletedAt,
+  createdAt: submissionsTable.createdAt,
+  updatedAt: submissionsTable.updatedAt,
+};
+
+const ARTICLE_LIST_COLUMNS = {
+  id: articlesTable.id,
+  slug: articlesTable.slug,
+  title: articlesTable.title,
+  subtitle: articlesTable.subtitle,
+  excerpt: articlesTable.excerpt,
+  categorySlug: articlesTable.categorySlug,
+  authorName: articlesTable.authorName,
+  heroImageUrl: articlesTable.heroImageUrl,
+  audioUrl: articlesTable.audioUrl,
+  status: articlesTable.status,
+  publishedAt: articlesTable.publishedAt,
+  deletedAt: articlesTable.deletedAt,
+  createdAt: articlesTable.createdAt,
+  updatedAt: articlesTable.updatedAt,
+  sourceSubmissionId: articlesTable.sourceSubmissionId,
+};
+
+const PAPER_LIST_COLUMNS = {
+  id: papersTable.id,
+  slug: papersTable.slug,
+  title: papersTable.title,
+  abstract: papersTable.abstract,
+  categorySlug: papersTable.categorySlug,
+  authorName: papersTable.authorName,
+  coverImageUrl: papersTable.coverImageUrl,
+  pdfUrl: papersTable.pdfUrl,
+  status: papersTable.status,
+  publishedAt: papersTable.publishedAt,
+  deletedAt: papersTable.deletedAt,
+  createdAt: papersTable.createdAt,
+  updatedAt: papersTable.updatedAt,
+  sourceSubmissionId: papersTable.sourceSubmissionId,
+};
+
 // POST /api/submissions/write — full essay written in browser
 router.post("/submissions/write", async (req, res) => {
   try {
@@ -463,141 +578,128 @@ router.post("/submissions/write", async (req, res) => {
 // ?deleted=true returns only soft-deleted submissions; otherwise excludes them
 router.get("/submissions", async (req, res) => {
   try {
-    const auth = await getUserAuth(req);
-    if (!auth) return res.status(401).json({ error: "Unauthorized" });
+    const viewer = await resolveViewer(req);
+    if (!viewer) return res.status(401).json({ error: "Unauthorized" });
 
     const trashed = req.query.trashed === "true" || req.query.deleted === "true";
 
-    // 1. Look up user / admin records in DB
-    const [dbUser] = await db.select().from(usersTable).where(eq(usersTable.id, auth.userId)).limit(1);
-    const [dbAdmin] = await db.select().from(adminsTable).where(or(eq(adminsTable.id, auth.userId), ilike(adminsTable.email, auth.email || ""))).limit(1);
+    // 1. The author's own submission rows, matched by account id or email.
+    const ownsSubmission = viewer.email
+      ? or(eq(submissionsTable.userId, viewer.userId), ilike(submissionsTable.submitterEmail, viewer.email))!
+      : eq(submissionsTable.userId, viewer.userId);
 
-    const userName = (dbUser?.name || dbAdmin?.name || (auth as any).name || "").toLowerCase().trim();
-    const userEmail = (auth.email || dbUser?.email || dbAdmin?.email || "").toLowerCase().trim();
-    const isOwnerOrAdmin = (auth as any).role === "ADMIN" || dbUser?.role === "ADMIN" || Boolean(dbAdmin) || userEmail.includes("xiyato") || userEmail.includes("saanvi") || userEmail.includes("admin") || userEmail.includes("csduo");
-
-    // 2. Query user submissions by userId OR email (or all for admin/owner)
-    const subConditions = [
-      isOwnerOrAdmin
-        ? undefined
-        : (userEmail
-            ? or(eq(submissionsTable.userId, auth.userId), ilike(submissionsTable.submitterEmail, userEmail))
-            : eq(submissionsTable.userId, auth.userId)),
-      trashed ? isNotNull(submissionsTable.deletedAt) : isNull(submissionsTable.deletedAt),
-    ].filter(Boolean);
-
-    const submissions = await db.select().from(submissionsTable)
-      .where(and(...subConditions as any[]))
+    const submissions = await db.select(SUBMISSION_LIST_COLUMNS).from(submissionsTable)
+      .where(and(
+        ownsSubmission,
+        trashed ? isNotNull(submissionsTable.deletedAt) : isNull(submissionsTable.deletedAt),
+      ))
       .orderBy(desc(submissionsTable.createdAt));
 
-    // 3. Query articles and papers to enrich slugs or include standalone articles
-    const [allArticles, allPapers] = await Promise.all([
-      db.select().from(articlesTable).where(trashed ? isNotNull(articlesTable.deletedAt) : isNull(articlesTable.deletedAt)),
-      db.select().from(papersTable).where(trashed ? isNotNull(papersTable.deletedAt) : isNull(papersTable.deletedAt)),
+    // 2. Published work lives in articles/papers, and a work can outlive the
+    //    submission row it came from. Claim those by author identity or by an
+    //    explicit link back to one of this author's submissions, so published
+    //    works never disappear from the desk.
+    const submissionIds = submissions.map(s => s.id);
+    const identityKeys = [...viewer.identities];
+
+    const articleOwnership = [
+      identityKeys.length ? inArray(normalizedAuthorSql(articlesTable.authorName), identityKeys) : undefined,
+      submissionIds.length ? inArray(articlesTable.sourceSubmissionId, submissionIds) : undefined,
+    ].filter(Boolean) as any[];
+
+    const paperOwnership = [
+      identityKeys.length ? inArray(normalizedAuthorSql(papersTable.authorName), identityKeys) : undefined,
+      submissionIds.length ? inArray(papersTable.sourceSubmissionId, submissionIds) : undefined,
+    ].filter(Boolean) as any[];
+
+    // An account with no identity keys and no submissions owns nothing.
+    const matchesNothing = sql`false`;
+
+    const [ownArticles, ownPapers] = await Promise.all([
+      db.select(ARTICLE_LIST_COLUMNS).from(articlesTable)
+        .where(and(
+          trashed ? isNotNull(articlesTable.deletedAt) : isNull(articlesTable.deletedAt),
+          articleOwnership.length ? or(...articleOwnership)! : matchesNothing,
+        )),
+      db.select(PAPER_LIST_COLUMNS).from(papersTable)
+        .where(and(
+          trashed ? isNotNull(papersTable.deletedAt) : isNull(papersTable.deletedAt),
+          paperOwnership.length ? or(...paperOwnership)! : matchesNothing,
+        )),
     ]);
 
-    const enriched = submissions.map(s => {
-      const slugCandidate = slugify(s.title);
-      const matchingArt = allArticles.find(a => a.sourceSubmissionId === s.id || a.title.toLowerCase() === s.title.toLowerCase());
-      const matchingPaper = allPapers.find(p => p.sourceSubmissionId === s.id || p.title.toLowerCase() === s.title.toLowerCase());
+    // 3. Give every submission the slug of the work it was published as.
+    const enriched: any[] = submissions.map(s => {
+      const matchingArt = ownArticles.find(a => a.sourceSubmissionId === s.id || a.title.toLowerCase() === s.title.toLowerCase());
+      const matchingPaper = ownPapers.find(p => p.sourceSubmissionId === s.id || p.title.toLowerCase() === s.title.toLowerCase());
       return {
         ...s,
-        body: sanitizeArticleBody(s.body),
-        slug: matchingArt ? matchingArt.slug : (matchingPaper ? matchingPaper.slug : slugCandidate),
+        slug: matchingArt?.slug || matchingPaper?.slug || slugify(s.title),
         itemType: s.type === "PAPER" ? "PAPER" : "ESSAY",
       };
     });
 
-    // 4. If articles exist in articlesTable not linked to submissionsTable, include them
+    // 4. Append published works that no longer have (or never had) a submission row.
     const existingTitles = new Set(enriched.map(e => (e.title || "").toLowerCase().trim()));
     const existingIds = new Set(enriched.map(e => e.id));
 
-    const matchesAuthor = (authorName?: string | null) => {
-      if (isOwnerOrAdmin) return true;
-      if (!authorName) return true;
-      const aName = authorName.toLowerCase().trim();
-      if (userName && (aName.includes(userName) || userName.includes(aName))) return true;
-      if (userEmail) {
-        const prefix = userEmail.split("@")[0];
-        if (prefix && (aName.includes(prefix) || prefix.includes(aName))) return true;
-      }
-      if (aName.includes("xiyato") || aName.includes("saanvi") || aName.includes("ānvīkṣikī") || aName.includes("anvikshiki")) return true;
-      return false;
-    };
-
-    for (const art of allArticles) {
-      if (matchesAuthor(art.authorName) && !existingTitles.has((art.title || "").toLowerCase().trim()) && (!art.sourceSubmissionId || !existingIds.has(art.sourceSubmissionId))) {
-        enriched.push({
-          id: `art-${art.id}`,
-          userId: auth.userId,
-          submitterName: art.authorName || dbUser?.name || "Author",
-          submitterEmail: auth.email || dbUser?.email || "",
-          type: "ESSAY" as const,
-          title: art.title,
-          domain: art.categorySlug || "philosophy",
-          abstract: art.excerpt || art.subtitle || "",
-          body: art.body,
-          notes: null,
-          manuscriptUrl: null,
-          manuscriptPublicId: null,
-          manuscriptResourceType: null,
-          coverImageUrl: art.heroImageUrl,
-          coverImagePublicId: null,
-          coverImageResourceType: null,
-          audioUrl: art.audioUrl,
-          audioPublicId: null,
-          consent: true,
-          status: (art.status || "PUBLISHED") as any,
-          priority: "NORMAL" as const,
-          assignedEditorId: null,
-          editorNotes: null,
-          publishedAt: art.publishedAt,
-          deletedAt: art.deletedAt,
-          createdAt: art.publishedAt || art.createdAt,
-          updatedAt: art.updatedAt,
-          slug: art.slug,
-          itemType: "ESSAY",
-        });
-        existingTitles.add((art.title || "").toLowerCase().trim());
-      }
+    for (const art of ownArticles) {
+      const title = (art.title || "").toLowerCase().trim();
+      if (existingTitles.has(title)) continue;
+      if (art.sourceSubmissionId && existingIds.has(art.sourceSubmissionId)) continue;
+      enriched.push({
+        id: `art-${art.id}`,
+        userId: viewer.userId,
+        submitterName: art.authorName || viewer.name || "Author",
+        submitterEmail: viewer.email,
+        type: "ESSAY",
+        title: art.title,
+        domain: art.categorySlug || "philosophy",
+        abstract: art.excerpt || art.subtitle || "",
+        notes: null,
+        manuscriptUrl: null,
+        coverImageUrl: art.heroImageUrl,
+        audioUrl: art.audioUrl,
+        status: art.status || "PUBLISHED",
+        publishedAt: art.publishedAt,
+        deletedAt: art.deletedAt,
+        createdAt: art.publishedAt || art.createdAt,
+        updatedAt: art.updatedAt,
+        slug: art.slug,
+        itemType: "ESSAY",
+      });
+      existingTitles.add(title);
     }
 
-    for (const paper of allPapers) {
-      if (matchesAuthor(paper.authorName) && !existingTitles.has((paper.title || "").toLowerCase().trim()) && (!paper.sourceSubmissionId || !existingIds.has(paper.sourceSubmissionId))) {
-        enriched.push({
-          id: `paper-${paper.id}`,
-          userId: auth.userId,
-          submitterName: paper.authorName || dbUser?.name || "Author",
-          submitterEmail: auth.email || dbUser?.email || "",
-          type: "PAPER" as const,
-          title: paper.title,
-          domain: paper.categorySlug || "papers",
-          abstract: paper.abstract || "",
-          body: paper.body || "",
-          notes: null,
-          manuscriptUrl: paper.pdfUrl,
-          manuscriptPublicId: null,
-          manuscriptResourceType: null,
-          coverImageUrl: paper.coverImageUrl,
-          coverImagePublicId: null,
-          coverImageResourceType: null,
-          audioUrl: null,
-          audioPublicId: null,
-          consent: true,
-          status: (paper.status || "PUBLISHED") as any,
-          priority: "NORMAL" as const,
-          assignedEditorId: null,
-          editorNotes: null,
-          publishedAt: paper.publishedAt,
-          deletedAt: paper.deletedAt,
-          createdAt: paper.publishedAt || paper.createdAt,
-          updatedAt: paper.updatedAt,
-          slug: paper.slug,
-          itemType: "PAPER",
-        });
-        existingTitles.add((paper.title || "").toLowerCase().trim());
-      }
+    for (const paper of ownPapers) {
+      const title = (paper.title || "").toLowerCase().trim();
+      if (existingTitles.has(title)) continue;
+      if (paper.sourceSubmissionId && existingIds.has(paper.sourceSubmissionId)) continue;
+      enriched.push({
+        id: `paper-${paper.id}`,
+        userId: viewer.userId,
+        submitterName: paper.authorName || viewer.name || "Author",
+        submitterEmail: viewer.email,
+        type: "PAPER",
+        title: paper.title,
+        domain: paper.categorySlug || "papers",
+        abstract: paper.abstract || "",
+        notes: null,
+        manuscriptUrl: paper.pdfUrl,
+        coverImageUrl: paper.coverImageUrl,
+        audioUrl: null,
+        status: paper.status || "PUBLISHED",
+        publishedAt: paper.publishedAt,
+        deletedAt: paper.deletedAt,
+        createdAt: paper.publishedAt || paper.createdAt,
+        updatedAt: paper.updatedAt,
+        slug: paper.slug,
+        itemType: "PAPER",
+      });
+      existingTitles.add(title);
     }
+
+    enriched.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
     return res.json({ submissions: enriched });
   } catch (err) {
@@ -609,8 +711,9 @@ router.get("/submissions", async (req, res) => {
 // GET /api/submissions/:id (single submission by ID)
 router.get("/submissions/:id", async (req, res) => {
   try {
-    const auth = await getUserAuth(req);
-    if (!auth) return res.status(401).json({ error: "Unauthorized" });
+    const viewer = await resolveViewer(req);
+    if (!viewer) return res.status(401).json({ error: "Unauthorized" });
+    const auth = { userId: viewer.userId, email: viewer.email, role: viewer.isAdmin ? "ADMIN" : "USER" };
 
     const trashed = req.query.trashed === "true" || req.query.deleted === "true";
     const id = req.params.id;
@@ -623,6 +726,7 @@ router.get("/submissions/:id", async (req, res) => {
           trashed ? isNotNull(articlesTable.deletedAt) : isNull(articlesTable.deletedAt),
         )).limit(1);
       if (!art) return res.status(404).json({ error: "Article not found" });
+      if (!ownsAuthoredWork(viewer, art.authorName)) return res.status(403).json({ error: "Forbidden" });
       return res.json({
         submission: {
           id,
@@ -647,6 +751,7 @@ router.get("/submissions/:id", async (req, res) => {
           trashed ? isNotNull(papersTable.deletedAt) : isNull(papersTable.deletedAt),
         )).limit(1);
       if (!paper) return res.status(404).json({ error: "Paper not found" });
+      if (!ownsAuthoredWork(viewer, paper.authorName)) return res.status(403).json({ error: "Forbidden" });
       return res.json({
         submission: {
           id,
@@ -788,8 +893,9 @@ router.put("/submissions/:id", async (req, res) => {
 // DELETE /api/submissions/:id — move an active submission or article/paper to Trash
 router.delete("/submissions/:id", async (req, res) => {
   try {
-    const auth = await getUserAuth(req);
-    if (!auth) return res.status(401).json({ error: "Unauthorized" });
+    const viewer = await resolveViewer(req);
+    if (!viewer) return res.status(401).json({ error: "Unauthorized" });
+    const auth = { userId: viewer.userId, email: viewer.email, role: viewer.isAdmin ? "ADMIN" : "USER" };
 
     const id = req.params.id;
     const now = new Date();
@@ -797,22 +903,30 @@ router.delete("/submissions/:id", async (req, res) => {
     // Handle direct article deletion
     if (id.startsWith("art-")) {
       const realId = id.replace("art-", "");
+      const [existingArt] = await db.select().from(articlesTable).where(eq(articlesTable.id, realId)).limit(1);
+      if (!existingArt) return res.status(404).json({ error: "Article not found" });
+      if (!ownsAuthoredWork(viewer, existingArt.authorName)) return res.status(403).json({ error: "Forbidden" });
+
       const [art] = await db.update(articlesTable)
         .set({ deletedAt: now, updatedAt: now })
         .where(and(eq(articlesTable.id, realId), isNull(articlesTable.deletedAt)))
         .returning();
-      if (!art) return res.status(404).json({ error: "Article not found" });
+      if (!art) return res.status(409).json({ error: "Article is already in Trash" });
       return res.json({ success: true, submission: { id, title: art.title, deletedAt: now, status: art.status } });
     }
 
     // Handle direct paper deletion
     if (id.startsWith("paper-")) {
       const realId = id.replace("paper-", "");
+      const [existingPaper] = await db.select().from(papersTable).where(eq(papersTable.id, realId)).limit(1);
+      if (!existingPaper) return res.status(404).json({ error: "Paper not found" });
+      if (!ownsAuthoredWork(viewer, existingPaper.authorName)) return res.status(403).json({ error: "Forbidden" });
+
       const [paper] = await db.update(papersTable)
         .set({ deletedAt: now, updatedAt: now })
         .where(and(eq(papersTable.id, realId), isNull(papersTable.deletedAt)))
         .returning();
-      if (!paper) return res.status(404).json({ error: "Paper not found" });
+      if (!paper) return res.status(409).json({ error: "Paper is already in Trash" });
       return res.json({ success: true, submission: { id, title: paper.title, deletedAt: now, status: paper.status } });
     }
 
@@ -856,29 +970,38 @@ router.delete("/submissions/:id", async (req, res) => {
 // POST /api/submissions/:id/restore — restore an item from Trash
 router.post("/submissions/:id/restore", async (req, res) => {
   try {
-    const auth = await getUserAuth(req);
-    if (!auth) return res.status(401).json({ error: "Unauthorized" });
+    const viewer = await resolveViewer(req);
+    if (!viewer) return res.status(401).json({ error: "Unauthorized" });
+    const auth = { userId: viewer.userId, email: viewer.email, role: viewer.isAdmin ? "ADMIN" : "USER" };
 
     const id = req.params.id;
     const now = new Date();
 
     if (id.startsWith("art-")) {
       const realId = id.replace("art-", "");
+      const [existingArt] = await db.select().from(articlesTable).where(eq(articlesTable.id, realId)).limit(1);
+      if (!existingArt) return res.status(404).json({ error: "Article not found" });
+      if (!ownsAuthoredWork(viewer, existingArt.authorName)) return res.status(403).json({ error: "Forbidden" });
+
       const [art] = await db.update(articlesTable)
         .set({ deletedAt: null, updatedAt: now })
         .where(and(eq(articlesTable.id, realId), isNotNull(articlesTable.deletedAt)))
         .returning();
-      if (!art) return res.status(404).json({ error: "Article not found" });
+      if (!art) return res.status(409).json({ error: "Article is not in Trash" });
       return res.json({ success: true, submission: { id, title: art.title, deletedAt: null, status: art.status } });
     }
 
     if (id.startsWith("paper-")) {
       const realId = id.replace("paper-", "");
+      const [existingPaper] = await db.select().from(papersTable).where(eq(papersTable.id, realId)).limit(1);
+      if (!existingPaper) return res.status(404).json({ error: "Paper not found" });
+      if (!ownsAuthoredWork(viewer, existingPaper.authorName)) return res.status(403).json({ error: "Forbidden" });
+
       const [paper] = await db.update(papersTable)
         .set({ deletedAt: null, updatedAt: now })
         .where(and(eq(papersTable.id, realId), isNotNull(papersTable.deletedAt)))
         .returning();
-      if (!paper) return res.status(404).json({ error: "Paper not found" });
+      if (!paper) return res.status(409).json({ error: "Paper is not in Trash" });
       return res.json({ success: true, submission: { id, title: paper.title, deletedAt: null, status: paper.status } });
     }
 
@@ -921,20 +1044,31 @@ router.post("/submissions/:id/restore", async (req, res) => {
 // DELETE /api/submissions/:id/permanent — permanently erase item from DB
 router.delete("/submissions/:id/permanent", async (req, res) => {
   try {
-    const auth = await getUserAuth(req);
-    if (!auth) return res.status(401).json({ error: "Unauthorized" });
+    const viewer = await resolveViewer(req);
+    if (!viewer) return res.status(401).json({ error: "Unauthorized" });
+    const auth = { userId: viewer.userId, email: viewer.email, role: viewer.isAdmin ? "ADMIN" : "USER" };
 
     const id = req.params.id;
 
+    // Permanent erasure is only ever allowed on an item the caller owns and
+    // has already moved to Trash — never on live published work.
     if (id.startsWith("art-")) {
       const realId = id.replace("art-", "");
-      await db.delete(articlesTable).where(eq(articlesTable.id, realId));
+      const [art] = await db.select().from(articlesTable).where(eq(articlesTable.id, realId)).limit(1);
+      if (!art) return res.status(404).json({ error: "Article not found" });
+      if (!ownsAuthoredWork(viewer, art.authorName)) return res.status(403).json({ error: "Forbidden" });
+      if (!art.deletedAt) return res.status(409).json({ error: "Move this work to Trash before permanently deleting it" });
+      await db.delete(articlesTable).where(and(eq(articlesTable.id, realId), isNotNull(articlesTable.deletedAt)));
       return res.json({ success: true });
     }
 
     if (id.startsWith("paper-")) {
       const realId = id.replace("paper-", "");
-      await db.delete(papersTable).where(eq(papersTable.id, realId));
+      const [paper] = await db.select().from(papersTable).where(eq(papersTable.id, realId)).limit(1);
+      if (!paper) return res.status(404).json({ error: "Paper not found" });
+      if (!ownsAuthoredWork(viewer, paper.authorName)) return res.status(403).json({ error: "Forbidden" });
+      if (!paper.deletedAt) return res.status(409).json({ error: "Move this work to Trash before permanently deleting it" });
+      await db.delete(papersTable).where(and(eq(papersTable.id, realId), isNotNull(papersTable.deletedAt)));
       return res.json({ success: true });
     }
 

@@ -39,6 +39,7 @@ export default function AccountPage() {
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [permDeletingId, setPermDeletingId] = useState<string | null>(null);
   const [readingHistory, setReadingHistory] = useState<any[]>([]);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     try {
@@ -49,16 +50,25 @@ export default function AccountPage() {
     }
   }, []);
 
+  // A failed request must never look like an empty desk — an author whose work
+  // simply could not be loaded needs to see that, not "No submissions yet".
+  const fetchList = async (query: string) => {
+    const response = await fetch(`${base()}/api/submissions${query}`, { credentials: "include" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+    return data.submissions || [];
+  };
+
   const loadSubmissions = () => {
-    Promise.all([
-      fetch(`${base()}/api/submissions`, { credentials: "include" }).then((r) => r.json()),
-      fetch(`${base()}/api/submissions?deleted=true`, { credentials: "include" }).then((r) => r.json()),
-    ])
+    setLoadError("");
+    Promise.all([fetchList(""), fetchList("?deleted=true")])
       .then(([active, deleted]) => {
-        setSubmissions(active.submissions || []);
-        setDeletedSubmissions(deleted.submissions || []);
+        setSubmissions(active);
+        setDeletedSubmissions(deleted);
       })
-      .catch(() => {})
+      .catch((err: any) => {
+        setLoadError(err?.message || "Your works could not be loaded. Please refresh and try again.");
+      })
       .finally(() => setLoadingPage(false));
   };
 
@@ -443,7 +453,13 @@ export default function AccountPage() {
                 <Link href="/submit" className="btn-terracotta self-start sm:self-auto">New Submission</Link>
               </div>
 
-              {published.length === 0 ? (
+              {loadError ? (
+                <div className="rounded-[8px] border border-[var(--terracotta)]/40 bg-[var(--terracotta)]/5 p-5 text-center">
+                  <p className="font-ui text-sm font-bold text-[var(--terracotta)]">Your works could not be loaded</p>
+                  <p className="mt-2 font-body text-sm text-[var(--ink-soft)]">{loadError}</p>
+                  <button type="button" onClick={loadSubmissions} className="btn-ink mt-4 justify-center">Try again</button>
+                </div>
+              ) : published.length === 0 ? (
                 <EmptyState title="No submissions yet" description="Submit your work to the journal and track its progress here." action={<Link href="/submit" className="btn-terracotta">Submit Work</Link>} />
               ) : (
                 <div className="space-y-3">{published.map((s) => renderCard(s, false))}</div>
