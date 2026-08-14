@@ -41,10 +41,10 @@ export function SacredHeader() {
         </a>
 
         {/* ── ROW 1: Primary Top Header Bar (full-width, edge-to-edge) ── */}
-        <div className="sacred-header-row flex items-center justify-between py-3 md:py-4 px-4 md:px-8 lg:px-12 w-full">
+        <div className="sacred-header-row relative flex items-center justify-between py-3 md:py-4 px-4 md:px-8 lg:px-12 w-full">
 
             {/* Far Left Edge: Hamburger Menu Trigger */}
-            <div className="flex items-center shrink-0">
+            <div className="flex items-center shrink-0 z-10">
               <button
                 type="button"
                 onClick={() => setSidebarOpen(true)}
@@ -56,15 +56,17 @@ export function SacredHeader() {
               </button>
             </div>
 
-            {/* Center: Website Name Text */}
-            <Link href="/" className="sacred-brand flex-1 flex flex-col items-center justify-center text-center px-2" aria-label="Ānvīkṣikī home">
-              <span className="font-display text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-[var(--ink)] leading-none hover:text-[var(--gold)] transition-colors py-1">
-                Ānvīkṣikī
-              </span>
-            </Link>
+            {/* Center: Website Name Text — Perfectly Centered at 50% */}
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto flex items-center justify-center max-w-[calc(100%-140px)] sm:max-w-[calc(100%-240px)]">
+              <Link href="/" className="sacred-brand flex flex-col items-center justify-center text-center px-2" aria-label="Ānvīkṣikī home">
+                <span className="font-display text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-[var(--ink)] leading-none hover:text-[var(--gold)] transition-colors py-1 select-none">
+                  Ānvīkṣikī
+                </span>
+              </Link>
+            </div>
 
             {/* Far Right Edge: Search & Account */}
-            <div className="sacred-actions flex items-center justify-end gap-3 md:gap-4 shrink-0">
+            <div className="sacred-actions flex items-center justify-end gap-3 md:gap-4 shrink-0 z-10">
               <Link
                 href="/search"
                 className="sacred-icon-btn text-[var(--ink)] hover:text-[var(--gold)] p-1.5"

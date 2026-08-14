@@ -533,14 +533,21 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
       ...submissionPatch,
       updatedAt: now,
     };
-    const isPublishing = parsed.data.status === "PUBLISHED" && previous.status !== "PUBLISHED";
+    // Publishing is idempotent on purpose. A submission can already be marked
+    // PUBLISHED while its public article or paper is missing or trashed — that
+    // is exactly the state an earlier silent failure leaves behind. Running the
+    // publication step again on a submission that is already PUBLISHED is what
+    // repairs it, so this must not be gated on the status changing.
+    const isPublishing = parsed.data.status === "PUBLISHED";
+    const isFirstPublish = isPublishing && previous.status !== "PUBLISHED";
     const isUnpublishing = Boolean(
       previous.status === "PUBLISHED"
       && parsed.data.status
       && parsed.data.status !== "PUBLISHED",
     );
     if (updates.domain) updates.domain = normalizeCategorySlug(updates.domain);
-    if (isPublishing) updates.publishedAt = now;
+    // Only a genuine first publish stamps the date; a repair keeps the original.
+    if (isFirstPublish) updates.publishedAt = now;
 
     const [submission] = await db.update(submissionsTable).set(updates)
       .where(and(eq(submissionsTable.id, req.params.id), isNull(submissionsTable.deletedAt))).returning();
@@ -548,6 +555,7 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
 
     if (isPublishing) {
       let publication: any = null;
+      let publicationError: any = null;
       try {
         publication = await ensurePublicPublicationForSubmission(submission, {
           categorySlug,
@@ -556,15 +564,43 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
         });
       } catch (publicationErr: any) {
         req.log.error({ err: publicationErr }, "Initial publication attempt failed, retrying with default archive category");
+        publicationError = publicationErr;
         try {
           publication = await ensurePublicPublicationForSubmission(submission, {
             categorySlug: "archive",
             publishedAt: submission.publishedAt || now,
             allowCreate: true,
           });
+          publicationError = null;
         } catch (retryErr: any) {
           req.log.error({ err: retryErr }, "Publication retry failed");
+          publicationError = retryErr;
         }
+      }
+
+      // Marking the submission PUBLISHED while no public article or paper
+      // exists is the worst possible outcome: the desk claims the work is
+      // live, the journal shows nothing, and nobody is told. Put the status
+      // back and report the failure instead.
+      const publishedPublicly = Boolean(publication)
+        && publication.status !== "skipped"
+        && Boolean(publication.id);
+
+      if (!publishedPublicly) {
+        await db.update(submissionsTable)
+          .set({ status: previous.status, publishedAt: previous.publishedAt, updatedAt: new Date() })
+          .where(eq(submissionsTable.id, req.params.id));
+
+        const reason = publication?.reason || publicationError?.message || "unknown";
+        req.log.error(
+          { submissionId: req.params.id, reason },
+          "Publish aborted — no public record was created, submission status rolled back",
+        );
+        return res.status(502).json({
+          error: "This work could not be published to the public journal, so its status was left unchanged.",
+          code: "PUBLICATION_FAILED",
+          reason,
+        });
       }
 
       if (previous.status !== "PUBLISHED" && previous.userId) {

@@ -47,7 +47,7 @@ export function ensureDefaultCategories() {
 
 export type PublicPublicationResult = {
   kind: PublicationKind | null;
-  status: "created" | "existing" | "skipped";
+  status: "created" | "existing" | "restored" | "skipped";
   id?: string;
   slug?: string;
   reason?: string;
@@ -149,28 +149,49 @@ async function uniqueArticleSlug(baseSlug: string, submissionId: string) {
   const words = baseSlug.split("-").filter(w => w && !["a", "an", "the", "in", "of", "on", "at", "to", "for", "with", "is", "and"].includes(w));
   const cleanBase = (words.length > 7 ? words.slice(0, 7) : words).join("-") || "article";
 
-  const [existing] = await db
-    .select({ id: articlesTable.id })
-    .from(articlesTable)
-    .where(eq(articlesTable.slug, cleanBase))
-    .limit(1);
+  // Slugs are unique across trashed rows too, so a single fallback is not
+  // enough: keep widening until one is actually free, or the insert throws a
+  // unique violation and the publish fails with no public record.
+  const candidates = [
+    cleanBase,
+    `${cleanBase}-${submissionId.slice(0, 4)}`,
+    `${cleanBase}-${submissionId.slice(0, 8)}`,
+    `${cleanBase}-${submissionId.replace(/[^a-z0-9]/gi, "").slice(0, 16)}`,
+  ];
 
-  if (!existing) return cleanBase;
-  return `${cleanBase}-${submissionId.slice(0, 4)}`;
+  for (const candidate of candidates) {
+    const [taken] = await db
+      .select({ id: articlesTable.id })
+      .from(articlesTable)
+      .where(eq(articlesTable.slug, candidate))
+      .limit(1);
+    if (!taken) return candidate;
+  }
+
+  return `${cleanBase}-${Date.now().toString(36)}`;
 }
 
 async function uniquePaperSlug(baseSlug: string, submissionId: string) {
   const words = baseSlug.split("-").filter(w => w && !["a", "an", "the", "in", "of", "on", "at", "to", "for", "with", "is", "and"].includes(w));
   const cleanBase = (words.length > 7 ? words.slice(0, 7) : words).join("-") || "paper";
 
-  const [existing] = await db
-    .select({ id: papersTable.id })
-    .from(papersTable)
-    .where(eq(papersTable.slug, cleanBase))
-    .limit(1);
+  const candidates = [
+    cleanBase,
+    `${cleanBase}-${submissionId.slice(0, 4)}`,
+    `${cleanBase}-${submissionId.slice(0, 8)}`,
+    `${cleanBase}-${submissionId.replace(/[^a-z0-9]/gi, "").slice(0, 16)}`,
+  ];
 
-  if (!existing) return cleanBase;
-  return `${cleanBase}-${submissionId.slice(0, 4)}`;
+  for (const candidate of candidates) {
+    const [taken] = await db
+      .select({ id: papersTable.id })
+      .from(papersTable)
+      .where(eq(papersTable.slug, candidate))
+      .limit(1);
+    if (!taken) return candidate;
+  }
+
+  return `${cleanBase}-${Date.now().toString(36)}`;
 }
 
 export async function ensurePublicPublicationForSubmission(
@@ -196,14 +217,18 @@ export async function ensurePublicPublicationForSubmission(
       .limit(1);
 
     if (existing) {
-      if (existing.deletedAt) {
+      // Reconciliation must never turn a trashed or intentionally archived
+      // record back into public content. An explicit admin publish is a
+      // deliberate instruction to make this public, so it does restore one —
+      // otherwise a work whose publication was once trashed could never be
+      // published again, and the admin panel would report success forever.
+      if (existing.deletedAt && !allowCreate) {
         return { kind, status: "skipped", id: existing.id, slug: existing.slug, reason: "publication-trashed" };
       }
-      // Reconciliation must never turn an intentionally archived record back
-      // into public content. An explicit admin publish transition may do that.
-      if (existing.status !== "PUBLISHED" && !allowCreate) {
+      if (!existing.deletedAt && existing.status !== "PUBLISHED" && !allowCreate) {
         return { kind, status: "skipped", id: existing.id, slug: existing.slug, reason: "publication-not-public" };
       }
+      const restoredFromTrash = Boolean(existing.deletedAt);
       const categorySlug = await resolveCategorySlug(
         options.categorySlug || getSubmissionDomain(submission) || "archive",
       );
@@ -223,10 +248,16 @@ export async function ensurePublicPublicationForSubmission(
           coverImageUrl,
           status: "PUBLISHED",
           publishedAt,
+          deletedAt: null,
           updatedAt: new Date(),
         })
-        .where(and(eq(papersTable.id, existing.id), isNull(papersTable.deletedAt)));
-      return { kind, status: "existing", id: existing.id, slug: existing.slug };
+        .where(eq(papersTable.id, existing.id));
+      return {
+        kind,
+        status: restoredFromTrash ? "restored" : "existing",
+        id: existing.id,
+        slug: existing.slug,
+      };
     }
 
     if (!allowCreate) {
@@ -282,14 +313,15 @@ export async function ensurePublicPublicationForSubmission(
     .limit(1);
 
   if (existing) {
-    if (existing.deletedAt) {
+    // See the paper branch above: reconciliation never resurrects, an explicit
+    // admin publish does.
+    if (existing.deletedAt && !allowCreate) {
       return { kind, status: "skipped", id: existing.id, slug: existing.slug, reason: "publication-trashed" };
     }
-    // Reconciliation must never turn an intentionally archived record back
-    // into public content. An explicit admin publish transition may do that.
-    if (existing.status !== "PUBLISHED" && !allowCreate) {
+    if (!existing.deletedAt && existing.status !== "PUBLISHED" && !allowCreate) {
       return { kind, status: "skipped", id: existing.id, slug: existing.slug, reason: "publication-not-public" };
     }
+    const restoredFromTrash = Boolean(existing.deletedAt);
     const categorySlug = await resolveCategorySlug(
       options.categorySlug || getSubmissionDomain(submission) || "archive",
     );
@@ -310,10 +342,16 @@ export async function ensurePublicPublicationForSubmission(
         audioUrl: (submission as any).audioUrl || null,
         status: "PUBLISHED",
         publishedAt,
+        deletedAt: null,
         updatedAt: new Date(),
       })
-      .where(and(eq(articlesTable.id, existing.id), isNull(articlesTable.deletedAt)));
-    return { kind, status: "existing", id: existing.id, slug: existing.slug };
+      .where(eq(articlesTable.id, existing.id));
+    return {
+      kind,
+      status: restoredFromTrash ? "restored" : "existing",
+      id: existing.id,
+      slug: existing.slug,
+    };
   }
 
   if (!allowCreate) {

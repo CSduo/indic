@@ -286,3 +286,86 @@ describe("publication reconciliation safety", () => {
     });
   });
 });
+
+describe("explicit admin publish repairs a broken publication", () => {
+  it("restores a trashed article so an explicit publish actually reaches the public journal", async () => {
+    const current = submission();
+    fixture.state.articleLinks.set(current.id, {
+      id: "article-in-trash",
+      slug: "article-in-trash",
+      status: "PUBLISHED",
+      deletedAt: new Date("2026-01-02T00:00:00.000Z"),
+    });
+    const { ensurePublicPublicationForSubmission } = await loadPublicationSync();
+
+    await expect(ensurePublicPublicationForSubmission(current, { allowCreate: true })).resolves.toEqual({
+      kind: "article",
+      status: "restored",
+      id: "article-in-trash",
+      slug: "article-in-trash",
+    });
+    expect(fixture.state.updates).toHaveLength(1);
+    expect(fixture.state.updates[0].values).toMatchObject({
+      status: "PUBLISHED",
+      deletedAt: null,
+    });
+    // Repairing an existing record must never manufacture a second one.
+    expect(fixture.state.articleInserts).toEqual([]);
+  });
+
+  it("restores a trashed paper on an explicit publish", async () => {
+    const current = submission({ type: "PAPER" });
+    fixture.state.paperLinks.set(current.id, {
+      id: "paper-in-trash",
+      slug: "paper-in-trash",
+      status: "PUBLISHED",
+      deletedAt: new Date("2026-01-02T00:00:00.000Z"),
+    });
+    const { ensurePublicPublicationForSubmission } = await loadPublicationSync();
+
+    await expect(ensurePublicPublicationForSubmission(current, { allowCreate: true })).resolves.toEqual({
+      kind: "paper",
+      status: "restored",
+      id: "paper-in-trash",
+      slug: "paper-in-trash",
+    });
+    expect(fixture.state.updates[0].values).toMatchObject({
+      status: "PUBLISHED",
+      deletedAt: null,
+    });
+    expect(fixture.state.paperInserts).toEqual([]);
+  });
+
+  it("republishes a linked archived record on an explicit publish", async () => {
+    const current = submission();
+    fixture.state.articleLinks.set(current.id, {
+      id: "article-archived",
+      slug: "article-archived",
+      status: "ARCHIVED",
+      deletedAt: null,
+    });
+    const { ensurePublicPublicationForSubmission } = await loadPublicationSync();
+
+    await expect(ensurePublicPublicationForSubmission(current, { allowCreate: true })).resolves.toEqual({
+      kind: "article",
+      status: "existing",
+      id: "article-archived",
+      slug: "article-archived",
+    });
+    expect(fixture.state.updates[0].values).toMatchObject({ status: "PUBLISHED" });
+  });
+
+  it("still refuses to resurrect a trashed publication during background reconciliation", async () => {
+    fixture.state.submissions = [submission()];
+    fixture.state.articleLinks.set("submission-1", {
+      id: "article-in-trash",
+      slug: "article-in-trash",
+      status: "PUBLISHED",
+      deletedAt: new Date("2026-01-02T00:00:00.000Z"),
+    });
+    const { syncPublishedSubmissions } = await loadPublicationSync();
+
+    await expect(syncPublishedSubmissions()).resolves.toMatchObject({ skipped: 1, updatedArticles: 0 });
+    expect(fixture.state.updates).toEqual([]);
+  });
+});
