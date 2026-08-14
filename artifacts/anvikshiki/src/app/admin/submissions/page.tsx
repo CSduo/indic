@@ -644,9 +644,23 @@ export default function AdminSubmissionsPage() {
                       );
                     })()}
                     {!selected.deletedAt && selected.status === "PUBLISHED" && (
-                      <button type="button" disabled={!!actionLoading} onClick={() => patchAction(selected.id, "unpublish")} className="btn-sacred btn-ghost text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50">
-                        {actionLoading === "unpublish" ? <span className="animate-spin text-xs">↻</span> : <ArchiveRestore size={12} />} Unpublish
-                      </button>
+                      <>
+                        {/* A submission can read PUBLISHED while its public article
+                            is missing or sitting in Trash. Republishing rebuilds the
+                            public record, and now reports an error if it cannot. */}
+                        <button
+                          type="button"
+                          disabled={!!actionLoading}
+                          onClick={() => patchAction(selected.id, "publish", { categorySlug: publishCategory })}
+                          className="btn-sacred btn-gold text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50"
+                          title="Rebuild this work's public article — use this if it shows as published but is not on the site"
+                        >
+                          {actionLoading === "publish" ? <span className="animate-spin text-xs">↻</span> : <Globe size={12} />} Republish to Site
+                        </button>
+                        <button type="button" disabled={!!actionLoading} onClick={() => patchAction(selected.id, "unpublish")} className="btn-sacred btn-ghost text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50">
+                          {actionLoading === "unpublish" ? <span className="animate-spin text-xs">↻</span> : <ArchiveRestore size={12} />} Unpublish
+                        </button>
+                      </>
                     )}
                     {!selected.deletedAt && (
                       <button type="button" disabled={!!actionLoading} onClick={() => del(selected.id)} className="btn-sacred text-xs py-1.5 px-3 ml-auto inline-flex items-center gap-1.5 disabled:opacity-50" style={{ background: "rgba(139,26,74,0.12)", border: "1px solid rgba(139,26,74,0.3)", color: "var(--rose-bright)" }}>
