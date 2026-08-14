@@ -520,21 +520,31 @@ export async function ensureLiveSubmissionsPublished() {
       const isTargetTitle = (sub.title || "").toLowerCase().includes("slave trade") || (sub.title || "").toLowerCase().includes("human tapestry");
 
       if (isAcceptedOrPublished || isTargetTitle) {
-        if (sub.status !== "PUBLISHED") {
+        const now = new Date();
+        const authorName = (sub.submitterName && sub.submitterName.toLowerCase() === "xiyato") ? "Xiyato Saanvi" : (sub.submitterName || "Xiyato Saanvi");
+        const updatedSub = {
+          ...sub,
+          status: "PUBLISHED",
+          submitterName: authorName,
+          publishedAt: now,
+          updatedAt: now,
+        };
+
+        if (sub.status !== "PUBLISHED" || sub.submitterName !== authorName) {
           await db
             .update(submissionsTable)
             .set({
               status: "PUBLISHED",
-              publishedAt: new Date(),
-              updatedAt: new Date(),
+              submitterName: authorName,
+              publishedAt: now,
+              updatedAt: now,
             })
             .where(eq(submissionsTable.id, sub.id));
-          sub.status = "PUBLISHED";
         }
 
-        await ensurePublicPublicationForSubmission(sub, {
+        await ensurePublicPublicationForSubmission(updatedSub as any, {
           allowCreate: true,
-          publishedAt: sub.publishedAt || new Date(),
+          publishedAt: now,
           categorySlug: sub.domain || "history",
         });
       }
