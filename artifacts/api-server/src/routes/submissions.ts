@@ -410,14 +410,34 @@ type Viewer = {
  */
 async function resolveViewer(req: Request): Promise<Viewer | null> {
   const auth = await getUserAuth(req);
-  if (!auth) return null;
+  if (!auth || !auth.userId) return null;
 
-  const [dbUser] = await db.select().from(usersTable).where(eq(usersTable.id, auth.userId)).limit(1);
-  const [dbAdmin] = await db.select().from(adminsTable)
-    .where(auth.email
-      ? or(eq(adminsTable.id, auth.userId), ilike(adminsTable.email, auth.email))
-      : eq(adminsTable.id, auth.userId))
-    .limit(1);
+  let dbUser: any = null;
+  let dbAdmin: any = null;
+
+  try {
+    const userRows = await db.select().from(usersTable).where(eq(usersTable.id, auth.userId)).limit(1);
+    dbUser = userRows[0] || null;
+  } catch (err) {
+    req.log?.warn?.({ err }, "Failed to lookup user in resolveViewer");
+  }
+
+  try {
+    const cleanEmail = auth.email ? auth.email.trim().toLowerCase() : "";
+    if (cleanEmail) {
+      const adminRows = await db.select().from(adminsTable)
+        .where(or(eq(adminsTable.id, auth.userId), ilike(adminsTable.email, cleanEmail)))
+        .limit(1);
+      dbAdmin = adminRows[0] || null;
+    } else {
+      const adminRows = await db.select().from(adminsTable)
+        .where(eq(adminsTable.id, auth.userId))
+        .limit(1);
+      dbAdmin = adminRows[0] || null;
+    }
+  } catch (err) {
+    req.log?.warn?.({ err }, "Failed to lookup admin in resolveViewer");
+  }
 
   const email = (auth.email || dbUser?.email || dbAdmin?.email || "").toLowerCase().trim();
   const name = (dbUser?.name || dbAdmin?.name || "").trim();
@@ -584,68 +604,100 @@ router.get("/submissions", async (req, res) => {
     const trashed = req.query.trashed === "true" || req.query.deleted === "true";
 
     // 1. The author's own submission rows, matched by account id or email.
-    const ownsSubmission = viewer.email
-      ? or(eq(submissionsTable.userId, viewer.userId), ilike(submissionsTable.submitterEmail, viewer.email))!
+    const userEmail = viewer.email ? viewer.email.trim().toLowerCase() : "";
+    const ownsSubmission = userEmail
+      ? or(eq(submissionsTable.userId, viewer.userId), ilike(submissionsTable.submitterEmail, userEmail))!
       : eq(submissionsTable.userId, viewer.userId);
 
-    const submissions = await db.select(SUBMISSION_LIST_COLUMNS).from(submissionsTable)
-      .where(and(
-        ownsSubmission,
-        trashed ? isNotNull(submissionsTable.deletedAt) : isNull(submissionsTable.deletedAt),
-      ))
-      .orderBy(desc(submissionsTable.createdAt));
+    let submissions: any[] = [];
+    try {
+      submissions = await db.select(SUBMISSION_LIST_COLUMNS).from(submissionsTable)
+        .where(and(
+          ownsSubmission,
+          trashed ? isNotNull(submissionsTable.deletedAt) : isNull(submissionsTable.deletedAt),
+        ))
+        .orderBy(desc(submissionsTable.createdAt));
+    } catch (err) {
+      req.log?.warn?.({ err }, "Failed to query submissionsTable in GET /submissions");
+      submissions = [];
+    }
 
     // 2. Published work lives in articles/papers, and a work can outlive the
     //    submission row it came from. Claim those by author identity or by an
     //    explicit link back to one of this author's submissions, so published
     //    works never disappear from the desk.
-    const submissionIds = submissions.map(s => s.id);
-    const identityKeys = [...viewer.identities];
+    const submissionIds = submissions.map(s => s.id).filter(Boolean);
+    const identityKeys = [...viewer.identities].filter(k => k && k.length >= 4);
 
-    const articleOwnership = [
-      identityKeys.length ? inArray(normalizedAuthorSql(articlesTable.authorName), identityKeys) : undefined,
-      submissionIds.length ? inArray(articlesTable.sourceSubmissionId, submissionIds) : undefined,
-    ].filter(Boolean) as any[];
+    const articleConditions: any[] = [];
+    if (submissionIds.length > 0) {
+      articleConditions.push(inArray(articlesTable.sourceSubmissionId, submissionIds));
+    }
+    for (const key of identityKeys) {
+      articleConditions.push(sql`lower(regexp_replace(coalesce(${articlesTable.authorName}, ''), '[^a-zA-Z0-9]+', '', 'g')) = ${key}`);
+    }
 
-    const paperOwnership = [
-      identityKeys.length ? inArray(normalizedAuthorSql(papersTable.authorName), identityKeys) : undefined,
-      submissionIds.length ? inArray(papersTable.sourceSubmissionId, submissionIds) : undefined,
-    ].filter(Boolean) as any[];
+    const paperConditions: any[] = [];
+    if (submissionIds.length > 0) {
+      paperConditions.push(inArray(papersTable.sourceSubmissionId, submissionIds));
+    }
+    for (const key of identityKeys) {
+      paperConditions.push(sql`lower(regexp_replace(coalesce(${papersTable.authorName}, ''), '[^a-zA-Z0-9]+', '', 'g')) = ${key}`);
+    }
 
-    // An account with no identity keys and no submissions owns nothing.
-    const matchesNothing = sql`false`;
+    let ownArticles: any[] = [];
+    if (articleConditions.length > 0) {
+      try {
+        ownArticles = await db.select(ARTICLE_LIST_COLUMNS).from(articlesTable)
+          .where(and(
+            trashed ? isNotNull(articlesTable.deletedAt) : isNull(articlesTable.deletedAt),
+            articleConditions.length === 1 ? articleConditions[0] : or(...articleConditions)!,
+          ));
+      } catch (err) {
+        req.log?.warn?.({ err }, "Failed to query articlesTable for author works");
+        ownArticles = [];
+      }
+    }
 
-    const [ownArticles, ownPapers] = await Promise.all([
-      db.select(ARTICLE_LIST_COLUMNS).from(articlesTable)
-        .where(and(
-          trashed ? isNotNull(articlesTable.deletedAt) : isNull(articlesTable.deletedAt),
-          articleOwnership.length ? or(...articleOwnership)! : matchesNothing,
-        )),
-      db.select(PAPER_LIST_COLUMNS).from(papersTable)
-        .where(and(
-          trashed ? isNotNull(papersTable.deletedAt) : isNull(papersTable.deletedAt),
-          paperOwnership.length ? or(...paperOwnership)! : matchesNothing,
-        )),
-    ]);
+    let ownPapers: any[] = [];
+    if (paperConditions.length > 0) {
+      try {
+        ownPapers = await db.select(PAPER_LIST_COLUMNS).from(papersTable)
+          .where(and(
+            trashed ? isNotNull(papersTable.deletedAt) : isNull(papersTable.deletedAt),
+            paperConditions.length === 1 ? paperConditions[0] : or(...paperConditions)!,
+          ));
+      } catch (err) {
+        req.log?.warn?.({ err }, "Failed to query papersTable for author works");
+        ownPapers = [];
+      }
+    }
 
     // 3. Give every submission the slug of the work it was published as.
     const enriched: any[] = submissions.map(s => {
-      const matchingArt = ownArticles.find(a => a.sourceSubmissionId === s.id || a.title.toLowerCase() === s.title.toLowerCase());
-      const matchingPaper = ownPapers.find(p => p.sourceSubmissionId === s.id || p.title.toLowerCase() === s.title.toLowerCase());
+      const sTitle = (s?.title || "").toLowerCase().trim();
+      const matchingArt = ownArticles.find(a => 
+        (a.sourceSubmissionId && a.sourceSubmissionId === s.id) || 
+        (sTitle && (a.title || "").toLowerCase().trim() === sTitle)
+      );
+      const matchingPaper = ownPapers.find(p => 
+        (p.sourceSubmissionId && p.sourceSubmissionId === s.id) || 
+        (sTitle && (p.title || "").toLowerCase().trim() === sTitle)
+      );
       return {
         ...s,
-        slug: matchingArt?.slug || matchingPaper?.slug || slugify(s.title),
-        itemType: s.type === "PAPER" ? "PAPER" : "ESSAY",
+        slug: matchingArt?.slug || matchingPaper?.slug || slugify(s?.title),
+        itemType: s?.type === "PAPER" ? "PAPER" : "ESSAY",
       };
     });
 
     // 4. Append published works that no longer have (or never had) a submission row.
-    const existingTitles = new Set(enriched.map(e => (e.title || "").toLowerCase().trim()));
-    const existingIds = new Set(enriched.map(e => e.id));
+    const existingTitles = new Set(enriched.map(e => (e.title || "").toLowerCase().trim()).filter(Boolean));
+    const existingIds = new Set(enriched.map(e => e.id).filter(Boolean));
 
     for (const art of ownArticles) {
-      const title = (art.title || "").toLowerCase().trim();
-      if (existingTitles.has(title)) continue;
+      const title = (art?.title || "").toLowerCase().trim();
+      if (title && existingTitles.has(title)) continue;
       if (art.sourceSubmissionId && existingIds.has(art.sourceSubmissionId)) continue;
       enriched.push({
         id: `art-${art.id}`,
@@ -653,7 +705,7 @@ router.get("/submissions", async (req, res) => {
         submitterName: art.authorName || viewer.name || "Author",
         submitterEmail: viewer.email,
         type: "ESSAY",
-        title: art.title,
+        title: art.title || "Untitled Article",
         domain: art.categorySlug || "philosophy",
         abstract: art.excerpt || art.subtitle || "",
         notes: null,
@@ -665,15 +717,15 @@ router.get("/submissions", async (req, res) => {
         deletedAt: art.deletedAt,
         createdAt: art.publishedAt || art.createdAt,
         updatedAt: art.updatedAt,
-        slug: art.slug,
+        slug: art.slug || slugify(art.title),
         itemType: "ESSAY",
       });
-      existingTitles.add(title);
+      if (title) existingTitles.add(title);
     }
 
     for (const paper of ownPapers) {
-      const title = (paper.title || "").toLowerCase().trim();
-      if (existingTitles.has(title)) continue;
+      const title = (paper?.title || "").toLowerCase().trim();
+      if (title && existingTitles.has(title)) continue;
       if (paper.sourceSubmissionId && existingIds.has(paper.sourceSubmissionId)) continue;
       enriched.push({
         id: `paper-${paper.id}`,
@@ -681,7 +733,7 @@ router.get("/submissions", async (req, res) => {
         submitterName: paper.authorName || viewer.name || "Author",
         submitterEmail: viewer.email,
         type: "PAPER",
-        title: paper.title,
+        title: paper.title || "Untitled Paper",
         domain: paper.categorySlug || "papers",
         abstract: paper.abstract || "",
         notes: null,
@@ -693,18 +745,18 @@ router.get("/submissions", async (req, res) => {
         deletedAt: paper.deletedAt,
         createdAt: paper.publishedAt || paper.createdAt,
         updatedAt: paper.updatedAt,
-        slug: paper.slug,
+        slug: paper.slug || slugify(paper.title),
         itemType: "PAPER",
       });
-      existingTitles.add(title);
+      if (title) existingTitles.add(title);
     }
 
     enriched.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
     return res.json({ submissions: enriched });
   } catch (err) {
-    req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    req.log?.error?.({ err }, "GET /submissions unexpected error");
+    return res.status(500).json({ error: "Failed to load submissions" });
   }
 });
 
