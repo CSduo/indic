@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { Link, useRoute } from "wouter";
-import { ArrowLeft, Clock, Eye, MessageSquare, Play, Pause, Volume2, Share2, Copy } from "lucide-react";
+import { ArrowLeft, Clock, Edit3, Eye, MessageSquare, Play, Pause, Volume2, Share2, Copy } from "lucide-react";
 import { ArticleActionBar } from "@/components/manuscript/ArticleActionBar";
 import { TableOfContents } from "@/components/sacred/TableOfContents";
 import { GlyphTag } from "@/components/manuscript/GlyphTag";
@@ -534,8 +534,17 @@ export default function ArticlePage() {
         )}
 
         {/* Action bar below cover image */}
-        <div className="flex justify-center mt-6">
+        <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
           <ArticleActionBar articleId={article.id} title={article.title} downloadUrl={article.pdfUrl || article.fileUrl} />
+          {user && (user.role === "ADMIN" || user.name === article.authorName) ? (
+            <Link
+              href={`/account/edit/${article.slug}`}
+              className="btn-ink px-3 py-1.5 text-xs text-[var(--gold)] border border-[var(--gold)]/30 hover:bg-[var(--gold)]/10 inline-flex items-center gap-1.5"
+              title="Edit this article, title, images, and content"
+            >
+              <Edit3 size={14} /> Edit Article
+            </Link>
+          ) : null}
         </div>
       </section>
 

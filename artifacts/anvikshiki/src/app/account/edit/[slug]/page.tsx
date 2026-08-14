@@ -20,6 +20,7 @@ export default function EditArticlePage() {
   const [saving, setSaving] = useState(false);
   const [article, setArticle] = useState<any>(null);
   const [title, setTitle] = useState("");
+  const [authorName, setAuthorName] = useState("");
   const [excerpt, setExcerpt] = useState("");
   const [body, setBody] = useState("");
 
@@ -60,6 +61,7 @@ export default function EditArticlePage() {
         const a = data.article;
         setArticle(a);
         setTitle(a.title || "");
+        setAuthorName(a.authorName || "");
         setExcerpt(a.excerpt || "");
         setBody(a.body || "");
         setImgPreview(a.heroImageUrl || "");
@@ -142,6 +144,7 @@ export default function EditArticlePage() {
       setErrorText("Audio file must be under 30 MB");
       return;
     }
+
     setUploadingInlineAudio(true);
     setErrorText("");
 
@@ -282,7 +285,7 @@ export default function EditArticlePage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ title, excerpt, body: currentBody, heroImageUrl: finalCover }),
+        body: JSON.stringify({ title, authorName, excerpt, body: currentBody, heroImageUrl: finalCover }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save");
@@ -356,6 +359,20 @@ export default function EditArticlePage() {
               onChange={e => setTitle(e.target.value)}
               maxLength={500}
               placeholder="Article title…"
+            />
+          </div>
+
+          {/* Author Name */}
+          <div>
+            <label className="form-label mb-1" htmlFor="edit-author">Author / Submitter Name</label>
+            <input
+              id="edit-author"
+              type="text"
+              className="input-sacred w-full text-sm"
+              value={authorName}
+              onChange={e => setAuthorName(e.target.value)}
+              maxLength={160}
+              placeholder="Author name (e.g. Xiyato Saanvi)…"
             />
           </div>
 

@@ -21,8 +21,8 @@ const STATUS_LABELS: Record<string, { label: string; className: string }> = {
   ARCHIVED: { label: "Archived", className: "badge-draft" },
 };
 
-// Authors can edit drafts/revisions and manage/hide/trash active or published submissions
-const USER_EDITABLE_STATUSES = new Set(["DRAFT", "RECEIVED", "REVISION_REQUESTED"]);
+// Authors can edit any of their submissions/articles at any stage
+const USER_EDITABLE_STATUSES = new Set(["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "ACCEPTED", "PUBLISHED"]);
 const USER_DELETABLE_STATUSES = new Set(["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "REJECTED", "PUBLISHED", "ACCEPTED", "ARCHIVED"]);
 
 export default function AccountPage() {
@@ -239,7 +239,11 @@ export default function AccountPage() {
               ) : null}
 
               {canEdit ? (
-                <Link href={`/submit/write?draftId=${submission.id}`} className="btn-ink px-2 py-1 text-[10px]" style={{ color: "var(--gold)" }}>
+                <Link
+                  href={isPublished && submission.slug ? `/account/edit/${submission.slug}` : `/submit/write?draftId=${submission.id}`}
+                  className="btn-ink px-2 py-1 text-[10px] text-[var(--gold)] hover:bg-[var(--gold)]/10"
+                  title={isDraft ? "Resume writing" : "Edit article, images, title, and body text"}
+                >
                   <Edit3 size={12} /> {isDraft ? "Resume" : "Edit"}
                 </Link>
               ) : null}

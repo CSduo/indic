@@ -252,6 +252,8 @@ router.patch("/articles/:slug/edit", async (req, res) => {
 
     const parsed = z.object({
       title: z.string().trim().min(1).max(500).optional(),
+      authorName: z.string().trim().min(1).max(160).optional(),
+      categorySlug: z.string().trim().min(1).max(100).optional(),
       excerpt: z.string().max(5_000).optional(),
       body: z.string().max(500_000).optional(),
       heroImageUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
@@ -260,9 +262,11 @@ router.patch("/articles/:slug/edit", async (req, res) => {
       return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
     }
 
-    const { title, excerpt, body, heroImageUrl } = parsed.data;
+    const { title, authorName, categorySlug, excerpt, body, heroImageUrl } = parsed.data;
     const updates: Record<string, any> = { updatedAt: new Date() };
     if (typeof title === "string" && title.trim()) updates.title = title.trim();
+    if (typeof authorName === "string" && authorName.trim()) updates.authorName = authorName.trim();
+    if (typeof categorySlug === "string" && categorySlug.trim()) updates.categorySlug = categorySlug.trim();
     if (typeof excerpt === "string") updates.excerpt = excerpt.trim();
     if (body !== undefined) updates.body = sanitizeArticleBody(body);
     if (heroImageUrl !== undefined) updates.heroImageUrl = heroImageUrl || null;
@@ -284,4 +288,3 @@ router.patch("/articles/:slug/edit", async (req, res) => {
 });
 
 export default router;
-
