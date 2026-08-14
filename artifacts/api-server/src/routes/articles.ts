@@ -275,15 +275,30 @@ router.patch("/articles/:slug/edit", async (req, res) => {
       .update(articlesTable)
       .set(updates)
       .where(and(eq(articlesTable.slug, slug), isNull(articlesTable.deletedAt)))
-      .returning();
+      .returning({
+        id: articlesTable.id,
+        slug: articlesTable.slug,
+        title: articlesTable.title,
+        subtitle: articlesTable.subtitle,
+        excerpt: articlesTable.excerpt,
+        body: articlesTable.body,
+        heroImageUrl: articlesTable.heroImageUrl,
+        categorySlug: articlesTable.categorySlug,
+        authorName: articlesTable.authorName,
+        featured: articlesTable.featured,
+        status: articlesTable.status,
+        readingMinutes: articlesTable.readingMinutes,
+        publishedAt: articlesTable.publishedAt,
+        updatedAt: articlesTable.updatedAt,
+      });
 
     return res.json({
       success: true,
       article: { ...updated, body: sanitizeArticleBody(updated.body) },
     });
-  } catch (err) {
-    req.log.error(err);
-    return res.status(500).json({ error: "Failed to update article" });
+  } catch (err: any) {
+    console.error("PATCH /api/articles/:slug/edit ERROR:", err);
+    return res.status(500).json({ error: err.message || "Failed to update article" });
   }
 });
 

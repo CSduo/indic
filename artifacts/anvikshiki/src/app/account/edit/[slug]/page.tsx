@@ -287,9 +287,10 @@ export default function EditArticlePage() {
         credentials: "include",
         body: JSON.stringify({ title, authorName, excerpt, body: currentBody, heroImageUrl: finalCover }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to save");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Failed to save (${res.status})`);
       toast.success("Article updated successfully!");
+      window.dispatchEvent(new Event("anv:content-changed"));
       navigate(`/articles/${slug}`);
     } catch (err: any) {
       toast.error(err.message || "Failed to save changes");
