@@ -91,8 +91,18 @@ export default function SubmitWritePage() {
   const [draft, setDraft] = useState<Draft>(() => {
     const d = loadDraft();
     const type = sessionStorage.getItem("anvikshiki_submit_type") || "essay";
-    return { ...d, type, fullName: d.fullName || user?.name || "", email: d.email || user?.email || "" };
+    return { ...d, type, fullName: d.fullName || user?.name || (user as any)?.username || "", email: d.email || user?.email || "" };
   });
+
+  useEffect(() => {
+    if (user) {
+      setDraft((prev) => ({
+        ...prev,
+        fullName: prev.fullName || user.name || (user as any)?.username || "",
+        email: prev.email || user.email || "",
+      }));
+    }
+  }, [user]);
   const [serverDraftId, setServerDraftId] = useState<string | null>(null);
   const [loadingDraft, setLoadingDraft] = useState(!!draftIdParam);
 
@@ -1098,13 +1108,34 @@ export default function SubmitWritePage() {
             </div>
 
             <div className="card-sacred p-5 space-y-4">
-              <div className="section-label mb-1">Your Details</div>
+              <div className="flex items-center justify-between mb-1">
+                <div className="section-label">Your Details</div>
+                {user && (
+                  <span className="font-ui text-[10px] px-2 py-0.5 rounded bg-[var(--surface-3)] border border-[var(--border-gold)] text-[var(--gold-soft)] font-medium">
+                    From Account
+                  </span>
+                )}
+              </div>
 
               <F label="Full Name *" error={errors.fullName}>
-                <input className="input-sacred" type="text" placeholder="Your full name" value={draft.fullName} onChange={e => set("fullName", e.target.value)} />
+                <input
+                  className="input-sacred"
+                  type="text"
+                  placeholder="Your full name"
+                  value={draft.fullName}
+                  onChange={e => set("fullName", e.target.value)}
+                  readOnly={Boolean(user?.name || (user as any)?.username)}
+                />
               </F>
               <F label="Email Address *" error={errors.email}>
-                <input className="input-sacred" type="email" placeholder="you@institution.edu" value={draft.email} onChange={e => set("email", e.target.value)} />
+                <input
+                  className="input-sacred"
+                  type="email"
+                  placeholder="you@institution.edu"
+                  value={draft.email}
+                  onChange={e => set("email", e.target.value)}
+                  readOnly={Boolean(user?.email)}
+                />
               </F>
               <F label="Institution">
                 <input className="input-sacred" type="text" placeholder="University, think-tank…" value={draft.institution} onChange={e => set("institution", e.target.value)} />

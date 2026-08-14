@@ -61,15 +61,21 @@ export default function AccountPage() {
 
   const loadSubmissions = () => {
     setLoadError("");
-    Promise.all([fetchList(""), fetchList("?deleted=true")])
-      .then(([active, deleted]) => {
+    fetchList("")
+      .then((active) => {
         setSubmissions(active);
-        setDeletedSubmissions(deleted);
+        setLoadingPage(false);
       })
       .catch((err: any) => {
         setLoadError(err?.message || "Your works could not be loaded. Please refresh and try again.");
+        setLoadingPage(false);
+      });
+
+    fetchList("?deleted=true")
+      .then((deleted) => {
+        setDeletedSubmissions(deleted);
       })
-      .finally(() => setLoadingPage(false));
+      .catch(() => {});
   };
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, ilike, inArray, isNull, or } from "drizzle-orm";
 import {
   articlesTable,
   categoriesTable,
@@ -218,12 +218,14 @@ export async function ensurePublicPublicationForSubmission(
       .limit(1);
 
     if (!existing && allowCreate && submission.title) {
-      const sTitle = submission.title.trim().toLowerCase();
       const baseSlug = slugify(submission.title);
       const [candidate] = await db
         .select({ id: papersTable.id, slug: papersTable.slug, status: papersTable.status, deletedAt: papersTable.deletedAt })
         .from(papersTable)
-        .where(eq(papersTable.slug, baseSlug))
+        .where(or(
+          eq(papersTable.slug, baseSlug),
+          ilike(papersTable.title, submission.title.trim())
+        ))
         .limit(1);
       if (candidate) existing = candidate;
     }
@@ -280,43 +282,58 @@ export async function ensurePublicPublicationForSubmission(
     const body = sanitizeArticleBody(submission.body || submission.abstract || submission.title || "No body content provided.");
     const authorName = submission.submitterName || "Anonymous Scholar";
     const coverImageUrl = getSubmissionCoverImage(submission) || "/images/provided/home-falcon-city-panorama-hero.jpg";
-    const slug = await uniquePaperSlug(baseSlug, submission.id);
+    let candidateSlug = await uniquePaperSlug(baseSlug, submission.id);
 
-    try {
-      const [paper] = await db
-        .insert(papersTable)
-        .values({
-          slug,
-          title: submission.title || "Untitled Paper",
-          abstract: submission.abstract || "",
-          body,
-          categorySlug,
-          tags: [],
-          authorName,
-          pdfUrl: submission.manuscriptUrl || (submission as any).fileUrl || null,
-          coverImageUrl,
-          citationText: null,
-          peerReviewed: false,
-          paperType: "RESEARCH_PAPER",
-          status: "PUBLISHED",
-          publishedAt,
-          sourceSubmissionId: submission.id,
-        })
-        .onConflictDoNothing()
-        .returning({ id: papersTable.id, slug: papersTable.slug });
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const [paper] = await db
+          .insert(papersTable)
+          .values({
+            slug: candidateSlug,
+            title: submission.title || "Untitled Paper",
+            abstract: submission.abstract || "",
+            body,
+            categorySlug,
+            tags: [],
+            authorName,
+            pdfUrl: submission.manuscriptUrl || (submission as any).fileUrl || null,
+            coverImageUrl,
+            citationText: null,
+            peerReviewed: false,
+            paperType: "RESEARCH_PAPER",
+            status: "PUBLISHED",
+            publishedAt,
+            sourceSubmissionId: submission.id,
+          })
+          .returning({ id: papersTable.id, slug: papersTable.slug });
 
-      if (paper) return { kind, status: "created", id: paper.id, slug: paper.slug };
-    } catch (insertErr) {
-      console.warn("Paper insertion fallback:", insertErr);
+        if (paper) return { kind, status: "created", id: paper.id, slug: paper.slug };
+      } catch (insertErr) {
+        console.warn(`Paper insertion attempt ${attempt + 1} failed:`, insertErr);
+        candidateSlug = `${baseSlug}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+      }
     }
 
-    const [concurrent] = await db
+    const [matching] = await db
       .select({ id: papersTable.id, slug: papersTable.slug })
       .from(papersTable)
-      .where(eq(papersTable.sourceSubmissionId, submission.id))
+      .where(or(
+        eq(papersTable.sourceSubmissionId, submission.id),
+        ilike(papersTable.title, (submission.title || "").trim())
+      ))
       .limit(1);
-    if (!concurrent) throw new Error("Publication link could not be created");
-    return { kind, status: "existing", id: concurrent.id, slug: concurrent.slug };
+
+    if (matching) {
+      await db.update(papersTable).set({
+        sourceSubmissionId: submission.id,
+        status: "PUBLISHED",
+        deletedAt: null,
+        updatedAt: new Date(),
+      }).where(eq(papersTable.id, matching.id));
+      return { kind, status: "existing", id: matching.id, slug: matching.slug };
+    }
+
+    throw new Error("Publication link could not be created");
   }
 
   let [existing] = await db
@@ -330,7 +347,10 @@ export async function ensurePublicPublicationForSubmission(
     const [candidate] = await db
       .select({ id: articlesTable.id, slug: articlesTable.slug, status: articlesTable.status, deletedAt: articlesTable.deletedAt })
       .from(articlesTable)
-      .where(eq(articlesTable.slug, baseSlug))
+      .where(or(
+        eq(articlesTable.slug, baseSlug),
+        ilike(articlesTable.title, submission.title.trim())
+      ))
       .limit(1);
     if (candidate) existing = candidate;
   }
@@ -388,44 +408,59 @@ export async function ensurePublicPublicationForSubmission(
   const body = sanitizeArticleBody(submission.body || submission.abstract || submission.title || "No body content provided.");
   const authorName = submission.submitterName || "Anonymous Scholar";
   const coverImageUrl = getSubmissionCoverImage(submission) || "/images/provided/home-falcon-city-panorama-hero.jpg";
-  const slug = await uniqueArticleSlug(baseSlug, submission.id);
+  let candidateSlug = await uniqueArticleSlug(baseSlug, submission.id);
 
-  try {
-    const [article] = await db
-      .insert(articlesTable)
-      .values({
-        slug,
-        title: submission.title || "Untitled Article",
-        subtitle: null,
-        excerpt: submission.abstract || submission.title || "Article excerpt",
-        body,
-        categorySlug,
-        tags: [],
-        authorName,
-        heroImageUrl: coverImageUrl,
-        heroImageAlt: submission.title || "Article Cover",
-        audioUrl: (submission as any).audioUrl || null,
-        keyTakeaways: [],
-        status: "PUBLISHED",
-        featured: false,
-        publishedAt,
-        sourceSubmissionId: submission.id,
-      })
-      .onConflictDoNothing()
-      .returning({ id: articlesTable.id, slug: articlesTable.slug });
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const [article] = await db
+        .insert(articlesTable)
+        .values({
+          slug: candidateSlug,
+          title: submission.title || "Untitled Article",
+          subtitle: null,
+          excerpt: submission.abstract || submission.title || "Article excerpt",
+          body,
+          categorySlug,
+          tags: [],
+          authorName,
+          heroImageUrl: coverImageUrl,
+          heroImageAlt: submission.title || "Article Cover",
+          audioUrl: (submission as any).audioUrl || null,
+          keyTakeaways: [],
+          status: "PUBLISHED",
+          featured: false,
+          publishedAt,
+          sourceSubmissionId: submission.id,
+        })
+        .returning({ id: articlesTable.id, slug: articlesTable.slug });
 
-    if (article) return { kind, status: "created", id: article.id, slug: article.slug };
-  } catch (insertErr) {
-    console.warn("Article insertion fallback:", insertErr);
+      if (article) return { kind, status: "created", id: article.id, slug: article.slug };
+    } catch (insertErr) {
+      console.warn(`Article insertion attempt ${attempt + 1} failed:`, insertErr);
+      candidateSlug = `${baseSlug}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    }
   }
 
-  const [concurrent] = await db
+  const [matching] = await db
     .select({ id: articlesTable.id, slug: articlesTable.slug })
     .from(articlesTable)
-    .where(eq(articlesTable.sourceSubmissionId, submission.id))
+    .where(or(
+      eq(articlesTable.sourceSubmissionId, submission.id),
+      ilike(articlesTable.title, (submission.title || "").trim())
+    ))
     .limit(1);
-  if (!concurrent) throw new Error("Publication link could not be created");
-  return { kind, status: "existing", id: concurrent.id, slug: concurrent.slug };
+
+  if (matching) {
+    await db.update(articlesTable).set({
+      sourceSubmissionId: submission.id,
+      status: "PUBLISHED",
+      deletedAt: null,
+      updatedAt: new Date(),
+    }).where(eq(articlesTable.id, matching.id));
+    return { kind, status: "existing", id: matching.id, slug: matching.slug };
+  }
+
+  throw new Error("Publication link could not be created");
 }
 
 export async function unpublishPublicPublicationForSubmission(submissionId: string) {
@@ -462,9 +497,6 @@ export async function syncPublishedSubmissions() {
   };
 
   for (const submission of publishedSubmissions) {
-    // Reconciliation is deliberately update-only. A missing link is not a
-    // license to create a public record: only an explicit admin publish
-    // transition may create one.
     const result = await ensurePublicPublicationForSubmission(submission, { allowCreate: false });
     if (result.status === "existing" && result.kind === "article") summary.updatedArticles += 1;
     if (result.status === "existing" && result.kind === "paper") summary.updatedPapers += 1;

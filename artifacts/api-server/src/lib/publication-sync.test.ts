@@ -54,6 +54,8 @@ const fixture = vi.hoisted(() => {
 
 vi.mock("drizzle-orm", () => ({
   eq: (field: unknown, value: unknown) => ({ type: "eq", field, value }),
+  ilike: (field: unknown, value: unknown) => ({ type: "ilike", field, value }),
+  or: (...conditions: unknown[]) => ({ type: "or", conditions }),
   and: (...conditions: unknown[]) => ({ type: "and", conditions }),
   asc: (field: unknown) => ({ type: "asc", field }),
   inArray: (field: unknown, values: unknown[]) => ({ type: "inArray", field, values }),
@@ -68,8 +70,8 @@ vi.mock("@workspace/db", () => {
   const findEq = (condition: any, field: unknown): unknown => {
     if (!condition) return undefined;
     if (condition.type === "eq" && condition.field === field) return condition.value;
-    if (condition.type === "and") {
-      for (const nested of condition.conditions) {
+    if (condition.type === "and" || condition.type === "or") {
+      for (const nested of condition.conditions || []) {
         const value = findEq(nested, field);
         if (value !== undefined) return value;
       }
@@ -122,29 +124,34 @@ vi.mock("@workspace/db", () => {
       return query;
     },
     insert: (table: unknown) => ({
-      values: (values: any) => ({
-        onConflictDoNothing: () => {
-          const result: any = Promise.resolve([]);
-          result.returning = () => {
-            if (table === fixture.tables.articles) {
-              const row = { ...values, id: "article-created" };
-              fixture.state.articleInserts.push(values);
-              fixture.state.articleLinks.set(values.sourceSubmissionId, row);
-              return Promise.resolve([{ id: row.id, slug: row.slug }]);
-            }
+      values: (values: any) => {
+        const createReturning = () => () => {
+          if (table === fixture.tables.articles) {
+            const row = { ...values, id: "article-created" };
+            fixture.state.articleInserts.push(values);
+            fixture.state.articleLinks.set(values.sourceSubmissionId, row);
+            return Promise.resolve([{ id: row.id, slug: row.slug }]);
+          }
 
-            if (table === fixture.tables.papers) {
-              const row = { ...values, id: "paper-created" };
-              fixture.state.paperInserts.push(values);
-              fixture.state.paperLinks.set(values.sourceSubmissionId, row);
-              return Promise.resolve([{ id: row.id, slug: row.slug }]);
-            }
+          if (table === fixture.tables.papers) {
+            const row = { ...values, id: "paper-created" };
+            fixture.state.paperInserts.push(values);
+            fixture.state.paperLinks.set(values.sourceSubmissionId, row);
+            return Promise.resolve([{ id: row.id, slug: row.slug }]);
+          }
 
-            return Promise.resolve([]);
-          };
-          return result;
-        },
-      }),
+          return Promise.resolve([]);
+        };
+
+        const result: any = Promise.resolve([]);
+        result.returning = createReturning();
+        result.onConflictDoNothing = () => {
+          const conflictRes: any = Promise.resolve([]);
+          conflictRes.returning = createReturning();
+          return conflictRes;
+        };
+        return result;
+      },
     }),
     update: (table: unknown) => ({
       set: (values: unknown) => ({

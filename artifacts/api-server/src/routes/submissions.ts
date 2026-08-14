@@ -132,6 +132,27 @@ const submissionSchema = z.object({
   audioPublicId: z.string().optional().or(z.literal("")).or(z.null()),
 });
 
+async function resolveSubmitterIdentity(auth: any, fallbackName?: string | null, fallbackEmail?: string | null) {
+  let userId: string | null = auth?.userId || null;
+  let name = (fallbackName || "Anonymous Scholar").trim();
+  let email = (fallbackEmail || auth?.email || "").trim().toLowerCase();
+
+  if (userId) {
+    try {
+      const [user] = await db
+        .select({ name: usersTable.name, email: usersTable.email })
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .limit(1);
+      if (user) {
+        if (user.name) name = user.name.trim();
+        if (user.email) email = user.email.trim().toLowerCase();
+      }
+    } catch {}
+  }
+  return { userId, name, email };
+}
+
 // POST /api/submissions (JSON body)
 router.post("/submissions", async (req, res) => {
   try {
@@ -143,10 +164,12 @@ router.post("/submissions", async (req, res) => {
 
     if (!data.consent) return res.status(400).json({ error: "Consent is required" });
 
+    const identity = await resolveSubmitterIdentity(auth, data.submitterName, data.submitterEmail);
+
     const [submission] = await db.insert(submissionsTable).values({
-      userId: auth?.userId || null,
-      submitterName: data.submitterName,
-      submitterEmail: data.submitterEmail,
+      userId: identity.userId,
+      submitterName: identity.name,
+      submitterEmail: identity.email,
       type: data.type,
       title: data.title,
       domain: data.domain ? normalizeCategorySlug(data.domain) : null,
@@ -334,11 +357,12 @@ router.post(
       ].filter(Boolean).join("\n");
 
       const auth = await getUserAuth(req);
+      const identity = await resolveSubmitterIdentity(auth, submitterName, submitterEmail);
 
       const [submission] = await db.insert(submissionsTable).values({
-        userId: auth?.userId || null,
-        submitterName,
-        submitterEmail,
+        userId: identity.userId,
+        submitterName: identity.name,
+        submitterEmail: identity.email,
         type,
         title,
         domain,
@@ -557,18 +581,16 @@ router.post("/submissions/write", async (req, res) => {
     // Full submissions still require the declaration + minimum content.
     if (!isDraft) {
       if (!data.consent) return res.status(400).json({ error: "Consent is required" });
-      if (!data.submitterName?.trim()) return res.status(400).json({ error: "Full Name is required" });
-      if (!data.submitterEmail?.trim() || !data.submitterEmail.includes("@")) {
-        return res.status(400).json({ error: "A valid Email Address is required" });
-      }
       if (!data.abstract.trim()) return res.status(400).json({ error: "Abstract is required" });
       if (!data.body.trim() || data.body.length < 1) return res.status(400).json({ error: "Essay body is required" });
     }
 
+    const identity = await resolveSubmitterIdentity(auth, data.submitterName, data.submitterEmail);
+
     const [submission] = await db.insert(submissionsTable).values({
-      userId: auth?.userId || null,
-      submitterName: data.submitterName || "Draft Author",
-      submitterEmail: data.submitterEmail || auth?.email || "",
+      userId: identity.userId,
+      submitterName: identity.name || (isDraft ? "Draft Author" : "Anonymous Scholar"),
+      submitterEmail: identity.email || auth?.email || "",
       type: data.type || "ESSAY",
       title: data.title || "Untitled draft",
       domain: data.domain ? normalizeCategorySlug(data.domain) : null,
@@ -609,69 +631,58 @@ router.get("/submissions", async (req, res) => {
       ? or(eq(submissionsTable.userId, viewer.userId), ilike(submissionsTable.submitterEmail, userEmail))!
       : eq(submissionsTable.userId, viewer.userId);
 
-    let submissions: any[] = [];
-    try {
-      submissions = await db.select(SUBMISSION_LIST_COLUMNS).from(submissionsTable)
+    const [submissionsResult, ownArticlesResult, ownPapersResult] = await Promise.all([
+      db.select(SUBMISSION_LIST_COLUMNS).from(submissionsTable)
         .where(and(
           ownsSubmission,
           trashed ? isNotNull(submissionsTable.deletedAt) : isNull(submissionsTable.deletedAt),
         ))
-        .orderBy(desc(submissionsTable.createdAt));
-    } catch (err) {
-      req.log?.warn?.({ err }, "Failed to query submissionsTable in GET /submissions");
-      submissions = [];
-    }
-
-    // 2. Published work lives in articles/papers, and a work can outlive the
-    //    submission row it came from. Claim those by author identity or by an
-    //    explicit link back to one of this author's submissions, so published
-    //    works never disappear from the desk.
-    const submissionIds = submissions.map(s => s.id).filter(Boolean);
-    const identityKeys = [...viewer.identities].filter(k => k && k.length >= 4);
-
-    const articleConditions: any[] = [];
-    if (submissionIds.length > 0) {
-      articleConditions.push(inArray(articlesTable.sourceSubmissionId, submissionIds));
-    }
-    for (const key of identityKeys) {
-      articleConditions.push(sql`lower(regexp_replace(coalesce(${articlesTable.authorName}, ''), '[^a-zA-Z0-9]+', '', 'g')) = ${key}`);
-    }
-
-    const paperConditions: any[] = [];
-    if (submissionIds.length > 0) {
-      paperConditions.push(inArray(papersTable.sourceSubmissionId, submissionIds));
-    }
-    for (const key of identityKeys) {
-      paperConditions.push(sql`lower(regexp_replace(coalesce(${papersTable.authorName}, ''), '[^a-zA-Z0-9]+', '', 'g')) = ${key}`);
-    }
-
-    let ownArticles: any[] = [];
-    if (articleConditions.length > 0) {
-      try {
-        ownArticles = await db.select(ARTICLE_LIST_COLUMNS).from(articlesTable)
+        .orderBy(desc(submissionsTable.createdAt))
+        .catch(err => {
+          req.log?.warn?.({ err }, "Failed to query submissionsTable in GET /submissions");
+          return [] as any[];
+        }),
+      (async () => {
+        const conds: any[] = [];
+        if (viewer.name) conds.push(ilike(articlesTable.authorName, viewer.name));
+        if (viewer.email) {
+          const prefix = viewer.email.split("@")[0];
+          if (prefix && prefix.length >= 3) conds.push(ilike(articlesTable.authorName, `%${prefix}%`));
+        }
+        if (conds.length === 0) return [] as any[];
+        return db.select(ARTICLE_LIST_COLUMNS).from(articlesTable)
           .where(and(
             trashed ? isNotNull(articlesTable.deletedAt) : isNull(articlesTable.deletedAt),
-            articleConditions.length === 1 ? articleConditions[0] : or(...articleConditions)!,
-          ));
-      } catch (err) {
-        req.log?.warn?.({ err }, "Failed to query articlesTable for author works");
-        ownArticles = [];
-      }
-    }
-
-    let ownPapers: any[] = [];
-    if (paperConditions.length > 0) {
-      try {
-        ownPapers = await db.select(PAPER_LIST_COLUMNS).from(papersTable)
+            conds.length === 1 ? conds[0] : or(...conds)!
+          ))
+          .catch(err => {
+            req.log?.warn?.({ err }, "Failed to query articlesTable for author works");
+            return [] as any[];
+          });
+      })(),
+      (async () => {
+        const conds: any[] = [];
+        if (viewer.name) conds.push(ilike(papersTable.authorName, viewer.name));
+        if (viewer.email) {
+          const prefix = viewer.email.split("@")[0];
+          if (prefix && prefix.length >= 3) conds.push(ilike(papersTable.authorName, `%${prefix}%`));
+        }
+        if (conds.length === 0) return [] as any[];
+        return db.select(PAPER_LIST_COLUMNS).from(papersTable)
           .where(and(
             trashed ? isNotNull(papersTable.deletedAt) : isNull(papersTable.deletedAt),
-            paperConditions.length === 1 ? paperConditions[0] : or(...paperConditions)!,
-          ));
-      } catch (err) {
-        req.log?.warn?.({ err }, "Failed to query papersTable for author works");
-        ownPapers = [];
-      }
-    }
+            conds.length === 1 ? conds[0] : or(...conds)!
+          ))
+          .catch(err => {
+            req.log?.warn?.({ err }, "Failed to query papersTable for author works");
+            return [] as any[];
+          });
+      })(),
+    ]);
+
+    const submissions = submissionsResult || [];
+    const ownArticles = ownArticlesResult || [];
+    const ownPapers = ownPapersResult || [];
 
     // 3. Give every submission the slug of the work it was published as.
     const enriched: any[] = submissions.map(s => {

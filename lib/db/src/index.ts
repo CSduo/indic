@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
-import * as schema from "./schema";
+import * as schema from "./schema/index";
 
 const { Pool } = pg;
 
@@ -74,4 +74,4 @@ if (process.env.VERIFY_DATABASE_ON_START === "true") {
 
 export const db = drizzle(pool, { schema });
 
-export * from "./schema";
+export * from "./schema/index";
