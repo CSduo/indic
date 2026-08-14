@@ -351,10 +351,99 @@ async function persistImportedImage(imgSrc: string, baseUrl: string): Promise<st
   return null;
 }
 
-/** Allowed block-level and inline HTML tags to preserve */
-const BLOCK_TAGS = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'ul', 'ol', 'li', 'figure', 'figcaption', 'section', 'div', 'article', 'main', 'header', 'pre', 'code']);
-const INLINE_TAGS = new Set(['strong', 'b', 'em', 'i', 'u', 'span', 'a', 'br', 'mark', 'sup', 'sub', 'abbr']);
-const SKIP_TAGS = new Set(['script', 'style', 'nav', 'footer', 'aside', 'iframe', 'noscript', 'form', 'button', 'input', 'select', 'option', 'meta', 'link', 'head', 'svg', 'path', 'template']);
+const VOID_TAGS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
+const BLOCK_TAGS = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'ul', 'ol', 'li', 'figure', 'figcaption', 'section', 'div', 'article', 'main', 'header', 'pre', 'code', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'hr']);
+const INLINE_TAGS = new Set(['strong', 'b', 'em', 'i', 'u', 's', 'strike', 'mark', 'small', 'span', 'a', 'sup', 'sub', 'abbr', 'code', 'cite', 'q']);
+
+type ParsedClassStyle = {
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strike?: boolean;
+  isSuper?: boolean;
+  isSub?: boolean;
+  isQuote?: boolean;
+  isTitle?: boolean;
+  isHeading1?: boolean;
+  isHeading2?: boolean;
+  isSubtitle?: boolean;
+};
+
+function parseCssRules(cssText: string): Map<string, ParsedClassStyle> {
+  const classStyles = new Map<string, ParsedClassStyle>();
+  if (!cssText) return classStyles;
+  const cleanCss = cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+  const ruleRegex = /([^{]+)\{([^}]+)\}/g;
+  let match: RegExpExecArray | null;
+  while ((match = ruleRegex.exec(cleanCss)) !== null) {
+    const selectors = match[1].split(',');
+    const decls = match[2];
+    const props: Record<string, string> = {};
+    const declPairs = decls.split(';');
+    for (const pair of declPairs) {
+      const idx = pair.indexOf(':');
+      if (idx !== -1) {
+        const prop = pair.slice(0, idx).trim().toLowerCase();
+        const val = pair.slice(idx + 1).trim().toLowerCase();
+        props[prop] = val;
+      }
+    }
+
+    const isBold = !!(props['font-weight'] && (
+      props['font-weight'] === 'bold' ||
+      props['font-weight'] === '700' ||
+      props['font-weight'] === '800' ||
+      props['font-weight'] === '900' ||
+      props['font-weight'] === 'bolder' ||
+      parseInt(props['font-weight'], 10) >= 600
+    ));
+    const isItalic = !!(props['font-style'] && (props['font-style'] === 'italic' || props['font-style'] === 'oblique'));
+    const isUnderline = !!(props['text-decoration']?.includes('underline') || props['text-decoration-line']?.includes('underline'));
+    const isStrike = !!(props['text-decoration']?.includes('line-through') || props['text-decoration-line']?.includes('line-through'));
+    const isSuper = props['vertical-align'] === 'super';
+    const isSub = props['vertical-align'] === 'sub';
+
+    const marginLeft = parseFloat(props['margin-left'] || '0');
+    const paddingLeft = parseFloat(props['padding-left'] || '0');
+    const isQuote = !!(
+      (props['margin-left'] && marginLeft >= 25) ||
+      (props['padding-left'] && paddingLeft >= 25) ||
+      (props['border-left'] && props['border-left'] !== 'none')
+    );
+
+    const fontSize = parseFloat(props['font-size'] || '0');
+    const isLarge = fontSize >= 15;
+
+    for (let sel of selectors) {
+      sel = sel.trim();
+      const classMatch = sel.match(/\.([a-zA-Z0-9_-]+)/);
+      if (classMatch) {
+        const className = classMatch[1];
+        const lowerName = className.toLowerCase();
+        const isTitle = !!(lowerName.includes('title') || (isLarge && isBold && fontSize >= 22));
+        const isHeading1 = !!(lowerName.includes('heading-1') || lowerName.includes('heading_1') || (isLarge && isBold && fontSize >= 18));
+        const isHeading2 = !!(lowerName.includes('heading-2') || lowerName.includes('heading_2') || (isLarge && fontSize >= 15));
+        const isSubtitle = !!lowerName.includes('subtitle');
+
+        const existing = classStyles.get(className) || {};
+        classStyles.set(className, {
+          bold: Boolean(existing.bold || isBold),
+          italic: Boolean(existing.italic || isItalic),
+          underline: Boolean(existing.underline || isUnderline),
+          strike: Boolean(existing.strike || isStrike),
+          isSuper: Boolean(existing.isSuper || isSuper),
+          isSub: Boolean(existing.isSub || isSub),
+          isQuote: Boolean(existing.isQuote || isQuote),
+          isTitle: Boolean(existing.isTitle || isTitle),
+          isHeading1: Boolean(existing.isHeading1 || isHeading1),
+          isHeading2: Boolean(existing.isHeading2 || isHeading2),
+          isSubtitle: Boolean(existing.isSubtitle || isSubtitle),
+        });
+      }
+    }
+  }
+  return classStyles;
+}
 
 /**
  * Lightweight HTML-to-structured-HTML converter.
@@ -362,10 +451,21 @@ const SKIP_TAGS = new Set(['script', 'style', 'nav', 'footer', 'aside', 'iframe'
  * lists, inline formatting and images.
  */
 export async function extractSemanticHtml(rawHtml: string, finalUrl: string): Promise<SemanticExtraction> {
-  // ── 1. Strip <script>, <style>, <nav>, <footer>, <header>, <aside>, <noscript> blocks ──
+  // ── 1. Extract CSS rules from <style> before stripping ──
+  let allCss = '';
+  const styleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi;
+  let styleMatch: RegExpExecArray | null;
+  while ((styleMatch = styleRegex.exec(rawHtml)) !== null) {
+    allCss += ' ' + styleMatch[1];
+  }
+  const classStyles = parseCssRules(allCss);
+
+  // ── 2. Strip non-content blocks upfront ──
   let cleaned = rawHtml
+    .replace(/<!DOCTYPE[\s\S]*?>/gi, '')
     .replace(/<script[\s\S]*?<\/script>/gi, '')
     .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<head[\s\S]*?<\/head>/gi, '')
     .replace(/<nav[\s\S]*?<\/nav>/gi, '')
     .replace(/<footer[\s\S]*?<\/footer>/gi, '')
     .replace(/<aside[\s\S]*?<\/aside>/gi, '')
@@ -374,37 +474,28 @@ export async function extractSemanticHtml(rawHtml: string, finalUrl: string): Pr
     .replace(/<svg[\s\S]*?<\/svg>/gi, '')
     .replace(/<!--[\s\S]*?-->/g, '');
 
-  // ── 2. Try to isolate the main content area ──
-  const mainPatterns = [
-    /<article[\s\S]*?>([\s\S]*?)<\/article>/gi,
-    /<main[\s\S]*?>([\s\S]*?)<\/main>/gi,
-    /<div[^>]*(?:class|id)="[^"]*(?:article|content|post|entry|story|body|text)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
-  ];
-
-  for (const pat of mainPatterns) {
-    pat.lastIndex = 0;
-    const m = pat.exec(cleaned);
-    if (m && m[1] && m[1].length > 300) {
-      cleaned = m[1];
-      break;
-    }
-  }
-
-  // ── 3. Process images: upload to Cloudinary, replace src ──
+  // ── 3. Process images: upload to Cloudinary/Blob, replace src ──
   const imgPromises: Array<Promise<void>> = [];
-  const imgMap = new Map<string, string>(); // original src → cloudinary url
-  const imgMatches = [...cleaned.matchAll(/<img[^>]*src=["']([^"']+)["'][^>]*>/gi)];
+  const imgMap = new Map<string, string>(); // original src → persisted cdn url
+  const imgMatches = [...cleaned.matchAll(/<img\b([^>]*)>/gi)];
   let failedEmbeddedImages = 0;
   const processedImageSources = new Set<string>();
 
   for (const match of imgMatches) {
-    const src = match[1];
-    if (!processedImageSources.has(src)) {
+    const srcMatch = match[1].match(/src=["']([^"']+)["']/i);
+    const src = srcMatch ? srcMatch[1] : '';
+    if (src && !processedImageSources.has(src)) {
       processedImageSources.add(src);
       imgPromises.push(
         persistImportedImage(src, finalUrl).then(cdnUrl => {
-          if (cdnUrl) imgMap.set(src, cdnUrl);
-          else if (/^data:/i.test(src)) failedEmbeddedImages += 1;
+          if (cdnUrl) {
+            imgMap.set(src, cdnUrl);
+          } else if (/^data:/i.test(src)) {
+            failedEmbeddedImages += 1;
+          } else if (/^https?:\/\//i.test(src)) {
+            // Keep the original remote image URL if storage upload is unavailable
+            imgMap.set(src, src);
+          }
         })
       );
     }
@@ -413,18 +504,34 @@ export async function extractSemanticHtml(rawHtml: string, finalUrl: string): Pr
 
   // ── 4. Build output HTML tag by tag ──
   const result: string[] = [];
-  // Process the cleaned HTML with a simple tag-walk
   const tokenRegex = /<(\/?)([\w-]+)([^>]*)>|([^<]+)/g;
-  const tagStack: string[] = [];
-  let skipDepth = 0;
-  let currentBlock = '';
+  let currentBlockType = 'p';
+  let currentBlockContent = '';
+  let activeStyles: Array<{
+    tag: string;
+    bold?: boolean;
+    italic?: boolean;
+    underline?: boolean;
+    strike?: boolean;
+    isSuper?: boolean;
+    isSub?: boolean;
+  }> = [];
 
   const flushBlock = () => {
-    const trimmed = currentBlock.trim();
+    const trimmed = currentBlockContent.trim();
     if (trimmed && trimmed !== '<br>' && trimmed !== '<br/>') {
-      result.push(`<p>${trimmed}</p>`);
+      if (currentBlockType === 'blockquote') {
+        result.push(`<blockquote><p>${trimmed}</p></blockquote>`);
+      } else if (currentBlockType === 'li') {
+        result.push(`<li>${trimmed}</li>`);
+      } else if (currentBlockType === 'div') {
+        result.push(`<p>${trimmed}</p>`);
+      } else {
+        result.push(`<${currentBlockType}>${trimmed}</${currentBlockType}>`);
+      }
     }
-    currentBlock = '';
+    currentBlockContent = '';
+    currentBlockType = 'p';
   };
 
   let token: RegExpExecArray | null;
@@ -434,140 +541,140 @@ export async function extractSemanticHtml(rawHtml: string, finalUrl: string): Pr
     const tag = (tagName || '').toLowerCase();
 
     if (text !== undefined) {
-      // Text node
-      if (skipDepth > 0) continue;
       const decoded = decodeEntities(text);
-      if (decoded.trim()) currentBlock += decoded;
-      continue;
-    }
-
-    // Tag node
-    if (skipDepth > 0) {
-      if (!isClose && SKIP_TAGS.has(tag)) skipDepth++;
-      else if (isClose && SKIP_TAGS.has(tag)) skipDepth--;
-      continue;
-    }
-
-    if (SKIP_TAGS.has(tag) && !isClose) {
-      skipDepth++;
-      continue;
-    }
-    if (SKIP_TAGS.has(tag) && isClose) continue;
-
-    if (tag === 'img') {
-      // Image — extract src and alt
-      const srcMatch = attrs.match(/src=["']([^"']+)["']/i);
-      const altMatch = attrs.match(/alt=["']([^"']*)["']/i);
-      const src = srcMatch ? srcMatch[1] : '';
-      const alt = altMatch ? decodeEntities(altMatch[1]) : '';
-      if (src) {
-        flushBlock();
-        const persistedSrc = imgMap.get(src) || (/^data:/i.test(src) ? '' : src);
-        if (persistedSrc) {
-          const safeSrc = escapeHtml(persistedSrc);
-          const safeAlt = escapeHtml(alt);
-          result.push(`<figure><img src="${safeSrc}" alt="${safeAlt}" style="max-width:100%;height:auto;margin:1.5rem auto;display:block;border-radius:8px;" />${safeAlt ? `<figcaption>${safeAlt}</figcaption>` : ''}</figure>`);
+      if (decoded) {
+        let styledText = escapeHtml(decoded);
+        let prefix = '';
+        let suffix = '';
+        for (const s of activeStyles) {
+          if (s.bold) { prefix += '<strong>'; suffix = '</strong>' + suffix; }
+          if (s.italic) { prefix += '<em>'; suffix = '</em>' + suffix; }
+          if (s.underline) { prefix += '<u>'; suffix = '</u>' + suffix; }
+          if (s.strike) { prefix += '<s>'; suffix = '</s>' + suffix; }
+          if (s.isSuper) { prefix += '<sup>'; suffix = '</sup>' + suffix; }
+          if (s.isSub) { prefix += '<sub>'; suffix = '</sub>' + suffix; }
         }
+        currentBlockContent += prefix + styledText + suffix;
       }
       continue;
     }
 
-    if (tag === 'br') {
-      currentBlock += '<br>';
+    if (VOID_TAGS.has(tag)) {
+      if (tag === 'br') {
+        currentBlockContent += '<br>';
+      } else if (tag === 'img') {
+        const srcMatch = attrs.match(/src=["']([^"']+)["']/i);
+        const altMatch = attrs.match(/alt=["']([^"']*)["']/i);
+        const src = srcMatch ? srcMatch[1] : '';
+        const alt = altMatch ? decodeEntities(altMatch[1]) : '';
+        if (src) {
+          flushBlock();
+          const persistedSrc = imgMap.get(src) || (/^data:/i.test(src) ? '' : src);
+          if (persistedSrc) {
+            const safeSrc = escapeHtml(persistedSrc);
+            const safeAlt = escapeHtml(alt);
+            result.push(`<figure><img src="${safeSrc}" alt="${safeAlt}" style="max-width:100%;height:auto;margin:1.5rem auto;display:block;border-radius:8px;" />${safeAlt ? `<figcaption>${safeAlt}</figcaption>` : ''}</figure>`);
+          }
+        }
+      } else if (tag === 'hr') {
+        flushBlock();
+        result.push('<hr>');
+      }
       continue;
     }
 
-    if (tag === 'a' && !isClose) {
-      const hrefMatch = attrs.match(/href=["']([^"']+)["']/i);
-      const href = hrefMatch ? hrefMatch[1] : '#';
-      currentBlock += `<a href="${href}" target="_blank" rel="noopener noreferrer">`;
-      tagStack.push('a');
-      continue;
-    }
-    if (tag === 'a' && isClose) {
-      currentBlock += '</a>';
-      tagStack.pop();
-      continue;
+    const classAttrMatch = attrs ? attrs.match(/class=["']([^"']+)["']/i) : null;
+    const classList = classAttrMatch ? classAttrMatch[1].split(/\s+/) : [];
+    const styleAttrMatch = attrs ? attrs.match(/style=["']([^"']+)["']/i) : null;
+    const inlineStyleText = styleAttrMatch ? styleAttrMatch[1] : '';
+
+    let isBold = tag === 'b' || tag === 'strong' || /font-weight\s*:\s*(bold|[6-9]00)/i.test(inlineStyleText);
+    let isItalic = tag === 'i' || tag === 'em' || /font-style\s*:\s*italic/i.test(inlineStyleText);
+    let isUnderline = tag === 'u' || /text-decoration\s*:\s*underline/i.test(inlineStyleText);
+    let isStrike = tag === 's' || tag === 'strike' || /text-decoration\s*:\s*line-through/i.test(inlineStyleText);
+    let isSuper = tag === 'sup';
+    let isSub = tag === 'sub';
+
+    for (const cls of classList) {
+      const cs = classStyles.get(cls);
+      if (cs) {
+        if (cs.bold) isBold = true;
+        if (cs.italic) isItalic = true;
+        if (cs.underline) isUnderline = true;
+        if (cs.strike) isStrike = true;
+        if (cs.isSuper) isSuper = true;
+        if (cs.isSub) isSub = true;
+      }
     }
 
-    if (INLINE_TAGS.has(tag)) {
+    if (tag === 'span' || ['strong', 'b', 'em', 'i', 'u', 's', 'strike', 'sup', 'sub'].includes(tag)) {
       if (!isClose) {
-        const openTag = tag === 'span' ? '' : `<${tag}>`;
-        currentBlock += openTag;
-        if (tag !== 'span') tagStack.push(tag);
+        activeStyles.push({ tag, bold: isBold, italic: isItalic, underline: isUnderline, strike: isStrike, isSuper, isSub });
       } else {
-        const closeTag = tag === 'span' ? '' : `</${tag}>`;
-        currentBlock += closeTag;
-        if (tag !== 'span') tagStack.pop();
+        activeStyles.pop();
       }
       continue;
     }
 
-    // Block-level tags
+    if (tag === 'a') {
+      if (!isClose) {
+        const hrefMatch = attrs.match(/href=["']([^"']+)["']/i);
+        const href = hrefMatch ? escapeHtml(hrefMatch[1]) : '#';
+        currentBlockContent += `<a href="${href}" target="_blank" rel="noopener noreferrer">`;
+      } else {
+        currentBlockContent += '</a>';
+      }
+      continue;
+    }
+
+    if (tag === 'ul') {
+      if (!isClose) {
+        flushBlock();
+        result.push('<ul>');
+      } else {
+        flushBlock();
+        result.push('</ul>');
+      }
+      continue;
+    }
+
+    if (tag === 'ol') {
+      if (!isClose) {
+        flushBlock();
+        result.push('<ol>');
+      } else {
+        flushBlock();
+        result.push('</ol>');
+      }
+      continue;
+    }
+
     if (BLOCK_TAGS.has(tag)) {
       if (!isClose) {
         flushBlock();
-        if (tag === 'p') {
-          // Will accumulate content
-        } else if (['h1','h2','h3','h4','h5','h6'].includes(tag)) {
-          tagStack.push(tag);
-          result.push(`<${tag}>`);
+        if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tag)) {
+          currentBlockType = tag;
         } else if (tag === 'blockquote') {
-          tagStack.push('blockquote');
-          result.push('<blockquote>');
-        } else if (tag === 'ul') {
-          tagStack.push('ul');
-          result.push('<ul>');
-        } else if (tag === 'ol') {
-          tagStack.push('ol');
-          result.push('<ol>');
+          currentBlockType = 'blockquote';
         } else if (tag === 'li') {
-          tagStack.push('li');
-          result.push('<li>');
-        } else if (tag === 'figure') {
-          tagStack.push('figure');
-          result.push('<figure>');
-        } else if (tag === 'figcaption') {
-          tagStack.push('figcaption');
-          result.push('<figcaption>');
+          currentBlockType = 'li';
+        } else if (tag === 'p' || tag === 'div' || tag === 'section' || tag === 'article' || tag === 'main') {
+          let blockType = 'p';
+          for (const cls of classList) {
+            const cs = classStyles.get(cls);
+            if (cs?.isTitle) { blockType = 'h1'; break; }
+            else if (cs?.isHeading1) { blockType = 'h2'; break; }
+            else if (cs?.isHeading2) { blockType = 'h3'; break; }
+            else if (cs?.isSubtitle) { blockType = 'h3'; break; }
+            else if (cs?.isQuote && blockType === 'p') blockType = 'blockquote';
+          }
+          if (blockType === 'p' && /margin-left\s*:\s*([3-9]\d|\d{3,})pt/i.test(inlineStyleText)) {
+            blockType = 'blockquote';
+          }
+          currentBlockType = blockType;
         }
       } else {
-        // Closing block tag
-        if (['h1','h2','h3','h4','h5','h6'].includes(tag)) {
-          const txt = currentBlock.trim();
-          if (txt) result.push(`${txt}</${tag}>`);
-          else if (result.length && result[result.length - 1].startsWith(`<${tag}>`)) result.pop();
-          currentBlock = '';
-          tagStack.pop();
-        } else if (tag === 'blockquote') {
-          const txt = currentBlock.trim();
-          if (txt) result.push(`${txt}</blockquote>`);
-          else result.push('</blockquote>');
-          currentBlock = '';
-          tagStack.pop();
-        } else if (tag === 'ul') {
-          result.push('</ul>');
-          tagStack.pop();
-        } else if (tag === 'ol') {
-          result.push('</ol>');
-          tagStack.pop();
-        } else if (tag === 'li') {
-          const txt = currentBlock.trim();
-          if (txt) result.push(`${txt}</li>`);
-          else result.push('</li>');
-          currentBlock = '';
-          tagStack.pop();
-        } else if (tag === 'figure') {
-          result.push('</figure>');
-          tagStack.pop();
-        } else if (tag === 'figcaption') {
-          const txt = currentBlock.trim();
-          if (txt) result.push(`${txt}</figcaption>`);
-          currentBlock = '';
-          tagStack.pop();
-        } else if (tag === 'p') {
-          flushBlock();
-        }
+        flushBlock();
       }
       continue;
     }
@@ -580,7 +687,18 @@ export async function extractSemanticHtml(rawHtml: string, finalUrl: string): Pr
   let finalHtml = result
     .filter(line => {
       const stripped = line.replace(/<[^>]*>/g, '').trim();
-      return stripped.length > 0 || line.includes('<img') || line.includes('<figure');
+      return (
+        stripped.length > 0 ||
+        line.includes('<img') ||
+        line.includes('<figure') ||
+        line.includes('<hr') ||
+        line.includes('<ul') ||
+        line.includes('</ul') ||
+        line.includes('<ol') ||
+        line.includes('</ol') ||
+        line.includes('<table') ||
+        line.includes('</table')
+      );
     })
     .join('\n');
 
@@ -651,18 +769,19 @@ router.post('/extract-url', async (req, res) => {
       });
     }
 
-    // Fallback: if extraction yielded almost nothing, return a plain-text conversion
+    // Fallback: only if extraction yielded virtually nothing
     const textLen = html.replace(/<[^>]*>/g, '').trim().length;
-    if (textLen < 100) {
+    if (textLen < 20) {
       const stripped = rawText
         .replace(/<script[\s\S]*?<\/script>/gi, '')
         .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<head[\s\S]*?<\/head>/gi, '')
         .replace(/<[^>]+>/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
       html = stripped
-        .split(/\s{3,}/)
-        .filter(p => p.trim().length > 40)
+        .split(/\n{2,}|\.\s{2,}/)
+        .filter(p => p.trim().length > 10)
         .map(p => `<p>${decodeEntities(p.trim())}</p>`)
         .join('\n');
     }

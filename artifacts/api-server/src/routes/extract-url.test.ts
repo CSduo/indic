@@ -95,4 +95,47 @@ describe("Google Docs URL import", () => {
     expect(result.html).not.toContain("data:image");
     expect(result.html).not.toContain("<img");
   });
+
+  it("extracts rich semantic structure (headings, bold, italics, quotes, and paragraphs) from Google Docs HTML with CSS class styling", async () => {
+    const gdocHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <link rel="stylesheet" href="style.css">
+        <style type="text/css">
+          .c0 { font-size: 11pt; font-family: "Arial"; }
+          .c1 { font-weight: 700; }
+          .c2 { font-style: italic; }
+          .title { font-size: 26pt; font-weight: 700; }
+          .heading-1 { font-size: 18pt; font-weight: 700; }
+          .quote { margin-left: 36pt; font-style: italic; }
+        </style>
+      </head>
+      <body class="doc-content">
+        <p class="title"><span class="c1">The Human Tapestry of the Slave Trade</span></p>
+        <p class="c0"><span>The transatlantic slave trade was not a monolithic event. Two groups stand out: </span><span class="c1">the Mandinka</span><span> and </span><span class="c1">The Yoruba</span><span> (referred to as </span><span class="c2">Olofe or Olofin</span><span>).</span></p>
+        <p class="heading-1"><span class="c1">Cultural Heritage</span></p>
+        <p class="quote"><span class="c2">"Against all odds, these cultures did not vanish."</span></p>
+        <ul class="lst-kix">
+          <li><span>Mali and Senegambia</span></li>
+          <li><span>Southwestern Nigeria and Benin</span></li>
+        </ul>
+        <p class="c0"><span>The Mandinka people originated from the heart of the ancient Mali Empire.</span></p>
+      </body>
+      </html>
+    `;
+
+    const result = await extractSemanticHtml(gdocHtml, "https://docs.google.com/document/d/example/export?format=html");
+    expect(result.html).toContain("<h1><strong>The Human Tapestry of the Slave Trade</strong></h1>");
+    expect(result.html).toContain("<h2><strong>Cultural Heritage</strong></h2>");
+    expect(result.html).toContain("<strong>the Mandinka</strong>");
+    expect(result.html).toContain("<strong>The Yoruba</strong>");
+    expect(result.html).toContain("<blockquote>");
+    expect(result.html).toContain("Against all odds, these cultures did not vanish.");
+    expect(result.html).toContain("<ul>");
+    expect(result.html).toContain("<li>Mali and Senegambia</li>");
+    expect(result.html).toContain("<p>The Mandinka people originated from the heart of the ancient Mali Empire.</p>");
+  });
 });
+
