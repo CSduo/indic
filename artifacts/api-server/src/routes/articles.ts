@@ -10,6 +10,25 @@ import { parsePagination, toLikePattern } from "../lib/request";
 
 const router = Router();
 
+// GET /api/sync-live-publications — explicit live publication synchronization
+router.get("/sync-live-publications", async (req, res) => {
+  try {
+    await ensureLiveSubmissionsPublished();
+    const published = await db.select({
+      id: articlesTable.id,
+      title: articlesTable.title,
+      slug: articlesTable.slug,
+      authorName: articlesTable.authorName,
+      status: articlesTable.status,
+      publishedAt: articlesTable.publishedAt,
+    }).from(articlesTable).where(and(eq(articlesTable.status, "PUBLISHED"), isNull(articlesTable.deletedAt)));
+
+    return res.json({ success: true, count: published.length, articles: published });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/articles
 router.get("/articles", async (req, res) => {
   try {
