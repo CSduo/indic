@@ -56,6 +56,7 @@ router.get("/papers", async (req, res) => {
       .orderBy(desc(papersTable.publishedAt), desc(papersTable.id))
       .limit(limit).offset(offset);
 
+
     const [{ count }] = await db
       .select({ count: sql<number>`count(*)` })
       .from(papersTable)
@@ -92,7 +93,26 @@ router.get("/papers/:slug", async (req, res) => {
     const { slug } = req.params;
     const [row] = await db
       .select({
-        paper: papersTable,
+        paper: {
+          id: papersTable.id,
+          slug: papersTable.slug,
+          title: papersTable.title,
+          abstract: papersTable.abstract,
+          body: papersTable.body,
+          categorySlug: papersTable.categorySlug,
+          tags: papersTable.tags,
+          authorName: papersTable.authorName,
+          pdfUrl: papersTable.pdfUrl,
+          coverImageUrl: papersTable.coverImageUrl,
+          citationText: papersTable.citationText,
+          peerReviewed: papersTable.peerReviewed,
+          paperType: papersTable.paperType,
+          status: papersTable.status,
+          publishedAt: papersTable.publishedAt,
+          deletedAt: papersTable.deletedAt,
+          createdAt: papersTable.createdAt,
+          updatedAt: papersTable.updatedAt,
+        },
         category: categoriesTable,
       })
       .from(papersTable)

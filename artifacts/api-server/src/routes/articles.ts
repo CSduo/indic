@@ -27,154 +27,7 @@ router.get("/sync-live-publications", async (req, res) => {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
-});
-
-// GET /api/debug-submissions
-router.get("/debug-submissions", async (req, res) => {
-  try {
-    const subs = await db.select({
-      id: submissionsTable.id,
-      title: submissionsTable.title,
-      submitterName: submissionsTable.submitterName,
-      status: submissionsTable.status,
-      type: submissionsTable.type,
-      domain: submissionsTable.domain,
-      deletedAt: submissionsTable.deletedAt,
-    }).from(submissionsTable);
-    return res.json({ submissions: subs });
-  } catch (err: any) {
-    return res.status(500).json({ error: err.message });
-  }
-});
-
-// GET /api/debug-publish-slave-trade
-router.get("/debug-publish-slave-trade", async (req, res) => {
-  try {
-    const SUBMISSION_ID = "b92ea6a1-4150-403f-bc0a-2c8808f7e06d";
-    const now = new Date();
-
-    // Step 1: Get the submission
-    const [sub] = await db.select().from(submissionsTable).where(eq(submissionsTable.id, SUBMISSION_ID));
-    if (!sub) return res.json({ error: "submission not found" });
-
-    // Step 2: Check if source_submission_id column exists in articles table
-    const colCheck = await db.execute(sql`
-      SELECT column_name FROM information_schema.columns
-      WHERE table_name = 'articles' AND column_name = 'source_submission_id'
-    `);
-    const hasSourceCol = (colCheck.rows?.length ?? 0) > 0;
-
-    // Step 3: Update submission to PUBLISHED
-    await db.update(submissionsTable).set({
-      status: "PUBLISHED",
-      submitterName: "Xiyato Saanvi",
-      publishedAt: now,
-      updatedAt: now,
-    }).where(eq(submissionsTable.id, SUBMISSION_ID));
-
-    // Step 4: Ensure history category exists (with required id column)
-    await db.execute(sql`
-      INSERT INTO categories (id, slug, name, description, icon, sort_order, visible, created_at, updated_at)
-      VALUES (gen_random_uuid(), 'history', 'History', 'Historical chronicles, narratives, and research', 'History', 2, true, now(), now())
-      ON CONFLICT (slug) DO NOTHING
-    `);
-
-    const articleSlug = "the-human-tapestry-of-the-slave-trade";
-    const title = sub.title || "The Human Tapestry of the Slave Trade";
-    const body = sub.body || sub.abstract || title;
-    const excerpt = sub.abstract || title;
-
-    let articleId: string | null = null;
-    let resultSlug: string | null = null;
-    let action = "";
-
-    // Step 5: Check if article already exists by source_submission_id
-    if (hasSourceCol) {
-      const linked = await db.execute(sql`
-        SELECT id, slug FROM articles WHERE source_submission_id = ${SUBMISSION_ID} LIMIT 1
-      `);
-      if (linked.rows?.length) {
-        articleId = (linked.rows[0] as any).id;
-        resultSlug = (linked.rows[0] as any).slug;
-        await db.execute(sql`
-          UPDATE articles SET status = 'PUBLISHED', author_name = 'Xiyato Saanvi',
-            published_at = ${now}, deleted_at = NULL, updated_at = ${now}
-          WHERE id = ${articleId}
-        `);
-        action = "updated-existing-linked";
-      }
-    }
-
-    // Step 6: Check by slug or title if not found yet
-    if (!articleId) {
-      const bySlug = await db.execute(sql`
-        SELECT id, slug FROM articles WHERE slug = ${articleSlug} OR lower(title) = lower(${title}) LIMIT 1
-      `);
-      if (bySlug.rows?.length) {
-        articleId = (bySlug.rows[0] as any).id;
-        resultSlug = (bySlug.rows[0] as any).slug;
-        if (hasSourceCol) {
-          await db.execute(sql`
-            UPDATE articles SET status = 'PUBLISHED', author_name = 'Xiyato Saanvi',
-              source_submission_id = ${SUBMISSION_ID}, published_at = ${now},
-              deleted_at = NULL, updated_at = ${now}
-            WHERE id = ${articleId}
-          `);
-        } else {
-          await db.execute(sql`
-            UPDATE articles SET status = 'PUBLISHED', author_name = 'Xiyato Saanvi',
-              published_at = ${now}, deleted_at = NULL, updated_at = ${now}
-            WHERE id = ${articleId}
-          `);
-        }
-        action = "updated-existing-by-slug";
-      }
-    }
-
-    // Step 7: Insert fresh article if none exists
-    if (!articleId) {
-      const newId = crypto.randomUUID();
-      if (hasSourceCol) {
-        await db.execute(sql`
-          INSERT INTO articles (id, slug, title, excerpt, body, category_slug, tags, author_name,
-            hero_image_url, hero_image_alt, key_takeaways, "references", status, featured,
-            published_at, source_submission_id, created_at, updated_at)
-          VALUES (${newId}, ${articleSlug}, ${title}, ${excerpt}, ${body}, 'history', '{}',
-            'Xiyato Saanvi', '/images/provided/home-falcon-city-panorama-hero.jpg',
-            ${title}, '{}', '[]', 'PUBLISHED', false, ${now}, ${SUBMISSION_ID}, ${now}, ${now})
-        `);
-      } else {
-        await db.execute(sql`
-          INSERT INTO articles (id, slug, title, excerpt, body, category_slug, tags, author_name,
-            hero_image_url, hero_image_alt, key_takeaways, "references", status, featured,
-            published_at, created_at, updated_at)
-          VALUES (${newId}, ${articleSlug}, ${title}, ${excerpt}, ${body}, 'history', '{}',
-            'Xiyato Saanvi', '/images/provided/home-falcon-city-panorama-hero.jpg',
-            ${title}, '{}', '[]', 'PUBLISHED', false, ${now}, ${now}, ${now})
-        `);
-      }
-      articleId = newId;
-      resultSlug = articleSlug;
-      action = "inserted-new";
-    }
-
-    // Step 8: Verify
-    const verify = await db.execute(sql`
-      SELECT id, slug, title, author_name, status, published_at FROM articles WHERE id = ${articleId}
-    `);
-
-    return res.json({
-      success: true, action, articleId, articleSlug: resultSlug,
-      hasSourceSubmissionIdCol: hasSourceCol,
-      article: verify.rows?.[0] ?? null,
-    });
-  } catch (err: any) {
-    return res.status(500).json({ error: err.message, stack: err.stack });
-  }
-});
-
-
-// GET /api/articles
+});// GET /api/articles
 router.get("/articles", async (req, res) => {
   try {
     await ensureLiveSubmissionsPublished();
@@ -265,7 +118,6 @@ router.get("/articles", async (req, res) => {
         updatedAt: r.updatedAt,
         category: r.category,
       };
-
       if (includeBody && r.body) {
         art.body = sanitizeArticleBody(recoverLegacyInlineImages(r.slug, r.body));
       }
@@ -275,12 +127,13 @@ router.get("/articles", async (req, res) => {
 
     res.setHeader("Cache-Control", "public, max-age=30, s-maxage=120, stale-while-revalidate=600");
     return res.json({ articles: result, total: Number(count), limit, offset });
-
   } catch (err: any) {
     console.error("GET /api/articles ERROR:", err);
     return res.status(500).json({ error: "Failed to fetch articles" });
   }
 });
+
+
 
 // GET /api/articles/:slug
 router.get("/articles/:slug", async (req, res) => {
@@ -290,7 +143,30 @@ router.get("/articles/:slug", async (req, res) => {
 
     const [row] = await db
       .select({
-        article: articlesTable,
+        article: {
+          id: articlesTable.id,
+          slug: articlesTable.slug,
+          title: articlesTable.title,
+          subtitle: articlesTable.subtitle,
+          excerpt: articlesTable.excerpt,
+          body: articlesTable.body,
+          categorySlug: articlesTable.categorySlug,
+          tags: articlesTable.tags,
+          authorName: articlesTable.authorName,
+          readingMinutes: articlesTable.readingMinutes,
+          heroImageUrl: articlesTable.heroImageUrl,
+          heroImageAlt: articlesTable.heroImageAlt,
+          keyTakeaways: articlesTable.keyTakeaways,
+          references: articlesTable.references,
+          seoTitle: articlesTable.seoTitle,
+          seoDescription: articlesTable.seoDescription,
+          audioUrl: articlesTable.audioUrl,
+          status: articlesTable.status,
+          featured: articlesTable.featured,
+          publishedAt: articlesTable.publishedAt,
+          createdAt: articlesTable.createdAt,
+          updatedAt: articlesTable.updatedAt,
+        },
         category: categoriesTable,
       })
       .from(articlesTable)
@@ -346,6 +222,7 @@ router.get("/articles/:slug", async (req, res) => {
       },
     });
   } catch (err) {
+    console.error("GET /api/articles/:slug error:", err);
     req.log.error(err);
     return res.status(500).json({ error: "Failed" });
   }
@@ -361,14 +238,17 @@ router.patch("/articles/:slug/edit", async (req, res) => {
     const { slug } = req.params;
     const [row] = await db
       .select({
-        article: articlesTable,
+        article: {
+          id: articlesTable.id,
+          slug: articlesTable.slug,
+          authorName: articlesTable.authorName,
+        },
       })
       .from(articlesTable)
       .where(and(eq(articlesTable.slug, slug), eq(articlesTable.status, "PUBLISHED"), isNull(articlesTable.deletedAt)))
       .limit(1);
 
     if (!row) return res.status(404).json({ error: "Article not found" });
-
 
     const parsed = z.object({
       title: z.string().trim().min(1).max(500).optional(),
