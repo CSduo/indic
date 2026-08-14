@@ -47,6 +47,39 @@ router.get("/debug-submissions", async (req, res) => {
   }
 });
 
+// GET /api/debug-publish-slave-trade
+router.get("/debug-publish-slave-trade", async (req, res) => {
+  try {
+    const sub = (await db.select().from(submissionsTable).where(eq(submissionsTable.id, "b92ea6a1-4150-403f-bc0a-2c8808f7e06d")))[0];
+    if (!sub) return res.json({ error: "submission not found" });
+
+    const now = new Date();
+    const updatedSub = {
+      ...sub,
+      status: "PUBLISHED",
+      submitterName: "Xiyato Saanvi",
+      publishedAt: now,
+    };
+
+    const result = await ensurePublicPublicationForSubmission(updatedSub as any, {
+      allowCreate: true,
+      publishedAt: now,
+      categorySlug: "history",
+    });
+
+    await db.update(submissionsTable).set({
+      status: "PUBLISHED",
+      submitterName: "Xiyato Saanvi",
+      publishedAt: now,
+      updatedAt: now,
+    }).where(eq(submissionsTable.id, sub.id));
+
+    return res.json({ success: true, sub, result });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message, stack: err.stack });
+  }
+});
+
 // GET /api/articles
 router.get("/articles", async (req, res) => {
   try {
