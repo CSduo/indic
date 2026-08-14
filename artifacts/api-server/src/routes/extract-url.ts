@@ -4,6 +4,7 @@ import dns from 'dns/promises';
 import net from 'net';
 import { v2 as cloudinary } from 'cloudinary';
 import { put } from '@vercel/blob';
+import { decode as decodeHtmlEntities } from 'html-entities';
 import { getUserAuth } from '../lib/auth';
 import { sanitizeArticleBody } from '../lib/content';
 import { hasExpectedFileSignature } from '../lib/file-validation';
@@ -37,6 +38,12 @@ type ImportedImage = {
 export type SemanticExtraction = {
   failedEmbeddedImages: number;
   html: string;
+  /**
+   * First image of the document that was successfully stored in the journal's
+   * own media store, in document order. Offered to the author as a cover.
+   * Empty when nothing could be stored — a third-party URL is never offered.
+   */
+  firstImageUrl: string;
 };
 
 /**
@@ -96,6 +103,66 @@ export function isGoogleDocumentAccessPage(rawHtml: string): boolean {
     'sorry, unable to open the file',
   ].some(message => html.includes(message));
   return looksLikeGoogleShell && hasAccessMessage;
+}
+
+const GOOGLE_DOC_TITLE_SUFFIX = /\s*[-–—|]\s*Google\s+(?:Docs?|Drive)\s*$/i;
+const MAX_IMPORTED_TITLE_LENGTH = 300;
+const MAX_IMPORTED_EXCERPT_LENGTH = 400;
+
+/**
+ * Best-effort document name, used to prefill the submission title so an author
+ * importing a Google Doc does not have to retype it. Google Docs exports carry
+ * the document name in <title>; ordinary pages are more reliable through
+ * OpenGraph. Returns "" when nothing trustworthy is present, which leaves the
+ * author's own field untouched.
+ */
+export function extractDocumentTitle(rawHtml: string): string {
+  const candidates = [
+    rawHtml.match(/<meta[^>]+property=["']og:title["'][^>]*content=["']([^"']*)["']/i)?.[1],
+    rawHtml.match(/<meta[^>]+content=["']([^"']*)["'][^>]*property=["']og:title["']/i)?.[1],
+    rawHtml.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1],
+    rawHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1],
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const text = decodeEntities(candidate.replace(/<[^>]*>/g, ' '))
+      .replace(GOOGLE_DOC_TITLE_SUFFIX, '')
+      .replace(/[\u0000-\u001F\u007F]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    // Google names an unsaved document "Untitled document" — not worth copying.
+    if (!text || /^untitled\s+document$/i.test(text)) continue;
+    return text.slice(0, MAX_IMPORTED_TITLE_LENGTH).trim();
+  }
+
+  return '';
+}
+
+/**
+ * Opening prose of the imported document, used to prefill the abstract. Cut at
+ * a sentence boundary where one is close to the limit so the suggestion reads
+ * as a finished thought rather than a severed clause.
+ */
+export function extractLeadExcerpt(html: string): string {
+  const firstParagraph = html.match(/<p\b[^>]*>([\s\S]*?)<\/p>/i)?.[1] ?? html;
+  const text = decodeEntities(firstParagraph.replace(/<[^>]*>/g, ' '))
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!text) return '';
+  if (text.length <= MAX_IMPORTED_EXCERPT_LENGTH) return text;
+
+  const clipped = text.slice(0, MAX_IMPORTED_EXCERPT_LENGTH);
+  const lastSentenceEnd = Math.max(
+    clipped.lastIndexOf('. '),
+    clipped.lastIndexOf('! '),
+    clipped.lastIndexOf('? '),
+  );
+  if (lastSentenceEnd > MAX_IMPORTED_EXCERPT_LENGTH / 2) {
+    return clipped.slice(0, lastSentenceEnd + 1).trim();
+  }
+  return `${clipped.trimEnd()}…`;
 }
 
 async function readLimitedBody(response: Response, maxBytes: number): Promise<Buffer> {
@@ -235,18 +302,10 @@ async function fetchWithSsrfGuard(startUrl: string): Promise<{ response: Respons
   throw Object.assign(new Error('Too many redirects'), { statusCode: 422 });
 }
 
-/** Decode common HTML entities */
+/** Decode all HTML entities (named, numeric decimal, and hex) */
 function decodeEntities(str: string): string {
-  return str
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/&apos;/gi, "'")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+  if (!str) return '';
+  return decodeHtmlEntities(str);
 }
 
 function escapeHtml(value: string): string {
@@ -257,6 +316,14 @@ function escapeHtml(value: string): string {
     '"': '&quot;',
     "'": '&#39;',
   })[character] || character);
+}
+
+/** Escapes only characters that could form HTML tags or corrupt text nodes */
+function escapeTextForHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 function validateImportedImage(
@@ -480,16 +547,22 @@ export async function extractSemanticHtml(rawHtml: string, finalUrl: string): Pr
   const imgMatches = [...cleaned.matchAll(/<img\b([^>]*)>/gi)];
   let failedEmbeddedImages = 0;
   const processedImageSources = new Set<string>();
+  // Document order is lost once the uploads resolve, so remember it here — the
+  // cover offered to the author must be the document's first image.
+  const orderedImageSources: string[] = [];
+  const storedImageSources = new Set<string>();
 
   for (const match of imgMatches) {
     const srcMatch = match[1].match(/src=["']([^"']+)["']/i);
     const src = srcMatch ? srcMatch[1] : '';
     if (src && !processedImageSources.has(src)) {
       processedImageSources.add(src);
+      orderedImageSources.push(src);
       imgPromises.push(
         persistImportedImage(src, finalUrl).then(cdnUrl => {
           if (cdnUrl) {
             imgMap.set(src, cdnUrl);
+            storedImageSources.add(src);
           } else if (/^data:/i.test(src)) {
             failedEmbeddedImages += 1;
           } else if (/^https?:\/\//i.test(src)) {
@@ -501,6 +574,9 @@ export async function extractSemanticHtml(rawHtml: string, finalUrl: string): Pr
     }
   }
   await Promise.allSettled(imgPromises);
+
+  const firstStoredSource = orderedImageSources.find(source => storedImageSources.has(source));
+  const firstImageUrl = firstStoredSource ? imgMap.get(firstStoredSource) || '' : '';
 
   // ── 4. Build output HTML tag by tag ──
   const result: string[] = [];
@@ -543,7 +619,7 @@ export async function extractSemanticHtml(rawHtml: string, finalUrl: string): Pr
     if (text !== undefined) {
       const decoded = decodeEntities(text);
       if (decoded) {
-        let styledText = escapeHtml(decoded);
+        let styledText = escapeTextForHtml(decoded);
         let prefix = '';
         let suffix = '';
         for (const s of activeStyles) {
@@ -707,7 +783,7 @@ export async function extractSemanticHtml(rawHtml: string, finalUrl: string): Pr
     finalHtml = finalHtml.slice(0, 200_000) + '<p><em>[Content truncated]</em></p>';
   }
 
-  return { html: finalHtml, failedEmbeddedImages };
+  return { html: finalHtml, failedEmbeddedImages, firstImageUrl };
 }
 
 /**
@@ -748,6 +824,7 @@ router.post('/extract-url', async (req, res) => {
 
     let html: string;
     let failedEmbeddedImages = 0;
+    let firstImageUrl = '';
 
     if (contentType.includes('text/plain')) {
       // Plain text — convert to paragraphs
@@ -761,6 +838,7 @@ router.post('/extract-url', async (req, res) => {
       const extraction = await extractSemanticHtml(rawText, finalUrl);
       html = extraction.html;
       failedEmbeddedImages = extraction.failedEmbeddedImages;
+      firstImageUrl = extraction.firstImageUrl;
     }
 
     if (googleDocument && failedEmbeddedImages > 0) {
@@ -793,7 +871,16 @@ router.post('/extract-url', async (req, res) => {
       return res.status(422).json({ error: 'No readable article content was found at this URL' });
     }
 
-    return res.json({ html: sanitizedHtml, url: googleDocument ? url : finalUrl });
+    // Metadata the author would otherwise retype. Each field is a suggestion —
+    // the client only applies one to a field the author has left empty. The
+    // cover is restricted to a stored image, never a third-party URL.
+    return res.json({
+      html: sanitizedHtml,
+      url: googleDocument ? url : finalUrl,
+      title: extractDocumentTitle(rawText),
+      excerpt: extractLeadExcerpt(sanitizedHtml),
+      coverImageUrl: /^https?:\/\//i.test(firstImageUrl) ? firstImageUrl : '',
+    });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: err.errors[0]?.message || 'Invalid input' });

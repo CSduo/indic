@@ -334,6 +334,7 @@ export default function SubmitWritePage() {
   const [googleDocUrl, setGoogleDocUrl] = useState("");
   const [importSummary, setImportSummary] = useState<ImportedContentSummary | null>(null);
   const [googleDocImportError, setGoogleDocImportError] = useState("");
+  const [metadataNotice, setMetadataNotice] = useState("");
 
   const insertImportedHtml = (htmlContent: string, sourceLabel: string) => {
     if (!htmlContent.trim()) throw new Error("Could not extract any text from this document");
@@ -352,6 +353,42 @@ export default function SubmitWritePage() {
     }
 
     setImportSummary(summarizeImportedHtml(htmlContent, sourceLabel));
+  };
+
+  /**
+   * Carry across what the imported document already knows — its name, its
+   * opening lines, its first stored image. Only fields the author has left
+   * empty are filled, so an import never overwrites their own words, and the
+   * author is told which fields were touched.
+   */
+  const applyImportedMetadata = (data: any) => {
+    const filled: string[] = [];
+
+    const importedTitle = typeof data?.title === "string" ? data.title.trim() : "";
+    if (importedTitle && !draft.title.trim()) {
+      set("title", importedTitle.slice(0, 500));
+      filled.push("title");
+    }
+
+    const importedAbstract = typeof data?.excerpt === "string" ? data.excerpt.trim() : "";
+    if (importedAbstract && !draft.abstract.trim()) {
+      set("abstract", importedAbstract.slice(0, 10000));
+      filled.push("abstract");
+    }
+
+    // The server only ever returns a cover it stored in the journal's own
+    // media store, so this URL is safe to carry into the submission.
+    const importedCover = typeof data?.coverImageUrl === "string" ? data.coverImageUrl : "";
+    if (importedCover && /^https:\/\//i.test(importedCover) && !imgFile && !imgPreview) {
+      setImgPreview(importedCover);
+      filled.push("cover image");
+    }
+
+    setMetadataNotice(
+      filled.length
+        ? `Filled in the ${filled.join(", ")} from the document — edit anything that does not fit.`
+        : "",
+    );
   };
 
   const handleDocImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -430,6 +467,7 @@ export default function SubmitWritePage() {
 
     setImportingDoc(true);
     setGoogleDocImportError("");
+    setMetadataNotice("");
     setError("");
     try {
       const response = await fetch(`${base()}/api/extract-url`, {
@@ -441,6 +479,7 @@ export default function SubmitWritePage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Failed to import the Google Doc");
       insertImportedHtml(typeof data.html === "string" ? data.html : "", "Google Doc");
+      applyImportedMetadata(data);
       setGoogleDocUrl("");
       setGoogleDocImportError("");
     } catch (err: any) {
@@ -1302,6 +1341,12 @@ export default function SubmitWritePage() {
                   <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 font-ui text-xs leading-5 text-[var(--ink-soft)]" role="status" aria-live="polite">
                     <CheckCircle size={15} className="shrink-0 text-[var(--gold)]" />
                     <span>{importedContentMessage(importSummary)}</span>
+                  </p>
+                ) : null}
+                {metadataNotice ? (
+                  <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 font-ui text-xs leading-5 text-[var(--ink-soft)]" role="status" aria-live="polite">
+                    <CheckCircle size={15} className="shrink-0 text-[var(--gold)]" />
+                    <span>{metadataNotice}</span>
                   </p>
                 ) : null}
                 {googleDocImportError ? (

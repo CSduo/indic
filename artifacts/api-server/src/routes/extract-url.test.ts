@@ -9,6 +9,8 @@ vi.mock("@vercel/blob", () => ({
 }));
 
 import {
+  extractDocumentTitle,
+  extractLeadExcerpt,
   extractSemanticHtml,
   getGoogleDocumentImport,
   isGoogleDocumentAccessPage,
@@ -139,3 +141,101 @@ describe("Google Docs URL import", () => {
   });
 });
 
+
+describe("imported document metadata", () => {
+  it("takes the Google Docs document name from <title> and drops the Google suffix", () => {
+    expect(extractDocumentTitle(
+      "<html><head><title>Beyond Angkor: Hindu Vietnam - Google Docs</title></head><body><p>Body.</p></body></html>",
+    )).toBe("Beyond Angkor: Hindu Vietnam");
+  });
+
+  it("prefers OpenGraph over <title> for ordinary web pages", () => {
+    expect(extractDocumentTitle(
+      '<html><head><meta property="og:title" content="The Real Headline" /><title>Site name | The Real Headline</title></head><body></body></html>',
+    )).toBe("The Real Headline");
+  });
+
+  it("falls through an unsaved Google document name to the next candidate", () => {
+    expect(extractDocumentTitle(
+      "<html><head><title>Untitled document</title></head><body><h1>What The Essay Is Called</h1></body></html>",
+    )).toBe("What The Essay Is Called");
+  });
+
+  it("decodes entities, strips tags and collapses whitespace in a title", () => {
+    expect(extractDocumentTitle(
+      "<html><head><title>  Ritual &amp;   <b>Reason</b>\n  in Early India </title></head></html>",
+    )).toBe("Ritual & Reason in Early India");
+  });
+
+  it("returns an empty title when nothing usable is present, so the author's field is left alone", () => {
+    expect(extractDocumentTitle("<html><body><p>No title anywhere.</p></body></html>")).toBe("");
+    expect(extractDocumentTitle("<html><head><title>   </title></head><body></body></html>")).toBe("");
+  });
+
+  it("caps an overlong title at 300 characters", () => {
+    const long = "A".repeat(400);
+    expect(extractDocumentTitle(`<html><head><title>${long}</title></head></html>`).length).toBe(300);
+  });
+
+  it("takes the lead excerpt from the first paragraph, not from a heading", () => {
+    expect(extractLeadExcerpt(
+      "<h1>The Heading</h1>\n<p>The opening sentence of the essay.</p>\n<p>A later paragraph.</p>",
+    )).toBe("The opening sentence of the essay.");
+  });
+
+  it("cuts a long excerpt at a sentence boundary", () => {
+    const excerpt = extractLeadExcerpt(`<p>${"Short sentence. ".repeat(40)}</p>`);
+    expect(excerpt.length).toBeLessThanOrEqual(400);
+    expect(excerpt.endsWith(".")).toBe(true);
+  });
+
+  it("ellipsizes a long excerpt that has no sentence boundary to cut at", () => {
+    const excerpt = extractLeadExcerpt(`<p>${"word ".repeat(200)}</p>`);
+    expect(excerpt.length).toBeLessThanOrEqual(401);
+    expect(excerpt.endsWith("\u2026")).toBe(true);
+  });
+
+  it("returns an empty excerpt for empty content", () => {
+    expect(extractLeadExcerpt("")).toBe("");
+    expect(extractLeadExcerpt("<p>   </p>")).toBe("");
+  });
+
+  it("offers the first stored image as the cover and never a base64 source", async () => {
+    process.env.BLOB_READ_WRITE_TOKEN = "test-blob-token";
+    fixture.put
+      .mockResolvedValueOnce({ url: "https://blob.example/anvikshiki/first.png" })
+      .mockResolvedValueOnce({ url: "https://blob.example/anvikshiki/second.png" });
+
+    const secondPng = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x01]);
+    const result = await extractSemanticHtml(
+      `<html><body><p>Opening.</p><img src="${DATA_PNG}" alt="first">` +
+        `<p>More.</p><img src="data:image/png;base64,${secondPng.toString("base64")}" alt="second"></body></html>`,
+      "https://docs.google.com/document/d/example/export?format=html",
+    );
+
+    expect(result.firstImageUrl).toBe("https://blob.example/anvikshiki/first.png");
+    expect(result.firstImageUrl).not.toContain("data:");
+  });
+
+  it("offers no cover when the image could not be stored", async () => {
+    const result = await extractSemanticHtml(
+      `<html><body><p>Opening.</p><img src="${DATA_PNG}" alt="first"></body></html>`,
+      "https://docs.google.com/document/d/example/export?format=html",
+    );
+
+    expect(result.failedEmbeddedImages).toBe(1);
+    expect(result.firstImageUrl).toBe("");
+  });
+
+  it("correctly decodes accented HTML entities and typographic punctuation without raw entity leakage", async () => {
+    const rawHtml = `<html><body><p>Santer&iacute;a (known as Lukum&iacute; in Cuba), along with its cousins Candombl&eacute; in Brazil and Vodou in Haiti... Barbara&rsquo;s legend survives; that&rsquo;s just theological &mdash; &ldquo;faith wins&rdquo;.</p></body></html>`;
+    const result = await extractSemanticHtml(rawHtml, "https://docs.google.com/document/d/example/export?format=html");
+    expect(result.html).toContain("Santería (known as Lukumí in Cuba), along with its cousins Candomblé in Brazil and Vodou in Haiti... Barbara’s legend survives; that’s just theological — “faith wins”.");
+    expect(result.html).not.toContain("&iacute;");
+    expect(result.html).not.toContain("&rsquo;");
+    expect(result.html).not.toContain("&eacute;");
+    expect(result.html).not.toContain("&ldquo;");
+    expect(result.html).not.toContain("&rdquo;");
+    expect(result.html).not.toContain("&mdash;");
+  });
+});
