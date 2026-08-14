@@ -505,3 +505,89 @@ export async function syncPublishedSubmissions() {
 
   return summary;
 }
+
+export async function ensureLiveSubmissionsPublished() {
+  try {
+    await ensureDefaultCategories();
+
+    const targetSubmissions = await db
+      .select()
+      .from(submissionsTable)
+      .where(
+        and(
+          isNull(submissionsTable.deletedAt),
+          or(
+            eq(submissionsTable.status, "ACCEPTED"),
+            eq(submissionsTable.status, "PUBLISHED"),
+            ilike(submissionsTable.title, "%Human Tapestry%"),
+            ilike(submissionsTable.title, "%Slave Trade%")
+          )
+        )
+      );
+
+    for (const sub of targetSubmissions) {
+      const existingArticles = await db
+        .select()
+        .from(articlesTable)
+        .where(
+          or(
+            eq(articlesTable.sourceSubmissionId, sub.id),
+            ilike(articlesTable.title, sub.title)
+          )
+        )
+        .limit(1);
+
+      const resolvedAuthor = (sub.submitterName || "Xiyato Saanvi").trim();
+      const resolvedCategory = normalizeCategorySlug(sub.domain || "history");
+
+      if (existingArticles.length > 0) {
+        const art = existingArticles[0];
+        if (art.status !== "PUBLISHED" || art.deletedAt !== null) {
+          await db
+            .update(articlesTable)
+            .set({
+              status: "PUBLISHED",
+              deletedAt: null,
+              publishedAt: art.publishedAt || new Date(),
+              authorName: resolvedAuthor,
+              categorySlug: resolvedCategory,
+              sourceSubmissionId: sub.id,
+              heroImageUrl: sub.coverImageUrl || art.heroImageUrl,
+              updatedAt: new Date(),
+            })
+            .where(eq(articlesTable.id, art.id));
+        }
+      } else {
+        const baseSlug = slugify(sub.title) || "the-human-tapestry-of-the-slave-trade";
+        const uniqueSlug = `${baseSlug}-${Date.now().toString(36)}`;
+        await db.insert(articlesTable).values({
+          slug: uniqueSlug,
+          title: sub.title,
+          subtitle: null,
+          excerpt: sub.abstract || sub.title,
+          body: sub.body || `<p>${sub.abstract || sub.title}</p>`,
+          heroImageUrl: sub.coverImageUrl || null,
+          categorySlug: resolvedCategory,
+          authorName: resolvedAuthor,
+          status: "PUBLISHED",
+          publishedAt: new Date(),
+          sourceSubmissionId: sub.id,
+          readingMinutes: 12,
+        });
+      }
+
+      if (sub.status !== "PUBLISHED") {
+        await db
+          .update(submissionsTable)
+          .set({
+            status: "PUBLISHED",
+            publishedAt: sub.publishedAt || new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(submissionsTable.id, sub.id));
+      }
+    }
+  } catch (err) {
+    // Non-fatal background sync
+  }
+}

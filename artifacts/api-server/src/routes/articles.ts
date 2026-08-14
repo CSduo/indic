@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { articlesTable, categoriesTable, submissionsTable, usersTable } from "@workspace/db";
 import { eq, and, desc, ilike, inArray, or, sql, isNull } from "drizzle-orm";
-import { categorySlugCandidates } from "../lib/publication-sync";
+import { categorySlugCandidates, ensureLiveSubmissionsPublished } from "../lib/publication-sync";
 import { sanitizeArticleBody } from "../lib/content";
 import { recoverLegacyInlineImages } from "../lib/legacy-content";
 import { z } from "zod";
@@ -13,6 +13,8 @@ const router = Router();
 // GET /api/articles
 router.get("/articles", async (req, res) => {
   try {
+    await ensureLiveSubmissionsPublished();
+
     const { category, featured, q, limit: lim, offset: off } = req.query;
     const { limit, offset } = parsePagination(lim, off);
 
