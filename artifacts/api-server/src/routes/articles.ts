@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { articlesTable, categoriesTable, submissionsTable, usersTable } from "@workspace/db";
 import { eq, and, desc, ilike, inArray, or, sql, isNull } from "drizzle-orm";
-import { categorySlugCandidates, ensureLiveSubmissionsPublished } from "../lib/publication-sync";
+import { categorySlugCandidates, ensureLiveSubmissionsPublished, ensurePublicPublicationForSubmission } from "../lib/publication-sync";
 import { sanitizeArticleBody } from "../lib/content";
 import { recoverLegacyInlineImages } from "../lib/legacy-content";
 import { z } from "zod";
