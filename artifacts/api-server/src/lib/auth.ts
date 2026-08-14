@@ -122,8 +122,24 @@ export function getAdminTokenFromRequest(req: Request): string | null {
 
 export async function getUserAuth(req: Request) {
   const token = getUserTokenFromRequest(req);
-  if (!token) return null;
-  return verifyUserToken(token);
+  if (token) {
+    const verified = await verifyUserToken(token);
+    if (verified) return verified;
+  }
+  // Fallback: check admin token if user is signed in as admin
+  const adminToken = getAdminTokenFromRequest(req);
+  if (adminToken) {
+    const adminAuth = await verifyAdminToken(adminToken);
+    if (adminAuth) {
+      return {
+        userId: adminAuth.adminId,
+        email: adminAuth.email,
+        type: "user" as const,
+        role: adminAuth.role,
+      };
+    }
+  }
+  return null;
 }
 
 export async function getAdminAuth(req: Request) {

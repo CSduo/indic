@@ -1,8 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, Link, useSearch } from "wouter";
-import { ArrowLeft, Image as ImageIcon, X, CheckCircle, AlertCircle, Lock, Save, FileText, Mic, Square, Play, Pause, Trash2, Volume2, Upload, Maximize2, Minimize2 } from "lucide-react";
+import { ArrowLeft, Image as ImageIcon, X, CheckCircle, AlertCircle, Lock, Save, FileText, Link2, Mic, Square, Play, Pause, Trash2, Volume2, Upload, Maximize2, Minimize2 } from "lucide-react";
 import { LotusIcon, LotusDivider } from "@/components/sacred/LotusIcon";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  importedContentMessage,
+  isGoogleDocumentUrl,
+  summarizeImportedHtml,
+  type ImportedContentSummary,
+} from "@/lib/documentImport";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const STORAGE_KEY = "anvikshiki_write_draft";
@@ -325,6 +331,28 @@ export default function SubmitWritePage() {
 
   const [importingDoc, setImportingDoc] = useState(false);
   const importDocInputRef = useRef<HTMLInputElement>(null);
+  const [googleDocUrl, setGoogleDocUrl] = useState("");
+  const [importSummary, setImportSummary] = useState<ImportedContentSummary | null>(null);
+  const [googleDocImportError, setGoogleDocImportError] = useState("");
+
+  const insertImportedHtml = (htmlContent: string, sourceLabel: string) => {
+    if (!htmlContent.trim()) throw new Error("Could not extract any text from this document");
+
+    if (editorRef.current) {
+      editorRef.current.focus();
+      const existing = editorRef.current.innerHTML.trim();
+      if (existing && existing !== "<br>") {
+        editorRef.current.innerHTML = existing + "<hr style=\"border-color:rgba(201,152,58,0.2);margin:2rem 0\">" + htmlContent;
+      } else {
+        editorRef.current.innerHTML = htmlContent;
+      }
+      set("body", editorRef.current.innerHTML);
+    } else {
+      set("body", htmlContent);
+    }
+
+    setImportSummary(summarizeImportedHtml(htmlContent, sourceLabel));
+  };
 
   const handleDocImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -371,28 +399,55 @@ export default function SubmitWritePage() {
         htmlContent = data.html || "";
       }
 
-      if (!htmlContent) {
-        setError("Could not extract any text from this document");
-        return;
-      }
-
-      // Insert into editor
-      if (editorRef.current) {
-        editorRef.current.focus();
-        const existing = editorRef.current.innerHTML.trim();
-        if (existing && existing !== "<br>") {
-          // Append after existing content
-          editorRef.current.innerHTML = existing + "<hr style=\"border-color:rgba(201,152,58,0.2);margin:2rem 0\">" + htmlContent;
-        } else {
-          editorRef.current.innerHTML = htmlContent;
-        }
-        set("body", editorRef.current.innerHTML);
-      }
+      insertImportedHtml(htmlContent, isDocx ? "document" : "text file");
     } catch (err: any) {
       setError(err.message || "Failed to import document");
     } finally {
       setImportingDoc(false);
       if (importDocInputRef.current) importDocInputRef.current.value = "";
+    }
+  };
+
+  const handleGoogleDocImport = async () => {
+    const rawUrl = googleDocUrl.trim();
+    if (!rawUrl) {
+      setGoogleDocImportError("Paste a public Google Docs link first.");
+      return;
+    }
+
+    let url: string;
+    try {
+      url = new URL(rawUrl).href;
+    } catch {
+      setGoogleDocImportError("Please paste a full Google Docs URL, including https://");
+      return;
+    }
+
+    if (!isGoogleDocumentUrl(url)) {
+      setGoogleDocImportError("Paste the share link for a Google Docs document (docs.google.com/document/d/...).");
+      return;
+    }
+
+    setImportingDoc(true);
+    setGoogleDocImportError("");
+    setError("");
+    try {
+      const response = await fetch(`${base()}/api/extract-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ url }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Failed to import the Google Doc");
+      insertImportedHtml(typeof data.html === "string" ? data.html : "", "Google Doc");
+      setGoogleDocUrl("");
+      setGoogleDocImportError("");
+    } catch (err: any) {
+      const message = err.message || "Failed to import the Google Doc.";
+      setGoogleDocImportError(message);
+    } finally {
+      setImportingDoc(false);
     }
   };
 
@@ -1214,6 +1269,49 @@ export default function SubmitWritePage() {
                 </div>
               )}
 
+              <div className="border-b border-[rgba(201,152,58,0.15)] bg-[var(--surface-3)] px-4 py-3 sm:px-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="font-ui text-xs font-bold uppercase tracking-[0.1em] text-[var(--ink)]">Import a public Google Doc</p>
+                    <p id="google-doc-import-help" className="mt-1 font-body text-xs leading-5 text-[var(--ink-faint)]">
+                      Set sharing to <em>Anyone with link — Viewer</em>, then import its text and available images. Nothing is published automatically.
+                    </p>
+                  </div>
+                  <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:min-w-[22rem] sm:flex-row">
+                    <input
+                      type="url"
+                      value={googleDocUrl}
+                      onChange={(event) => { setGoogleDocUrl(event.target.value); setGoogleDocImportError(""); }}
+                      onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void handleGoogleDocImport(); } }}
+                      placeholder="https://docs.google.com/document/d/..."
+                      className="input-sacred min-w-0 flex-1"
+                      aria-label="Public Google Docs URL"
+                      aria-describedby="google-doc-import-help"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleGoogleDocImport}
+                      disabled={importingDoc || !googleDocUrl.trim()}
+                      className="btn-terracotta min-h-11 shrink-0 justify-center px-4 sm:w-auto"
+                    >
+                      <Link2 size={14} /> {importingDoc ? "Importing..." : "Import"}
+                    </button>
+                  </div>
+                </div>
+                {importSummary ? (
+                  <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 font-ui text-xs leading-5 text-[var(--ink-soft)]" role="status" aria-live="polite">
+                    <CheckCircle size={15} className="shrink-0 text-[var(--gold)]" />
+                    <span>{importedContentMessage(importSummary)}</span>
+                  </p>
+                ) : null}
+                {googleDocImportError ? (
+                  <div className="mt-3 flex items-start gap-2 rounded-lg border border-[var(--border-rose)] bg-[rgba(139,26,74,0.08)] p-3" role="alert">
+                    <AlertCircle size={16} className="mt-0.5 shrink-0" style={{ color: "var(--lotus)" }} />
+                    <p className="font-ui text-xs leading-5" style={{ color: "var(--lotus)" }}>{googleDocImportError}</p>
+                  </div>
+                ) : null}
+              </div>
+
               {/* Sticky Top Toolbar */}
               <div className="flex flex-wrap items-center gap-2 p-2.5 bg-[var(--surface-elevated)] border-b border-[rgba(201,152,58,0.15)] sticky top-0 z-10 select-none shadow-sm overflow-x-auto">
                 {/* Font Selector */}
@@ -1379,12 +1477,12 @@ export default function SubmitWritePage() {
                   type="button"
                   onClick={() => importDocInputRef.current?.click()}
                   disabled={importingDoc}
-                  className="flex items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent"
+                  className="flex min-h-11 items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent"
                   style={{ color: "var(--gold-soft)" }}
-                  title="Import content from .docx or .txt file"
+                  title="Import content from a .docx or .txt file"
                 >
                   <Upload size={13} />
-                  <span>{importingDoc ? "Importing…" : "Import Doc"}</span>
+                  <span>{importingDoc ? "Importing..." : "Import File"}</span>
                 </button>
               </div>
 

@@ -9,6 +9,12 @@ import { HeroPanel } from "@/components/manuscript/HeroPanel";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { SubmissionStepper } from "@/components/manuscript/SubmissionStepper";
+import {
+  importedContentMessage,
+  isGoogleDocumentUrl,
+  summarizeImportedHtml,
+  type ImportedContentSummary,
+} from "@/lib/documentImport";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
@@ -91,6 +97,8 @@ export default function SubmitUploadPage() {
   // URL state
   const [urlValue, setUrlValue] = useState("");
   const [urlFetching, setUrlFetching] = useState(false);
+  const [importSummary, setImportSummary] = useState<ImportedContentSummary | null>(null);
+  const [urlImportError, setUrlImportError] = useState("");
 
   // Shared
   const [declared, setDeclared] = useState(false);
@@ -290,6 +298,7 @@ export default function SubmitUploadPage() {
       if (htmlContent && htmlContent.trim().length > 0) {
         setEditorBody(htmlContent);
         setEditorInitialized(false);
+        setImportSummary(summarizeImportedHtml(htmlContent, isDocx ? "document" : isPdf ? "PDF" : "text file"));
         setError("");
       } else {
         setError("Could not extract content from this file. Try uploading as .txt or paste via URL.");
@@ -303,10 +312,12 @@ export default function SubmitUploadPage() {
 
   /* ── Fetch text from URL ─────────────────────────────────────────── */
   const fetchUrl = async () => {
-    if (!urlValue.trim()) { setError("Please enter a URL"); return; }
+    if (!urlValue.trim()) { setUrlImportError("Please enter a URL"); return; }
     let url: string;
-    try { url = new URL(urlValue.trim()).href; } catch { setError("Please enter a valid URL (include https://)"); return; }
+    try { url = new URL(urlValue.trim()).href; } catch { setUrlImportError("Please enter a valid URL (include https://)"); return; }
+    const isGoogleDoc = isGoogleDocumentUrl(url);
     setUrlFetching(true);
+    setUrlImportError("");
     setError("");
     try {
       const res = await fetch(`${base()}/api/extract-url`, {
@@ -323,9 +334,12 @@ export default function SubmitUploadPage() {
       if (!html) throw new Error("No content could be extracted from this URL.");
       setEditorBody(html);
       setEditorInitialized(false);
+      setImportSummary(summarizeImportedHtml(html, isGoogleDoc ? "Google Doc" : "web page"));
+      setUrlImportError("");
       setError("");
     } catch (err: any) {
-      setError(err.message || "Failed to fetch content from URL.");
+      const message = err.message || "Failed to fetch content from URL.";
+      setUrlImportError(message);
     } finally {
       setUrlFetching(false);
     }
@@ -847,18 +861,25 @@ export default function SubmitUploadPage() {
 
             {editorBody ? (
               <div className="space-y-6">
-                <div className="flex items-center justify-between border-b border-[rgba(201,152,58,0.15)] pb-3">
-                  <div>
+                <div className="flex flex-col gap-3 border-b border-[rgba(201,152,58,0.15)] pb-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
                     <h3 className="font-display text-xl text-[var(--ink)]">Review & Edit Content</h3>
                     <p className="font-ui text-[10px] text-[var(--muted)] mt-1">Review the extracted document. You can edit paragraphs, align text, and add/remove images.</p>
+                    {importSummary ? (
+                      <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 font-ui text-xs leading-5 text-[var(--ink-soft)]" role="status" aria-live="polite">
+                        <CheckCircle size={15} className="shrink-0 text-[var(--gold)]" />
+                        <span>{importedContentMessage(importSummary)}</span>
+                      </p>
+                    ) : null}
                   </div>
                   <button
                     type="button"
                     onClick={() => {
                       setEditorBody("");
                       setEditorInitialized(false);
+                      setImportSummary(null);
                     }}
-                    className="btn-ink text-[11px] uppercase tracking-wider px-3 py-1.5"
+                    className="btn-ink min-h-11 shrink-0 self-start text-[11px] uppercase tracking-wider px-3 py-1.5 sm:self-auto"
                     style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-gold)", cursor: "pointer" }}
                   >
                     ✕ Discard & Re-Upload
@@ -1125,8 +1146,8 @@ export default function SubmitUploadPage() {
                     <button
                       key={t}
                       type="button"
-                      onClick={() => { setTab(t); setError(""); }}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-[6px] py-2 font-ui text-xs font-bold uppercase tracking-[0.1em] transition cursor-pointer"
+                      onClick={() => { setTab(t); setError(""); setUrlImportError(""); }}
+                      className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[6px] py-2 font-ui text-xs font-bold uppercase tracking-[0.1em] transition cursor-pointer"
                       style={{
                         background: tab === t ? "var(--terracotta)" : "transparent",
                         color: tab === t ? "var(--surface)" : "var(--muted)",
@@ -1198,34 +1219,45 @@ export default function SubmitUploadPage() {
                 /* ── URL tab ─────────────────────────────────────────── */
                 <div className="space-y-4">
                   <p className="font-body text-sm leading-6 text-[var(--ink-soft)]">
-                    Paste the URL of a web article, blog post, or publicly accessible document. The text will
-                    be extracted and loaded into the editor where you can review and edit before submitting.
+                    Paste the URL of a web article, blog post, or publicly accessible document. Its text and
+                    available images will be imported into the editor for review before you submit.
                   </p>
+                  <div className="rounded-lg border border-[var(--border-gold)] bg-[var(--surface-3)] p-3 font-body text-xs leading-5 text-[var(--ink-soft)]">
+                    <strong className="font-ui text-[11px] uppercase tracking-[0.08em] text-[var(--ink)]">Google Docs</strong>
+                    <span className="block mt-1">Set sharing to <em>Anyone with link — Viewer</em>, then paste its full Google Docs link. The importer keeps readable text and available images; nothing is published automatically.</span>
+                  </div>
                   <div>
                     <label className="form-label" htmlFor="url-input">Article / Document URL *</label>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row">
                       <input
                         id="url-input"
                         type="url"
-                        className="input-sacred flex-1"
-                        placeholder="https://example.com/article"
+                        className="input-sacred min-w-0 flex-1"
+                        placeholder="https://docs.google.com/document/d/..."
                         value={urlValue}
                         onChange={(e) => setUrlValue(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && fetchUrl()}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void fetchUrl(); } }}
+                        aria-describedby="url-import-help"
                       />
                       <button
                         type="button"
                         onClick={fetchUrl}
                         disabled={urlFetching || !urlValue.trim()}
-                        className="btn-terracotta shrink-0 px-4"
+                        className="btn-terracotta min-h-11 shrink-0 px-4 sm:w-auto"
                       >
-                        {urlFetching ? "Fetching…" : "Fetch"}
+                        {urlFetching ? "Importing..." : "Import into Editor"}
                       </button>
                     </div>
                   </div>
-                  <p className="font-ui text-xs text-[var(--ink-faint)]">
-                    Supports public web pages. Paywalled or login-protected pages cannot be fetched.
+                  <p id="url-import-help" className="font-ui text-xs text-[var(--ink-faint)]">
+                    Supports public web pages and public Google Docs. Paywalled, private, or login-protected pages cannot be imported.
                   </p>
+                  {urlImportError ? (
+                    <div className="flex items-start gap-2 rounded-lg border border-[var(--border-terracotta)] bg-[var(--terracotta-pale)] p-3" role="alert">
+                      <AlertCircle size={16} className="mt-0.5 shrink-0 text-[var(--terracotta)]" />
+                      <p className="font-ui text-xs leading-5 text-[var(--terracotta)]">{urlImportError}</p>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>

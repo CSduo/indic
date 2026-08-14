@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { ArchiveRestore, BookMarked, Check, Edit3, FileText, LogOut, Mail, Trash2, User, X } from "lucide-react";
+import { ArchiveRestore, BookMarked, BookOpen, Check, Edit3, FileText, LogOut, Mail, Trash2, User, X } from "lucide-react";
 import { toast } from "sonner";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
@@ -21,10 +21,9 @@ const STATUS_LABELS: Record<string, { label: string; className: string }> = {
   ARCHIVED: { label: "Archived", className: "badge-draft" },
 };
 
-// Editorially accepted/published work is managed from the public-content desk,
-// so it cannot be mistaken for a user-deleted draft in Account Trash.
+// Authors can edit drafts/revisions and manage/hide/trash active or published submissions
 const USER_EDITABLE_STATUSES = new Set(["DRAFT", "RECEIVED", "REVISION_REQUESTED"]);
-const USER_DELETABLE_STATUSES = new Set(["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "REJECTED"]);
+const USER_DELETABLE_STATUSES = new Set(["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "REJECTED", "PUBLISHED", "ACCEPTED", "ARCHIVED"]);
 
 export default function AccountPage() {
   const [, navigate] = useLocation();
@@ -121,7 +120,12 @@ export default function AccountPage() {
   };
 
   const deleteSubmission = async (id: string) => {
-    if (!window.confirm("Delete this submission? It will be moved to your Deleted items.")) return;
+    const target = submissions.find(s => s.id === id);
+    const isPub = target?.status === "PUBLISHED";
+    const confirmMsg = isPub
+      ? "Hide this published work? It will be unpublished and moved to your Account Trash."
+      : "Delete this submission? It will be moved to your Deleted items.";
+    if (!window.confirm(confirmMsg)) return;
     setDeletingId(id);
     try {
       const r = await fetch(`${base()}/api/submissions/${id}`, { method: "DELETE", credentials: "include" });
@@ -133,7 +137,7 @@ export default function AccountPage() {
       } else {
         loadSubmissions();
       }
-      toast.success("Submission moved to Trash");
+      toast.success(isPub ? "Published work hidden and moved to Trash" : "Submission moved to Trash");
       window.dispatchEvent(new Event("anv:content-changed"));
     } catch (err: any) {
       toast.error(err.message || "Failed to delete submission");
@@ -153,7 +157,6 @@ export default function AccountPage() {
   const published = submissions.filter((s) => s.status !== "DRAFT");
 
   const renderProgressTracker = (status: string) => {
-    // Only show tracker for standard progression statuses
     if (["REVISION_REQUESTED", "REJECTED", "ARCHIVED", "DRAFT"].includes(status)) return null;
     const steps = ["RECEIVED", "UNDER_REVIEW", "ACCEPTED", "PUBLISHED"];
     let currentIndex = steps.indexOf(status);
@@ -188,6 +191,11 @@ export default function AccountPage() {
     const status = STATUS_LABELS[submission.status] || { label: submission.status || "Received", className: "badge-received" };
     const canEdit = USER_EDITABLE_STATUSES.has(submission.status);
     const canDelete = USER_DELETABLE_STATUSES.has(submission.status);
+    const isPublished = submission.status === "PUBLISHED";
+    const readUrl = submission.type === "PAPER" || submission.itemType === "PAPER"
+      ? `/papers/${submission.slug}`
+      : `/articles/${submission.slug}`;
+
     return (
       <div key={submission.id} className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-4 flex flex-col">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -204,6 +212,16 @@ export default function AccountPage() {
           <div className="flex flex-row items-center justify-between gap-2 sm:flex-col sm:items-end shrink-0">
             <span className={`badge ${status.className} text-[10px]`}>{status.label}</span>
             <div className="flex items-center gap-1.5 flex-wrap justify-end">
+              {isPublished && submission.slug ? (
+                <Link
+                  href={readUrl}
+                  className="btn-ink px-2 py-1 text-[10px] text-[var(--gold)] hover:bg-[var(--gold)]/10"
+                  title="Read published work on live journal"
+                >
+                  <BookOpen size={12} /> Read
+                </Link>
+              ) : null}
+
               {canEdit ? (
                 <Link href={`/submit/write?draftId=${submission.id}`} className="btn-ink px-2 py-1 text-[10px]" style={{ color: "var(--gold)" }}>
                   <Edit3 size={12} /> {isDraft ? "Resume" : "Edit"}
@@ -211,17 +229,16 @@ export default function AccountPage() {
               ) : null}
 
               {canDelete ? (
-              <button
-                type="button"
-                onClick={() => deleteSubmission(submission.id)}
-                disabled={deletingId === submission.id}
-                className="btn-ink px-2 py-1 text-[10px] text-[var(--terracotta)] hover:bg-[var(--terracotta)]/10"
-                title="Delete this submission"
-              >
-                <Trash2 size={12} /> {deletingId === submission.id ? "Deleting…" : "Delete"}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => deleteSubmission(submission.id)}
+                  disabled={deletingId === submission.id}
+                  className="btn-ink px-2 py-1 text-[10px] text-[var(--terracotta)] hover:bg-[var(--terracotta)]/10"
+                  title={isPublished ? "Hide from public site and move to Trash" : "Delete this submission"}
+                >
+                  <Trash2 size={12} /> {deletingId === submission.id ? (isPublished ? "Hiding…" : "Deleting…") : (isPublished ? "Hide / Trash" : "Delete")}
+                </button>
               ) : null}
-
             </div>
           </div>
         </div>
@@ -242,26 +259,26 @@ export default function AccountPage() {
       } else {
         loadSubmissions();
       }
-      toast.success("Submission restored successfully");
+      toast.success("Work restored successfully");
       window.dispatchEvent(new Event("anv:content-changed"));
     } catch (err: any) {
-      toast.error(err.message || "Failed to restore submission");
+      toast.error(err.message || "Failed to restore");
     }
     setRestoringId(null);
   };
 
   const permanentlyDelete = async (id: string) => {
-    if (!window.confirm("⚠️ This will permanently erase this submission. This CANNOT be undone. Continue?")) return;
+    if (!window.confirm("⚠️ This will permanently erase this work. This CANNOT be undone. Continue?")) return;
     setPermDeletingId(id);
     try {
       const r = await fetch(`${base()}/api/submissions/${id}/permanent`, { method: "DELETE", credentials: "include" });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || "Failed to permanently delete");
       setDeletedSubmissions(prev => prev.filter(s => s.id !== id));
-      toast.success("Submission permanently deleted");
+      toast.success("Permanently deleted");
       window.dispatchEvent(new Event("anv:content-changed"));
     } catch (err: any) {
-      toast.error(err.message || "Failed to permanently delete submission");
+      toast.error(err.message || "Failed to permanently delete");
     }
     setPermDeletingId(null);
   };
@@ -289,7 +306,7 @@ export default function AccountPage() {
               onClick={() => restoreSubmission(submission.id)}
               disabled={restoringId === submission.id}
               className="btn-ink px-2 py-1 text-[10px] text-[var(--sage)]"
-              title="Restore this submission"
+              title="Restore this work"
             >
               <ArchiveRestore size={11} /> {restoringId === submission.id ? "Restoring…" : "Restore"}
             </button>

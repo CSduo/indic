@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { articlesTable, newsletterSubscribersTable, papersTable, submissionsTable, usersTable } from "@workspace/db";
+import { adminsTable, articlesTable, newsletterSubscribersTable, papersTable, submissionsTable, usersTable } from "@workspace/db";
 import { and, desc, eq, ilike, isNull, or } from "drizzle-orm";
 import {
   hashPassword, comparePassword, createUserToken,
@@ -122,8 +122,32 @@ router.get("/auth/me", async (req, res) => {
   try {
     const auth = await getUserAuth(req);
     if (!auth) return res.status(401).json({ error: "Not authenticated" });
-    const [user] = await db.select(PROFILE_FIELDS)
+
+    let [user] = await db.select(PROFILE_FIELDS)
       .from(usersTable).where(eq(usersTable.id, auth.userId)).limit(1);
+
+    if (!user && auth.email) {
+      [user] = await db.select(PROFILE_FIELDS)
+        .from(usersTable).where(ilike(usersTable.email, auth.email)).limit(1);
+    }
+
+    if (!user) {
+      const [admin] = await db.select().from(adminsTable)
+        .where(or(eq(adminsTable.id, auth.userId), ilike(adminsTable.email, auth.email)))
+        .limit(1);
+      if (admin) {
+        user = {
+          id: admin.id,
+          email: admin.email,
+          name: admin.name || "Admin",
+          role: "ADMIN" as const,
+          avatarUrl: null,
+          bio: null,
+          institution: "Ānvīkṣikī Editorial Desk",
+        };
+      }
+    }
+
     if (!user) return res.status(404).json({ error: "User not found" });
     return res.json({ user });
   } catch (err) {
@@ -348,7 +372,6 @@ router.post("/auth/google", async (req, res) => {
         name,
         email,
         avatarUrl,
-        // Since they log in with Google, we don't set a password (it remains null/empty)
       }).returning();
       sendNewMemberNotification(user.name || name, user.email)
         .catch(err => req.log.warn({ err }, "Failed to send member notification"));
@@ -382,4 +405,3 @@ router.post("/auth/google", async (req, res) => {
 });
 
 export default router;
-

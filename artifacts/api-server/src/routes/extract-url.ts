@@ -3,12 +3,100 @@ import { z } from 'zod';
 import dns from 'dns/promises';
 import net from 'net';
 import { v2 as cloudinary } from 'cloudinary';
+import { put } from '@vercel/blob';
 import { getUserAuth } from '../lib/auth';
 import { sanitizeArticleBody } from '../lib/content';
+import { hasExpectedFileSignature } from '../lib/file-validation';
 
 const router = Router();
 
 const schema = z.object({ url: z.string().url('Valid URL required').max(2_048) });
+const MAX_IMPORT_IMAGE_BYTES = 10 * 1024 * 1024;
+// Google Docs exports embed images as base64 in the HTML. Keep ordinary web
+// imports conservative, while allowing a reasonably sized document with its
+// embedded images to be read and persisted below.
+const MAX_GOOGLE_DOC_HTML_BYTES = 25 * 1024 * 1024;
+const IMAGE_EXTENSION_BY_MIME: Readonly<Record<string, string>> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+};
+
+type GoogleDocumentImport = {
+  fetchUrl: string;
+  kind: 'shared' | 'published';
+};
+
+type ImportedImage = {
+  buffer: Buffer;
+  contentType: keyof typeof IMAGE_EXTENSION_BY_MIME;
+  extension: string;
+};
+
+export type SemanticExtraction = {
+  failedEmbeddedImages: number;
+  html: string;
+};
+
+/**
+ * Normalize share links (including /u/0/d/) to the documented HTML export
+ * endpoint. Published-to-web documents use a different /d/e/.../pub format
+ * and must be fetched from that canonical public page instead.
+ */
+export function getGoogleDocumentImport(rawUrl: string): GoogleDocumentImport | null {
+  const parsed = new URL(rawUrl);
+  if (parsed.hostname.toLowerCase() !== 'docs.google.com') return null;
+
+  const segments = parsed.pathname.split('/').filter(Boolean);
+  if (segments[0] !== 'document') return null;
+
+  const documentIdIndex = segments.indexOf('d', 1);
+  if (documentIdIndex === -1) return null;
+
+  if (segments[documentIdIndex + 1] === 'e') {
+    const publishedId = segments[documentIdIndex + 2] || '';
+    const publicRoute = segments[documentIdIndex + 3];
+    if (!/^[a-zA-Z0-9_-]+$/.test(publishedId) || !['pub', 'embed'].includes(publicRoute || '')) {
+      return null;
+    }
+    return {
+      fetchUrl: `https://docs.google.com/document/d/e/${publishedId}/pub`,
+      kind: 'published',
+    };
+  }
+
+  const documentId = segments[documentIdIndex + 1] || '';
+  if (!/^[a-zA-Z0-9_-]+$/.test(documentId)) return null;
+  return {
+    fetchUrl: `https://docs.google.com/document/d/${documentId}/export?format=html`,
+    kind: 'shared',
+  };
+}
+
+/**
+ * Google returns a normal 200 HTML document for some private and sign-in
+ * pages. Detect those shells before semantic extraction so authors receive a
+ * useful access instruction rather than a misleading partial import.
+ */
+export function isGoogleDocumentAccessPage(rawHtml: string): boolean {
+  const html = rawHtml.toLowerCase();
+  const looksLikeGoogleShell =
+    html.includes('accounts.google.com') ||
+    html.includes('servicelogin') ||
+    /<title[^>]*>\s*sign in\b/i.test(rawHtml) ||
+    html.includes('google drive') ||
+    html.includes('google docs');
+  const hasAccessMessage = [
+    'you need access',
+    'you need permission',
+    'request access',
+    'access denied',
+    'sign in to continue',
+    'sorry, unable to open the file',
+  ].some(message => html.includes(message));
+  return looksLikeGoogleShell && hasAccessMessage;
+}
 
 async function readLimitedBody(response: Response, maxBytes: number): Promise<Buffer> {
   const declaredLength = Number(response.headers.get('content-length') || 0);
@@ -171,17 +259,44 @@ function escapeHtml(value: string): string {
   })[character] || character);
 }
 
-/** Try to upload an image src to Cloudinary and return the CDN URL */
-async function uploadImageToCloudinary(
-  imgSrc: string,
-  baseUrl: string
-): Promise<string | null> {
-  if (!process.env.CLOUDINARY_URL) return null;
+function validateImportedImage(
+  buffer: Buffer,
+  contentType: string,
+): ImportedImage | null {
+  const normalizedContentType = contentType.split(';')[0].trim().toLowerCase();
+  const extension = IMAGE_EXTENSION_BY_MIME[normalizedContentType];
+  if (!extension || !buffer.length || buffer.length > MAX_IMPORT_IMAGE_BYTES) return null;
+  if (!hasExpectedFileSignature({ originalname: `imported.${extension}`, buffer })) return null;
+  return {
+    buffer,
+    contentType: normalizedContentType as keyof typeof IMAGE_EXTENSION_BY_MIME,
+    extension,
+  };
+}
+
+function decodeEmbeddedImage(imgSrc: string): ImportedImage | null {
+  const match = imgSrc.match(/^data:(image\/(?:jpeg|png|webp|gif));base64,([a-z0-9+/=\s]+)$/i);
+  if (!match) return null;
+
+  const encoded = match[2].replace(/\s/g, '');
+  // Buffer.from is permissive about malformed base64, so validate the input
+  // before decoding. The length check avoids allocating a huge buffer first.
+  if (
+    !encoded ||
+    encoded.length > Math.ceil((MAX_IMPORT_IMAGE_BYTES * 4) / 3) + 4 ||
+    !/^[a-z0-9+/]*={0,2}$/i.test(encoded)
+  ) {
+    return null;
+  }
+
+  return validateImportedImage(Buffer.from(encoded, 'base64'), match[1]);
+}
+
+async function readImportedImage(imgSrc: string, baseUrl: string): Promise<ImportedImage | null> {
+  if (/^data:/i.test(imgSrc)) return decodeEmbeddedImage(imgSrc);
+
   try {
-    // Build absolute URL
-    const absoluteUrl = imgSrc.startsWith('http')
-      ? imgSrc
-      : new URL(imgSrc, baseUrl).toString();
+    const absoluteUrl = new URL(imgSrc, baseUrl).toString();
 
     // Follow redirects manually and re-check every destination. A normal
     // fetch() here would allow a public image URL to redirect into a private
@@ -190,35 +305,63 @@ async function uploadImageToCloudinary(
     if (!imgRes.ok) return null;
 
     const contentType = imgRes.headers.get('content-type') || '';
-    if (!contentType.startsWith('image/')) return null;
-
-    const buffer = await readLimitedBody(imgRes, 10 * 1024 * 1024);
-
-    const result = await new Promise<any>((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        { folder: 'anvikshiki/url_imports', resource_type: 'image' },
-        (err, res) => (err ? reject(err) : resolve(res))
-      );
-      stream.end(buffer);
-    });
-
-    return result?.secure_url || null;
+    return validateImportedImage(
+      await readLimitedBody(imgRes, MAX_IMPORT_IMAGE_BYTES),
+      contentType,
+    );
   } catch {
     return null;
   }
 }
 
+/**
+ * Persist imported images rather than returning base64 or third-party image
+ * URLs. Google Docs exports embed images as data URLs, which sanitization
+ * correctly rejects; moving them into the configured journal store preserves
+ * accessible images without allowing the source document to inject a URL.
+ */
+async function persistImportedImage(imgSrc: string, baseUrl: string): Promise<string | null> {
+  const image = await readImportedImage(imgSrc, baseUrl);
+  if (!image) return null;
+
+  try {
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      const blob = await put(`anvikshiki/url_imports/${crypto.randomUUID()}.${image.extension}`, image.buffer, {
+        access: 'public',
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+        contentType: image.contentType,
+      });
+      return typeof blob.url === 'string' && blob.url ? blob.url : null;
+    }
+
+    if (process.env.CLOUDINARY_URL) {
+      const result = await new Promise<any>((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: 'anvikshiki/url_imports', resource_type: 'image' },
+          (err, res) => (err ? reject(err) : resolve(res)),
+        );
+        stream.end(image.buffer);
+      });
+      return typeof result?.secure_url === 'string' && result.secure_url ? result.secure_url : null;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 /** Allowed block-level and inline HTML tags to preserve */
 const BLOCK_TAGS = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'ul', 'ol', 'li', 'figure', 'figcaption', 'section', 'div', 'article', 'main', 'header', 'pre', 'code']);
 const INLINE_TAGS = new Set(['strong', 'b', 'em', 'i', 'u', 'span', 'a', 'br', 'mark', 'sup', 'sub', 'abbr']);
-const SKIP_TAGS = new Set(['script', 'style', 'nav', 'footer', 'aside', 'iframe', 'noscript', 'form', 'button', 'input', 'select', 'option', 'meta', 'link', 'head', 'html', 'body', 'svg', 'path', 'template']);
+const SKIP_TAGS = new Set(['script', 'style', 'nav', 'footer', 'aside', 'iframe', 'noscript', 'form', 'button', 'input', 'select', 'option', 'meta', 'link', 'head', 'svg', 'path', 'template']);
 
 /**
  * Lightweight HTML-to-structured-HTML converter.
  * Extracts semantic content preserving paragraphs, headings, blockquotes,
  * lists, inline formatting and images.
  */
-async function extractSemanticHtml(rawHtml: string, finalUrl: string): Promise<string> {
+export async function extractSemanticHtml(rawHtml: string, finalUrl: string): Promise<SemanticExtraction> {
   // ── 1. Strip <script>, <style>, <nav>, <footer>, <header>, <aside>, <noscript> blocks ──
   let cleaned = rawHtml
     .replace(/<script[\s\S]*?<\/script>/gi, '')
@@ -251,13 +394,17 @@ async function extractSemanticHtml(rawHtml: string, finalUrl: string): Promise<s
   const imgPromises: Array<Promise<void>> = [];
   const imgMap = new Map<string, string>(); // original src → cloudinary url
   const imgMatches = [...cleaned.matchAll(/<img[^>]*src=["']([^"']+)["'][^>]*>/gi)];
+  let failedEmbeddedImages = 0;
+  const processedImageSources = new Set<string>();
 
   for (const match of imgMatches) {
     const src = match[1];
-    if (!imgMap.has(src)) {
+    if (!processedImageSources.has(src)) {
+      processedImageSources.add(src);
       imgPromises.push(
-        uploadImageToCloudinary(src, finalUrl).then(cdnUrl => {
+        persistImportedImage(src, finalUrl).then(cdnUrl => {
           if (cdnUrl) imgMap.set(src, cdnUrl);
+          else if (/^data:/i.test(src)) failedEmbeddedImages += 1;
         })
       );
     }
@@ -315,8 +462,12 @@ async function extractSemanticHtml(rawHtml: string, finalUrl: string): Promise<s
       const alt = altMatch ? decodeEntities(altMatch[1]) : '';
       if (src) {
         flushBlock();
-        const cdnSrc = imgMap.get(src) || src;
-        result.push(`<figure><img src="${cdnSrc}" alt="${alt}" style="max-width:100%;height:auto;margin:1.5rem auto;display:block;border-radius:8px;" />${alt ? `<figcaption>${alt}</figcaption>` : ''}</figure>`);
+        const persistedSrc = imgMap.get(src) || (/^data:/i.test(src) ? '' : src);
+        if (persistedSrc) {
+          const safeSrc = escapeHtml(persistedSrc);
+          const safeAlt = escapeHtml(alt);
+          result.push(`<figure><img src="${safeSrc}" alt="${safeAlt}" style="max-width:100%;height:auto;margin:1.5rem auto;display:block;border-radius:8px;" />${safeAlt ? `<figcaption>${safeAlt}</figcaption>` : ''}</figure>`);
+        }
       }
       continue;
     }
@@ -438,7 +589,7 @@ async function extractSemanticHtml(rawHtml: string, finalUrl: string): Promise<s
     finalHtml = finalHtml.slice(0, 200_000) + '<p><em>[Content truncated]</em></p>';
   }
 
-  return finalHtml;
+  return { html: finalHtml, failedEmbeddedImages };
 }
 
 /**
@@ -453,11 +604,8 @@ router.post('/extract-url', async (req, res) => {
 
     const { url } = schema.parse(req.body);
 
-    const googleDocRegex = /https:\/\/docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/i;
-    const googleMatch = url.match(googleDocRegex);
-    const fetchUrl = googleMatch
-      ? `https://docs.google.com/document/d/${googleMatch[1]}/export?format=html`
-      : url;
+    const googleDocument = getGoogleDocumentImport(url);
+    const fetchUrl = googleDocument?.fetchUrl || url;
 
     const { response, finalUrl } = await fetchWithSsrfGuard(fetchUrl);
 
@@ -469,9 +617,19 @@ router.post('/extract-url', async (req, res) => {
     if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml') && !contentType.includes('text/plain')) {
       return res.status(415).json({ error: 'The remote URL did not return HTML or plain text' });
     }
-    const rawText = (await readLimitedBody(response, 2 * 1024 * 1024)).toString('utf-8');
+    const rawText = (await readLimitedBody(
+      response,
+      googleDocument ? MAX_GOOGLE_DOC_HTML_BYTES : 2 * 1024 * 1024,
+    )).toString('utf-8');
+
+    if (googleDocument && isGoogleDocumentAccessPage(rawText)) {
+      return res.status(422).json({
+        error: 'Google Docs could not be imported. Set sharing to "Anyone with the link" and permission to "Viewer", then try again.',
+      });
+    }
 
     let html: string;
+    let failedEmbeddedImages = 0;
 
     if (contentType.includes('text/plain')) {
       // Plain text — convert to paragraphs
@@ -482,7 +640,15 @@ router.post('/extract-url', async (req, res) => {
         .join('\n');
     } else {
       // HTML — extract semantic content
-      html = await extractSemanticHtml(rawText, finalUrl);
+      const extraction = await extractSemanticHtml(rawText, finalUrl);
+      html = extraction.html;
+      failedEmbeddedImages = extraction.failedEmbeddedImages;
+    }
+
+    if (googleDocument && failedEmbeddedImages > 0) {
+      return res.status(502).json({
+        error: 'Google Docs text was read, but one or more embedded images could not be stored. Nothing was imported; please retry after checking image size and storage configuration.',
+      });
     }
 
     // Fallback: if extraction yielded almost nothing, return a plain-text conversion
@@ -508,7 +674,7 @@ router.post('/extract-url', async (req, res) => {
       return res.status(422).json({ error: 'No readable article content was found at this URL' });
     }
 
-    return res.json({ html: sanitizedHtml, url: googleMatch ? url : finalUrl });
+    return res.json({ html: sanitizedHtml, url: googleDocument ? url : finalUrl });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: err.errors[0]?.message || 'Invalid input' });
