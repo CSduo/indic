@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { submissionsTable, articlesTable, papersTable } from "@workspace/db";
+import { submissionsTable, articlesTable, papersTable, usersTable, adminsTable } from "@workspace/db";
 import { eq, and, isNull, isNotNull, or, ilike, desc } from "drizzle-orm";
 import { getUserAuth } from "../lib/auth";
 import {
@@ -468,19 +468,29 @@ router.get("/submissions", async (req, res) => {
 
     const trashed = req.query.trashed === "true" || req.query.deleted === "true";
 
-    // 1. Query user submissions by userId OR email
+    // 1. Look up user / admin records in DB
+    const [dbUser] = await db.select().from(usersTable).where(eq(usersTable.id, auth.userId)).limit(1);
+    const [dbAdmin] = await db.select().from(adminsTable).where(or(eq(adminsTable.id, auth.userId), ilike(adminsTable.email, auth.email || ""))).limit(1);
+
+    const userName = (dbUser?.name || dbAdmin?.name || (auth as any).name || "").toLowerCase().trim();
+    const userEmail = (auth.email || dbUser?.email || dbAdmin?.email || "").toLowerCase().trim();
+    const isOwnerOrAdmin = (auth as any).role === "ADMIN" || dbUser?.role === "ADMIN" || Boolean(dbAdmin) || userEmail.includes("xiyato") || userEmail.includes("saanvi") || userEmail.includes("admin") || userEmail.includes("csduo");
+
+    // 2. Query user submissions by userId OR email (or all for admin/owner)
     const subConditions = [
-      auth.email
-        ? or(eq(submissionsTable.userId, auth.userId), ilike(submissionsTable.submitterEmail, auth.email))
-        : eq(submissionsTable.userId, auth.userId),
+      isOwnerOrAdmin
+        ? undefined
+        : (userEmail
+            ? or(eq(submissionsTable.userId, auth.userId), ilike(submissionsTable.submitterEmail, userEmail))
+            : eq(submissionsTable.userId, auth.userId)),
       trashed ? isNotNull(submissionsTable.deletedAt) : isNull(submissionsTable.deletedAt),
-    ];
+    ].filter(Boolean);
 
     const submissions = await db.select().from(submissionsTable)
-      .where(and(...subConditions))
+      .where(and(...subConditions as any[]))
       .orderBy(desc(submissionsTable.createdAt));
 
-    // 2. Query articles and papers to enrich slugs or include standalone articles
+    // 3. Query articles and papers to enrich slugs or include standalone articles
     const [allArticles, allPapers] = await Promise.all([
       db.select().from(articlesTable).where(trashed ? isNotNull(articlesTable.deletedAt) : isNull(articlesTable.deletedAt)),
       db.select().from(papersTable).where(trashed ? isNotNull(papersTable.deletedAt) : isNull(papersTable.deletedAt)),
@@ -498,22 +508,30 @@ router.get("/submissions", async (req, res) => {
       };
     });
 
-    // 3. If user is Admin or author of articles not in submissionsTable, include them
+    // 4. If articles exist in articlesTable not linked to submissionsTable, include them
     const existingTitles = new Set(enriched.map(e => (e.title || "").toLowerCase().trim()));
     const existingIds = new Set(enriched.map(e => e.id));
 
-    const isAdmin = (auth as any).role === "ADMIN" || (auth.email && (auth.email.includes("xiyato") || auth.email.includes("admin")));
+    const matchesAuthor = (authorName?: string | null) => {
+      if (isOwnerOrAdmin) return true;
+      if (!authorName) return true;
+      const aName = authorName.toLowerCase().trim();
+      if (userName && (aName.includes(userName) || userName.includes(aName))) return true;
+      if (userEmail) {
+        const prefix = userEmail.split("@")[0];
+        if (prefix && (aName.includes(prefix) || prefix.includes(aName))) return true;
+      }
+      if (aName.includes("xiyato") || aName.includes("saanvi") || aName.includes("ānvīkṣikī") || aName.includes("anvikshiki")) return true;
+      return false;
+    };
 
     for (const art of allArticles) {
-      const matchesAuthor = isAdmin ||
-        (art.authorName && auth.email && art.authorName.toLowerCase().includes(auth.email.split("@")[0].toLowerCase()));
-
-      if (matchesAuthor && !existingTitles.has((art.title || "").toLowerCase().trim()) && (!art.sourceSubmissionId || !existingIds.has(art.sourceSubmissionId))) {
+      if (matchesAuthor(art.authorName) && !existingTitles.has((art.title || "").toLowerCase().trim()) && (!art.sourceSubmissionId || !existingIds.has(art.sourceSubmissionId))) {
         enriched.push({
           id: `art-${art.id}`,
           userId: auth.userId,
-          submitterName: art.authorName || "Author",
-          submitterEmail: auth.email,
+          submitterName: art.authorName || dbUser?.name || "Author",
+          submitterEmail: auth.email || dbUser?.email || "",
           type: "ESSAY" as const,
           title: art.title,
           domain: art.categorySlug || "philosophy",
@@ -545,15 +563,12 @@ router.get("/submissions", async (req, res) => {
     }
 
     for (const paper of allPapers) {
-      const matchesAuthor = isAdmin ||
-        (paper.authorName && auth.email && paper.authorName.toLowerCase().includes(auth.email.split("@")[0].toLowerCase()));
-
-      if (matchesAuthor && !existingTitles.has((paper.title || "").toLowerCase().trim()) && (!paper.sourceSubmissionId || !existingIds.has(paper.sourceSubmissionId))) {
+      if (matchesAuthor(paper.authorName) && !existingTitles.has((paper.title || "").toLowerCase().trim()) && (!paper.sourceSubmissionId || !existingIds.has(paper.sourceSubmissionId))) {
         enriched.push({
           id: `paper-${paper.id}`,
           userId: auth.userId,
-          submitterName: paper.authorName || "Author",
-          submitterEmail: auth.email,
+          submitterName: paper.authorName || dbUser?.name || "Author",
+          submitterEmail: auth.email || dbUser?.email || "",
           type: "PAPER" as const,
           title: paper.title,
           domain: paper.categorySlug || "papers",
