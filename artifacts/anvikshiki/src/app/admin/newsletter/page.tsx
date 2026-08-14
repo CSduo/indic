@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { Mail, Users, Download } from "lucide-react";
+import { Mail, Download } from "lucide-react";
 import { toast } from "sonner";
 import { AdminSidebar } from "@/components/sacred/AdminSidebar";
 import { LotusIcon } from "@/components/sacred/LotusIcon";
@@ -33,7 +33,7 @@ export default function AdminNewsletterPage() {
     <div className="admin-layout">
       <AdminSidebar active="/admin/newsletter" />
       <main className="admin-main">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
           <div>
             <h1 className="font-display text-2xl" style={{ color: "var(--gold-bright)" }}>Newsletter</h1>
             <p className="font-ui text-xs mt-1" style={{ color: "var(--muted)" }}>{subscribers.length} active subscribers</p>
@@ -43,7 +43,7 @@ export default function AdminNewsletterPage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           {[{ icon: <Mail size={18} />, label: "Total Subscribers", value: subscribers.length, color: "var(--gold)" }].map(s => (
             <div key={s.label} className="card-sacred p-4 col-span-1">
               <div className="flex items-center justify-between mb-2">
@@ -64,7 +64,8 @@ export default function AdminNewsletterPage() {
               <p className="font-ui text-sm" style={{ color: "var(--muted)" }}>No subscribers yet</p>
             </div>
           ) : (
-            <table className="sacred-table" role="table">
+            <div className="overflow-x-auto">
+            <table className="sacred-table min-w-[480px]" role="table">
               <thead><tr><th scope="col">Email</th><th scope="col">Name</th><th scope="col">Subscribed</th></tr></thead>
               <tbody>
                 {subscribers.map(s => (
@@ -76,6 +77,7 @@ export default function AdminNewsletterPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </main>

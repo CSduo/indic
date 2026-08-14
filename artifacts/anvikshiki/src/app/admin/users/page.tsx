@@ -65,7 +65,8 @@ export default function AdminUsersPage() {
               <p className="font-ui text-sm" style={{ color: "var(--muted)" }}>No users have signed up yet</p>
             </div>
           ) : (
-            <table className="sacred-table" role="table">
+            <div className="overflow-x-auto">
+            <table className="sacred-table min-w-[720px]" role="table">
               <thead>
                 <tr>
                   <th scope="col">Name</th>
@@ -122,6 +123,7 @@ export default function AdminUsersPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </main>

@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/sacred/EmptyState";
 import { useAuthContext } from "@/contexts/AuthContext";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
+const IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 export default function ProfilePage() {
   const [, navigate] = useLocation();
@@ -44,7 +45,7 @@ export default function ProfilePage() {
   const pickAvatar = () => avatarInputRef.current?.click();
 
   const uploadAvatar = async (file: File) => {
-    if (!file.type.startsWith("image/")) { toast.error("Please choose an image file"); return; }
+    if (!IMAGE_MIME_TYPES.has(file.type)) { toast.error("Please choose a JPG, PNG, WEBP, or GIF image"); return; }
     if (file.size > 8 * 1024 * 1024) { toast.error("Image must be under 8 MB"); return; }
     setUploadingAvatar(true);
     try {

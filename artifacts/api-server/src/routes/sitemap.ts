@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { articlesTable, papersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 const router = Router();
 
@@ -10,10 +10,10 @@ router.get("/sitemap.xml", async (req, res) => {
     const [articles, papers] = await Promise.all([
       db.select({ slug: articlesTable.slug, updatedAt: articlesTable.updatedAt })
         .from(articlesTable)
-        .where(eq(articlesTable.status, "PUBLISHED")),
+        .where(and(eq(articlesTable.status, "PUBLISHED"), isNull(articlesTable.deletedAt))),
       db.select({ slug: papersTable.slug, updatedAt: papersTable.updatedAt })
         .from(papersTable)
-        .where(eq(papersTable.status, "PUBLISHED"))
+        .where(and(eq(papersTable.status, "PUBLISHED"), isNull(papersTable.deletedAt)))
     ]);
 
     const baseUrl = 'https://anvikshikijournal.in';

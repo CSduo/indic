@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Search, X, Clock, Filter, History } from "lucide-react";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
 import { GlyphTag } from "@/components/manuscript/GlyphTag";
@@ -11,27 +12,56 @@ import { DOMAIN_ORDER } from "@/lib/domainMeta";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
+type SearchKind = "article" | "paper";
+
+interface SearchResult {
+  id: string;
+  title: string;
+  slug?: string;
+  excerpt?: string;
+  abstract?: string;
+  authorName?: string;
+  categorySlug?: string;
+  categoryId?: string;
+  discipline?: string;
+  date?: string;
+  publishedAt?: string;
+  kind: SearchKind;
+}
+
+interface SearchResponse {
+  articles?: Omit<SearchResult, "kind">[];
+  papers?: Omit<SearchResult, "kind">[];
+}
+
+function getSearchResults(data: SearchResponse): SearchResult[] {
+  return [
+    ...(data.articles || []).map((article) => ({ ...article, kind: "article" as const })),
+    ...(data.papers || []).map((paper) => ({ ...paper, kind: "paper" as const })),
+  ];
+}
+
 // Highlight helper
 function HighlightText({ text, highlight }: { text: string; highlight: string }) {
   if (!highlight.trim()) return <>{text}</>;
-  const regex = new RegExp(`(${highlight})`, "gi");
+  const escapedHighlight = highlight.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(`(${escapedHighlight})`, "gi");
   const parts = text.split(regex);
   return (
     <>
-      {parts.map((part, i) =>
-        regex.test(part) ? <strong key={i} className="font-bold text-[var(--gold)]">{part}</strong> : part
-      )}
+      {parts.map((part, i) => i % 2 === 1 ? <strong key={i} className="font-bold text-[var(--gold)]">{part}</strong> : part)}
     </>
   );
 }
 
 export default function SearchPage() {
-  const [loc] = useLocation();
-  const initQ = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("q") || "" : "";
+  const [location] = useLocation();
+  const initQ = useMemo(() => {
+    const queryString = location.includes("?") ? location.slice(location.indexOf("?")) : window.location.search;
+    return new URLSearchParams(queryString).get("q") || "";
+  }, [location]);
   const [query, setQuery] = useState(initQ);
-  const [results, setResults] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
+  const [submittedQuery, setSubmittedQuery] = useState(initQ);
 
   // Filters & Sorting
   const [filterKind, setFilterKind] = useState<string>("all");
@@ -41,8 +71,8 @@ export default function SearchPage() {
   // Autocomplete & Recent
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
   const searchContainerRef = useRef<HTMLFormElement>(null);
+  const [debouncedQuery, setDebouncedQuery] = useState(query);
 
   useEffect(() => {
     try {
@@ -51,66 +81,63 @@ export default function SearchPage() {
     } catch {}
   }, []);
 
-  const saveRecentSearch = (term: string) => {
-    if (!term.trim()) return;
+  const saveRecentSearch = useCallback((term: string) => {
+    const normalizedTerm = term.trim();
+    if (!normalizedTerm) return;
     setRecentSearches(prev => {
-      const newRecent = [term, ...prev.filter(t => t !== term)].slice(0, 5);
+      const newRecent = [normalizedTerm, ...prev.filter(t => t !== normalizedTerm)].slice(0, 5);
       try { localStorage.setItem("anv-recent-searches", JSON.stringify(newRecent)); } catch {}
       return newRecent;
     });
-  };
+  }, []);
 
-  const doSearch = useCallback(async (value: string, skipHistory = false) => {
-    if (!value.trim()) {
-      setResults([]);
-      setSearched(false);
+  const doSearch = useCallback((value: string, skipHistory = false) => {
+    const normalizedValue = value.trim();
+    if (!normalizedValue) {
+      setSubmittedQuery("");
       return;
     }
-    if (!skipHistory) saveRecentSearch(value);
-    
-    setLoading(true);
-    setSearched(true);
+    if (!skipHistory) saveRecentSearch(normalizedValue);
+    setSubmittedQuery(normalizedValue);
     setShowSuggestions(false);
-    
-    try {
-      const response = await fetch(`${base()}/api/search?q=${encodeURIComponent(value)}&limit=50`);
-      const data = await response.json();
-      let combined = [
-        ...(data.articles || []).map((article: any) => ({ ...article, kind: "article" })),
-        ...(data.papers || []).map((paper: any) => ({ ...paper, kind: "paper" })),
-      ];
-      setResults(combined);
-    } catch {
-      setResults([]);
-    }
-    setLoading(false);
-  }, []);
+  }, [saveRecentSearch]);
+
+  const normalizedSubmittedQuery = submittedQuery.trim();
+  const searchRequest = useQuery({
+    queryKey: ["content-search", normalizedSubmittedQuery],
+    enabled: Boolean(normalizedSubmittedQuery),
+    queryFn: async ({ signal }) => {
+      const response = await fetch(`${base()}/api/search?q=${encodeURIComponent(normalizedSubmittedQuery)}&limit=50`, { signal });
+      if (!response.ok) throw new Error("Search is temporarily unavailable");
+      return getSearchResults(await response.json() as SearchResponse);
+    },
+  });
+  const results = searchRequest.data || [];
+  const loading = searchRequest.isFetching;
+  const searched = Boolean(normalizedSubmittedQuery);
 
   // Debounced autocomplete
   useEffect(() => {
-    if (!query.trim()) {
-      setSuggestions([]);
-      return;
-    }
-    const timer = setTimeout(async () => {
-      try {
-        const response = await fetch(`${base()}/api/search?q=${encodeURIComponent(query)}&limit=5`);
-        const data = await response.json();
-        const combined = [
-          ...(data.articles || []).map((article: any) => ({ ...article, kind: "article" })),
-          ...(data.papers || []).map((paper: any) => ({ ...paper, kind: "paper" })),
-        ].slice(0, 5);
-        setSuggestions(combined);
-      } catch {
-        setSuggestions([]);
-      }
-    }, 300);
+    const timer = window.setTimeout(() => setDebouncedQuery(query), 300);
     return () => clearTimeout(timer);
   }, [query]);
 
+  const normalizedSuggestionQuery = debouncedQuery.trim();
+  const suggestionRequest = useQuery({
+    queryKey: ["content-search-suggestions", normalizedSuggestionQuery],
+    enabled: Boolean(normalizedSuggestionQuery),
+    queryFn: async ({ signal }) => {
+      const response = await fetch(`${base()}/api/search?q=${encodeURIComponent(normalizedSuggestionQuery)}&limit=5`, { signal });
+      if (!response.ok) throw new Error("Suggestions are temporarily unavailable");
+      return getSearchResults(await response.json() as SearchResponse).slice(0, 5);
+    },
+  });
+  const suggestions = suggestionRequest.data || [];
+
   useEffect(() => {
-    if (initQ) doSearch(initQ, true);
-  }, [initQ, doSearch]);
+    setQuery(initQ);
+    setSubmittedQuery(initQ);
+  }, [initQ]);
 
   // Click outside suggestions
   useEffect(() => {
@@ -129,18 +156,18 @@ export default function SearchPage() {
   };
 
   // Filter and sort results
-  const processedResults = results
-    .filter(r => filterKind === "all" || r.kind === filterKind)
-    .filter(r => {
+  const processedResults = useMemo(() => results
+    .filter((result) => filterKind === "all" || result.kind === filterKind)
+    .filter((result) => {
       if (filterDomain === "all") return true;
-      const d = r.categorySlug || r.categoryId || r.discipline;
+      const d = result.categorySlug || result.categoryId || result.discipline;
       return d === filterDomain;
     })
     .sort((a, b) => {
       if (sortBy === "newest") return new Date(b.date || b.publishedAt || 0).getTime() - new Date(a.date || a.publishedAt || 0).getTime();
       if (sortBy === "oldest") return new Date(a.date || a.publishedAt || 0).getTime() - new Date(b.date || b.publishedAt || 0).getTime();
       return 0; // relevance keeps original order
-    });
+    }), [filterDomain, filterKind, results, sortBy]);
 
   return (
     <div className="min-h-[80vh] bg-[var(--bg)]">
@@ -178,7 +205,7 @@ export default function SearchPage() {
               {query ? (
                 <button
                   type="button"
-                  onClick={() => { setQuery(""); setResults([]); setSearched(false); setShowSuggestions(false); setSuggestions([]); }}
+                  onClick={() => { setQuery(""); setSubmittedQuery(""); setShowSuggestions(false); }}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] hover:text-[var(--terracotta)] transition-colors"
                   aria-label="Clear search"
                 >
@@ -244,17 +271,23 @@ export default function SearchPage() {
           <div className="flex justify-center py-12">
             <div className="h-9 w-9 rounded-full border-2 border-[var(--border-gold)] border-t-[var(--gold)]" style={{ animation: "rotateSlow .8s linear infinite" }} role="status" aria-label="Searching" />
           </div>
+        ) : searchRequest.isError ? (
+          <EmptyState
+            title="Search is temporarily unavailable"
+            description="Please try again in a moment."
+            action={<button type="button" onClick={() => searchRequest.refetch()} className="btn-ink">Try Again</button>}
+          />
         ) : searched && results.length === 0 ? (
           <EmptyState
-            title={`No results for "${query}"`}
+            title={`No results for "${normalizedSubmittedQuery}"`}
             description="Try different keywords, check your spelling, or browse all domains."
-            action={<Link href="/browse"><div className="btn-ink cursor-pointer inline-flex">Browse Domains</div></Link>}
+            action={<Link href="/browse" className="btn-ink inline-flex">Browse Domains</Link>}
           />
         ) : results.length > 0 ? (
           <div>
             <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="font-ui text-sm font-bold uppercase tracking-[0.14em] text-[var(--ink)]">
-                Showing {processedResults.length} result{processedResults.length !== 1 ? "s" : ""} for "<span className="text-[var(--gold)]">{query}</span>"
+                Showing {processedResults.length} result{processedResults.length !== 1 ? "s" : ""} for "<span className="text-[var(--gold)]">{normalizedSubmittedQuery}</span>"
               </div>
               
               <div className="flex flex-wrap items-center gap-3 font-ui text-sm">
@@ -264,6 +297,7 @@ export default function SearchPage() {
                     className="bg-[var(--surface-1)] border border-[var(--border-gold)] rounded px-2 py-1 text-[var(--ink)] outline-none"
                     value={filterKind}
                     onChange={e => setFilterKind(e.target.value)}
+                    aria-label="Filter search results by content type"
                   >
                     <option value="all">All Types</option>
                     <option value="article">Articles/Essays</option>
@@ -275,6 +309,7 @@ export default function SearchPage() {
                   className="bg-[var(--surface-1)] border border-[var(--border-gold)] rounded px-2 py-1 text-[var(--ink)] outline-none"
                   value={filterDomain}
                   onChange={e => setFilterDomain(e.target.value)}
+                  aria-label="Filter search results by domain"
                 >
                   <option value="all">All Domains</option>
                   {DOMAIN_ORDER.map(d => (
@@ -286,6 +321,7 @@ export default function SearchPage() {
                   className="bg-[var(--surface-1)] border border-[var(--border-gold)] rounded px-2 py-1 text-[var(--ink)] outline-none"
                   value={sortBy}
                   onChange={e => setSortBy(e.target.value)}
+                  aria-label="Sort search results"
                 >
                   <option value="relevance">Relevance</option>
                   <option value="newest">Newest First</option>
@@ -315,11 +351,11 @@ export default function SearchPage() {
                               <GlyphTag domain={result.categorySlug || result.categoryId || result.discipline || result.kind} />
                             </div>
                             <h2 className="font-display text-2xl leading-tight text-[var(--ink)] group-hover:text-[var(--terracotta)] transition-colors">
-                              <HighlightText text={result.title} highlight={query} />
+                              <HighlightText text={result.title} highlight={normalizedSubmittedQuery} />
                             </h2>
                             {result.excerpt || result.abstract ? (
                               <p className="mt-2 line-clamp-2 font-body text-sm leading-6 text-[var(--ink-soft)]">
-                                <HighlightText text={result.excerpt || result.abstract} highlight={query} />
+                                <HighlightText text={result.excerpt || result.abstract || ""} highlight={normalizedSubmittedQuery} />
                               </p>
                             ) : null}
                             {result.authorName ? <p className="mt-2 font-ui text-xs text-[var(--muted)]">{result.authorName}</p> : null}

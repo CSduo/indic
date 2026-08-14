@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { ArrowRight, Mail, MapPin, ScrollText } from "lucide-react";
 import { toast } from "sonner";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
@@ -18,22 +19,34 @@ const INQUIRY_TYPES = [
 export default function ContactPage() {
   const [form, setForm] = useState({ name: "", email: "", type: "submission", subject: "", message: "" });
   const [status, setStatus] = useState<"idle" | "sending" | "ok" | "err">("idle");
+  const [validationError, setValidationError] = useState("");
 
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    if (validationError) setValidationError("");
     setForm(prev => ({ ...prev, [k]: e.target.value }));
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
+      setValidationError("Please fill in your name, email address, and message before sending.");
       toast.error("Please fill in all required fields");
       return;
     }
+    setValidationError("");
     setStatus("sending");
     try {
+      const payload = {
+        ...form,
+        name: form.name.trim(),
+        email: form.email.trim(),
+        subject: form.subject.trim(),
+        message: form.message.trim(),
+      };
       const r = await fetch(`${base()}/api/contact`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       if (!r.ok) throw new Error("Failed");
       setStatus("ok");
@@ -116,6 +129,7 @@ export default function ContactPage() {
                   <button type="submit" disabled={status === "sending"} className="btn-terracotta w-full justify-center">
                     {status === "sending" ? "Sending…" : <><ArrowRight size={14} /> Send Message</>}
                   </button>
+                  {validationError ? <p className="font-ui text-xs text-[var(--terracotta)]" role="alert">{validationError}</p> : null}
                   {status === "err" && (
                     <p className="font-ui text-xs text-[var(--lotus)] text-center">
                       Submission failed. Email us directly at <a href="mailto:xiyatosaanvi@gmail.com" className="underline">xiyatosaanvi@gmail.com</a>
@@ -150,7 +164,7 @@ export default function ContactPage() {
                 For manuscript submissions, please use the online portal. It allows file uploads
                 and tracks your submission status automatically.
               </p>
-              <a href="/submit" className="btn-ink mt-4 inline-flex">Submit Portal</a>
+              <Link href="/submit" className="btn-ink mt-4 inline-flex">Submit Portal</Link>
             </ParchmentCard>
 
             <ParchmentCard className="p-6">

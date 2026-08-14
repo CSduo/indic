@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { categoriesTable, articlesTable, papersTable } from "@workspace/db";
-import { eq, and, asc, inArray, sql } from "drizzle-orm";
+import { eq, and, asc, inArray, isNull, sql } from "drizzle-orm";
 import { categorySlugCandidates, normalizeCategorySlug } from "../lib/publication-sync";
 
 const router = Router();
@@ -21,13 +21,13 @@ router.get("/categories", async (req, res) => {
     const articleCounts = await db
       .select({ slug: articleCategorySlug, count: sql<number>`count(*)` })
       .from(articlesTable)
-      .where(eq(articlesTable.status, "PUBLISHED"))
+      .where(and(eq(articlesTable.status, "PUBLISHED"), isNull(articlesTable.deletedAt)))
       .groupBy(articleCategorySlug);
 
     const paperCounts = await db
       .select({ slug: paperCategorySlug, count: sql<number>`count(*)` })
       .from(papersTable)
-      .where(eq(papersTable.status, "PUBLISHED"))
+      .where(and(eq(papersTable.status, "PUBLISHED"), isNull(papersTable.deletedAt)))
       .groupBy(paperCategorySlug);
 
     const articleMap: Record<string, number> = {};
@@ -67,9 +67,9 @@ router.get("/categories/:slug", async (req, res) => {
     const paperCategory = sql<string>`trim(both '-' from lower(regexp_replace(replace(${papersTable.categorySlug}, '_', '-'), '[^a-z0-9]+', '-', 'g')))`;
 
     const articles = await db.select().from(articlesTable)
-      .where(and(inArray(articleCategory, candidates), eq(articlesTable.status, "PUBLISHED")));
+      .where(and(inArray(articleCategory, candidates), eq(articlesTable.status, "PUBLISHED"), isNull(articlesTable.deletedAt)));
     const papers = await db.select().from(papersTable)
-      .where(and(inArray(paperCategory, candidates), eq(papersTable.status, "PUBLISHED")));
+      .where(and(inArray(paperCategory, candidates), eq(papersTable.status, "PUBLISHED"), isNull(papersTable.deletedAt)));
 
     return res.json({ category, articles, papers });
   } catch (err) {

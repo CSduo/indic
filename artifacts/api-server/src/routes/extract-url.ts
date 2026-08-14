@@ -42,8 +42,20 @@ function isPrivateOrReservedIp(ip: string): boolean {
   if (net.isIPv6(ip)) {
     const lower = ip.toLowerCase();
     if (lower === '::1' || lower === '::') return true;
-    if (lower.startsWith('fe80:')) return true; // link-local
+    const firstHextet = Number.parseInt(lower.split(':')[0] || '', 16);
+    if (firstHextet >= 0xfe80 && firstHextet <= 0xfebf) return true; // link-local fe80::/10
     if (lower.startsWith('fc') || lower.startsWith('fd')) return true; // unique local
+    if (lower.startsWith('ff')) return true; // multicast/reserved
+    if (/^::(?:\d{1,3}\.){3}\d{1,3}$/.test(lower)) {
+      return isPrivateOrReservedIp(lower.slice(2)); // IPv4-compatible IPv6
+    }
+    const mappedV4 = lower.match(/(?:^|:)ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+    if (mappedV4) {
+      // IPv4-mapped IPv6 can use hexadecimal rather than dotted-quad notation.
+      const high = Number.parseInt(mappedV4[1], 16);
+      const low = Number.parseInt(mappedV4[2], 16);
+      return isPrivateOrReservedIp([high >> 8, high & 0xff, low >> 8, low & 0xff].join('.'));
+    }
     if (lower.startsWith('::ffff:')) {
       // IPv4-mapped IPv6 address — validate the embedded IPv4 part
       const v4 = lower.split(':').pop() || '';
@@ -61,7 +73,12 @@ function isPrivateOrReservedIp(ip: string): boolean {
   if (a === 169 && b === 254) return true; // link-local (incl. cloud metadata 169.254.169.254)
   if (a === 0) return true; // "this network"
   if (a === 100 && b >= 64 && b <= 127) return true; // carrier-grade NAT
+  if (a === 192 && b === 0) return true; // IETF protocol assignments
+  if (a === 192 && b === 2) return true; // documentation
+  if (a === 192 && b === 88 && parts[2] === 99) return true; // deprecated 6to4 relay anycast
   if (a === 198 && (b === 18 || b === 19)) return true; // benchmarking
+  if (a === 198 && b === 51 && parts[2] === 100) return true; // documentation
+  if (a === 203 && b === 0 && parts[2] === 113) return true; // documentation
   if (a >= 224) return true; // multicast/reserved/broadcast
   return false;
 }
@@ -144,6 +161,16 @@ function decodeEntities(str: string): string {
     .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
 }
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[character] || character);
+}
+
 /** Try to upload an image src to Cloudinary and return the CDN URL */
 async function uploadImageToCloudinary(
   imgSrc: string,
@@ -156,13 +183,10 @@ async function uploadImageToCloudinary(
       ? imgSrc
       : new URL(imgSrc, baseUrl).toString();
 
-    // Guard against SSRF for image fetch
-    await assertUrlIsSafe(absoluteUrl);
-
-    const imgRes = await fetch(absoluteUrl, {
-      headers: FETCH_HEADERS,
-      signal: AbortSignal.timeout(10_000),
-    });
+    // Follow redirects manually and re-check every destination. A normal
+    // fetch() here would allow a public image URL to redirect into a private
+    // network address after the initial URL had passed validation.
+    const { response: imgRes } = await fetchWithSsrfGuard(absoluteUrl);
     if (!imgRes.ok) return null;
 
     const contentType = imgRes.headers.get('content-type') || '';
@@ -454,7 +478,7 @@ router.post('/extract-url', async (req, res) => {
       html = rawText
         .split(/\n{2,}/)
         .filter(p => p.trim())
-        .map(p => `<p>${decodeEntities(p.trim().replace(/\n/g, '<br>'))}</p>`)
+        .map(p => `<p>${escapeHtml(p.trim()).replace(/\n/g, '<br>')}</p>`)
         .join('\n');
     } else {
       // HTML — extract semantic content
@@ -479,7 +503,12 @@ router.post('/extract-url', async (req, res) => {
 
     if (html.length > 200_000) html = html.slice(0, 200_000) + '<p><em>[Content truncated at 200 000 characters]</em></p>';
 
-    return res.json({ html: sanitizeArticleBody(html), url: googleMatch ? url : finalUrl });
+    const sanitizedHtml = sanitizeArticleBody(html);
+    if (!sanitizedHtml.replace(/<[^>]*>/g, '').trim()) {
+      return res.status(422).json({ error: 'No readable article content was found at this URL' });
+    }
+
+    return res.json({ html: sanitizedHtml, url: googleMatch ? url : finalUrl });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: err.errors[0]?.message || 'Invalid input' });

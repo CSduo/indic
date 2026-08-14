@@ -16,6 +16,18 @@ const fmt = (n: number) =>
   n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / (1024 * 1024)).toFixed(1)} MB`;
 
 const STORAGE_KEY = "anvikshiki_write_draft";
+const IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[character] || character);
+}
 
 /* ── Text/HTML extraction helpers ────────────────────────────────── */
 
@@ -24,7 +36,7 @@ function plainTextToHtml(text: string): string {
   return text
     .split(/\n{2,}/)
     .filter(p => p.trim())
-    .map(p => `<p>${p.trim().replace(/\s*\n\s*/g, " ")}</p>`)
+    .map(p => `<p>${escapeHtml(p.trim().replace(/\s*\n\s*/g, " "))}</p>`)
     .join("");
 }
 
@@ -174,6 +186,7 @@ export default function SubmitUploadPage() {
 
       const res = await fetch(`${base()}/api/media/upload`, {
         method: "POST",
+        credentials: "include",
         body: formData,
       });
 
@@ -209,21 +222,25 @@ export default function SubmitUploadPage() {
   /* ── File validation ─────────────────────────────────────────────── */
   const pickMain = (file: File) => {
     if (file.size > 50 * 1024 * 1024) { setError("File must be under 50 MB"); return; }
-    const ok = [
-      "application/pdf",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "text/plain",
-    ].includes(file.type);
+    const lowerName = file.name.toLowerCase();
+    const ok =
+      (file.type === "application/pdf" && lowerName.endsWith(".pdf")) ||
+      file.type === "application/msword" || lowerName.endsWith(".doc") ||
+      file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || lowerName.endsWith(".docx") ||
+      file.type === "text/plain" || lowerName.endsWith(".txt");
     if (!ok) { setError("Please upload PDF, DOC, DOCX, or TXT"); return; }
     setMainFile(file);
+    if (file.type === "application/msword" || lowerName.endsWith(".doc")) {
+      setError("DOC files can be submitted, but only DOCX and TXT files can be imported into the editor.");
+      return;
+    }
     setError("");
     extractAndWrite(file);
   };
 
   const pickImg = (file: File) => {
-    if (file.size > 20 * 1024 * 1024) { setError("Image must be under 20 MB"); return; }
-    if (!file.type.startsWith("image/")) { setError("Please upload a JPG, PNG, or WEBP image"); return; }
+    if (!IMAGE_MIME_TYPES.has(file.type)) { setError("Please upload a JPG, PNG, WEBP, or GIF image"); return; }
+    if (file.size > MAX_IMAGE_BYTES) { setError("Image must be 10 MB or smaller"); return; }
     setImgFile(file);
     setError("");
   };
@@ -235,13 +252,17 @@ export default function SubmitUploadPage() {
     try {
       let htmlContent = "";
 
-      const isTxt = file.type === "text/plain" || file.name.endsWith(".txt");
-      const isPdf = file.type === "application/pdf" || file.name.endsWith(".pdf");
+      const lowerName = file.name.toLowerCase();
+      const isTxt = file.type === "text/plain" || lowerName.endsWith(".txt");
+      const isPdf = file.type === "application/pdf" || lowerName.endsWith(".pdf");
       const isDocx =
         file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-        file.type === "application/msword" ||
-        file.name.endsWith(".docx") ||
-        file.name.endsWith(".doc");
+        lowerName.endsWith(".docx");
+
+      if (file.type === "application/msword" || lowerName.endsWith(".doc")) {
+        setError("DOC files can be submitted, but only DOCX and TXT files can be imported into the editor.");
+        return;
+      }
 
       if (isTxt) {
         // Browser-side: plain text → HTML paragraphs
@@ -297,7 +318,7 @@ export default function SubmitUploadPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to fetch URL");
       const html: string = data.html || (data.text
-        ? data.text.split(/\n{2,}/).filter((p: string) => p.trim()).map((p: string) => `<p>${p.trim()}</p>`).join("")
+        ? data.text.split(/\n{2,}/).filter((p: string) => p.trim()).map((p: string) => `<p>${escapeHtml(p.trim())}</p>`).join("")
         : "");
       if (!html) throw new Error("No content could be extracted from this URL.");
       setEditorBody(html);
@@ -440,8 +461,12 @@ export default function SubmitUploadPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 20 * 1024 * 1024) {
-      setError("Inline image must be under 20 MB");
+    if (!IMAGE_MIME_TYPES.has(file.type)) {
+      setError("Inline images must be JPG, PNG, WEBP, or GIF files");
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setError("Inline image must be 10 MB or smaller");
       return;
     }
 
@@ -451,9 +476,11 @@ export default function SubmitUploadPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("context", "article_inline");
 
       const res = await fetch(`${base()}/api/media/upload`, {
         method: "POST",
+        credentials: "include",
         body: formData,
       });
 
@@ -464,6 +491,9 @@ export default function SubmitUploadPage() {
 
       const data = await res.json();
       const imageUrl = data.url;
+      if (typeof imageUrl !== "string" || !imageUrl) {
+        throw new Error("Image storage did not return a URL");
+      }
 
       if (editorRef.current) {
         editorRef.current.focus();
@@ -514,8 +544,9 @@ export default function SubmitUploadPage() {
       setSubmitting(false); setProgress(0); return;
     }
 
+    let progressTimer: number | undefined;
     try {
-      const sim = window.setInterval(() => setProgress((v) => Math.min(v + 10, 85)), 400);
+      progressTimer = window.setInterval(() => setProgress((v) => Math.min(v + 10, 85)), 400);
 
       // Check if Cloudinary is configured
       const healthRes = await fetch(`${base()}/api/health`);
@@ -530,6 +561,7 @@ export default function SubmitUploadPage() {
           const sigRes = await fetch(`${base()}/api/uploads/cloudinary-signature`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            credentials: "include",
             body: JSON.stringify({ folder }),
           });
           if (!sigRes.ok) {
@@ -558,6 +590,9 @@ export default function SubmitUploadPage() {
           }
 
           const resData = await uploadRes.json();
+          if (typeof resData.secure_url !== "string" || !resData.secure_url || typeof resData.public_id !== "string" || !resData.public_id) {
+            throw new Error("Cloudinary did not return a secure file URL");
+          }
           return {
             secureUrl: resData.secure_url,
             publicId: resData.public_id,
@@ -605,7 +640,6 @@ export default function SubmitUploadPage() {
           credentials: "include",
           body: JSON.stringify(payload),
         });
-        window.clearInterval(sim);
         setProgress(100);
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Submission failed");
@@ -630,7 +664,6 @@ export default function SubmitUploadPage() {
           credentials: "include",
           body: formData,
         });
-        window.clearInterval(sim);
         setProgress(100);
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Submission failed");
@@ -643,6 +676,8 @@ export default function SubmitUploadPage() {
     } catch (err: any) {
       setError(err.message || "Submission failed. Please try again.");
       setSubmitting(false); setProgress(0);
+    } finally {
+      if (progressTimer !== undefined) window.clearInterval(progressTimer);
     }
   };
 
@@ -667,8 +702,9 @@ export default function SubmitUploadPage() {
       setSubmitting(false); setProgress(0); return;
     }
 
+    let progressTimer: number | undefined;
     try {
-      const sim = window.setInterval(() => setProgress((v) => Math.min(v + 10, 85)), 400);
+      progressTimer = window.setInterval(() => setProgress((v) => Math.min(v + 10, 85)), 400);
 
       // Check if Cloudinary is configured
       const healthRes = await fetch(`${base()}/api/health`);
@@ -685,6 +721,7 @@ export default function SubmitUploadPage() {
           const sigRes = await fetch(`${base()}/api/uploads/cloudinary-signature`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            credentials: "include",
             body: JSON.stringify({ folder }),
           });
           if (!sigRes.ok) {
@@ -707,6 +744,9 @@ export default function SubmitUploadPage() {
 
           if (!uploadRes.ok) throw new Error("Failed to upload file to Cloudinary cloud storage.");
           const resData = await uploadRes.json();
+          if (typeof resData.secure_url !== "string" || !resData.secure_url) {
+            throw new Error("Cloudinary did not return a secure file URL");
+          }
           return resData.secure_url;
         };
 
@@ -721,9 +761,10 @@ export default function SubmitUploadPage() {
           fd.append("file", file);
           fd.append("context", context);
           const res = await fetch(`${base()}/api/media/upload`, { method: "POST", credentials: "include", body: fd });
-          if (!res.ok) throw new Error("Local upload failed");
-          const d = await res.json();
-          return d.url || "";
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(d.error || "Local upload failed");
+          if (typeof d.url !== "string" || !d.url) throw new Error("Image storage did not return a URL");
+          return d.url;
         };
 
         if (imgFile) {
@@ -758,7 +799,6 @@ export default function SubmitUploadPage() {
         }),
       });
 
-      window.clearInterval(sim);
       setProgress(100);
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Submission failed");
@@ -771,6 +811,8 @@ export default function SubmitUploadPage() {
       setError(err.message || "Submission failed. Please try again.");
       setSubmitting(false);
       setProgress(0);
+    } finally {
+      if (progressTimer !== undefined) window.clearInterval(progressTimer);
     }
   };
 
@@ -942,7 +984,7 @@ export default function SubmitUploadPage() {
                       type="file"
                       ref={inlineImgInputRef}
                       onChange={handleInlineImageUpload}
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
                       className="sr-only"
                     />
                     <button
@@ -1054,10 +1096,10 @@ export default function SubmitUploadPage() {
                   />
                 </div>
 
-                {/* Cover Image Selection (Compulsory!) */}
+                {/* Optional cover image for extracted content */}
                 <div className="mt-6">
                   <div className="upload-section-label">
-                    Cover / Article Header Image * <span className="text-[var(--terracotta)] font-bold">(Compulsory)</span>
+                    Cover / Article Header Image <span className="normal-case tracking-normal text-[var(--ink-faint)]">(optional)</span>
                   </div>
                   <UploadZone
                     file={imgFile}
@@ -1066,8 +1108,8 @@ export default function SubmitUploadPage() {
                     onDragLeave={() => setDragging(null)}
                     onDrop={(e) => { e.preventDefault(); setDragging(null); const f = e.dataTransfer.files[0]; if (f) pickImg(f); }}
                     icon={<ImageIcon size={38} className="text-[var(--gold)]" />}
-                    accept="image/jpeg,image/png,image/webp,.jpg,.png,.webp"
-                    formatHint="JPG, PNG, WEBP · Max 20 MB"
+                    accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
+                    formatHint="JPG, PNG, WEBP, GIF · Max 10 MB"
                     browseLabel="Browse Images"
                     onRemove={() => setImgFile(null)}
                     inputRef={imgRef}
@@ -1143,8 +1185,8 @@ export default function SubmitUploadPage() {
                         onDragLeave={() => setDragging(null)}
                         onDrop={(e) => { e.preventDefault(); setDragging(null); const f = e.dataTransfer.files[0]; if (f) pickImg(f); }}
                         icon={<ImageIcon size={38} className="text-[var(--gold)]" />}
-                        accept="image/jpeg,image/png,image/webp,.jpg,.png,.webp"
-                        formatHint="JPG, PNG, WEBP · Max 20 MB"
+                        accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
+                        formatHint="JPG, PNG, WEBP, GIF · Max 10 MB"
                         browseLabel="Browse Images"
                         onRemove={() => setImgFile(null)}
                         inputRef={imgRef}
@@ -1246,13 +1288,7 @@ export default function SubmitUploadPage() {
             {editorBody ? (
               <button
                 type="button"
-                onClick={() => {
-                  if (!imgFile) {
-                    setError("Choosing a cover image is compulsory for articles.");
-                    return;
-                  }
-                  submitEdited();
-                }}
+                onClick={submitEdited}
                 disabled={submitting}
                 className="btn-terracotta w-full justify-center py-4 mt-6"
               >

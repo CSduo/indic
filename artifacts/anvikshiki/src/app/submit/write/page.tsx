@@ -275,16 +275,18 @@ export default function SubmitWritePage() {
 
       const res = await fetch(`${base()}/api/media/upload`, {
         method: "POST",
+        credentials: "include",
         body: formData,
       });
 
       if (!res.ok) {
-        const errData = await res.json();
+        const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || "Failed to upload voice note");
       }
 
       const data = await res.json();
       const audioUrl = data.url;
+      if (!audioUrl) throw new Error("Voice note storage did not return a URL");
 
       if (editorRef.current) {
         editorRef.current.focus();
@@ -504,8 +506,8 @@ export default function SubmitWritePage() {
     if (!/^image\/(?:jpeg|png|webp|gif)$/i.test(file.type)) {
       throw new Error("Inline images must be JPG, PNG, WEBP, or GIF files");
     }
-    if (file.size > 20 * 1024 * 1024) {
-      throw new Error("Inline image must be under 20 MB");
+    if (file.size > 10 * 1024 * 1024) {
+      throw new Error("Inline image must be under 10 MB");
     }
 
     const formData = new FormData();
@@ -756,8 +758,8 @@ export default function SubmitWritePage() {
   }, [audioFile, imgFile, saveStatus]);
 
   const pickImg = (file: File) => {
-    if (!file.type.startsWith("image/")) { setError("Please upload a JPG, PNG, or WEBP image"); return; }
-    if (file.size > 20 * 1024 * 1024) { setError("Image must be under 20 MB"); return; }
+    if (!/^image\/(?:jpeg|png|webp|gif)$/i.test(file.type)) { setError("Please upload a JPG, PNG, WEBP, or GIF image"); return; }
+    if (file.size > 10 * 1024 * 1024) { setError("Image must be under 10 MB"); return; }
     setImgFile(file);
     setImgPreview(URL.createObjectURL(file));
     setError("");
@@ -774,22 +776,33 @@ export default function SubmitWritePage() {
     if (unresolvedImages > 0) {
       e.body = `${unresolvedImages} image${unresolvedImages === 1 ? " is" : "s are"} not stored yet. Re-paste the content, import the DOCX, or use Insert image.`;
     }
-    if (!imgPreview) {
-      setError("Choosing a cover image for the article is compulsory.");
-      return false;
-    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
-  const buildNotes = (imageUrl: string) => {
+  const normalizeDraft = (value: Draft): Draft => ({
+    ...value,
+    type: value.type.trim(),
+    fullName: value.fullName.trim(),
+    email: value.email.trim(),
+    institution: value.institution.trim(),
+    language: value.language.trim(),
+    title: value.title.trim(),
+    domain: value.domain.trim(),
+    abstract: value.abstract.trim(),
+    keywords: value.keywords.trim(),
+    body: value.body.trim(),
+    notes: value.notes.trim(),
+  });
+
+  const buildNotes = (value: Draft, imageUrl: string) => {
     const finalCover = imageUrl || (imgPreview && (imgPreview.startsWith("http") || imgPreview.startsWith("/api/")) ? imgPreview : "");
     return [
-      draft.institution ? `Institution: ${draft.institution}` : "",
-      draft.domain ? `Domain: ${draft.domain}` : "",
-      draft.keywords ? `Keywords: ${draft.keywords}` : "",
-      draft.language !== "English" ? `Language: ${draft.language}` : "",
-      draft.notes ? `Author notes: ${draft.notes}` : "",
+      value.institution ? `Institution: ${value.institution}` : "",
+      value.domain ? `Domain: ${value.domain}` : "",
+      value.keywords ? `Keywords: ${value.keywords}` : "",
+      value.language !== "English" ? `Language: ${value.language}` : "",
+      value.notes ? `Author notes: ${value.notes}` : "",
       finalCover ? `Cover image: ${finalCover}` : "",
     ].filter(Boolean).join("\n");
   };
@@ -800,11 +813,10 @@ export default function SubmitWritePage() {
     fd.append("file", imgFile);
     fd.append("context", "submission_cover");
     const imgRes = await fetch(`${base()}/api/media/upload`, { method: "POST", credentials: "include", body: fd });
-    if (imgRes.ok) {
-      const d = await imgRes.json();
-      return d.url || "";
-    }
-    return "";
+    const data = await imgRes.json().catch(() => ({}));
+    if (!imgRes.ok) throw new Error(data.error || "Failed to upload the cover image");
+    if (!data.url) throw new Error("Cover image storage did not return a URL");
+    return data.url;
   };
 
   const uploadAudioIfNeeded = async (): Promise<{ url: string; publicId: string } | null> => {
@@ -818,16 +830,13 @@ export default function SubmitWritePage() {
     fd.append("context", "voice_note");
     try {
       const audioRes = await fetch(`${base()}/api/media/upload`, { method: "POST", credentials: "include", body: fd });
-      if (audioRes.ok) {
-        const d = await audioRes.json();
-        return { url: d.url, publicId: d.mediaAsset?.storageKey || "" };
-      }
-    } catch (err) {
-      console.error("Audio upload error:", err);
+      const data = await audioRes.json().catch(() => ({}));
+      if (!audioRes.ok) throw new Error(data.error || "Failed to upload the voice note");
+      if (!data.url) throw new Error("Voice note storage did not return a URL");
+      return { url: data.url, publicId: data.mediaAsset?.storageKey || "" };
     } finally {
       setUploadingAudio(false);
     }
-    return null;
   };
 
   const saveDraftToServer = async () => {
@@ -840,8 +849,9 @@ export default function SubmitWritePage() {
     }
     setError(""); setSavingDraft(true);
     try {
+      const submissionDraft = normalizeDraft(draft);
       const typeMap: Record<string, string> = { essay: "ESSAY", paper: "PAPER", review: "REVIEW", commentary: "COMMENTARY", "book-review": "COMMENTARY", translation: "ESSAY" };
-      const type = typeMap[(draft.type || "essay").toLowerCase()] || "ESSAY";
+      const type = typeMap[(submissionDraft.type || "essay").toLowerCase()] || "ESSAY";
       const imageUrl = await uploadCoverIfNeeded();
       const audioResult = await uploadAudioIfNeeded();
 
@@ -854,9 +864,9 @@ export default function SubmitWritePage() {
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            type, submitterName: draft.fullName, submitterEmail: draft.email,
-            title: draft.title || "Untitled draft", abstract: draft.abstract, body: draft.body,
-            domain: draft.domain, notes: buildNotes(imageUrl), status: "DRAFT",
+            type, submitterName: submissionDraft.fullName, submitterEmail: submissionDraft.email,
+            title: submissionDraft.title || "Untitled draft", abstract: submissionDraft.abstract, body: submissionDraft.body,
+            domain: submissionDraft.domain, notes: buildNotes(submissionDraft, imageUrl), status: "DRAFT",
             audioUrl: audioUrlVal, audioPublicId: audioPublicIdVal,
           }),
         });
@@ -868,9 +878,9 @@ export default function SubmitWritePage() {
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            type, submitterName: draft.fullName || user.name || "Draft author", submitterEmail: draft.email || user.email,
-            title: draft.title || "Untitled draft", abstract: draft.abstract, body: draft.body,
-            domain: draft.domain, notes: buildNotes(imageUrl), status: "DRAFT",
+            type, submitterName: submissionDraft.fullName || user.name || "Draft author", submitterEmail: submissionDraft.email || user.email,
+            title: submissionDraft.title || "Untitled draft", abstract: submissionDraft.abstract, body: submissionDraft.body,
+            domain: submissionDraft.domain, notes: buildNotes(submissionDraft, imageUrl), status: "DRAFT",
             audioUrl: audioUrlVal, audioPublicId: audioPublicIdVal,
           }),
         });
@@ -900,8 +910,9 @@ export default function SubmitWritePage() {
     setError(""); setSubmitting(true);
 
     try {
+      const submissionDraft = normalizeDraft(draft);
       const typeMap: Record<string, string> = { essay: "ESSAY", paper: "PAPER", review: "REVIEW", commentary: "COMMENTARY", "book-review": "COMMENTARY", translation: "ESSAY" };
-      const type = typeMap[(draft.type || "essay").toLowerCase()] || "ESSAY";
+      const type = typeMap[(submissionDraft.type || "essay").toLowerCase()] || "ESSAY";
 
       // Upload files
       const imageUrl = await uploadCoverIfNeeded();
@@ -910,7 +921,7 @@ export default function SubmitWritePage() {
       const audioUrlVal = audioResult ? audioResult.url : draft.audioUrl || null;
       const audioPublicIdVal = audioResult ? audioResult.publicId : draft.audioPublicId || null;
 
-      const notes = buildNotes(imageUrl);
+      const notes = buildNotes(submissionDraft, imageUrl);
 
       let r: Response;
       if (serverDraftId) {
@@ -919,9 +930,9 @@ export default function SubmitWritePage() {
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            type, submitterName: draft.fullName, submitterEmail: draft.email,
-            title: draft.title, abstract: draft.abstract || "See essay body.", body: draft.body,
-            domain: draft.domain, notes, consent: true, status: "RECEIVED",
+            type, submitterName: submissionDraft.fullName, submitterEmail: submissionDraft.email,
+            title: submissionDraft.title, abstract: submissionDraft.abstract || "See essay body.", body: submissionDraft.body,
+            domain: submissionDraft.domain, notes, consent: true, status: "RECEIVED",
             audioUrl: audioUrlVal, audioPublicId: audioPublicIdVal,
           }),
         });
@@ -931,9 +942,9 @@ export default function SubmitWritePage() {
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            type, submitterName: draft.fullName, submitterEmail: draft.email,
-            title: draft.title, abstract: draft.abstract || "See essay body.", body: draft.body,
-            domain: draft.domain, notes, consent: true,
+            type, submitterName: submissionDraft.fullName, submitterEmail: submissionDraft.email,
+            title: submissionDraft.title, abstract: submissionDraft.abstract || "See essay body.", body: submissionDraft.body,
+            domain: submissionDraft.domain, notes, consent: true,
             audioUrl: audioUrlVal, audioPublicId: audioPublicIdVal,
           }),
         });
@@ -1035,12 +1046,13 @@ export default function SubmitWritePage() {
 
               {imgPreview ? (
                 <div className="relative rounded-lg overflow-hidden" style={{ aspectRatio: "16/9" }}>
-                  <img src={imgPreview} alt="Cover preview" className="w-full h-full object-cover" />
+                  <img src={imgPreview} alt="Cover preview" width={640} height={360} className="w-full h-full object-cover" />
                   <button
                     type="button"
                     onClick={() => { setImgFile(null); setImgPreview(""); }}
                     className="absolute top-2 right-2 p-1 rounded-full"
                     style={{ background: "var(--ink)", color: "var(--surface)" }}
+                    aria-label="Remove cover image"
                   >
                     <X size={14} />
                   </button>
@@ -1056,11 +1068,11 @@ export default function SubmitWritePage() {
                   role="button" tabIndex={0}
                   onKeyDown={e => e.key === "Enter" && imgRef.current?.click()}
                 >
-                  <input ref={imgRef} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only"
+                  <input ref={imgRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only"
                     onChange={e => { const f = e.target.files?.[0]; if (f) pickImg(f); }} />
                   <ImageIcon size={24} style={{ color: "var(--gold)", opacity: 0.5, margin: "0 auto 8px" }} />
                   <p className="font-ui text-xs text-center" style={{ color: "var(--ink-faint)" }}>Drop or click to upload</p>
-                  <p className="font-ui text-[10px] text-center mt-1" style={{ color: "var(--ink-faint)", opacity: 0.6 }}>JPG, PNG, WEBP · Max 20 MB</p>
+                  <p className="font-ui text-[10px] text-center mt-1" style={{ color: "var(--ink-faint)", opacity: 0.6 }}>JPG, PNG, WEBP, GIF · Max 10 MB</p>
                 </div>
               )}
             </div>
@@ -1323,7 +1335,7 @@ export default function SubmitWritePage() {
                   type="file"
                   ref={inlineImgInputRef}
                   onChange={handleInlineImageUpload}
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
                   className="sr-only"
                 />
                 <button
@@ -1344,6 +1356,7 @@ export default function SubmitWritePage() {
                   type="button"
                   onMouseDown={e => { e.preventDefault(); setShowInlineVNRecorder(prev => !prev); }}
                   onTouchStart={e => { e.preventDefault(); setShowInlineVNRecorder(prev => !prev); }}
+                  disabled={uploadingInlineAudio}
                   className="flex items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent animate-none"
                   style={{ color: "var(--gold-soft)" }}
                   title="Add Voice Note"
@@ -1375,6 +1388,77 @@ export default function SubmitWritePage() {
                 </button>
               </div>
 
+              <input
+                type="file"
+                ref={inlineAudioInputRef}
+                onChange={handleInlineAudioUpload}
+                accept="audio/*"
+                className="sr-only"
+              />
+
+              {showInlineVNRecorder && (
+                <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[var(--surface-elevated)] border-b border-[rgba(201,152,58,0.15)]">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${inlineRecording ? "bg-rose-500 animate-pulse" : "bg-[var(--gold)]"}`} />
+                    <span className="font-ui text-xs text-[var(--ink-soft)]">
+                      {inlineRecording
+                        ? `Recording: ${Math.floor(inlineRecordTime / 60)}:${(inlineRecordTime % 60).toString().padStart(2, "0")} / 5:00`
+                        : uploadingInlineAudio
+                        ? "Uploading voice note…"
+                        : "Record or upload a voice note to insert at the cursor"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {!inlineRecording && !uploadingInlineAudio && (
+                      <>
+                        <button type="button" onClick={startInlineRecording} className="px-2.5 py-1 rounded bg-[rgba(201,152,58,0.15)] hover:bg-[rgba(201,152,58,0.25)] text-xs text-[var(--gold-bright)] font-ui font-semibold cursor-pointer border-none">
+                          Record
+                        </button>
+                        <button type="button" onClick={() => inlineAudioInputRef.current?.click()} className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-xs text-[var(--ink-soft)] font-ui font-semibold cursor-pointer border-none">
+                          Upload File
+                        </button>
+                      </>
+                    )}
+                    {inlineRecording && (
+                      <button type="button" onClick={stopInlineRecording} className="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-700 text-xs text-white font-ui font-semibold animate-pulse cursor-pointer border-none">
+                        Stop & Insert
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (inlineRecording) stopInlineRecording();
+                        setShowInlineVNRecorder(false);
+                      }}
+                      disabled={uploadingInlineAudio}
+                      className="px-2.5 py-1 rounded hover:bg-white/5 text-xs text-[var(--ink-faint)] font-ui cursor-pointer border-none bg-transparent"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div
+                ref={editorRef}
+                contentEditable
+                suppressContentEditableWarning
+                role="textbox"
+                aria-label="Essay body"
+                aria-multiline="true"
+                aria-busy={loadingDraft}
+                onInput={(event) => {
+                  set("body", event.currentTarget.innerHTML);
+                  updateEditorStates();
+                }}
+                onBlur={(event) => set("body", event.currentTarget.innerHTML)}
+                onKeyUp={updateEditorStates}
+                onMouseUp={updateEditorStates}
+                onClick={updateEditorStates}
+                onFocus={updateEditorStates}
+                className="w-full p-6 min-h-[400px] max-h-[600px] outline-none bg-transparent text-[var(--ink)] font-body leading-[1.85] overflow-y-auto prose-editor"
+                style={{ boxSizing: "border-box" }}
+              />
             </div>
 
             {/* Declaration + Submit */}

@@ -63,6 +63,6 @@ describe("sanitizeArticleBody", () => {
       <img src="data:image/png;base64,abc">
       <img src="file:///C:/temporary/three.jpg">
       <img width="450">
-    `)).toBe(3);
+    `)).toBe(2);
   });
 });

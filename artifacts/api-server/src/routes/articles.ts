@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { articlesTable, categoriesTable, submissionsTable, usersTable } from "@workspace/db";
-import { eq, and, desc, ilike, inArray, or, sql } from "drizzle-orm";
+import { eq, and, desc, ilike, inArray, or, sql, isNull } from "drizzle-orm";
 import { categorySlugCandidates } from "../lib/publication-sync";
 import { sanitizeArticleBody } from "../lib/content";
 import { recoverLegacyInlineImages } from "../lib/legacy-content";
@@ -16,11 +16,9 @@ router.get("/articles", async (req, res) => {
     const { category, featured, q, limit: lim, offset: off } = req.query;
     const { limit, offset } = parsePagination(lim, off);
 
-    const { not } = await import("drizzle-orm");
     const conditions: any[] = [
       eq(articlesTable.status, "PUBLISHED"),
-      not(ilike(articlesTable.title, "%Codex%")),
-      not(ilike(articlesTable.title, "%1783272873341%")),
+      isNull(articlesTable.deletedAt),
     ];
     if (category) {
       const normalizedCategory = sql<string>`trim(both '-' from lower(regexp_replace(replace(${articlesTable.categorySlug}, '_', '-'), '[^a-z0-9]+', '-', 'g')))`;
@@ -114,7 +112,7 @@ router.get("/articles", async (req, res) => {
 
   } catch (err: any) {
     console.error("GET /api/articles ERROR:", err);
-    return res.status(500).json({ error: "Failed to fetch articles", details: String(err?.message || err) });
+    return res.status(500).json({ error: "Failed to fetch articles" });
   }
 });
 
@@ -132,8 +130,9 @@ router.get("/articles/:slug", async (req, res) => {
       .from(articlesTable)
       .leftJoin(categoriesTable, eq(articlesTable.categorySlug, categoriesTable.slug))
       .where(and(
-        or(eq(articlesTable.slug, slug), eq(articlesTable.slug, cleanSlug), ilike(articlesTable.slug, `${cleanSlug}%`)),
-        eq(articlesTable.status, "PUBLISHED")
+        or(eq(articlesTable.id, slug), eq(articlesTable.slug, slug), eq(articlesTable.slug, cleanSlug), ilike(articlesTable.slug, `${cleanSlug}%`)),
+        eq(articlesTable.status, "PUBLISHED"),
+        isNull(articlesTable.deletedAt)
       ))
       .limit(1);
 
@@ -199,7 +198,7 @@ router.patch("/articles/:slug/edit", async (req, res) => {
         article: articlesTable,
       })
       .from(articlesTable)
-      .where(and(eq(articlesTable.slug, slug), eq(articlesTable.status, "PUBLISHED")))
+      .where(and(eq(articlesTable.slug, slug), eq(articlesTable.status, "PUBLISHED"), isNull(articlesTable.deletedAt)))
       .limit(1);
 
     if (!row) return res.status(404).json({ error: "Article not found" });
@@ -225,7 +224,7 @@ router.patch("/articles/:slug/edit", async (req, res) => {
     const [updated] = await db
       .update(articlesTable)
       .set(updates)
-      .where(eq(articlesTable.slug, slug))
+      .where(and(eq(articlesTable.slug, slug), isNull(articlesTable.deletedAt)))
       .returning();
 
     return res.json({

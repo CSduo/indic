@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import {
   articlesTable,
   categoriesTable,
@@ -177,6 +177,10 @@ export async function ensurePublicPublicationForSubmission(
   submission: Submission,
   options: { categorySlug?: string | null; publishedAt?: Date } = {},
 ): Promise<PublicPublicationResult> {
+  if (submission.deletedAt) {
+    return { kind: null, status: "skipped", reason: "submission-trashed" };
+  }
+
   if (!PUBLIC_SUBMISSION_STATUSES.includes(submission.status as typeof PUBLIC_SUBMISSION_STATUSES[number])) {
     return { kind: null, status: "skipped", reason: "submission-not-public" };
   }
@@ -295,26 +299,13 @@ export async function ensurePublicPublicationForSubmission(
 export async function syncPublishedSubmissions() {
   await ensureDefaultCategories();
 
-  // Permanently delete any legacy "Codex publication verification" entries
-  try {
-    const { ilike, or, not } = await import("drizzle-orm");
-    await db.delete(articlesTable).where(or(
-      ilike(articlesTable.title, "%Codex%"),
-      ilike(articlesTable.slug, "%codex%"),
-      ilike(articlesTable.title, "%1783272873341%"),
-    ));
-    await db.delete(submissionsTable).where(or(
-      ilike(submissionsTable.title, "%Codex%"),
-      ilike(submissionsTable.title, "%1783272873341%"),
-    ));
-  } catch (err) {
-    // Ignore cleanup errors
-  }
-
   const publishedSubmissions = await db
     .select()
     .from(submissionsTable)
-    .where(inArray(submissionsTable.status, [...PUBLIC_SUBMISSION_STATUSES]));
+    .where(and(
+      inArray(submissionsTable.status, [...PUBLIC_SUBMISSION_STATUSES]),
+      isNull(submissionsTable.deletedAt),
+    ));
 
   const summary = {
     checked: publishedSubmissions.length,

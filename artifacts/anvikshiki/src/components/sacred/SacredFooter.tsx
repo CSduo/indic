@@ -14,7 +14,8 @@ function FooterNewsletter() {
 
   const join = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!email.trim() || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail || !/^[^@]+@[^@]+\.[^@]+$/.test(normalizedEmail)) {
       toast.error("Please enter a valid email address");
       return;
     }
@@ -23,7 +24,7 @@ function FooterNewsletter() {
       const response = await fetch(`${base()}/api/newsletter`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: normalizedEmail }),
       });
       const data = await response.json();
       if (response.status === 409) {
@@ -65,7 +66,7 @@ function FooterNewsletter() {
         required
         aria-label="Email for newsletter"
       />
-      <button className="btn-terracotta shrink-0 px-3 transition-transform hover:scale-105 active:scale-95" type="submit" disabled={status === "loading" || isInvalid}>
+      <button className="btn-terracotta shrink-0 px-3 transition-transform hover:scale-105 active:scale-95" type="submit" disabled={status === "loading" || isInvalid} aria-label={status === "loading" ? "Subscribing to newsletter" : "Subscribe to newsletter"}>
         {status === "loading" ? "..." : <ArrowRight size={15} />}
       </button>
     </form>

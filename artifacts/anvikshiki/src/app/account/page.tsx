@@ -21,8 +21,7 @@ const STATUS_LABELS: Record<string, { label: string; className: string }> = {
   ARCHIVED: { label: "Archived", className: "badge-draft" },
 };
 
-// Statuses the user themselves may still delete (mirrors the server rule).
-// All statuses are user-deletable; the server enforces its own rules on accepted/published.
+// A user may move any of their own submissions to Trash; Restore retains its status.
 const USER_DELETABLE_STATUSES = new Set(["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "REJECTED", "ACCEPTED", "PUBLISHED", "ARCHIVED"]);
 
 export default function AccountPage() {
@@ -126,13 +125,13 @@ export default function AccountPage() {
       const r = await fetch(`${base()}/api/submissions/${id}`, { method: "DELETE", credentials: "include" });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || "Failed to delete");
-      // Move item from active to deleted list
-      setSubmissions((prev) => {
-        const item = prev.find((s) => s.id === id);
-        if (item) setDeletedSubmissions((d) => [{ ...item, deleted: true, deletedAt: new Date().toISOString() }, ...d]);
-        return prev.filter((s) => s.id !== id);
-      });
-      toast.success("Submission moved to Deleted");
+      if (data.submission) {
+        setSubmissions(prev => prev.filter(s => s.id !== id));
+        setDeletedSubmissions(prev => [data.submission, ...prev.filter(s => s.id !== id)]);
+      } else {
+        loadSubmissions();
+      }
+      toast.success("Submission moved to Trash");
       window.dispatchEvent(new Event("anv:content-changed"));
     } catch (err: any) {
       toast.error(err.message || "Failed to delete submission");
@@ -230,12 +229,12 @@ export default function AccountPage() {
       const r = await fetch(`${base()}/api/submissions/${id}/restore`, { method: "POST", credentials: "include" });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || "Failed to restore");
-      // Move from deleted back to active
-      setDeletedSubmissions(prev => {
-        const item = prev.find(s => s.id === id);
-        if (item) setSubmissions(a => [{ ...item, deleted: false, deletedAt: null }, ...a]);
-        return prev.filter(s => s.id !== id);
-      });
+      if (data.submission) {
+        setDeletedSubmissions(prev => prev.filter(s => s.id !== id));
+        setSubmissions(prev => [data.submission, ...prev.filter(s => s.id !== id)]);
+      } else {
+        loadSubmissions();
+      }
       toast.success("Submission restored successfully");
       window.dispatchEvent(new Event("anv:content-changed"));
     } catch (err: any) {
@@ -262,11 +261,11 @@ export default function AccountPage() {
 
   const renderDeletedCard = (submission: any) => (
     <div key={submission.id} className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)]/60 p-4">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3 flex-1 min-w-0">
           <AnimalGlyph domain={submission.domain || "papers"} size={28} className="mt-1 shrink-0 text-[var(--ink-faint)]" />
           <div className="flex-1 min-w-0">
-            <h3 className="font-display text-xl leading-tight text-[var(--ink-soft)] line-through">{submission.title || "Untitled"}</h3>
+            <h3 className="font-display text-xl leading-tight text-[var(--ink-soft)] break-words">{submission.title || "Untitled"}</h3>
             <p className="mt-1 font-ui text-xs text-[var(--muted)]">
               {submission.type}
               {submission.deletedAt
@@ -275,9 +274,9 @@ export default function AccountPage() {
             </p>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-2 shrink-0">
-          <span className="badge badge-draft">Deleted</span>
-          <div className="flex items-center gap-2">
+        <div className="flex flex-row flex-wrap items-start justify-between gap-2 sm:flex-col sm:items-end sm:justify-start shrink-0">
+          <span className="badge badge-draft">In Trash</span>
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => restoreSubmission(submission.id)}
@@ -430,10 +429,10 @@ export default function AccountPage() {
             {deletedSubmissions.length > 0 ? (
               <ParchmentCard className="p-6">
                 <div className="mb-4">
-                  <p className="type-section-label mb-2">Removed from Journal</p>
+                  <p className="type-section-label mb-2">Submission Trash</p>
                   <h2 className="font-display text-3xl text-[var(--ink-soft)]">Deleted Submissions</h2>
                   <p className="mt-2 font-body text-sm text-[var(--muted)]">
-                    These submissions have been soft-deleted and are no longer visible on the journal. They cannot be restored.
+                    These submissions are hidden from normal views. Restore them to return them to your account, or permanently delete them when you are certain.
                   </p>
                 </div>
                 <div className="space-y-3">{deletedSubmissions.map((s) => renderDeletedCard(s))}</div>

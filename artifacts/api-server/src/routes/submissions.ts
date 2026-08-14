@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { submissionsTable, articlesTable, papersTable } from "@workspace/db";
-import { eq, and, or, ilike, isNull, inArray, notInArray } from "drizzle-orm";
+import { submissionsTable, articlesTable } from "@workspace/db";
+import { eq, and, isNull, isNotNull } from "drizzle-orm";
 import { getUserAuth } from "../lib/auth";
 import {
   ensurePublicPublicationForSubmission,
@@ -25,6 +25,9 @@ const UPLOADS_DIR = process.env.UPLOADS_DIR || "/tmp/anvikshiki-uploads";
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const storage = multer.memoryStorage();
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_AUDIO_BYTES = 30 * 1024 * 1024;
+const MAX_MANUSCRIPT_BYTES = 50 * 1024 * 1024;
 
 async function saveFile(file: any, subFolder: string): Promise<string> {
   if (!hasExpectedFileSignature(file)) {
@@ -58,6 +61,9 @@ async function saveFile(file: any, subFolder: string): Promise<string> {
       );
       uploadStream.end(file.buffer);
     });
+    if (!uploadResult?.secure_url) {
+      throw new Error("STORAGE_UPLOAD_FAILED");
+    }
     return uploadResult.secure_url;
   }
 
@@ -84,7 +90,7 @@ const upload = multer({
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       "text/plain",
     ];
-    const imageTypes = ["image/jpeg", "image/png", "image/webp"];
+    const imageTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
     const audioTypes = ["audio/webm", "audio/ogg", "audio/wav", "audio/mpeg", "audio/mp4", "audio/x-m4a"];
 
     if (file.fieldname === "coverImage") {
@@ -116,12 +122,12 @@ const upload = multer({
 
 const submissionSchema = z.object({
   type: z.enum(["ESSAY", "PAPER", "REVIEW", "COMMENTARY"]),
-  submitterName: z.string().min(1).max(160),
-  submitterEmail: z.string().email(),
-  title: z.string().min(1).max(500),
-  domain: z.string().max(160).optional(),
-  abstract: z.string().min(1).max(5000),
-  notes: z.string().max(2000).optional(),
+  submitterName: z.string().trim().min(1).max(160),
+  submitterEmail: z.string().trim().toLowerCase().email(),
+  title: z.string().trim().min(1).max(500),
+  domain: z.string().trim().max(160).optional(),
+  abstract: z.string().trim().min(1).max(5000),
+  notes: z.string().trim().max(2000).optional(),
   consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).transform(v => v === true || v === "true"),
   audioUrl: z.string().optional().or(z.literal("")).or(z.null()),
   audioPublicId: z.string().optional().or(z.literal("")).or(z.null()),
@@ -290,6 +296,16 @@ router.post(
         const coverFile = req.files?.["coverImage"]?.[0];
         const audioFile = req.files?.["audio"]?.[0];
 
+        if (coverFile && coverFile.size > MAX_IMAGE_BYTES) {
+          return res.status(413).json({ error: "Cover images must be 10 MB or smaller" });
+        }
+        if (manuscriptFile && manuscriptFile.size > (manuscriptFile.mimetype.startsWith("image/") ? MAX_IMAGE_BYTES : MAX_MANUSCRIPT_BYTES)) {
+          return res.status(413).json({ error: "The uploaded manuscript exceeds the allowed file size" });
+        }
+        if (audioFile && audioFile.size > MAX_AUDIO_BYTES) {
+          return res.status(413).json({ error: "Audio files must be 30 MB or smaller" });
+        }
+
         try {
           if (manuscriptFile) {
             manuscriptUrl = await saveFile(manuscriptFile, "manuscripts");
@@ -361,14 +377,13 @@ router.post(
       });
     } catch (err: any) {
       req.log.error(err);
-      return res.status(500).json({ error: "Upload failed", detail: err?.message });
+      return res.status(500).json({ error: "Upload failed" });
     }
   }
 );
 
 // Users can soft-delete any of their own submissions at any time; the article soft-delete
 // is handled separately and the admin panel still sees the submissions (just marked deleted).
-const USER_DELETABLE_STATUSES = ["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "REJECTED", "ACCEPTED", "PUBLISHED", "ARCHIVED"];
 const USER_EDITABLE_STATUSES = ["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "ACCEPTED", "PUBLISHED", "ARCHIVED"];
 
 // POST /api/submissions/write — full essay written in browser
@@ -378,13 +393,13 @@ router.post("/submissions/write", async (req, res) => {
 
     const schema = z.object({
       type: z.enum(["ESSAY", "PAPER", "REVIEW", "COMMENTARY"]).optional(),
-      submitterName: z.string().max(160).optional().or(z.literal("")),
-      submitterEmail: z.string().email().optional().or(z.literal("")).or(z.null()),
-      title: z.string().max(500).optional().or(z.literal("")),
-      domain: z.string().max(160).optional(),
-      abstract: z.string().max(10000).optional().default(""),
+      submitterName: z.string().trim().max(160).optional().or(z.literal("")),
+      submitterEmail: z.string().trim().toLowerCase().email().optional().or(z.literal("")).or(z.null()),
+      title: z.string().trim().max(500).optional().or(z.literal("")),
+      domain: z.string().trim().max(160).optional(),
+      abstract: z.string().trim().max(10000).optional().default(""),
       body: z.string().max(500_000).optional().default(""),
-      notes: z.string().max(5000).optional(),
+      notes: z.string().trim().max(5000).optional(),
       consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).optional().transform(v => v === true || v === "true"),
       status: z.enum(["DRAFT", "RECEIVED"]).optional().default("RECEIVED"),
       audioUrl: z.string().optional().or(z.literal("")).or(z.null()),
@@ -459,198 +474,19 @@ router.get("/submissions", async (req, res) => {
     const auth = await getUserAuth(req);
     if (!auth) return res.status(401).json({ error: "Unauthorized" });
 
+    const trashed = req.query.trashed === "true" || req.query.deleted === "true";
+
     const conditions = [
       eq(submissionsTable.userId, auth.userId),
+      trashed ? isNotNull(submissionsTable.deletedAt) : isNull(submissionsTable.deletedAt),
     ];
 
     const submissions = await db.select().from(submissionsTable)
       .where(and(...conditions))
       .orderBy(submissionsTable.createdAt);
 
-    const enriched = submissions.map(s => ({
-      ...s,
-      body: sanitizeArticleBody(s.body),
-      slug: null,
-    }));
-
-    return res.json({ submissions: enriched });
-  } catch (err) {
-    req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
-  }
-});
-
-
-// GET /api/submissions/:id (single submission by ID)
-router.get("/submissions/:id", async (req, res) => {
-  try {
-    const auth = await getUserAuth(req);
-    if (!auth) return res.status(401).json({ error: "Unauthorized" });
-
-    const [submission] = await db.select().from(submissionsTable)
-      .where(eq(submissionsTable.id, req.params.id))
-      .limit(1);
-
-    if (!submission) return res.status(404).json({ error: "Submission not found" });
-
-    // Only the owning user (or an admin via separate admin routes) can view
-    if (submission.userId !== auth.userId) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-
-    return res.json({
-      submission: { ...submission, body: sanitizeArticleBody(submission.body) },
-    });
-  } catch (err) {
-    req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
-  }
-});
-
-// PUT /api/submissions/:id — owner updates a draft, or submits a saved draft for review
-router.put("/submissions/:id", async (req, res) => {
-  try {
-    const auth = await getUserAuth(req);
-    if (!auth) return res.status(401).json({ error: "Unauthorized" });
-
-    const [existing] = await db.select().from(submissionsTable)
-      .where(eq(submissionsTable.id, req.params.id)).limit(1);
-    if (!existing) return res.status(404).json({ error: "Submission not found" });
-    if (existing.userId !== auth.userId) return res.status(403).json({ error: "Forbidden" });
-    if (!USER_EDITABLE_STATUSES.includes(existing.status)) {
-      return res.status(403).json({ error: "This submission can no longer be edited" });
-    }
-
-    const schema = z.object({
-      type: z.enum(["ESSAY", "PAPER", "REVIEW", "COMMENTARY"]).optional(),
-      submitterName: z.string().max(160).optional().or(z.literal("")),
-      submitterEmail: z.string().email().optional().or(z.literal("")).or(z.null()),
-      title: z.string().max(500).optional().or(z.literal("")),
-      domain: z.string().max(160).optional(),
-      abstract: z.string().max(10000).optional(),
-      body: z.string().max(500_000).optional(),
-      notes: z.string().max(5000).optional(),
-      consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).optional(),
-      status: z.enum(["DRAFT", "RECEIVED"]).optional(),
-      audioUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
-      audioPublicId: z.string().max(500).optional().or(z.literal("")).or(z.null()),
-      coverUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
-      coverImageUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
-    });
-    const parsed = schema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
-    const data = parsed.data;
-
-    const unresolvedImages = countUnresolvedArticleImages(data.body ?? existing.body);
-    if (unresolvedImages > 0) {
-      return res.status(400).json({
-        error: `${unresolvedImages} embedded image${unresolvedImages === 1 ? " is" : "s are"} not stored. Import the DOCX or upload the images before saving.`,
-        code: "UNRESOLVED_ARTICLE_IMAGES",
-      });
-    }
-
-    const wantsSubmit = data.status === "RECEIVED";
-    if (wantsSubmit) {
-      const consent = data.consent === true || data.consent === "true";
-      const abstract = data.abstract ?? existing.abstract ?? "";
-      const body = data.body ?? existing.body ?? "";
-      const name = data.submitterName ?? existing.submitterName ?? "";
-      const email = data.submitterEmail ?? existing.submitterEmail ?? "";
-      if (!consent) return res.status(400).json({ error: "Consent is required" });
-      if (!name.trim()) return res.status(400).json({ error: "Full Name is required" });
-      if (!email.trim() || !email.includes("@")) return res.status(400).json({ error: "A valid Email Address is required" });
-      if (!abstract.trim()) return res.status(400).json({ error: "Abstract is required" });
-      if (!body.trim()) return res.status(400).json({ error: "Essay body is required" });
-    }
-
-    const updates: Record<string, any> = { updatedAt: new Date() };
-    if (data.type !== undefined) updates.type = data.type;
-    if (data.submitterName !== undefined) updates.submitterName = data.submitterName;
-    if (data.submitterEmail !== undefined) updates.submitterEmail = data.submitterEmail;
-    if (data.title !== undefined) updates.title = data.title;
-    if (data.domain !== undefined) updates.domain = data.domain ? normalizeCategorySlug(data.domain) : null;
-    if (data.abstract !== undefined) updates.abstract = data.abstract;
-    if (data.body !== undefined) updates.body = sanitizeArticleBody(data.body);
-    if (data.notes !== undefined) updates.notes = data.notes;
-    if (data.audioUrl !== undefined) updates.audioUrl = data.audioUrl;
-    if (data.audioPublicId !== undefined) updates.audioPublicId = data.audioPublicId;
-    if (data.coverUrl !== undefined || data.coverImageUrl !== undefined) {
-      updates.coverImageUrl = data.coverUrl || data.coverImageUrl || null;
-    }
-    if (wantsSubmit) {
-      updates.status = "RECEIVED";
-      updates.consent = true;
-    } else if (data.status === "DRAFT") {
-      updates.status = "DRAFT";
-    }
-
-    const [submission] = await db.update(submissionsTable)
-      .set(updates)
-      .where(eq(submissionsTable.id, req.params.id))
-      .returning();
-
-    const publication = wantsSubmit
-      ? await ensurePublicPublicationForSubmission(submission)
-      : null;
-    return res.json({
-      success: true,
-      submission: { ...submission, body: sanitizeArticleBody(submission.body) },
-      publication,
-    });
-  } catch (err) {
-    req.log.error(err);
-    return res.status(500).json({ error: "Failed to update submission" });
-  }
-});
-
-// DELETE /api/submissions/:id — owner deletes their own submission/draft
-// as long as it has not yet been accepted/published by an admin.
-router.delete("/submissions/:id", async (req, res) => {
-  try {
-    const auth = await getUserAuth(req);
-    if (!auth) return res.status(401).json({ error: "Unauthorized" });
-
-    const [existing] = await db.select().from(submissionsTable)
-      .where(eq(submissionsTable.id, req.params.id)).limit(1);
-    if (!existing) return res.status(404).json({ error: "Submission not found" });
-    if (existing.userId !== auth.userId) return res.status(403).json({ error: "Forbidden" });
-    if (!USER_DELETABLE_STATUSES.includes(existing.status)) {
-      return res.status(403).json({ error: "This submission has already been approved and can no longer be deleted" });
-    }
-
-    await db.delete(submissionsTable).where(eq(submissionsTable.id, req.params.id));
-    return res.json({ success: true });
-  } catch (err) {
-    req.log.error(err);
-    return res.status(500).json({ error: "Failed to delete submission" });
-  }
-});
-
-
-// GET /api/submissions (user's own — includes drafts, never shown to admin)
-// ?deleted=true returns only soft-deleted submissions; otherwise excludes them
-router.get("/submissions", async (req, res) => {
-  try {
-    const auth = await getUserAuth(req);
-    if (!auth) return res.status(401).json({ error: "Unauthorized" });
-
-    const isDeletedQuery = req.query.deleted === "true";
-
-    const conditions = [
-      eq(submissionsTable.userId, auth.userId),
-    ];
-
-    if (isDeletedQuery) {
-      conditions.push(inArray(submissionsTable.status, ["ARCHIVED", "REJECTED"]));
-    } else {
-      conditions.push(notInArray(submissionsTable.status, ["ARCHIVED", "REJECTED"]));
-    }
-
-    const submissions = await db.select().from(submissionsTable)
-      .where(and(...conditions))
-      .orderBy(submissionsTable.createdAt);
-
-    const articles = await db.select({ slug: articlesTable.slug, title: articlesTable.title }).from(articlesTable);
+    const articles = await db.select({ slug: articlesTable.slug, title: articlesTable.title }).from(articlesTable)
+      .where(isNull(articlesTable.deletedAt));
 
     const enriched = submissions.map(s => {
       const slugCandidate = slugify(s.title);
@@ -676,8 +512,12 @@ router.get("/submissions/:id", async (req, res) => {
     const auth = await getUserAuth(req);
     if (!auth) return res.status(401).json({ error: "Unauthorized" });
 
+    const trashed = req.query.trashed === "true" || req.query.deleted === "true";
     const [submission] = await db.select().from(submissionsTable)
-      .where(eq(submissionsTable.id, req.params.id))
+      .where(and(
+        eq(submissionsTable.id, req.params.id),
+        trashed ? isNotNull(submissionsTable.deletedAt) : isNull(submissionsTable.deletedAt),
+      ))
       .limit(1);
 
     if (!submission) return res.status(404).json({ error: "Submission not found" });
@@ -705,19 +545,20 @@ router.put("/submissions/:id", async (req, res) => {
       .where(eq(submissionsTable.id, req.params.id)).limit(1);
     if (!existing) return res.status(404).json({ error: "Submission not found" });
     if (existing.userId !== auth.userId && (auth as any).role !== "ADMIN") return res.status(403).json({ error: "Forbidden" });
+    if (existing.deletedAt) return res.status(409).json({ error: "Restore this submission before editing it" });
     if (!USER_EDITABLE_STATUSES.includes(existing.status)) {
       return res.status(403).json({ error: "This submission can no longer be edited" });
     }
 
     const schema = z.object({
       type: z.enum(["ESSAY", "PAPER", "REVIEW", "COMMENTARY"]).optional(),
-      submitterName: z.string().max(160).optional().or(z.literal("")),
-      submitterEmail: z.string().email().optional().or(z.literal("")).or(z.null()),
-      title: z.string().max(500).optional().or(z.literal("")),
-      domain: z.string().max(160).optional(),
-      abstract: z.string().max(10000).optional(),
+      submitterName: z.string().trim().max(160).optional().or(z.literal("")),
+      submitterEmail: z.string().trim().toLowerCase().email().optional().or(z.literal("")).or(z.null()),
+      title: z.string().trim().max(500).optional().or(z.literal("")),
+      domain: z.string().trim().max(160).optional(),
+      abstract: z.string().trim().max(10000).optional(),
       body: z.string().max(500_000).optional(),
-      notes: z.string().max(5000).optional(),
+      notes: z.string().trim().max(5000).optional(),
       consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).optional(),
       status: z.enum(["DRAFT", "RECEIVED", "PUBLISHED"]).optional(),
       audioUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
@@ -774,7 +615,7 @@ router.put("/submissions/:id", async (req, res) => {
 
     const [submission] = await db.update(submissionsTable)
       .set(updates)
-      .where(eq(submissionsTable.id, req.params.id))
+      .where(and(eq(submissionsTable.id, req.params.id), isNull(submissionsTable.deletedAt)))
       .returning();
 
     const publication = wantsSubmit || submission.status === "PUBLISHED"
@@ -791,7 +632,7 @@ router.put("/submissions/:id", async (req, res) => {
   }
 });
 
-// DELETE /api/submissions/:id — move submission to trash bin (sets status = ARCHIVED)
+// DELETE /api/submissions/:id — move an active submission to Trash by setting deletedAt.
 router.delete("/submissions/:id", async (req, res) => {
   try {
     const auth = await getUserAuth(req);
@@ -801,26 +642,23 @@ router.delete("/submissions/:id", async (req, res) => {
       .where(eq(submissionsTable.id, req.params.id)).limit(1);
     if (!existing) return res.status(404).json({ error: "Submission not found" });
     if (existing.userId !== auth.userId && (auth as any).role !== "ADMIN") return res.status(403).json({ error: "Forbidden" });
+    if (existing.deletedAt) return res.status(409).json({ error: "Submission is already in Trash" });
 
-    await db.update(submissionsTable)
-      .set({ status: "ARCHIVED", updatedAt: new Date() })
-      .where(eq(submissionsTable.id, req.params.id));
+    const now = new Date();
+    const [submission] = await db.update(submissionsTable)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(and(eq(submissionsTable.id, req.params.id), isNull(submissionsTable.deletedAt)))
+      .returning();
+    if (!submission) return res.status(404).json({ error: "Submission not found" });
 
-    // Synchronize unpublish: update matching article status to DRAFT if soft deleted
-    if (existing.title) {
-      await db.update(articlesTable)
-        .set({ status: "DRAFT", updatedAt: new Date() })
-        .where(eq(articlesTable.title, existing.title));
-    }
-
-    return res.json({ success: true });
+    return res.json({ success: true, submission });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed to delete submission" });
   }
 });
 
-// POST /api/submissions/:id/restore — restore submission from trash back to DRAFT
+// POST /api/submissions/:id/restore — clear deletedAt and retain the original status.
 router.post("/submissions/:id/restore", async (req, res) => {
   try {
     const auth = await getUserAuth(req);
@@ -830,17 +668,12 @@ router.post("/submissions/:id/restore", async (req, res) => {
       .where(eq(submissionsTable.id, req.params.id)).limit(1);
     if (!existing) return res.status(404).json({ error: "Submission not found" });
     if (existing.userId !== auth.userId && (auth as any).role !== "ADMIN") return res.status(403).json({ error: "Forbidden" });
+    if (!existing.deletedAt) return res.status(409).json({ error: "Submission is not in Trash" });
 
     const [submission] = await db.update(submissionsTable)
-      .set({ status: "PUBLISHED", updatedAt: new Date() })
-      .where(eq(submissionsTable.id, req.params.id))
+      .set({ deletedAt: null, updatedAt: new Date() })
+      .where(and(eq(submissionsTable.id, req.params.id), isNotNull(submissionsTable.deletedAt)))
       .returning();
-
-    if (submission.title) {
-      await db.update(articlesTable)
-        .set({ status: "PUBLISHED", updatedAt: new Date() })
-        .where(eq(articlesTable.title, submission.title));
-    }
 
     return res.json({ success: true, submission });
   } catch (err) {
@@ -859,12 +692,10 @@ router.delete("/submissions/:id/permanent", async (req, res) => {
       .where(eq(submissionsTable.id, req.params.id)).limit(1);
     if (!existing) return res.status(404).json({ error: "Submission not found" });
     if (existing.userId !== auth.userId && (auth as any).role !== "ADMIN") return res.status(403).json({ error: "Forbidden" });
+    if (!existing.deletedAt) return res.status(409).json({ error: "Move the submission to Trash before permanently deleting it" });
 
-    await db.delete(submissionsTable).where(eq(submissionsTable.id, req.params.id));
-
-    if (existing.title) {
-      await db.delete(articlesTable).where(eq(articlesTable.title, existing.title));
-    }
+    await db.delete(submissionsTable)
+      .where(and(eq(submissionsTable.id, req.params.id), isNotNull(submissionsTable.deletedAt)));
 
     return res.json({ success: true });
   } catch (err) {

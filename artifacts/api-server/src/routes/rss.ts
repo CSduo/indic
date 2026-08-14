@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { articlesTable, papersTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 
 const router = Router();
 
@@ -11,12 +11,12 @@ router.get("/rss", async (req, res) => {
     const [articles, papers] = await Promise.all([
       db.select()
         .from(articlesTable)
-        .where(eq(articlesTable.status, "PUBLISHED"))
+        .where(and(eq(articlesTable.status, "PUBLISHED"), isNull(articlesTable.deletedAt)))
         .orderBy(desc(articlesTable.publishedAt))
         .limit(limit),
       db.select()
         .from(papersTable)
-        .where(eq(papersTable.status, "PUBLISHED"))
+        .where(and(eq(papersTable.status, "PUBLISHED"), isNull(papersTable.deletedAt)))
         .orderBy(desc(papersTable.publishedAt))
         .limit(limit)
     ]);
@@ -25,7 +25,7 @@ router.get("/rss", async (req, res) => {
       ...articles.map(a => ({
         title: a.title,
         description: a.excerpt || a.subtitle || "",
-        link: `${process.env.FRONTEND_URL || 'https://anvikshiki.com'}/article/${a.slug}`,
+        link: `${process.env.FRONTEND_URL || 'https://anvikshikijournal.in'}/articles/${a.slug}`,
         pubDate: a.publishedAt ? new Date(a.publishedAt).toUTCString() : new Date(a.createdAt).toUTCString(),
         author: a.authorName || 'Ānvīkṣikī',
         category: a.categorySlug,
@@ -35,7 +35,7 @@ router.get("/rss", async (req, res) => {
       ...papers.map(p => ({
         title: p.title,
         description: p.abstract || "",
-        link: `${process.env.FRONTEND_URL || 'https://anvikshiki.com'}/paper/${p.slug}`,
+        link: `${process.env.FRONTEND_URL || 'https://anvikshikijournal.in'}/papers/${p.slug}`,
         pubDate: p.publishedAt ? new Date(p.publishedAt).toUTCString() : new Date(p.createdAt).toUTCString(),
         author: p.authorName || 'Ānvīkṣikī',
         category: p.categorySlug,
@@ -49,7 +49,7 @@ router.get("/rss", async (req, res) => {
 <channel>
   <title>Ānvīkṣikī - Journal of Encyclopaedic Inquiry</title>
   <description>Latest articles and research papers from Ānvīkṣikī</description>
-  <link>${process.env.FRONTEND_URL || 'https://anvikshiki.com'}</link>
+  <link>${process.env.FRONTEND_URL || 'https://anvikshikijournal.in'}</link>
   <language>en-us</language>
   <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
 `;

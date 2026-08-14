@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { articlesTable, newsletterSubscribersTable, papersTable, submissionsTable, usersTable } from "@workspace/db";
-import { and, desc, eq, ilike, or } from "drizzle-orm";
+import { and, desc, eq, ilike, isNull, or } from "drizzle-orm";
 import {
   hashPassword, comparePassword, createUserToken,
   getUserAuth, setUserCookie, clearUserCookie,
@@ -199,9 +199,9 @@ router.put("/auth/profile", async (req, res) => {
     if (!auth) return res.status(401).json({ error: "Not authenticated" });
 
     const schema = z.object({
-      name: z.string().min(1).max(100).optional(),
-      bio: z.string().max(500).optional(),
-      institution: z.string().max(200).optional(),
+      name: z.string().trim().min(1).max(100).optional(),
+      bio: z.string().trim().max(500).optional(),
+      institution: z.string().trim().max(200).optional(),
       avatarUrl: z.string().max(2000).optional().or(z.literal("")).or(z.null()),
     });
     const parsed = schema.safeParse(req.body);
@@ -254,6 +254,7 @@ router.get("/users/:userId/profile", async (req, res) => {
     }).from(articlesTable)
       .where(and(
         eq(articlesTable.status, "PUBLISHED"),
+        isNull(articlesTable.deletedAt),
         isChaitanyaOrAdmin
           ? or(
               ilike(articlesTable.authorName, "%Chaitanya%"),
@@ -276,6 +277,7 @@ router.get("/users/:userId/profile", async (req, res) => {
     }).from(papersTable)
       .where(and(
         eq(papersTable.status, "PUBLISHED"),
+        isNull(papersTable.deletedAt),
         isChaitanyaOrAdmin
           ? or(
               ilike(papersTable.authorName, "%Chaitanya%"),

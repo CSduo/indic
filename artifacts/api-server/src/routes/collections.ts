@@ -6,7 +6,7 @@ import {
   db,
   papersTable,
 } from "@workspace/db";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { getUserAuth } from "../lib/auth";
 import { z } from "zod";
 
@@ -104,11 +104,13 @@ router.post("/collections/:id/items", async (req, res) => {
           .where(and(
             eq(articlesTable.id, itemId),
             eq(articlesTable.status, "PUBLISHED"),
+            isNull(articlesTable.deletedAt),
           )).limit(1)
       : await db.select({ id: papersTable.id }).from(papersTable)
           .where(and(
             eq(papersTable.id, itemId),
             eq(papersTable.status, "PUBLISHED"),
+            isNull(papersTable.deletedAt),
           )).limit(1);
     if (!item) return res.status(404).json({ error: "Published item not found" });
 

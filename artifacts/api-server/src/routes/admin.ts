@@ -5,7 +5,7 @@ import {
   newsletterSubscribersTable, categoriesTable, usersTable, siteSettingsTable,
   notificationsTable
 } from "@workspace/db";
-import { eq, desc, sql, and, ne } from "drizzle-orm";
+import { eq, desc, sql, and, ne, isNull, isNotNull } from "drizzle-orm";
 import {
   hashPassword, comparePassword, createAdminToken,
   getAdminAuth, setAdminCookie, clearAdminCookie
@@ -157,15 +157,15 @@ router.get("/admin/stats", requireAdmin, async (req, res) => {
       [{ total: newsletterCount }],
       recentSubmissions,
     ] = await Promise.all([
-      db.select({ total: sql<number>`count(*)` }).from(articlesTable),
-      db.select({ total: sql<number>`count(*)` }).from(articlesTable).where(eq(articlesTable.status, "PUBLISHED")),
-      db.select({ total: sql<number>`count(*)` }).from(articlesTable).where(eq(articlesTable.status, "DRAFT")),
-      db.select({ total: sql<number>`count(*)` }).from(papersTable),
-      db.select({ total: sql<number>`count(*)` }).from(papersTable).where(eq(papersTable.status, "PUBLISHED")),
-      db.select({ total: sql<number>`count(*)` }).from(submissionsTable).where(eq(submissionsTable.status, "RECEIVED")),
-      db.select({ total: sql<number>`count(*)` }).from(submissionsTable).where(ne(submissionsTable.status, "DRAFT")),
+      db.select({ total: sql<number>`count(*)` }).from(articlesTable).where(isNull(articlesTable.deletedAt)),
+      db.select({ total: sql<number>`count(*)` }).from(articlesTable).where(and(isNull(articlesTable.deletedAt), eq(articlesTable.status, "PUBLISHED"))),
+      db.select({ total: sql<number>`count(*)` }).from(articlesTable).where(and(isNull(articlesTable.deletedAt), eq(articlesTable.status, "DRAFT"))),
+      db.select({ total: sql<number>`count(*)` }).from(papersTable).where(isNull(papersTable.deletedAt)),
+      db.select({ total: sql<number>`count(*)` }).from(papersTable).where(and(isNull(papersTable.deletedAt), eq(papersTable.status, "PUBLISHED"))),
+      db.select({ total: sql<number>`count(*)` }).from(submissionsTable).where(and(isNull(submissionsTable.deletedAt), eq(submissionsTable.status, "RECEIVED"))),
+      db.select({ total: sql<number>`count(*)` }).from(submissionsTable).where(and(isNull(submissionsTable.deletedAt), ne(submissionsTable.status, "DRAFT"))),
       db.select({ total: sql<number>`count(*)` }).from(newsletterSubscribersTable).where(eq(newsletterSubscribersTable.isActive, true)),
-      db.select().from(submissionsTable).where(ne(submissionsTable.status, "DRAFT")).orderBy(desc(submissionsTable.createdAt)).limit(5),
+      db.select().from(submissionsTable).where(and(isNull(submissionsTable.deletedAt), ne(submissionsTable.status, "DRAFT"))).orderBy(desc(submissionsTable.createdAt)).limit(5),
     ]);
 
     return res.json({
@@ -185,8 +185,10 @@ router.get("/admin/stats", requireAdmin, async (req, res) => {
 router.get("/admin/articles", requireAdmin, async (req, res) => {
   try {
     const { status } = req.query;
+    const trashed = req.query.trashed === "true";
     const parsedStatus = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).safeParse(status);
-    const conditions = parsedStatus.success ? [eq(articlesTable.status, parsedStatus.data)] : [];
+    const conditions = [trashed ? isNotNull(articlesTable.deletedAt) : isNull(articlesTable.deletedAt)];
+    if (parsedStatus.success) conditions.push(eq(articlesTable.status, parsedStatus.data));
     const articles = await db.select({ article: articlesTable, category: categoriesTable })
       .from(articlesTable)
       .leftJoin(categoriesTable, eq(articlesTable.categorySlug, categoriesTable.slug))
@@ -259,7 +261,7 @@ router.patch("/admin/articles/:id", requireAdmin, requireAdminRole("ADMIN", "EDI
     if (updates.publishedAt) updates.publishedAt = new Date(updates.publishedAt);
 
     const [article] = await db.update(articlesTable).set(updates)
-      .where(eq(articlesTable.id, req.params.id)).returning();
+      .where(and(eq(articlesTable.id, req.params.id), isNull(articlesTable.deletedAt))).returning();
     if (!article) return res.status(404).json({ error: "Not found" });
     return res.json({ article });
   } catch (err) {
@@ -272,10 +274,41 @@ router.patch("/admin/articles/:id", requireAdmin, requireAdminRole("ADMIN", "EDI
 router.delete("/admin/articles/:id", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
   try {
     const now = new Date();
-    const [article] = await db.delete(articlesTable)
-      .where(eq(articlesTable.id, req.params.id))
-      .returning({ id: articlesTable.id });
+    const [article] = await db.update(articlesTable)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(and(eq(articlesTable.id, req.params.id), isNull(articlesTable.deletedAt)))
+      .returning({ id: articlesTable.id, deletedAt: articlesTable.deletedAt });
     if (!article) return res.status(404).json({ error: "Not found" });
+    return res.json({ success: true, article });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
+router.post("/admin/articles/:id/restore", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
+  try {
+    const [article] = await db.update(articlesTable)
+      .set({ deletedAt: null, updatedAt: new Date() })
+      .where(and(eq(articlesTable.id, req.params.id), isNotNull(articlesTable.deletedAt)))
+      .returning();
+    if (!article) return res.status(404).json({ error: "Article not found in Trash" });
+    return res.json({ success: true, article });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
+router.delete("/admin/articles/:id/permanent", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
+  try {
+    const [existing] = await db.select({ id: articlesTable.id, deletedAt: articlesTable.deletedAt })
+      .from(articlesTable).where(eq(articlesTable.id, req.params.id)).limit(1);
+    if (!existing) return res.status(404).json({ error: "Article not found" });
+    if (!existing.deletedAt) return res.status(409).json({ error: "Move the article to Trash before permanently deleting it" });
+
+    await db.delete(articlesTable)
+      .where(and(eq(articlesTable.id, req.params.id), isNotNull(articlesTable.deletedAt)));
     return res.json({ success: true });
   } catch (err) {
     req.log.error(err);
@@ -287,9 +320,11 @@ router.delete("/admin/articles/:id", requireAdmin, requireAdminRole("ADMIN", "ED
 router.get("/admin/papers", requireAdmin, async (req, res) => {
   try {
     const { status } = req.query;
+    const trashed = req.query.trashed === "true";
     const parsedStatus = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).safeParse(status);
     if (status && !parsedStatus.success) return res.status(400).json({ error: "Invalid status" });
-    const conditions = parsedStatus.success ? [eq(papersTable.status, parsedStatus.data)] : [];
+    const conditions = [trashed ? isNotNull(papersTable.deletedAt) : isNull(papersTable.deletedAt)];
+    if (parsedStatus.success) conditions.push(eq(papersTable.status, parsedStatus.data));
     const papers = await db.select({ paper: papersTable, category: categoriesTable })
       .from(papersTable)
       .leftJoin(categoriesTable, eq(papersTable.categorySlug, categoriesTable.slug))
@@ -362,7 +397,7 @@ router.patch("/admin/papers/:id", requireAdmin, requireAdminRole("ADMIN", "EDITO
     if (updates.publishedAt) updates.publishedAt = new Date(updates.publishedAt);
 
     const [paper] = await db.update(papersTable).set(updates)
-      .where(eq(papersTable.id, req.params.id)).returning();
+      .where(and(eq(papersTable.id, req.params.id), isNull(papersTable.deletedAt))).returning();
     if (!paper) return res.status(404).json({ error: "Not found" });
     return res.json({ paper });
   } catch (err) {
@@ -375,10 +410,41 @@ router.patch("/admin/papers/:id", requireAdmin, requireAdminRole("ADMIN", "EDITO
 router.delete("/admin/papers/:id", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
   try {
     const now = new Date();
-    const [paper] = await db.delete(papersTable)
-      .where(eq(papersTable.id, req.params.id))
-      .returning({ id: papersTable.id });
+    const [paper] = await db.update(papersTable)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(and(eq(papersTable.id, req.params.id), isNull(papersTable.deletedAt)))
+      .returning({ id: papersTable.id, deletedAt: papersTable.deletedAt });
     if (!paper) return res.status(404).json({ error: "Not found" });
+    return res.json({ success: true, paper });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
+router.post("/admin/papers/:id/restore", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
+  try {
+    const [paper] = await db.update(papersTable)
+      .set({ deletedAt: null, updatedAt: new Date() })
+      .where(and(eq(papersTable.id, req.params.id), isNotNull(papersTable.deletedAt)))
+      .returning();
+    if (!paper) return res.status(404).json({ error: "Paper not found in Trash" });
+    return res.json({ success: true, paper });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
+router.delete("/admin/papers/:id/permanent", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
+  try {
+    const [existing] = await db.select({ id: papersTable.id, deletedAt: papersTable.deletedAt })
+      .from(papersTable).where(eq(papersTable.id, req.params.id)).limit(1);
+    if (!existing) return res.status(404).json({ error: "Paper not found" });
+    if (!existing.deletedAt) return res.status(409).json({ error: "Move the paper to Trash before permanently deleting it" });
+
+    await db.delete(papersTable)
+      .where(and(eq(papersTable.id, req.params.id), isNotNull(papersTable.deletedAt)));
     return res.json({ success: true });
   } catch (err) {
     req.log.error(err);
@@ -392,9 +458,11 @@ router.delete("/admin/papers/:id", requireAdmin, requireAdminRole("ADMIN", "EDIT
 router.get("/admin/submissions", requireAdmin, async (req, res) => {
   try {
     const { status } = req.query;
+    const trashed = req.query.trashed === "true";
     const conditions = [
-      ne(submissionsTable.status, "DRAFT"),
+      trashed ? isNotNull(submissionsTable.deletedAt) : isNull(submissionsTable.deletedAt),
     ];
+    if (!trashed) conditions.push(ne(submissionsTable.status, "DRAFT"));
     const parsedStatus = z.enum(["RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "ACCEPTED", "REJECTED", "PUBLISHED", "ARCHIVED"]).safeParse(status);
     if (status && !parsedStatus.success) return res.status(400).json({ error: "Invalid status" });
     if (parsedStatus.success) conditions.push(eq(submissionsTable.status, parsedStatus.data));
@@ -443,10 +511,12 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
       userId: submissionsTable.userId,
       title: submissionsTable.title,
       publishedAt: submissionsTable.publishedAt,
+      deletedAt: submissionsTable.deletedAt,
     }).from(submissionsTable)
       .where(eq(submissionsTable.id, req.params.id))
       .limit(1);
     if (!previous) return res.status(404).json({ error: "Not found" });
+    if (previous.deletedAt) return res.status(409).json({ error: "Restore the submission before editing it" });
 
     const now = new Date();
     const { categorySlug, ...submissionPatch } = parsed.data;
@@ -458,7 +528,7 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
     if (parsed.data.status === "PUBLISHED") updates.publishedAt = now;
 
     const [submission] = await db.update(submissionsTable).set(updates)
-      .where(eq(submissionsTable.id, req.params.id)).returning();
+      .where(and(eq(submissionsTable.id, req.params.id), isNull(submissionsTable.deletedAt))).returning();
     if (!submission) return res.status(404).json({ error: "Not found" });
 
     if (parsed.data.status === "PUBLISHED") {
@@ -517,9 +587,45 @@ router.delete("/admin/submissions/:id", requireAdmin, requireAdminRole("ADMIN", 
     const [existing] = await db.select().from(submissionsTable)
       .where(eq(submissionsTable.id, req.params.id)).limit(1);
     if (!existing) return res.status(404).json({ error: "Submission not found" });
+    if (existing.deletedAt) return res.status(409).json({ error: "Submission is already in Trash" });
 
-    await db.delete(submissionsTable).where(eq(submissionsTable.id, req.params.id));
+    const now = new Date();
+    const [submission] = await db.update(submissionsTable)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(and(eq(submissionsTable.id, req.params.id), isNull(submissionsTable.deletedAt)))
+      .returning();
+    if (!submission) return res.status(404).json({ error: "Submission not found" });
 
+    return res.json({ success: true, submission });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
+router.post("/admin/submissions/:id/restore", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
+  try {
+    const [submission] = await db.update(submissionsTable)
+      .set({ deletedAt: null, updatedAt: new Date() })
+      .where(and(eq(submissionsTable.id, req.params.id), isNotNull(submissionsTable.deletedAt)))
+      .returning();
+    if (!submission) return res.status(404).json({ error: "Submission not found in Trash" });
+    return res.json({ success: true, submission });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
+router.delete("/admin/submissions/:id/permanent", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
+  try {
+    const [existing] = await db.select({ id: submissionsTable.id, deletedAt: submissionsTable.deletedAt })
+      .from(submissionsTable).where(eq(submissionsTable.id, req.params.id)).limit(1);
+    if (!existing) return res.status(404).json({ error: "Submission not found" });
+    if (!existing.deletedAt) return res.status(409).json({ error: "Move the submission to Trash before permanently deleting it" });
+
+    await db.delete(submissionsTable)
+      .where(and(eq(submissionsTable.id, req.params.id), isNotNull(submissionsTable.deletedAt)));
     return res.json({ success: true });
   } catch (err) {
     req.log.error(err);

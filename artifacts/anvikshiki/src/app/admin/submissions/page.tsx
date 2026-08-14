@@ -131,11 +131,13 @@ export default function AdminSubmissionsPage() {
 
   const [, navigate] = useLocation();
 
-  const load = () => {
-    fetch(`${base()}/api/admin/submissions?limit=100`, { credentials: "include" })
-      .then(r => { if (r.status === 401) { navigate("/admin/login"); return null; } return r.json(); })
-      .then(d => d && (setSubmissions(d.submissions || []), setLoading(false)))
-      .catch((err) => { toast.error("Failed to load submissions"); setLoading(false); });
+  const load = (trashed = filter === "trash") => {
+    setLoading(true);
+    fetch(`${base()}/api/admin/submissions?limit=100${trashed ? "&trashed=true" : ""}`, { credentials: "include" })
+      .then(r => { if (r.status === 401) { navigate("/admin/login"); return null; } if (!r.ok) throw new Error("Failed"); return r.json(); })
+      .then(d => d && setSubmissions(d.submissions || []))
+      .catch(() => toast.error("Failed to load submissions"))
+      .finally(() => setLoading(false));
   };
 
   const runPublicSync = async () => {
@@ -159,8 +161,11 @@ export default function AdminSubmissionsPage() {
     }
   };
 
-  useEffect(() => { 
-    load(); 
+  useEffect(() => {
+    load(filter === "trash");
+  }, [filter]);
+
+  useEffect(() => {
     fetch(`${base()}/api/admin/categories`, { credentials: "include" })
       .then(r => r.json())
       .then(d => { if (d.categories) setCategories(d.categories); })
@@ -196,11 +201,11 @@ export default function AdminSubmissionsPage() {
   };
 
   const del = (id: string) => {
-    setConfirm({ msg: "Delete this submission permanently? This cannot be undone.", action: async () => {
+    setConfirm({ msg: "Move this submission to Trash? You can restore it or delete it permanently later.", action: async () => {
       setActionLoading("delete");
       try {
         const r = await fetch(`${base()}/api/admin/submissions/${id}`, { method: "DELETE", credentials: "include" });
-        if (r.ok) { toast.success("Deleted"); load(); setConfirm(null); setSelected(null); }
+        if (r.ok) { toast.success("Submission moved to Trash"); load(); setConfirm(null); setSelected(null); }
         else {
           const errData = await r.json().catch(() => ({}));
           toast.error(errData.error || "Delete failed");
@@ -213,8 +218,41 @@ export default function AdminSubmissionsPage() {
     }});
   };
 
-  const FILTER_OPTS = ["all","received","under_review","revision_requested","accepted","rejected","published"];
-  const filtered = filter === "all" ? submissions : submissions.filter(s => (s.status || "RECEIVED").toLowerCase() === filter || (filter === "received" && !s.status));
+  const restore = async (id: string) => {
+    setActionLoading("restore");
+    try {
+      const r = await fetch(`${base()}/api/admin/submissions/${id}/restore`, { method: "POST", credentials: "include" });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || "Failed to restore submission");
+      toast.success("Submission restored");
+      setSelected(null);
+      load();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to restore submission");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const permanentlyDelete = async (id: string) => {
+    setActionLoading("permanent-delete");
+    try {
+      const r = await fetch(`${base()}/api/admin/submissions/${id}/permanent`, { method: "DELETE", credentials: "include" });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || "Failed to permanently delete submission");
+      toast.success("Submission permanently deleted");
+      setConfirm(null);
+      setSelected(null);
+      load();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to permanently delete submission");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const FILTER_OPTS = ["all","received","under_review","revision_requested","accepted","rejected","published","trash"];
+  const filtered = filter === "all" || filter === "trash" ? submissions : submissions.filter(s => (s.status || "RECEIVED").toLowerCase() === filter || (filter === "received" && !s.status));
 
   return (
     <div className="admin-layout">
@@ -304,7 +342,7 @@ export default function AdminSubmissionsPage() {
                   >
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <div className="font-ui text-sm font-medium leading-tight line-clamp-1" style={{ color: "var(--ink-soft)" }}>{s.title}</div>
-                      <span className={`badge badge-${statusBadge(s.status)} shrink-0 text-[0.6rem]`}>{s.status || "received"}</span>
+                      <span className={`badge badge-${s.deletedAt ? "draft" : statusBadge(s.status)} shrink-0 text-[0.6rem]`}>{s.deletedAt ? "trash" : s.status || "received"}</span>
                     </div>
                     <div className="font-ui text-xs" style={{ color: "var(--muted)" }}>{s.submitterName} · {s.type}</div>
                     
@@ -349,7 +387,7 @@ export default function AdminSubmissionsPage() {
                     <div className="flex-1 mr-3">
                       <h2 className="font-display text-xl mb-2 leading-tight" style={{ color: "var(--ink)" }}>{selected.title}</h2>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`badge badge-${statusBadge(selected.status)}`}>{selected.status || "received"}</span>
+                        <span className={`badge badge-${selected.deletedAt ? "draft" : statusBadge(selected.status)}`}>{selected.deletedAt ? "trash" : selected.status || "received"}</span>
                         <span className="badge badge-draft text-[0.6rem]">{selected.type}</span>
                         {selected.domain && <span className="badge badge-draft text-[0.6rem]">{selected.domain}</span>}
                       </div>
@@ -532,7 +570,7 @@ export default function AdminSubmissionsPage() {
                   </div>
 
                   {/* Category selector — shown when about to publish */}
-                  {selected.status === "ACCEPTED" && (() => {
+                  {!selected.deletedAt && selected.status === "ACCEPTED" && (() => {
                     const imgUrl = selected.coverImageUrl || extractCoverFromNotes(selected.notes);
                     return (
                       <div className="mb-4 p-3.5 rounded-lg" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}>
@@ -565,7 +603,15 @@ export default function AdminSubmissionsPage() {
 
                   {/* Actions */}
                   <div className="flex flex-wrap gap-2 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
-                    {(!selected.status || selected.status === "RECEIVED" || selected.status === "UNDER_REVIEW") && (<>
+                    {selected.deletedAt && <>
+                      <button type="button" disabled={!!actionLoading} onClick={() => restore(selected.id)} className="btn-sacred btn-ghost text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50">
+                        {actionLoading === "restore" ? <span className="animate-spin text-xs">Restoring</span> : <ArchiveRestore size={12} />} Restore
+                      </button>
+                      <button type="button" disabled={!!actionLoading} onClick={() => setConfirm({ msg: "Permanently delete this submission? This cannot be undone.", action: () => permanentlyDelete(selected.id) })} className="btn-sacred text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50" style={{ background: "rgba(139,26,74,0.12)", border: "1px solid rgba(139,26,74,0.3)", color: "var(--rose-bright)" }}>
+                        {actionLoading === "permanent-delete" ? <span className="animate-spin text-xs">Deleting</span> : <Trash2 size={12} />} Delete Forever
+                      </button>
+                    </>}
+                    {!selected.deletedAt && (!selected.status || selected.status === "RECEIVED" || selected.status === "UNDER_REVIEW") && (<>
                       <button type="button" disabled={!!actionLoading} onClick={() => patchAction(selected.id, "approve")} className="btn-sacred text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50" style={{ background: "rgba(26,74,56,0.3)", border: "1px solid rgba(74,222,128,0.3)", color: "#4ade80" }}>
                         {actionLoading === "approve" ? <span className="animate-spin text-xs">↻</span> : <Check size={12} />} Approve
                       </button>
@@ -581,7 +627,7 @@ export default function AdminSubmissionsPage() {
                         {actionLoading === "reject" ? <span className="animate-spin text-xs">↻</span> : <X size={12} />} Reject
                       </button>
                     </>)}
-                    {selected.status === "ACCEPTED" && (() => {
+                    {!selected.deletedAt && selected.status === "ACCEPTED" && (() => {
                       const imgUrl = selected.coverImageUrl || extractCoverFromNotes(selected.notes);
                       return (
                         <button
@@ -594,14 +640,16 @@ export default function AdminSubmissionsPage() {
                         </button>
                       );
                     })()}
-                    {selected.status === "PUBLISHED" && (
+                    {!selected.deletedAt && selected.status === "PUBLISHED" && (
                       <button type="button" disabled={!!actionLoading} onClick={() => patchAction(selected.id, "unpublish")} className="btn-sacred btn-ghost text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50">
                         {actionLoading === "unpublish" ? <span className="animate-spin text-xs">↻</span> : <ArchiveRestore size={12} />} Unpublish
                       </button>
                     )}
-                    <button type="button" disabled={!!actionLoading} onClick={() => del(selected.id)} className="btn-sacred text-xs py-1.5 px-3 ml-auto inline-flex items-center gap-1.5 disabled:opacity-50" style={{ background: "rgba(139,26,74,0.12)", border: "1px solid rgba(139,26,74,0.3)", color: "var(--rose-bright)" }}>
-                      {actionLoading === "delete" ? <span className="animate-spin text-xs">↻</span> : <Trash2 size={12} />} Delete
-                    </button>
+                    {!selected.deletedAt && (
+                      <button type="button" disabled={!!actionLoading} onClick={() => del(selected.id)} className="btn-sacred text-xs py-1.5 px-3 ml-auto inline-flex items-center gap-1.5 disabled:opacity-50" style={{ background: "rgba(139,26,74,0.12)", border: "1px solid rgba(139,26,74,0.3)", color: "var(--rose-bright)" }}>
+                        {actionLoading === "delete" ? <span className="animate-spin text-xs">↻</span> : <Trash2 size={12} />} Delete
+                      </button>
+                    )}
                   </div>
                 </div>
               );

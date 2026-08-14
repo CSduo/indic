@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { savedItemsTable, articlesTable, papersTable } from "@workspace/db";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, isNull } from "drizzle-orm";
 import { getUserAuth } from "../lib/auth";
 import { z } from "zod";
 
@@ -26,12 +26,14 @@ router.get("/saved-items", async (req, res) => {
         ? db.select().from(articlesTable).where(and(
             inArray(articlesTable.id, articleIds),
             eq(articlesTable.status, "PUBLISHED"),
+            isNull(articlesTable.deletedAt),
           ))
         : [],
       paperIds.length
         ? db.select().from(papersTable).where(and(
             inArray(papersTable.id, paperIds),
             eq(papersTable.status, "PUBLISHED"),
+            isNull(papersTable.deletedAt),
           ))
         : [],
     ]);
@@ -71,10 +73,12 @@ router.post("/saved-items", async (req, res) => {
       ? await db.select({ id: articlesTable.id }).from(articlesTable).where(and(
           eq(articlesTable.id, itemId),
           eq(articlesTable.status, "PUBLISHED"),
+          isNull(articlesTable.deletedAt),
         )).limit(1)
       : await db.select({ id: papersTable.id }).from(papersTable).where(and(
           eq(papersTable.id, itemId),
           eq(papersTable.status, "PUBLISHED"),
+          isNull(papersTable.deletedAt),
         )).limit(1);
     if (!publishedItem) return res.status(404).json({ error: "Published item not found" });
 

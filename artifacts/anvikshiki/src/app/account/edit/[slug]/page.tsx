@@ -7,6 +7,8 @@ import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { useAuthContext } from "@/contexts/AuthContext";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
+const IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
 export default function EditArticlePage() {
   const params = useParams<{ slug: string }>();
@@ -44,8 +46,8 @@ export default function EditArticlePage() {
   const imgRef = useRef<HTMLInputElement>(null);
 
   const pickImg = (file: File) => {
-    if (!file.type.startsWith("image/")) { toast.error("Please upload a JPG, PNG, or WEBP image"); return; }
-    if (file.size > 20 * 1024 * 1024) { toast.error("Image must be under 20 MB"); return; }
+    if (!IMAGE_MIME_TYPES.has(file.type)) { toast.error("Please upload a JPG, PNG, WEBP, or GIF image"); return; }
+    if (file.size > MAX_IMAGE_BYTES) { toast.error("Image must be 10 MB or smaller"); return; }
     setImgFile(file);
     setImgPreview(URL.createObjectURL(file));
   };
@@ -150,6 +152,7 @@ export default function EditArticlePage() {
 
       const res = await fetch(`${base()}/api/media/upload`, {
         method: "POST",
+        credentials: "include",
         body: formData,
       });
 
@@ -160,6 +163,9 @@ export default function EditArticlePage() {
 
       const data = await res.json();
       const audioUrl = data.url;
+      if (typeof audioUrl !== "string" || !audioUrl) {
+        throw new Error("Audio storage did not return a URL");
+      }
 
       if (editorRef.current) {
         editorRef.current.focus();
@@ -194,8 +200,12 @@ export default function EditArticlePage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 20 * 1024 * 1024) {
-      setErrorText("Inline image must be under 20 MB");
+    if (!IMAGE_MIME_TYPES.has(file.type)) {
+      setErrorText("Inline images must be JPG, PNG, WEBP, or GIF files");
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setErrorText("Inline image must be 10 MB or smaller");
       return;
     }
 
@@ -205,9 +215,11 @@ export default function EditArticlePage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("context", "article_inline");
 
       const res = await fetch(`${base()}/api/media/upload`, {
         method: "POST",
+        credentials: "include",
         body: formData,
       });
 
@@ -218,6 +230,9 @@ export default function EditArticlePage() {
 
       const data = await res.json();
       const imageUrl = data.url;
+      if (typeof imageUrl !== "string" || !imageUrl) {
+        throw new Error("Image storage did not return a URL");
+      }
 
       if (editorRef.current) {
         editorRef.current.focus();
@@ -388,11 +403,11 @@ export default function EditArticlePage() {
                 role="button" tabIndex={0}
                 onKeyDown={e => e.key === "Enter" && imgRef.current?.click()}
               >
-                <input ref={imgRef} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only"
+                <input ref={imgRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only"
                   onChange={e => { const f = e.target.files?.[0]; if (f) pickImg(f); }} />
                 <ImageIcon size={24} style={{ color: "var(--ink-soft)", opacity: 0.5, margin: "0 auto 8px" }} />
                 <p className="font-ui text-xs text-center" style={{ color: "var(--ink-faint)" }}>Drop or click to upload</p>
-                <p className="font-ui text-[10px] text-center mt-1" style={{ color: "var(--ink-faint)", opacity: 0.6 }}>JPG, PNG, WEBP · Max 20 MB</p>
+                <p className="font-ui text-[10px] text-center mt-1" style={{ color: "var(--ink-faint)", opacity: 0.6 }}>JPG, PNG, WEBP, GIF · Max 10 MB</p>
               </div>
             )}
           </div>
@@ -512,7 +527,7 @@ export default function EditArticlePage() {
                 type="file"
                 ref={inlineImgInputRef}
                 onChange={handleInlineImageUpload}
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp,image/gif"
                 className="sr-only"
               />
               <button

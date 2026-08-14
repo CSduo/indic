@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { articlesTable, papersTable, categoriesTable } from "@workspace/db";
-import { eq, and, ilike, or, sql, desc, asc } from "drizzle-orm";
+import { eq, and, ilike, isNull, or, sql, desc, asc } from "drizzle-orm";
 import { toLikePattern } from "../lib/request";
 import { sanitizeArticleBody } from "../lib/content";
 
@@ -39,6 +39,7 @@ router.get("/search", async (req, res) => {
 
     const articleConditions = [
       eq(articlesTable.status, "PUBLISHED"),
+      isNull(articlesTable.deletedAt),
       or(
         ilike(articlesTable.title, st),
         sql`coalesce(${articlesTable.subtitle}, '') ilike ${st}`,
@@ -48,6 +49,7 @@ router.get("/search", async (req, res) => {
 
     const paperConditions = [
       eq(papersTable.status, "PUBLISHED"),
+      isNull(papersTable.deletedAt),
       or(
         ilike(papersTable.title, st),
         sql`coalesce(${papersTable.abstract}, '') ilike ${st}`

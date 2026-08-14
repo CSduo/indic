@@ -20,7 +20,9 @@ export default function CommunityPage() {
 
   const joinNewsletter = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!email.trim() || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
+    const normalizedEmail = email.trim();
+    const normalizedName = name.trim();
+    if (!normalizedEmail || !/^[^@]+@[^@]+\.[^@]+$/.test(normalizedEmail)) {
       toast.error("Please enter a valid email address");
       return;
     }
@@ -29,7 +31,7 @@ export default function CommunityPage() {
       const response = await fetch(`${base()}/api/newsletter`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name }),
+        body: JSON.stringify({ email: normalizedEmail, name: normalizedName }),
       });
       const data = await response.json();
       if (response.status === 409) {

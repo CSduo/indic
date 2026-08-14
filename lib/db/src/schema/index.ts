@@ -76,12 +76,14 @@ export const articlesTable = pgTable("articles", {
   status: contentStatusEnum("status").notNull().default("DRAFT"),
   featured: boolean("featured").notNull().default(false),
   publishedAt: timestamp("published_at"),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   index("articles_status_idx").on(t.status),
   index("articles_category_idx").on(t.categorySlug),
   index("articles_published_at_idx").on(t.publishedAt),
+  index("articles_deleted_at_idx").on(t.deletedAt),
 ]);
 
 // Papers
@@ -107,11 +109,13 @@ export const papersTable = pgTable("papers", {
   seoDescription: text("seo_description"),
   status: contentStatusEnum("status").notNull().default("DRAFT"),
   publishedAt: timestamp("published_at"),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   index("papers_status_idx").on(t.status),
   index("papers_category_idx").on(t.categorySlug),
+  index("papers_deleted_at_idx").on(t.deletedAt),
 ]);
 
 // Submissions
@@ -140,9 +144,12 @@ export const submissionsTable = pgTable("submissions", {
   assignedEditorId: text("assigned_editor_id"),
   editorNotes: text("editor_notes"),
   publishedAt: timestamp("published_at"),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("submissions_deleted_at_idx").on(t.deletedAt),
+]);
 
 // Comments
 export const commentsTable = pgTable("comments", {

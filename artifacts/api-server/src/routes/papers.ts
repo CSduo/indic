@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { papersTable, categoriesTable, submissionsTable, usersTable } from "@workspace/db";
-import { eq, and, desc, ilike, inArray, or, sql } from "drizzle-orm";
+import { eq, and, desc, ilike, inArray, or, sql, isNull } from "drizzle-orm";
 import { categorySlugCandidates } from "../lib/publication-sync";
 import { sanitizeArticleBody } from "../lib/content";
 import { parsePagination, toLikePattern } from "../lib/request";
@@ -16,6 +16,7 @@ router.get("/papers", async (req, res) => {
 
     const conditions = [
       eq(papersTable.status, "PUBLISHED"),
+      isNull(papersTable.deletedAt),
     ];
     if (category) {
       const normalizedCategory = sql<string>`trim(both '-' from lower(regexp_replace(replace(${papersTable.categorySlug}, '_', '-'), '[^a-z0-9]+', '-', 'g')))`;
@@ -96,7 +97,7 @@ router.get("/papers/:slug", async (req, res) => {
       })
       .from(papersTable)
       .leftJoin(categoriesTable, eq(papersTable.categorySlug, categoriesTable.slug))
-      .where(and(eq(papersTable.slug, slug), eq(papersTable.status, "PUBLISHED")))
+      .where(and(eq(papersTable.slug, slug), eq(papersTable.status, "PUBLISHED"), isNull(papersTable.deletedAt)))
       .limit(1);
 
     if (!row) return res.status(404).json({ error: "Paper not found" });

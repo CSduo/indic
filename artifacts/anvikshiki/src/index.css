@@ -1246,6 +1246,7 @@ button {
   align-items: center;
   gap: 0.125rem;
   flex: 1;
+  min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -1319,6 +1320,17 @@ button {
   .admin-main { padding: 1.25rem 1rem; }
   .admin-topnav-item span { display: none; }
   .admin-topnav-logout span { display: none; }
+  .admin-topnav-item,
+  .admin-topnav-logout {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-topnav { padding-inline: .5rem; }
+  .admin-topnav-logo { margin-right: .5rem; }
 }
 
 /* keep old sidebar class for backwards compat */

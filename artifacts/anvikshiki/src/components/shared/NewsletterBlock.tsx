@@ -11,14 +11,18 @@ export function NewsletterBlock() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    const normalizedEmail = email.trim();
+    if (!/^[^@]+@[^@]+\.[^@]+$/.test(normalizedEmail)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
 
     setLoading(true);
     try {
       const res = await fetch(`${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/newsletter`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: normalizedEmail }),
       });
 
       if (res.ok) {
@@ -79,6 +83,7 @@ export function NewsletterBlock() {
                 placeholder="your@email.com"
                 className="input-anv pl-9 w-full"
                 required
+                aria-label="Email for newsletter"
               />
             </div>
             <button
@@ -86,6 +91,7 @@ export function NewsletterBlock() {
               disabled={loading}
               className="btn-primary px-4"
               style={{ opacity: loading ? 0.7 : 1 }}
+              aria-label={loading ? "Subscribing to newsletter" : "Subscribe to newsletter"}
             >
               {loading ? "..." : <ArrowRight size={16} />}
             </button>

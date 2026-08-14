@@ -23,7 +23,11 @@ router.get("/articles/:articleId/comments", async (req, res) => {
     // Verify article exists and is published
     const [article] = await db.select({ id: articlesTable.id })
       .from(articlesTable)
-      .where(and(eq(articlesTable.id, articleId), eq(articlesTable.status, "PUBLISHED")))
+      .where(and(
+        eq(articlesTable.id, articleId),
+        eq(articlesTable.status, "PUBLISHED"),
+        isNull(articlesTable.deletedAt),
+      ))
       .limit(1);
     if (!article) return res.status(404).json({ error: "Article not found" });
 
@@ -83,7 +87,11 @@ router.post("/articles/:articleId/comments", async (req, res) => {
     // Verify article exists and is published
     const [article] = await db.select({ id: articlesTable.id })
       .from(articlesTable)
-      .where(and(eq(articlesTable.id, articleId), eq(articlesTable.status, "PUBLISHED")))
+      .where(and(
+        eq(articlesTable.id, articleId),
+        eq(articlesTable.status, "PUBLISHED"),
+        isNull(articlesTable.deletedAt),
+      ))
       .limit(1);
     if (!article) return res.status(404).json({ error: "Article not found" });
 
@@ -137,7 +145,7 @@ router.patch("/comments/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const schema = z.object({
-      content: z.string().min(1).max(5000),
+      content: z.string().trim().min(1).max(5000),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid content" });

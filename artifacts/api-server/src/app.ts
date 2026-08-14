@@ -10,7 +10,7 @@ import { syncPublishedSubmissions, ensureDefaultCategories } from "./lib/publica
 import { UPLOADS_DIR } from "./routes/submissions";
 import healthRouter from "./routes/health";
 import { db, articlesTable, papersTable } from "@workspace/db";
-import { eq, and, or, ilike } from "drizzle-orm";
+import { eq, and, or, ilike, isNull } from "drizzle-orm";
 
 const app: Express = express();
 const isProduction = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
@@ -240,6 +240,7 @@ app.get(["/articles/:slug", "/essays/:slug", "/papers/:slug"], async (req, res, 
         .where(and(
           or(eq(papersTable.slug, rawSlug), eq(papersTable.slug, cleanSlug), ilike(papersTable.slug, `${cleanSlug}%`)),
           eq(papersTable.status, "PUBLISHED"),
+          isNull(papersTable.deletedAt),
         ))
         .limit(1);
 
@@ -256,6 +257,7 @@ app.get(["/articles/:slug", "/essays/:slug", "/papers/:slug"], async (req, res, 
         .where(and(
           or(eq(articlesTable.slug, rawSlug), eq(articlesTable.slug, cleanSlug), ilike(articlesTable.slug, `${cleanSlug}%`)),
           eq(articlesTable.status, "PUBLISHED"),
+          isNull(articlesTable.deletedAt),
         ))
         .limit(1);
 

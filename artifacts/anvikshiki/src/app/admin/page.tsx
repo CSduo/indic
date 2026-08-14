@@ -41,7 +41,7 @@ export default function AdminDashboardPage() {
     <div className="admin-layout">
       <AdminSidebar active="/admin" />
       <main className="admin-main">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
           <div>
             <h1 className="font-display text-2xl" style={{ color: "var(--gold-bright)" }}>Dashboard</h1>
             <p className="font-ui text-xs mt-1" style={{ color: "var(--muted)" }}>Ānvīkṣikī editorial control panel</p>
@@ -97,7 +97,8 @@ export default function AdminDashboardPage() {
               <p className="font-ui text-sm" style={{ color: "var(--muted)" }}>No submissions yet</p>
             </div>
           ) : (
-            <table className="sacred-table" role="table">
+            <div className="overflow-x-auto">
+            <table className="sacred-table min-w-[640px]" role="table">
               <thead>
                 <tr>
                   <th scope="col">Title</th>
@@ -119,6 +120,7 @@ export default function AdminDashboardPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </main>

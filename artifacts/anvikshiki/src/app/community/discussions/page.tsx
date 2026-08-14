@@ -44,7 +44,7 @@ export default function DiscussionsPage() {
         {mostDiscussed.length > 0 ? (
           <div className="grid gap-5 md:grid-cols-2 mb-10">
             {mostDiscussed.map(t => (
-              <Link key={t.id} href={`/article/${t.articleId}`}>
+              <Link key={t.id} href={`/articles/${t.articleId}`}>
                 <ParchmentCard className="p-6 flex flex-col h-full hover:border-[var(--gold)] transition-colors cursor-pointer group">
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center gap-2">
@@ -79,7 +79,7 @@ export default function DiscussionsPage() {
         {recentConversations.length > 0 ? (
           <div className="space-y-4 mb-10">
             {recentConversations.map(t => (
-              <Link key={t.id} href={`/article/${t.articleId}`}>
+              <Link key={t.id} href={`/articles/${t.articleId}`}>
                 <ParchmentCard className="p-5 flex gap-4 items-start hover:border-[var(--gold)] transition-colors cursor-pointer group">
                   <div className="h-10 w-10 rounded-[8px] border border-[var(--border-gold)] bg-[var(--surface)] grid place-items-center text-[var(--gold)] shrink-0">
                     <MessageCircle size={18} />

@@ -5,7 +5,7 @@ import path from "path";
 import fs from "fs";
 import { UPLOADS_DIR } from "./submissions";
 import { v2 as cloudinary } from "cloudinary";
-import { getUserAuth } from "../lib/auth";
+import { getAdminAuth, getUserAuth } from "../lib/auth";
 import { sanitizeArticleBody } from "../lib/content";
 import { hasExpectedFileSignature } from "../lib/file-validation";
 import { put } from "@vercel/blob";
@@ -14,43 +14,87 @@ import mammoth from "mammoth";
 
 const router = Router();
 
-const ALLOWED_MIME_TYPES = new Set([
+const IMAGE_MIME_TYPES = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
   "image/gif",
+]);
+const AUDIO_MIME_TYPES = new Set([
   "audio/webm",
   "audio/ogg",
   "audio/wav",
   "audio/mp3",
   "audio/mpeg",
+  "audio/mp4",
   "audio/m4a",
-  "audio/x-m4a"
+  "audio/x-m4a",
 ]);
-const ALLOWED_EXTENSIONS = new Set([
-  ".jpg",
-  ".jpeg",
-  ".png",
-  ".webp",
-  ".gif",
-  ".webm",
-  ".ogg",
-  ".wav",
-  ".mp3",
-  ".mpeg",
-  ".m4a"
+const PDF_MIME_TYPE = "application/pdf";
+const MIME_TO_EXTENSIONS: Readonly<Record<string, readonly string[]>> = {
+  "image/jpeg": [".jpg", ".jpeg"],
+  "image/png": [".png"],
+  "image/webp": [".webp"],
+  "image/gif": [".gif"],
+  "audio/webm": [".webm"],
+  "audio/ogg": [".ogg"],
+  "audio/wav": [".wav"],
+  "audio/mp3": [".mp3"],
+  "audio/mpeg": [".mp3", ".mpeg"],
+  "audio/mp4": [".m4a"],
+  "audio/m4a": [".m4a"],
+  "audio/x-m4a": [".m4a"],
+  [PDF_MIME_TYPE]: [".pdf"],
+};
+const ALLOWED_UPLOAD_CONTEXTS = new Set([
+  "article_inline",
+  "avatar",
+  "paper_pdf",
+  "submission_cover",
+  "voice_note",
 ]);
+const DOCX_MIME_TYPES = new Set([
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/octet-stream",
+  "application/zip",
+]);
+
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_AUDIO_BYTES = 30 * 1024 * 1024;
+const MAX_PDF_BYTES = 50 * 1024 * 1024;
+
+function getUploadContext(value: unknown): string | null {
+  const context = typeof value === "string" && value.trim() ? value.trim() : "article_inline";
+  return ALLOWED_UPLOAD_CONTEXTS.has(context) ? context : null;
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[character] || character);
+}
+
+async function getMediaUploadAuth(req: any) {
+  return await getUserAuth(req) || await getAdminAuth(req);
+}
 
 // Always store in memory so we can stream to Cloudinary without touching the filesystem
 const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
-  limits: { fileSize: 30 * 1024 * 1024 }, // 30 MB max (audios can be slightly larger)
+  // PDFs have the largest allowed limit; media-specific limits are enforced
+  // after multer has parsed the multipart body.
+  limits: { fileSize: MAX_PDF_BYTES },
   fileFilter: (_req: any, file: any, cb: any): void => {
     const ext = path.extname(file.originalname).toLowerCase();
-    if (!ALLOWED_MIME_TYPES.has(file.mimetype) || !ALLOWED_EXTENSIONS.has(ext)) {
-      cb(new Error("Unsupported file type. Only JPEG, PNG, WEBP, GIF images, and WebM, MP3, OGG, WAV, M4A audio files are allowed."));
+    const expectedExtensions = MIME_TO_EXTENSIONS[file.mimetype];
+    if (!expectedExtensions?.includes(ext)) {
+      cb(new Error("Unsupported file type. Only JPEG, PNG, WEBP, GIF images; WebM, MP3, OGG, WAV, M4A audio; and PDF paper files are allowed."));
       return;
     }
     cb(null, true);
@@ -64,7 +108,7 @@ const docUpload = multer({
   fileFilter: (_req: any, file: any, cb: any): void => {
     const ext = path.extname(file.originalname).toLowerCase();
     const allowed =
-      (ext === ".docx" && file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") ||
+      (ext === ".docx" && DOCX_MIME_TYPES.has(file.mimetype)) ||
       (ext === ".txt" && ["text/plain", "application/octet-stream"].includes(file.mimetype));
     if (!allowed) {
       cb(new Error("Only DOCX or plain-text files are accepted."));
@@ -75,7 +119,7 @@ const docUpload = multer({
 });
 
 router.post("/media/upload", async (req: any, res: any, next: any): Promise<void> => {
-  const auth = await getUserAuth(req);
+  const auth = await getMediaUploadAuth(req);
   if (!auth) {
     res.status(401).json({ error: "Unauthorized" });
     return;
@@ -83,7 +127,10 @@ router.post("/media/upload", async (req: any, res: any, next: any): Promise<void
   next();
 }, (req: any, res: any, next: any) => {
   upload.single("file")(req, res, (err: any) => {
-    if (err) return res.status(400).json({ error: err.message || "Upload failed" });
+    if (err) {
+      const status = err.code === "LIMIT_FILE_SIZE" ? 413 : 400;
+      return res.status(status).json({ error: err.message || "Upload failed" });
+    }
     next();
   });
 }, async (req: any, res) => {
@@ -96,10 +143,32 @@ router.post("/media/upload", async (req: any, res: any, next: any): Promise<void
     if (!hasExpectedFileSignature(file)) {
       return res.status(400).json({ error: "Uploaded file content does not match its extension" });
     }
-    const context = req.body.context || "avatar";
-    const isAudio = file.mimetype.startsWith("audio/") || [".webm", ".mp3", ".ogg", ".wav", ".m4a"].includes(path.extname(file.originalname).toLowerCase());
-
     const extension = path.extname(file.originalname).toLowerCase();
+    const context = getUploadContext(req.body?.context);
+    if (!context) {
+      return res.status(400).json({ error: "Invalid upload context" });
+    }
+
+    const isImage = IMAGE_MIME_TYPES.has(file.mimetype);
+    const isAudio = AUDIO_MIME_TYPES.has(file.mimetype);
+    const isPdf = file.mimetype === PDF_MIME_TYPE;
+    const maxSize = isImage ? MAX_IMAGE_BYTES : isAudio ? MAX_AUDIO_BYTES : MAX_PDF_BYTES;
+    if (file.size > maxSize) {
+      return res.status(413).json({
+        error: isImage
+          ? "Image files must be 10 MB or smaller"
+          : isAudio
+            ? "Audio files must be 30 MB or smaller"
+            : "PDF files must be 50 MB or smaller",
+      });
+    }
+    if (isPdf && context !== "paper_pdf") {
+      return res.status(400).json({ error: "PDF uploads are only supported for paper files" });
+    }
+    if (context === "paper_pdf" && !isPdf) {
+      return res.status(400).json({ error: "Paper uploads must be PDF files" });
+    }
+
     let url: string;
     let storageKey: string;
 
@@ -118,10 +187,10 @@ router.post("/media/upload", async (req: any, res: any, next: any): Promise<void
       const uploadResult = await new Promise<any>((resolve, reject) => {
         const uploadOptions: any = {
           folder: `anvikshiki/${context}`,
-          resource_type: isAudio ? "video" : "image",
+          resource_type: isAudio ? "video" : isPdf ? "raw" : "image",
         };
         
-        if (!isAudio) {
+        if (isImage) {
           uploadOptions.transformation = context === "avatar"
             ? [{ width: 400, height: 400, crop: "fill", gravity: "face" }]
             : [{ width: 1200, crop: "limit" }];
@@ -137,6 +206,17 @@ router.post("/media/upload", async (req: any, res: any, next: any): Promise<void
         uploadStream.end(file.buffer);
       });
 
+      if (
+        !uploadResult?.secure_url ||
+        typeof uploadResult.secure_url !== "string" ||
+        !uploadResult.public_id ||
+        typeof uploadResult.public_id !== "string"
+      ) {
+        return res.status(502).json({
+          error: "Storage did not return a secure URL for the uploaded file",
+          code: "STORAGE_UPLOAD_INCOMPLETE",
+        });
+      }
       url = uploadResult.secure_url;
       storageKey = uploadResult.public_id;
     }
@@ -171,20 +251,23 @@ router.post("/media/upload", async (req: any, res: any, next: any): Promise<void
     });
   } catch (err: any) {
     req.log?.error(err);
-    return res.status(500).json({ error: "Media upload failed", detail: err?.message });
+    return res.status(500).json({ error: "Media upload failed" });
   }
 });
 
 // ── Extract document content (DOCX / TXT) → HTML ──
 router.post("/media/extract-doc",
   async (req: any, res: any, next: any): Promise<void> => {
-    const auth = await getUserAuth(req);
+    const auth = await getMediaUploadAuth(req);
     if (!auth) { res.status(401).json({ error: "Unauthorized" }); return; }
     next();
   },
   (req: any, res: any, next: any) => {
     docUpload.single("file")(req, res, (err: any) => {
-      if (err) return res.status(400).json({ error: err.message || "Upload failed" });
+      if (err) {
+        const status = err.code === "LIMIT_FILE_SIZE" ? 413 : 400;
+        return res.status(status).json({ error: err.message || "Upload failed" });
+      }
       next();
     });
   },
@@ -203,12 +286,12 @@ router.post("/media/extract-doc",
         const html = text
           .split(/\n{2,}/)
           .filter((p: string) => p.trim())
-          .map((p: string) => `<p>${p.trim().replace(/\n/g, "<br>")}</p>`)
+          .map((p: string) => `<p>${escapeHtml(p.trim()).replace(/\n/g, "<br>")}</p>`)
           .join("");
         return res.json({ html: sanitizeArticleBody(html) });
       }
 
-      if (file.buffer[0] !== 0x50 || file.buffer[1] !== 0x4b) {
+      if (!hasExpectedFileSignature(file)) {
         return res.status(400).json({ error: "The uploaded file is not a valid DOCX document" });
       }
 
@@ -218,8 +301,14 @@ router.post("/media/extract-doc",
       const imageHandler = async (image: any) => {
         try {
           const buffer: Buffer = await image.readAsBuffer();
-          const contentType = image.contentType; // e.g. "image/png" or "image/jpeg"
-          const ext = contentType.split("/")[1] || "png";
+          const contentType = String(image.contentType || "").toLowerCase();
+          if (!IMAGE_MIME_TYPES.has(contentType)) {
+            throw new Error("The document contains an unsupported embedded image type");
+          }
+          if (buffer.length > MAX_IMAGE_BYTES) {
+            throw new Error("An embedded document image exceeds the 10 MB image limit");
+          }
+          const ext = MIME_TO_EXTENSIONS[contentType][0].slice(1);
 
           // 1. If Vercel Blob configured
           if (process.env.BLOB_READ_WRITE_TOKEN) {

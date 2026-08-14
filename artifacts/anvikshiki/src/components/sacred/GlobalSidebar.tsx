@@ -58,7 +58,7 @@ export function GlobalSidebar({ open, onClose }: GlobalSidebarProps) {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      setLoc(`/search?q=${encodeURIComponent(searchQuery)}`);
+      setLoc(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
       onClose();
     }
   };
@@ -136,6 +136,7 @@ export function GlobalSidebar({ open, onClose }: GlobalSidebarProps) {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="global-sidebar-search-input"
+              aria-label="Search the journal"
             />
           </form>
         </div>
