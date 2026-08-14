@@ -40,9 +40,13 @@ export function ensureDefaultCategories() {
       .insert(categoriesTable)
       .values([...DEFAULT_CATEGORIES])
       .onConflictDoNothing({ target: categoriesTable.slug })
-      .then(() => undefined);
+      .then(() => undefined)
+      .catch((err) => {
+        console.warn("ensureDefaultCategories non-fatal error:", err);
+        categoriesReady = null;
+      });
   }
-  return categoriesReady;
+  return categoriesReady || Promise.resolve();
 }
 
 export type PublicPublicationResult = {
@@ -149,9 +153,6 @@ async function uniqueArticleSlug(baseSlug: string, submissionId: string) {
   const words = baseSlug.split("-").filter(w => w && !["a", "an", "the", "in", "of", "on", "at", "to", "for", "with", "is", "and"].includes(w));
   const cleanBase = (words.length > 7 ? words.slice(0, 7) : words).join("-") || "article";
 
-  // Slugs are unique across trashed rows too, so a single fallback is not
-  // enough: keep widening until one is actually free, or the insert throws a
-  // unique violation and the publish fails with no public record.
   const candidates = [
     cleanBase,
     `${cleanBase}-${submissionId.slice(0, 4)}`,
@@ -210,18 +211,24 @@ export async function ensurePublicPublicationForSubmission(
   const allowCreate = options.allowCreate === true;
 
   if (kind === "paper") {
-    const [existing] = await db
+    let [existing] = await db
       .select({ id: papersTable.id, slug: papersTable.slug, status: papersTable.status, deletedAt: papersTable.deletedAt })
       .from(papersTable)
       .where(eq(papersTable.sourceSubmissionId, submission.id))
       .limit(1);
 
+    if (!existing && allowCreate && submission.title) {
+      const sTitle = submission.title.trim().toLowerCase();
+      const baseSlug = slugify(submission.title);
+      const [candidate] = await db
+        .select({ id: papersTable.id, slug: papersTable.slug, status: papersTable.status, deletedAt: papersTable.deletedAt })
+        .from(papersTable)
+        .where(eq(papersTable.slug, baseSlug))
+        .limit(1);
+      if (candidate) existing = candidate;
+    }
+
     if (existing) {
-      // Reconciliation must never turn a trashed or intentionally archived
-      // record back into public content. An explicit admin publish is a
-      // deliberate instruction to make this public, so it does restore one —
-      // otherwise a work whose publication was once trashed could never be
-      // published again, and the admin panel would report success forever.
       if (existing.deletedAt && !allowCreate) {
         return { kind, status: "skipped", id: existing.id, slug: existing.slug, reason: "publication-trashed" };
       }
@@ -249,6 +256,7 @@ export async function ensurePublicPublicationForSubmission(
           status: "PUBLISHED",
           publishedAt,
           deletedAt: null,
+          sourceSubmissionId: submission.id,
           updatedAt: new Date(),
         })
         .where(eq(papersTable.id, existing.id));
@@ -273,29 +281,34 @@ export async function ensurePublicPublicationForSubmission(
     const authorName = submission.submitterName || "Anonymous Scholar";
     const coverImageUrl = getSubmissionCoverImage(submission) || "/images/provided/home-falcon-city-panorama-hero.jpg";
     const slug = await uniquePaperSlug(baseSlug, submission.id);
-    const [paper] = await db
-      .insert(papersTable)
-      .values({
-        slug,
-        title: submission.title || "Untitled Paper",
-        abstract: submission.abstract || "",
-        body,
-        categorySlug,
-        tags: [],
-        authorName,
-        pdfUrl: submission.manuscriptUrl || (submission as any).fileUrl || null,
-        coverImageUrl,
-        citationText: null,
-        peerReviewed: false,
-        paperType: "RESEARCH_PAPER",
-        status: "PUBLISHED",
-        publishedAt,
-        sourceSubmissionId: submission.id,
-      })
-      .onConflictDoNothing({ target: papersTable.sourceSubmissionId })
-      .returning({ id: papersTable.id, slug: papersTable.slug });
 
-    if (paper) return { kind, status: "created", id: paper.id, slug: paper.slug };
+    try {
+      const [paper] = await db
+        .insert(papersTable)
+        .values({
+          slug,
+          title: submission.title || "Untitled Paper",
+          abstract: submission.abstract || "",
+          body,
+          categorySlug,
+          tags: [],
+          authorName,
+          pdfUrl: submission.manuscriptUrl || (submission as any).fileUrl || null,
+          coverImageUrl,
+          citationText: null,
+          peerReviewed: false,
+          paperType: "RESEARCH_PAPER",
+          status: "PUBLISHED",
+          publishedAt,
+          sourceSubmissionId: submission.id,
+        })
+        .onConflictDoNothing()
+        .returning({ id: papersTable.id, slug: papersTable.slug });
+
+      if (paper) return { kind, status: "created", id: paper.id, slug: paper.slug };
+    } catch (insertErr) {
+      console.warn("Paper insertion fallback:", insertErr);
+    }
 
     const [concurrent] = await db
       .select({ id: papersTable.id, slug: papersTable.slug })
@@ -306,15 +319,23 @@ export async function ensurePublicPublicationForSubmission(
     return { kind, status: "existing", id: concurrent.id, slug: concurrent.slug };
   }
 
-  const [existing] = await db
+  let [existing] = await db
     .select({ id: articlesTable.id, slug: articlesTable.slug, status: articlesTable.status, deletedAt: articlesTable.deletedAt })
     .from(articlesTable)
     .where(eq(articlesTable.sourceSubmissionId, submission.id))
     .limit(1);
 
+  if (!existing && allowCreate && submission.title) {
+    const baseSlug = slugify(submission.title);
+    const [candidate] = await db
+      .select({ id: articlesTable.id, slug: articlesTable.slug, status: articlesTable.status, deletedAt: articlesTable.deletedAt })
+      .from(articlesTable)
+      .where(eq(articlesTable.slug, baseSlug))
+      .limit(1);
+    if (candidate) existing = candidate;
+  }
+
   if (existing) {
-    // See the paper branch above: reconciliation never resurrects, an explicit
-    // admin publish does.
     if (existing.deletedAt && !allowCreate) {
       return { kind, status: "skipped", id: existing.id, slug: existing.slug, reason: "publication-trashed" };
     }
@@ -343,6 +364,7 @@ export async function ensurePublicPublicationForSubmission(
         status: "PUBLISHED",
         publishedAt,
         deletedAt: null,
+        sourceSubmissionId: submission.id,
         updatedAt: new Date(),
       })
       .where(eq(articlesTable.id, existing.id));
@@ -367,30 +389,35 @@ export async function ensurePublicPublicationForSubmission(
   const authorName = submission.submitterName || "Anonymous Scholar";
   const coverImageUrl = getSubmissionCoverImage(submission) || "/images/provided/home-falcon-city-panorama-hero.jpg";
   const slug = await uniqueArticleSlug(baseSlug, submission.id);
-  const [article] = await db
-    .insert(articlesTable)
-    .values({
-      slug,
-      title: submission.title || "Untitled Article",
-      subtitle: null,
-      excerpt: submission.abstract || submission.title || "Article excerpt",
-      body,
-      categorySlug,
-      tags: [],
-      authorName,
-      heroImageUrl: coverImageUrl,
-      heroImageAlt: submission.title || "Article Cover",
-      audioUrl: (submission as any).audioUrl || null,
-      keyTakeaways: [],
-      status: "PUBLISHED",
-      featured: false,
-      publishedAt,
-      sourceSubmissionId: submission.id,
-    })
-    .onConflictDoNothing({ target: articlesTable.sourceSubmissionId })
-    .returning({ id: articlesTable.id, slug: articlesTable.slug });
 
-  if (article) return { kind, status: "created", id: article.id, slug: article.slug };
+  try {
+    const [article] = await db
+      .insert(articlesTable)
+      .values({
+        slug,
+        title: submission.title || "Untitled Article",
+        subtitle: null,
+        excerpt: submission.abstract || submission.title || "Article excerpt",
+        body,
+        categorySlug,
+        tags: [],
+        authorName,
+        heroImageUrl: coverImageUrl,
+        heroImageAlt: submission.title || "Article Cover",
+        audioUrl: (submission as any).audioUrl || null,
+        keyTakeaways: [],
+        status: "PUBLISHED",
+        featured: false,
+        publishedAt,
+        sourceSubmissionId: submission.id,
+      })
+      .onConflictDoNothing()
+      .returning({ id: articlesTable.id, slug: articlesTable.slug });
+
+    if (article) return { kind, status: "created", id: article.id, slug: article.slug };
+  } catch (insertErr) {
+    console.warn("Article insertion fallback:", insertErr);
+  }
 
   const [concurrent] = await db
     .select({ id: articlesTable.id, slug: articlesTable.slug })
