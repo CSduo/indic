@@ -53,7 +53,7 @@ router.get("/debug-publish-slave-trade", async (req, res) => {
     const SUBMISSION_ID = "b92ea6a1-4150-403f-bc0a-2c8808f7e06d";
     const now = new Date();
 
-    // Step 1: Get the submission directly
+    // Step 1: Get the submission
     const [sub] = await db.select().from(submissionsTable).where(eq(submissionsTable.id, SUBMISSION_ID));
     if (!sub) return res.json({ error: "submission not found" });
 
@@ -62,9 +62,9 @@ router.get("/debug-publish-slave-trade", async (req, res) => {
       SELECT column_name FROM information_schema.columns
       WHERE table_name = 'articles' AND column_name = 'source_submission_id'
     `);
-    const hasCol = (colCheck.rows?.length ?? 0) > 0;
+    const hasSourceCol = (colCheck.rows?.length ?? 0) > 0;
 
-    // Step 3: Update the submission status to PUBLISHED
+    // Step 3: Update submission to PUBLISHED
     await db.update(submissionsTable).set({
       status: "PUBLISHED",
       submitterName: "Xiyato Saanvi",
@@ -72,51 +72,52 @@ router.get("/debug-publish-slave-trade", async (req, res) => {
       updatedAt: now,
     }).where(eq(submissionsTable.id, SUBMISSION_ID));
 
-    // Step 4: ensure history category exists
+    // Step 4: Ensure history category exists (with required id column)
     await db.execute(sql`
-      INSERT INTO categories (slug, name, description, icon, sort_order)
-      VALUES ('history', 'History', 'Historical chronicles, narratives, and research', 'History', 2)
+      INSERT INTO categories (id, slug, name, description, icon, sort_order, visible, created_at, updated_at)
+      VALUES (gen_random_uuid(), 'history', 'History', 'Historical chronicles, narratives, and research', 'History', 2, true, now(), now())
       ON CONFLICT (slug) DO NOTHING
     `);
 
-    const slug = "the-human-tapestry-of-the-slave-trade";
+    const articleSlug = "the-human-tapestry-of-the-slave-trade";
     const title = sub.title || "The Human Tapestry of the Slave Trade";
     const body = sub.body || sub.abstract || title;
     const excerpt = sub.abstract || title;
 
     let articleId: string | null = null;
-    let articleSlug: string | null = null;
+    let resultSlug: string | null = null;
+    let action = "";
 
-    if (hasCol) {
-      // Check if article already linked via source_submission_id
+    // Step 5: Check if article already exists by source_submission_id
+    if (hasSourceCol) {
       const linked = await db.execute(sql`
         SELECT id, slug FROM articles WHERE source_submission_id = ${SUBMISSION_ID} LIMIT 1
       `);
       if (linked.rows?.length) {
         articleId = (linked.rows[0] as any).id;
-        articleSlug = (linked.rows[0] as any).slug;
-        // Update it to be published
+        resultSlug = (linked.rows[0] as any).slug;
         await db.execute(sql`
           UPDATE articles SET status = 'PUBLISHED', author_name = 'Xiyato Saanvi',
             published_at = ${now}, deleted_at = NULL, updated_at = ${now}
           WHERE id = ${articleId}
         `);
+        action = "updated-existing-linked";
       }
     }
 
+    // Step 6: Check by slug or title if not found yet
     if (!articleId) {
-      // Check by slug or title
       const bySlug = await db.execute(sql`
-        SELECT id, slug FROM articles WHERE slug = ${slug} OR title = ${title} LIMIT 1
+        SELECT id, slug FROM articles WHERE slug = ${articleSlug} OR lower(title) = lower(${title}) LIMIT 1
       `);
       if (bySlug.rows?.length) {
         articleId = (bySlug.rows[0] as any).id;
-        articleSlug = (bySlug.rows[0] as any).slug;
-        if (hasCol) {
+        resultSlug = (bySlug.rows[0] as any).slug;
+        if (hasSourceCol) {
           await db.execute(sql`
             UPDATE articles SET status = 'PUBLISHED', author_name = 'Xiyato Saanvi',
-              source_submission_id = ${SUBMISSION_ID},
-              published_at = ${now}, deleted_at = NULL, updated_at = ${now}
+              source_submission_id = ${SUBMISSION_ID}, published_at = ${now},
+              deleted_at = NULL, updated_at = ${now}
             WHERE id = ${articleId}
           `);
         } else {
@@ -126,34 +127,47 @@ router.get("/debug-publish-slave-trade", async (req, res) => {
             WHERE id = ${articleId}
           `);
         }
-      } else {
-        // Insert fresh article
-        const newId = crypto.randomUUID();
-        if (hasCol) {
-          await db.execute(sql`
-            INSERT INTO articles (id, slug, title, excerpt, body, category_slug, tags, author_name,
-              hero_image_url, hero_image_alt, key_takeaways, status, featured, published_at,
-              source_submission_id, created_at, updated_at)
-            VALUES (${newId}, ${slug}, ${title}, ${excerpt}, ${body}, 'history', '{}',
-              'Xiyato Saanvi', '/images/provided/home-falcon-city-panorama-hero.jpg',
-              ${title}, '{}', 'PUBLISHED', false, ${now}, ${SUBMISSION_ID}, ${now}, ${now})
-          `);
-        } else {
-          await db.execute(sql`
-            INSERT INTO articles (id, slug, title, excerpt, body, category_slug, tags, author_name,
-              hero_image_url, hero_image_alt, key_takeaways, status, featured, published_at,
-              created_at, updated_at)
-            VALUES (${newId}, ${slug}, ${title}, ${excerpt}, ${body}, 'history', '{}',
-              'Xiyato Saanvi', '/images/provided/home-falcon-city-panorama-hero.jpg',
-              ${title}, '{}', 'PUBLISHED', false, ${now}, ${now}, ${now})
-          `);
-        }
-        articleId = newId;
-        articleSlug = slug;
+        action = "updated-existing-by-slug";
       }
     }
 
-    return res.json({ success: true, articleId, articleSlug, hasSourceSubmissionIdCol: hasCol, submission: sub });
+    // Step 7: Insert fresh article if none exists
+    if (!articleId) {
+      const newId = crypto.randomUUID();
+      if (hasSourceCol) {
+        await db.execute(sql`
+          INSERT INTO articles (id, slug, title, excerpt, body, category_slug, tags, author_name,
+            hero_image_url, hero_image_alt, key_takeaways, "references", status, featured,
+            published_at, source_submission_id, created_at, updated_at)
+          VALUES (${newId}, ${articleSlug}, ${title}, ${excerpt}, ${body}, 'history', '{}',
+            'Xiyato Saanvi', '/images/provided/home-falcon-city-panorama-hero.jpg',
+            ${title}, '{}', '[]', 'PUBLISHED', false, ${now}, ${SUBMISSION_ID}, ${now}, ${now})
+        `);
+      } else {
+        await db.execute(sql`
+          INSERT INTO articles (id, slug, title, excerpt, body, category_slug, tags, author_name,
+            hero_image_url, hero_image_alt, key_takeaways, "references", status, featured,
+            published_at, created_at, updated_at)
+          VALUES (${newId}, ${articleSlug}, ${title}, ${excerpt}, ${body}, 'history', '{}',
+            'Xiyato Saanvi', '/images/provided/home-falcon-city-panorama-hero.jpg',
+            ${title}, '{}', '[]', 'PUBLISHED', false, ${now}, ${now}, ${now})
+        `);
+      }
+      articleId = newId;
+      resultSlug = articleSlug;
+      action = "inserted-new";
+    }
+
+    // Step 8: Verify
+    const verify = await db.execute(sql`
+      SELECT id, slug, title, author_name, status, published_at FROM articles WHERE id = ${articleId}
+    `);
+
+    return res.json({
+      success: true, action, articleId, articleSlug: resultSlug,
+      hasSourceSubmissionIdCol: hasSourceCol,
+      article: verify.rows?.[0] ?? null,
+    });
   } catch (err: any) {
     return res.status(500).json({ error: err.message, stack: err.stack });
   }
