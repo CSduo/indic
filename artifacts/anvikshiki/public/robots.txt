@@ -8,4 +8,4 @@ Disallow: /saved
 Disallow: /submit/write
 Disallow: /submit/upload
 
-Sitemap: https://anvikshikijournal.in/sitemap.xml
+Sitemap: https://anvikshikijournal.in/api/sitemap.xml
