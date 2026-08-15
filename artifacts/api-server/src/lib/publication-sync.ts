@@ -15,6 +15,14 @@ const PUBLIC_SUBMISSION_STATUSES = [
   "PUBLISHED",
 ] as const;
 
+/**
+ * Statuses a work may hold when an editor explicitly asks for it to be pushed
+ * live. ACCEPTED is included because the desk's "Publish" action patches the
+ * status and runs the publication step in the same request — reading the status
+ * back as not-yet-public made that action refuse its own write.
+ */
+const PUBLISHABLE_ON_DEMAND_STATUSES = new Set(["PUBLISHED", "ACCEPTED"]);
+
 const DEFAULT_CATEGORIES = [
   { slug: "philosophy", name: "Philosophy", description: "Philosophical schools and systems of thought", icon: "Compass", sortOrder: 1 },
   { slug: "history", name: "History", description: "Historical chronicles, narratives, and research", icon: "History", sortOrder: 2 },
@@ -47,6 +55,25 @@ export function ensureDefaultCategories() {
       });
   }
   return categoriesReady || Promise.resolve();
+}
+
+/** A unique-violation on the slug — the only insert failure worth a fresh slug. */
+function isSlugConflict(err: any): boolean {
+  if (err?.code === "23505") return true;
+  const message = String(err?.message || "").toLowerCase();
+  return message.includes("duplicate key") && message.includes("slug");
+}
+
+/**
+ * Turn a failed publication into an error an editor can act on. The old bare
+ * "Publication link could not be created" hid the actual cause — usually a
+ * missing column on a drifted database, or a category that no longer exists.
+ */
+function publicationFailure(kind: PublicationKind, cause: unknown): Error {
+  const detail = (cause as any)?.message ? `: ${(cause as any).message}` : "";
+  const error = new Error(`The public ${kind} record could not be created${detail}`);
+  (error as any).cause = cause;
+  return error;
 }
 
 export type PublicPublicationResult = {
@@ -203,12 +230,19 @@ export async function ensurePublicPublicationForSubmission(
     return { kind: null, status: "skipped", reason: "submission-trashed" };
   }
 
-  if (!PUBLIC_SUBMISSION_STATUSES.includes(submission.status as typeof PUBLIC_SUBMISSION_STATUSES[number])) {
+  const allowCreate = options.allowCreate === true;
+
+  // A reconciliation pass (allowCreate: false) only ever touches already-public
+  // work. An explicit editorial publish (allowCreate: true) may also act on an
+  // ACCEPTED submission, which is the state the desk's Publish button sends.
+  const publishableStatuses: ReadonlySet<string> = allowCreate
+    ? PUBLISHABLE_ON_DEMAND_STATUSES
+    : new Set(PUBLIC_SUBMISSION_STATUSES);
+  if (!publishableStatuses.has(submission.status)) {
     return { kind: null, status: "skipped", reason: "submission-not-public" };
   }
 
   const kind: PublicationKind = submission.type === "PAPER" ? "paper" : "article";
-  const allowCreate = options.allowCreate === true;
 
   if (kind === "paper") {
     let [existing] = await db
@@ -283,6 +317,7 @@ export async function ensurePublicPublicationForSubmission(
     const authorName = submission.submitterName || "Anonymous Scholar";
     const coverImageUrl = getSubmissionCoverImage(submission) || "/images/provided/home-falcon-city-panorama-hero.jpg";
     let candidateSlug = await uniquePaperSlug(baseSlug, submission.id);
+    let lastInsertError: unknown = null;
 
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
@@ -308,8 +343,13 @@ export async function ensurePublicPublicationForSubmission(
           .returning({ id: papersTable.id, slug: papersTable.slug });
 
         if (paper) return { kind, status: "created", id: paper.id, slug: paper.slug };
-      } catch (insertErr) {
+      } catch (insertErr: any) {
+        lastInsertError = insertErr;
         console.warn(`Paper insertion attempt ${attempt + 1} failed:`, insertErr);
+        // Only a slug collision is worth retrying with a new slug. A missing
+        // column or a failed foreign key will fail identically every time, so
+        // retrying just delays a misleading "could not be created" message.
+        if (!isSlugConflict(insertErr)) break;
         candidateSlug = `${baseSlug}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
       }
     }
@@ -333,7 +373,7 @@ export async function ensurePublicPublicationForSubmission(
       return { kind, status: "existing", id: matching.id, slug: matching.slug };
     }
 
-    throw new Error("Publication link could not be created");
+    throw publicationFailure("paper", lastInsertError);
   }
 
   let [existing] = await db
@@ -409,6 +449,7 @@ export async function ensurePublicPublicationForSubmission(
   const authorName = submission.submitterName || "Anonymous Scholar";
   const coverImageUrl = getSubmissionCoverImage(submission) || "/images/provided/home-falcon-city-panorama-hero.jpg";
   let candidateSlug = await uniqueArticleSlug(baseSlug, submission.id);
+  let lastInsertError: unknown = null;
 
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -435,8 +476,10 @@ export async function ensurePublicPublicationForSubmission(
         .returning({ id: articlesTable.id, slug: articlesTable.slug });
 
       if (article) return { kind, status: "created", id: article.id, slug: article.slug };
-    } catch (insertErr) {
+    } catch (insertErr: any) {
+      lastInsertError = insertErr;
       console.warn(`Article insertion attempt ${attempt + 1} failed:`, insertErr);
+      if (!isSlugConflict(insertErr)) break;
       candidateSlug = `${baseSlug}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
     }
   }
@@ -460,7 +503,44 @@ export async function ensurePublicPublicationForSubmission(
     return { kind, status: "existing", id: matching.id, slug: matching.slug };
   }
 
-  throw new Error("Publication link could not be created");
+  throw publicationFailure("article", lastInsertError);
+}
+
+/**
+ * Push an author's edit of a live article or paper back onto the submission it
+ * came from. Without this the next reconciliation pass would copy the stale
+ * submission text over the edit and the change would appear to un-save itself.
+ */
+export async function syncSubmissionFromPublication(
+  publication: any,
+  kind: PublicationKind,
+): Promise<boolean> {
+  const submissionId = publication?.sourceSubmissionId;
+  if (!submissionId) return false;
+
+  const updates: Record<string, any> = { updatedAt: new Date() };
+  if (publication.title) updates.title = publication.title;
+  if (publication.authorName) updates.submitterName = publication.authorName;
+  if (publication.categorySlug) updates.domain = normalizeCategorySlug(publication.categorySlug);
+  if (typeof publication.body === "string") updates.body = publication.body;
+
+  if (kind === "paper") {
+    if (typeof publication.abstract === "string") updates.abstract = publication.abstract;
+    if (publication.coverImageUrl !== undefined) updates.coverImageUrl = publication.coverImageUrl;
+    if (publication.pdfUrl !== undefined) updates.manuscriptUrl = publication.pdfUrl;
+  } else {
+    if (typeof publication.excerpt === "string") updates.abstract = publication.excerpt;
+    if (publication.heroImageUrl !== undefined) updates.coverImageUrl = publication.heroImageUrl;
+    if (publication.audioUrl !== undefined) updates.audioUrl = publication.audioUrl;
+  }
+
+  const [updated] = await db
+    .update(submissionsTable)
+    .set(updates)
+    .where(eq(submissionsTable.id, submissionId))
+    .returning({ id: submissionsTable.id });
+
+  return Boolean(updated);
 }
 
 export async function unpublishPublicPublicationForSubmission(submissionId: string) {
@@ -506,50 +586,57 @@ export async function syncPublishedSubmissions() {
   return summary;
 }
 
-export async function ensureLiveSubmissionsPublished() {
-  try {
-    await ensureDefaultCategories();
+/**
+ * Rebuild the public article or paper for every submission an editor has
+ * already marked PUBLISHED but whose public record is missing — the state an
+ * earlier silent publish failure leaves behind.
+ *
+ * This deliberately does *not* publish ACCEPTED work, invent titles, or rename
+ * authors. An earlier revision force-published submissions whose title matched
+ * two hardcoded strings and rewrote every author name to a single person; that
+ * put unreviewed work on the public site under the wrong byline.
+ */
+export async function repairMissingPublications(): Promise<{
+  checked: number;
+  repaired: Array<{ submissionId: string; kind: PublicationKind | null; slug?: string }>;
+  failed: Array<{ submissionId: string; reason: string }>;
+}> {
+  const result = {
+    checked: 0,
+    repaired: [] as Array<{ submissionId: string; kind: PublicationKind | null; slug?: string }>,
+    failed: [] as Array<{ submissionId: string; reason: string }>,
+  };
 
-    const allSubmissions = await db
-      .select()
-      .from(submissionsTable)
-      .where(isNull(submissionsTable.deletedAt));
+  await ensureDefaultCategories();
 
-    for (const sub of allSubmissions) {
-      const isAcceptedOrPublished = sub.status === "ACCEPTED" || sub.status === "PUBLISHED";
-      const isTargetTitle = (sub.title || "").toLowerCase().includes("slave trade") || (sub.title || "").toLowerCase().includes("human tapestry");
+  const publishedSubmissions = await db
+    .select()
+    .from(submissionsTable)
+    .where(and(
+      inArray(submissionsTable.status, [...PUBLIC_SUBMISSION_STATUSES]),
+      isNull(submissionsTable.deletedAt),
+    ));
 
-      if (isAcceptedOrPublished || isTargetTitle) {
-        const now = new Date();
-        const authorName = (sub.submitterName && sub.submitterName.toLowerCase() === "xiyato") ? "Xiyato Saanvi" : (sub.submitterName || "Xiyato Saanvi");
-        const updatedSub = {
-          ...sub,
-          status: "PUBLISHED",
-          submitterName: authorName,
-          publishedAt: now,
-          updatedAt: now,
-        };
+  result.checked = publishedSubmissions.length;
 
-        if (sub.status !== "PUBLISHED" || sub.submitterName !== authorName) {
-          await db
-            .update(submissionsTable)
-            .set({
-              status: "PUBLISHED",
-              submitterName: authorName,
-              publishedAt: now,
-              updatedAt: now,
-            })
-            .where(eq(submissionsTable.id, sub.id));
-        }
-
-        await ensurePublicPublicationForSubmission(updatedSub as any, {
-          allowCreate: true,
-          publishedAt: now,
-          categorySlug: sub.domain || "history",
+  for (const submission of publishedSubmissions) {
+    try {
+      const publication = await ensurePublicPublicationForSubmission(submission, {
+        allowCreate: true,
+        publishedAt: submission.publishedAt || undefined,
+        categorySlug: submission.domain || undefined,
+      });
+      if (publication.status === "created" || publication.status === "restored") {
+        result.repaired.push({
+          submissionId: submission.id,
+          kind: publication.kind,
+          slug: publication.slug,
         });
       }
+    } catch (err: any) {
+      result.failed.push({ submissionId: submission.id, reason: err?.message || String(err) });
     }
-  } catch (err) {
-    console.error("ensureLiveSubmissionsPublished error:", err);
   }
+
+  return result;
 }

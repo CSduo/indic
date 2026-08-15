@@ -9,7 +9,7 @@ import { logger } from "./lib/logger";
 import { ensureDefaultCategories } from "./lib/publication-sync";
 import { UPLOADS_DIR } from "./routes/submissions";
 import healthRouter from "./routes/health";
-import { db, articlesTable, papersTable } from "@workspace/db";
+import { db, articlesTable, papersTable, ensureDatabaseSchema } from "@workspace/db";
 import { eq, and, or, ilike, isNull } from "drizzle-orm";
 
 const app: Express = express();
@@ -85,7 +85,12 @@ app.use((req, res, next) => {
     req.path.startsWith("/api/uploads/") ||
     req.path === "/uploads" ||
     req.path.startsWith("/uploads/");
-  if (!isUploadOrStatic) {
+  // The locked-down `default-src 'none'` policy is correct for JSON API
+  // responses but fatal for the server-rendered article/paper HTML below: it
+  // blocks the app's own scripts, styles, and images, so the page renders blank.
+  // Only apply it to the API surface.
+  const isApiJson = req.path.startsWith("/api/") && !isUploadOrStatic;
+  if (isApiJson) {
     res.setHeader(
       "Content-Security-Policy",
       "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
@@ -126,8 +131,13 @@ app.use((req, res, next) => {
   return res.status(403).json({ error: "Origin not allowed" });
 });
 
-app.use(express.json({ limit: "2mb" }));
-app.use(express.urlencoded({ extended: true, limit: "2mb" }));
+// A submission body carries sanitized rich-text HTML that can legitimately
+// embed base64 images when no blob/CDN provider is configured. The old 2 MB cap
+// rejected those bodies before any route saw them, and the raw payload error
+// surfaced to the author as a bare "Request failed".
+const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || "25mb";
+app.use(express.json({ limit: JSON_BODY_LIMIT }));
+app.use(express.urlencoded({ extended: true, limit: JSON_BODY_LIMIT }));
 app.use(cookieParser());
 
 // Liveness and readiness probes must remain available when the database is
@@ -142,16 +152,18 @@ app.use((req, res, next) => {
   next();
 });
 
-let categoriesInitialization: Promise<unknown> | null = null;
+let bootstrap: Promise<unknown> | null = null;
 
 app.use(async (req, res, next) => {
-  categoriesInitialization ||= ensureDefaultCategories();
+  // Schema repair runs before the default categories are seeded: seeding
+  // inserts into columns that a drifted production database may not have yet.
+  bootstrap ||= ensureDatabaseSchema().then(() => ensureDefaultCategories());
   try {
-    await categoriesInitialization;
+    await bootstrap;
     next();
   } catch (err) {
-    categoriesInitialization = null;
-    req.log.error({ err }, "Failed to initialize default categories");
+    bootstrap = null;
+    req.log.error({ err }, "Failed to initialize the publication database");
     res.status(500).json({
       error: "The publication database could not be initialized. Please try again.",
     });
@@ -172,13 +184,39 @@ app.use("/api/auth/register", authLimiter);
 app.use("/api/auth/google", authLimiter);
 app.use("/api/admin/login", authLimiter);
 
+/**
+ * Signed-in authors are not the abuse case this limiter exists for. Writing one
+ * article legitimately costs dozens of writes — a cover upload, an inline image
+ * per figure, repeated autosaves — so counting a signed-in session against a
+ * 20/hour anonymous budget made normal authoring fail with 429 partway through.
+ * Authenticated requests are exempt; anonymous ones keep a per-IP budget.
+ */
+function hasSessionCookie(req: import("express").Request): boolean {
+  const cookies = (req as any).cookies || {};
+  if (cookies.user_session || cookies.admin_session) return true;
+  const header = req.headers.cookie || "";
+  if (/(?:^|;\s*)(?:user|admin)_session=/.test(header)) return true;
+  return /^Bearer\s+\S+/i.test(req.get("authorization") || "");
+}
+
 const publicWriteLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 20,
+  max: Number(process.env.PUBLIC_WRITE_RATE_LIMIT || 60),
   standardHeaders: true,
   legacyHeaders: false,
-  skip: req => SAFE_METHODS.has(req.method),
+  skip: req => SAFE_METHODS.has(req.method) || hasSessionCookie(req),
   message: { error: "Too many requests from this address. Please try again later." },
+});
+
+// Media uploads are inherently high-volume for a single piece of work, so they
+// get a much larger anonymous budget than form posts.
+const mediaWriteLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: Number(process.env.MEDIA_WRITE_RATE_LIMIT || 300),
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: req => SAFE_METHODS.has(req.method) || hasSessionCookie(req),
+  message: { error: "Too many uploads from this address. Please try again later." },
 });
 
 for (const route of [
@@ -187,10 +225,12 @@ for (const route of [
   "/api/submissions",
   "/api/articles",
   "/api/extract-url",
-  "/api/media",
-  "/api/uploads",
 ]) {
   app.use(route, publicWriteLimiter);
+}
+
+for (const route of ["/api/media", "/api/uploads"]) {
+  app.use(route, mediaWriteLimiter);
 }
 
 app.use("/api/uploads", express.static(UPLOADS_DIR, {
@@ -358,11 +398,20 @@ app.get(["/articles/:slug", "/essays/:slug", "/papers/:slug"], async (req, res, 
   }
 });
 
-const errorHandler: ErrorRequestHandler = (err: unknown, req, res, _next) => {
+const errorHandler: ErrorRequestHandler = (err: any, req, res, _next) => {
   const malformedJson = err instanceof SyntaxError &&
     typeof err === "object" && err !== null && "body" in err;
   if (malformedJson) {
     return res.status(400).json({ error: "Invalid JSON body" });
+  }
+  // body-parser rejects oversized payloads before any route runs. Reporting
+  // that as a generic 500 left authors with "Request failed" and no idea that
+  // their manuscript was simply too large to send in one piece.
+  if (err?.type === "entity.too.large" || err?.status === 413) {
+    return res.status(413).json({
+      error: `This submission is larger than the ${JSON_BODY_LIMIT} request limit. Upload the largest images separately so they are stored by URL instead of inline, then save again.`,
+      code: "PAYLOAD_TOO_LARGE",
+    });
   }
   req.log?.error({ err }, "Unhandled request error");
   return res.status(500).json({ error: "Request failed" });

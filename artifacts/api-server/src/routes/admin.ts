@@ -1,5 +1,5 @@
-import { Router } from "express";
-import { db } from "@workspace/db";
+﻿import { Router } from "express";
+import { db, repairDatabaseSchema } from "@workspace/db";
 import {
   adminsTable, articlesTable, papersTable, submissionsTable,
   newsletterSubscribersTable, categoriesTable, usersTable, siteSettingsTable,
@@ -13,11 +13,12 @@ import {
 import {
   ensurePublicPublicationForSubmission,
   normalizeCategorySlug,
+  repairMissingPublications,
   syncPublishedSubmissions,
   unpublishPublicPublicationForSubmission,
 } from "../lib/publication-sync";
 import { z } from "zod";
-import { sanitizeArticleBody } from "../lib/content";
+import { sanitizeArticleBody, MAX_BODY_CHARS } from "../lib/content";
 
 const router = Router();
 
@@ -31,7 +32,7 @@ const articleInputSchema = z.object({
   title: z.string().trim().min(1).max(500),
   subtitle: z.string().max(1_000).optional(),
   excerpt: z.string().max(5_000).optional(),
-  body: z.string().max(500_000).optional(),
+  body: z.string().max(MAX_BODY_CHARS).optional(),
   categorySlug: z.string().trim().min(1).max(100),
   tags: z.array(z.string().trim().min(1).max(80)).max(30).default([]),
   authorName: z.string().trim().max(200).optional(),
@@ -50,7 +51,7 @@ const paperInputSchema = z.object({
   slug: z.string().trim().max(500).optional(),
   title: z.string().trim().min(1).max(500),
   abstract: z.string().max(10_000).optional(),
-  body: z.string().max(500_000).optional(),
+  body: z.string().max(MAX_BODY_CHARS).optional(),
   categorySlug: z.string().trim().min(1).max(100),
   tags: z.array(z.string().trim().min(1).max(80)).max(30).default([]),
   authorName: z.string().trim().max(200).optional(),
@@ -534,7 +535,7 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
       updatedAt: now,
     };
     // Publishing is idempotent on purpose. A submission can already be marked
-    // PUBLISHED while its public article or paper is missing or trashed — that
+    // PUBLISHED while its public article or paper is missing or trashed â€” that
     // is exactly the state an earlier silent failure leaves behind. Running the
     // publication step again on a submission that is already PUBLISHED is what
     // repairs it, so this must not be gated on the status changing.
@@ -594,7 +595,7 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
         const reason = publication?.reason || publicationError?.message || "unknown";
         req.log.error(
           { submissionId: req.params.id, reason },
-          "Publish aborted — no public record was created, submission status rolled back",
+          "Publish aborted â€” no public record was created, submission status rolled back",
         );
         return res.status(502).json({
           error: "This work could not be published to the public journal, so its status was left unchanged.",
@@ -638,7 +639,7 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
   }
 });
 
-// DELETE /api/admin/submissions/:id — admin soft-deletes a submission
+// DELETE /api/admin/submissions/:id â€” admin soft-deletes a submission
 router.delete("/admin/submissions/:id", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
   try {
     const [existing] = await db.select().from(submissionsTable)
@@ -862,15 +863,41 @@ router.put("/admin/site-settings/:key", requireAdmin, requireAdminRole("ADMIN"),
   }
 });
 
-// POST /api/admin/submissions/sync-public-archives - reconcile already-linked publications
-router.post("/admin/submissions/sync-public-archives", requireAdmin, requireAdminRole("ADMIN"), async (req, res) => {
+// POST /api/admin/submissions/sync-public-archives â€” rebuild missing public
+// records for submissions already marked PUBLISHED. This is the repair path for
+// a work that shows as published on the desk but is absent from the journal.
+router.post("/admin/submissions/sync-public-archives", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
   try {
-    const { syncPublishedArchives } = await import("../lib/publishHelper");
-    const count = await syncPublishedArchives();
-    return res.json({ success: true, message: `Reconciled ${count} linked public publication${count === 1 ? "" : "s"}.` });
+    const result = await repairMissingPublications();
+    const repaired = result.repaired.length;
+    return res.json({
+      success: true,
+      message: repaired
+        ? `Rebuilt ${repaired} missing public publication${repaired === 1 ? "" : "s"} out of ${result.checked} checked.`
+        : `All ${result.checked} published works already have a public page.`,
+      ...result,
+    });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Sync failed" });
+  }
+});
+
+// POST /api/admin/repair-schema â€” bring the live database in line with the
+// application schema. Every statement is `IF NOT EXISTS`; nothing is dropped.
+// A drifted database is the usual cause of publishing and editing 500s.
+router.post("/admin/repair-schema", requireAdmin, requireAdminRole("ADMIN"), async (req, res) => {
+  try {
+    const report = await repairDatabaseSchema();
+    return res.json({
+      success: true,
+      applied: report.applied,
+      skipped: report.failed.length,
+      failed: report.failed,
+    });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Schema repair failed" });
   }
 });
 

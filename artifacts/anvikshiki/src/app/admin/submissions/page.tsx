@@ -36,10 +36,15 @@ function statusBadge(status: string) {
   return "draft";
 }
 
-/** Parse a Cloudinary URL or /api/uploads/... from notes */
+/**
+ * Parse a cover reference out of the submission notes. Accepts absolute URLs,
+ * site-relative paths, and inline base64 data URIs — the last is what the
+ * upload pipeline produces when no blob or CDN provider is configured, and
+ * omitting it made those covers look absent to the desk.
+ */
 function extractCoverFromNotes(notes?: string | null): string | null {
   if (!notes) return null;
-  const m = notes.match(/Cover(?:\s*image)?(?:\s*URL)?:\s*(https?:\/\/\S+|\/api\/uploads\/\S+)/i);
+  const m = notes.match(/Cover(?:\s*image)?(?:\s*URL)?:\s*(data:image\/\S+|https?:\/\/\S+|\/\S+)/i);
   return m ? m[1].trim() : null;
 }
 
@@ -632,12 +637,17 @@ export default function AdminSubmissionsPage() {
                     </>)}
                     {!selected.deletedAt && selected.status === "ACCEPTED" && (() => {
                       const imgUrl = selected.coverImageUrl || extractCoverFromNotes(selected.notes);
+                      // A missing cover is a warning, not a blocker. Essays
+                      // written in the browser never carry one, so disabling the
+                      // button here left approved work permanently unpublishable
+                      // — the publication step falls back to a default cover.
                       return (
                         <button
                           type="button"
-                          disabled={!imgUrl || !!actionLoading}
+                          disabled={!!actionLoading}
                           onClick={() => patchAction(selected.id, "publish", { categorySlug: publishCategory })}
                           className="btn-sacred btn-gold text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                          title={imgUrl ? undefined : "No cover image found — the journal's default cover will be used"}
                         >
                           {actionLoading === "publish" ? <span className="animate-spin text-xs">↻</span> : <Globe size={12} />} Publish as Article
                         </button>

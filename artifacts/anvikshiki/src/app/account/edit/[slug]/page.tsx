@@ -18,6 +18,7 @@ export default function EditArticlePage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [kind, setKind] = useState<"article" | "paper">("article");
   const [article, setArticle] = useState<any>(null);
   const [title, setTitle] = useState("");
   const [authorName, setAuthorName] = useState("");
@@ -53,24 +54,50 @@ export default function EditArticlePage() {
     setImgPreview(URL.createObjectURL(file));
   };
 
+  // The account desk links here for both essays and papers. Loading only
+  // /api/articles meant every paper landed on "Article not found" and could
+  // never be edited, so resolve the work from whichever collection holds it.
   useEffect(() => {
     if (!slug) return;
-    fetch(`${base()}/api/articles/${slug}`)
-      .then(r => r.ok ? r.json() : Promise.reject(r.status))
-      .then(data => {
-        const a = data.article;
-        setArticle(a);
-        setTitle(a.title || "");
-        setAuthorName(a.authorName || "");
-        setExcerpt(a.excerpt || "");
-        setBody(a.body || "");
-        setImgPreview(a.heroImageUrl || "");
+    let cancelled = false;
+
+    const load = async () => {
+      const preferPaper = new URLSearchParams(window.location.search).get("type") === "paper";
+      const order: Array<"paper" | "article"> = preferPaper ? ["paper", "article"] : ["article", "paper"];
+
+      for (const kind of order) {
+        try {
+          const res = await fetch(`${base()}/api/${kind === "paper" ? "papers" : "articles"}/${slug}`, {
+            credentials: "include",
+          });
+          if (!res.ok) continue;
+          const data = await res.json();
+          const record = kind === "paper" ? data.paper : data.article;
+          if (!record) continue;
+          if (cancelled) return;
+
+          setKind(kind);
+          setArticle(record);
+          setTitle(record.title || "");
+          setAuthorName(record.authorName || "");
+          setExcerpt((kind === "paper" ? record.abstract : record.excerpt) || "");
+          setBody(record.body || "");
+          setImgPreview((kind === "paper" ? record.coverImageUrl : record.heroImageUrl) || "");
+          setLoading(false);
+          return;
+        } catch {
+          // Try the next collection.
+        }
+      }
+
+      if (!cancelled) {
+        toast.error("Could not load this work");
         setLoading(false);
-      })
-      .catch(() => {
-        toast.error("Could not load article");
-        setLoading(false);
-      });
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
   }, [slug]);
 
   // Sync editor content on first load
@@ -261,10 +288,14 @@ export default function EditArticlePage() {
     }
   };
 
+  const isPaper = kind === "paper";
+  const noun = isPaper ? "paper" : "article";
+  const readHref = `/${isPaper ? "papers" : "articles"}/${slug}`;
+
   const handleSave = async () => {
     const currentBody = editorRef.current ? editorRef.current.innerHTML : body;
     if (!title.trim()) { toast.error("Title cannot be empty"); return; }
-    if (!imgPreview) { toast.error("Choosing a cover image is compulsory for articles"); return; }
+    if (!isPaper && !imgPreview) { toast.error("Choosing a cover image is compulsory for articles"); return; }
     setSaving(true);
     try {
       let finalCover = imgPreview;
@@ -281,17 +312,31 @@ export default function EditArticlePage() {
         finalCover = imgData.url || "";
       }
 
-      const res = await fetch(`${base()}/api/articles/${slug}/edit`, {
+      const payload = isPaper
+        ? { title, authorName, abstract: excerpt, body: currentBody, coverImageUrl: finalCover || null }
+        : { title, authorName, excerpt, body: currentBody, heroImageUrl: finalCover };
+
+      const res = await fetch(`${base()}/api/${isPaper ? "papers" : "articles"}/${slug}/edit`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ title, authorName, excerpt, body: currentBody, heroImageUrl: finalCover }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || `Failed to save (${res.status})`);
-      toast.success("Article updated successfully!");
+
+      // Clear the cached copies the reader pages serve from, then tell every
+      // open view to refetch — otherwise the author is sent back to a page
+      // still rendering the text they just replaced.
+      try {
+        for (const key of Object.keys(sessionStorage)) {
+          if (key.startsWith("anv_article_") || key.startsWith("anv_paper_")) sessionStorage.removeItem(key);
+        }
+      } catch {}
+
+      toast.success(`${isPaper ? "Paper" : "Article"} updated successfully!`);
       window.dispatchEvent(new Event("anv:content-changed"));
-      navigate(`/articles/${slug}`);
+      navigate(readHref);
     } catch (err: any) {
       toast.error(err.message || "Failed to save changes");
     } finally {
@@ -319,7 +364,10 @@ export default function EditArticlePage() {
     return (
       <div className="grid min-h-[60vh] place-items-center bg-[var(--bg)] px-4 text-center">
         <div>
-          <p className="font-display text-2xl text-[var(--ink)] mb-3">Article not found</p>
+          <p className="font-display text-2xl text-[var(--ink)] mb-3">Work not found</p>
+          <p className="font-ui text-sm text-[var(--muted)] mb-4">
+            This piece may have been moved to Trash, or it is published under a different name than your account.
+          </p>
           <Link href="/account" className="btn-terracotta">Back to Account</Link>
         </div>
       </div>
@@ -343,7 +391,7 @@ export default function EditArticlePage() {
 
         <div className="mb-6">
           <p className="font-ui text-[10px] uppercase tracking-[0.18em] text-[var(--gold-soft)] opacity-70 mb-1">Editing Post</p>
-          <h1 className="font-display text-3xl text-[var(--ink)]">Edit Article</h1>
+          <h1 className="font-display text-3xl text-[var(--ink)]">{isPaper ? "Edit Paper" : "Edit Article"}</h1>
         </div>
 
         <OrnamentDivider className="mb-8" />
@@ -373,8 +421,15 @@ export default function EditArticlePage() {
               value={authorName}
               onChange={e => setAuthorName(e.target.value)}
               maxLength={160}
-              placeholder="Author name (e.g. Xiyato Saanvi)…"
+              readOnly={Boolean(user?.name)}
+              placeholder="Author name…"
             />
+            {user?.name ? (
+              <p className="mt-1 font-ui text-[10px]" style={{ color: "var(--ink-faint)" }}>
+                Published under your account name. Change it in{" "}
+                <Link href="/account/profile" className="underline">account settings</Link>.
+              </p>
+            ) : null}
           </div>
 
           {/* Abstract / Excerpt */}
@@ -395,8 +450,10 @@ export default function EditArticlePage() {
 
           {/* Cover image */}
           <div>
-            <label className="form-label mb-1">Cover / Header Image *</label>
-            <p className="font-body text-[11px] mb-3" style={{ color: "var(--ink-faint)" }}>Choosing a cover image is compulsory for articles.</p>
+            <label className="form-label mb-1">Cover / Header Image{isPaper ? "" : " *"}</label>
+            <p className="font-body text-[11px] mb-3" style={{ color: "var(--ink-faint)" }}>
+              {isPaper ? "Optional for papers." : "Choosing a cover image is compulsory for articles."}
+            </p>
 
             {imgPreview ? (
               <div className="relative rounded-lg overflow-hidden border border-[var(--border)]" style={{ aspectRatio: "16/9", maxWidth: "360px" }}>
@@ -654,8 +711,8 @@ export default function EditArticlePage() {
 
           {/* Actions */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-[var(--border)]">
-            <Link href={`/articles/${slug}`} className="btn-ink text-sm w-full sm:w-auto justify-center" target="_blank" rel="noopener">
-              View Live Article ↗
+            <Link href={readHref} className="btn-ink text-sm w-full sm:w-auto justify-center" target="_blank" rel="noopener">
+              View Live {isPaper ? "Paper" : "Article"} ↗
             </Link>
             <button
               type="button"

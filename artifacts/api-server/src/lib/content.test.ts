@@ -56,13 +56,40 @@ describe("sanitizeArticleBody", () => {
     expect(result).toContain('src="/images/articles/recovered.jpg"');
   });
 
+  it("keeps inline base64 media, which is what the upload fallback produces", () => {
+    const result = sanitizeArticleBody(`
+      <img src="data:image/png;base64,iVBORw0KGgo=" alt="Inline figure">
+      <audio src="data:audio/webm;base64,GkXfo0="></audio>
+    `);
+
+    expect(result).toContain("data:image/png;base64,");
+    expect(result).toContain("data:audio/webm;base64,");
+  });
+
+  it("drops data URIs that could carry script or a non-media payload", () => {
+    const result = sanitizeArticleBody(`
+      <img src="data:image/svg+xml;base64,PHN2Zz48c2NyaXB0Lz48L3N2Zz4=">
+      <img src="data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==">
+    `);
+
+    expect(result).not.toContain("svg+xml");
+    expect(result).not.toContain("text/html");
+  });
+
   it("detects images that would lose their source during sanitization", () => {
+    // Absolute, site-relative, and inline base64 sources all survive a round
+    // trip through the database. Only browser-local schemes are unresolved.
     expect(countUnresolvedArticleImages(`
       <img src="https://res.cloudinary.com/example/one.jpg">
       <img src="/api/uploads/two.jpg">
       <img src="data:image/png;base64,abc">
       <img src="file:///C:/temporary/three.jpg">
       <img width="450">
+    `)).toBe(1);
+
+    expect(countUnresolvedArticleImages(`
+      <img src="blob:https://example.com/9f8b-4c1d">
+      <img src="file:///C:/temporary/three.jpg">
     `)).toBe(2);
   });
 });
