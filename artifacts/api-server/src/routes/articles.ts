@@ -60,6 +60,7 @@ router.get("/articles", async (req, res) => {
       title: articlesTable.title,
       subtitle: articlesTable.subtitle,
       excerpt: articlesTable.excerpt,
+      body: articlesTable.body,
       heroImageUrl: articlesTable.heroImageUrl,
       categorySlug: articlesTable.categorySlug,
       authorName: articlesTable.authorName,
@@ -70,9 +71,6 @@ router.get("/articles", async (req, res) => {
       updatedAt: articlesTable.updatedAt,
       category: categoriesTable,
     };
-    if (includeBody) {
-      selectFields.body = articlesTable.body;
-    }
 
     const [articles, [{ count }]] = await Promise.all([
       db
@@ -89,31 +87,26 @@ router.get("/articles", async (req, res) => {
     ]);
 
     const result = articles.map((r: any) => {
-      let words = 0;
-      let lines = 0;
-      let calcMinutes = r.readingMinutes || 1;
+      const rawContent = (r.body || r.excerpt || "")
+        .replace(/<script[^>]*>([\S\s]*?)<\/script>/gim, "")
+        .replace(/<style[^>]*>([\S\s]*?)<\/style>/gim, "")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/gi, " ")
+        .replace(/&amp;/gi, "&")
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/gi, "'")
+        .replace(/&lt;/gi, "<")
+        .replace(/&gt;/gi, ">")
+        .replace(/\s+/g, " ")
+        .trim();
 
-      if (includeBody && r.body) {
-        const rawText = (r.body || r.excerpt || "")
-          .replace(/<script[^>]*>([\S\s]*?)<\/script>/gim, "")
-          .replace(/<style[^>]*>([\S\s]*?)<\/style>/gim, "")
-          .replace(/<[^>]+>/g, " ")
-          .replace(/&nbsp;/gi, " ")
-          .replace(/\s+/g, " ")
-          .trim();
-        words = rawText ? rawText.split(/\s+/).filter(Boolean).length : 0;
-        const blockLines = (r.body || r.excerpt || "")
-          .split(/\r?\n|<br\s*\/?>|<\/p>|<\/div>|<\/li>/i)
-          .map((l: string) => l.replace(/<[^>]*>/g, "").trim())
-          .filter(Boolean);
-        lines = Math.max(blockLines.length, words > 0 ? Math.ceil(words / 13) : 0);
-        calcMinutes = words > 0 ? (words < 100 ? 1 : Math.max(1, Math.ceil(words / 200))) : (r.readingMinutes || 1);
-      } else {
-        const rawExcerpt = (r.excerpt || "").trim();
-        const excerptWords = rawExcerpt ? rawExcerpt.split(/\s+/).filter(Boolean).length : 0;
-        words = (r.readingMinutes ? r.readingMinutes * 180 : 0) || excerptWords || 0;
-        lines = Math.max(1, Math.ceil(words / 13));
-      }
+      const words = rawContent ? rawContent.split(/\s+/).filter(Boolean).length : 0;
+      const blockLines = (r.body || r.excerpt || "")
+        .split(/\r?\n|<br\s*\/?>|<\/p>|<\/div>|<\/li>|<\/h[1-6]>/i)
+        .map((l: string) => l.replace(/<[^>]*>/g, "").trim())
+        .filter(Boolean);
+      const lines = Math.max(blockLines.length, words > 0 ? Math.ceil(words / 13) : 0);
+      const calcMinutes = words > 0 ? (words < 100 ? 1 : Math.max(1, Math.ceil(words / 200))) : (r.readingMinutes || 1);
 
       const art: any = {
         id: r.id,

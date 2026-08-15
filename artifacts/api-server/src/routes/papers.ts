@@ -39,15 +39,16 @@ router.get("/papers", async (req, res) => {
         slug: papersTable.slug,
         title: papersTable.title,
         abstract: papersTable.abstract,
+        body: papersTable.body,
         coverImageUrl: papersTable.coverImageUrl,
         categorySlug: papersTable.categorySlug,
         authorName: papersTable.authorName,
         peerReviewed: papersTable.peerReviewed,
+        readingMinutes: papersTable.readingMinutes,
         status: papersTable.status,
         publishedAt: papersTable.publishedAt,
         updatedAt: papersTable.updatedAt,
         pdfUrl: papersTable.pdfUrl,
-        ...(includeBody ? { body: papersTable.body } : {}),
         category: categoriesTable,
       })
       .from(papersTable)
@@ -62,24 +63,50 @@ router.get("/papers", async (req, res) => {
       .from(papersTable)
       .where(and(...conditions));
 
-    const result = papers.map(r => ({
-      id: r.id,
-      slug: r.slug,
-      title: r.title,
-      abstract: r.abstract,
-      coverImageUrl: r.coverImageUrl,
-      categorySlug: r.categorySlug,
-      authorName: r.authorName,
-      peerReviewed: r.peerReviewed,
-      status: r.status,
-      publishedAt: r.publishedAt,
-      updatedAt: r.updatedAt,
-      pdfUrl: r.pdfUrl,
-      category: r.category,
-      ...((includeBody && (r as any).body) ? { body: sanitizeArticleBody((r as any).body) } : {}),
-    }));
+    const result = papers.map((r: any) => {
+      const rawContent = (r.body || r.abstract || "")
+        .replace(/<script[^>]*>([\S\s]*?)<\/script>/gim, "")
+        .replace(/<style[^>]*>([\S\s]*?)<\/style>/gim, "")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/gi, " ")
+        .replace(/&amp;/gi, "&")
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/gi, "'")
+        .replace(/&lt;/gi, "<")
+        .replace(/&gt;/gi, ">")
+        .replace(/\s+/g, " ")
+        .trim();
 
-    res.setHeader("Cache-Control", "public, max-age=30, s-maxage=120, stale-while-revalidate=600");
+      const words = rawContent ? rawContent.split(/\s+/).filter(Boolean).length : 0;
+      const blockLines = (r.body || r.abstract || "")
+        .split(/\r?\n|<br\s*\/?>|<\/p>|<\/div>|<\/li>|<\/h[1-6]>/i)
+        .map((l: string) => l.replace(/<[^>]*>/g, "").trim())
+        .filter(Boolean);
+      const lines = Math.max(blockLines.length, words > 0 ? Math.ceil(words / 13) : 0);
+      const calcMinutes = words > 0 ? (words < 100 ? 1 : Math.max(1, Math.ceil(words / 200))) : (r.readingMinutes || 1);
+
+      return {
+        id: r.id,
+        slug: r.slug,
+        title: r.title,
+        abstract: r.abstract,
+        coverImageUrl: r.coverImageUrl,
+        categorySlug: r.categorySlug,
+        authorName: r.authorName,
+        peerReviewed: r.peerReviewed,
+        status: r.status,
+        readingMinutes: calcMinutes,
+        wordCount: words,
+        lineCount: lines,
+        publishedAt: r.publishedAt,
+        updatedAt: r.updatedAt,
+        pdfUrl: r.pdfUrl,
+        category: r.category,
+        ...(includeBody && r.body ? { body: sanitizeArticleBody(r.body) } : {}),
+      };
+    });
+
+    res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
     return res.json({ papers: result, total: Number(count), limit, offset });
   } catch (err) {
     req.log.error(err);
