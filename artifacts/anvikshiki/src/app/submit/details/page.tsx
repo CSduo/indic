@@ -6,6 +6,7 @@ import { HeroPanel } from "@/components/manuscript/HeroPanel";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { SubmissionStepper } from "@/components/manuscript/SubmissionStepper";
+import { useAuth } from "@/hooks/useAuth";
 
 const DOMAINS = ["Philosophy", "History", "Psychology", "Sociology", "Science", "Geopolitics", "Civilizational Thought", "Aesthetics", "Sanskrit Studies", "Political Theory"];
 const LENGTHS = ["Short (< 3,000 words)", "Medium (3,000-7,000 words)", "Long (7,000-15,000 words)", "Extended (> 15,000 words)"];
@@ -55,21 +56,44 @@ function Field({ label, id, required, error, children }: { label: string; id: st
 
 export default function SubmitDetailsPage() {
   const [, navigate] = useLocation();
+  const { user } = useAuth();
   const [form, setForm] = useState<FormData>(EMPTY);
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
+
+  // A signed-in author submits under the name on their account, so the field is
+  // filled from the profile and locked rather than typed in again. A mismatched
+  // byline is what previously detached a published work from its author.
+  const accountName = (user?.name || (user as any)?.username || "").trim();
+  const accountEmail = (user?.email || "").trim();
 
   useEffect(() => {
     const type = sessionStorage.getItem("anvikshiki_submit_type") || "";
     const saved = sessionStorage.getItem("anvikshiki_submit_details");
+    let parsed: Partial<FormData> = {};
     if (saved) {
       try {
-        const parsed = JSON.parse(saved);
-        setForm({ ...EMPTY, ...parsed, manuscriptType: type || parsed.manuscriptType });
+        parsed = JSON.parse(saved);
       } catch {}
-    } else if (type) {
-      setForm((current) => ({ ...current, manuscriptType: type }));
     }
+    setForm({
+      ...EMPTY,
+      ...parsed,
+      manuscriptType: type || parsed.manuscriptType || "",
+    });
   }, []);
+
+  useEffect(() => {
+    if (!accountName && !accountEmail) return;
+    setForm((current) => {
+      const next = {
+        ...current,
+        fullName: accountName || current.fullName,
+        email: accountEmail || current.email,
+      };
+      sessionStorage.setItem("anvikshiki_submit_details", JSON.stringify(next));
+      return next;
+    });
+  }, [accountName, accountEmail]);
 
   const set = (key: keyof FormData, value: string) => {
     setForm((current) => {
@@ -131,10 +155,34 @@ export default function SubmitDetailsPage() {
                 </select>
               </Field>
               <Field label="Full Name" id="name" required error={errors.fullName}>
-                <input id="name" className="input-sacred" type="text" placeholder="Your full name" value={form.fullName} onChange={(event) => set("fullName", event.target.value)} aria-required="true" />
+                <input
+                  id="name"
+                  className="input-sacred"
+                  type="text"
+                  placeholder="Your full name"
+                  value={form.fullName}
+                  onChange={(event) => set("fullName", event.target.value)}
+                  readOnly={Boolean(accountName)}
+                  aria-required="true"
+                />
+                {accountName ? (
+                  <p className="mt-1 font-ui text-[10px]" style={{ color: "var(--ink-faint)" }}>
+                    Your work is published under your account name. Change it in{" "}
+                    <Link href="/account/profile" className="underline">account settings</Link>.
+                  </p>
+                ) : null}
               </Field>
               <Field label="Email Address" id="email" required error={errors.email}>
-                <input id="email" className="input-sacred" type="email" placeholder="you@institution.edu" value={form.email} onChange={(event) => set("email", event.target.value)} aria-required="true" />
+                <input
+                  id="email"
+                  className="input-sacred"
+                  type="email"
+                  placeholder="you@institution.edu"
+                  value={form.email}
+                  onChange={(event) => set("email", event.target.value)}
+                  readOnly={Boolean(accountEmail)}
+                  aria-required="true"
+                />
               </Field>
               <Field label="Institution / Affiliation" id="inst">
                 <input id="inst" className="input-sacred" type="text" placeholder="University, research group, independent..." value={form.institution} onChange={(event) => set("institution", event.target.value)} />

@@ -36,10 +36,15 @@ function statusBadge(status: string) {
   return "draft";
 }
 
-/** Parse a Cloudinary URL or /api/uploads/... from notes */
+/**
+ * Parse a cover reference out of the submission notes. Accepts absolute URLs,
+ * site-relative paths, and inline base64 data URIs — the last is what the
+ * upload pipeline produces when no blob or CDN provider is configured, and
+ * omitting it made those covers look absent to the desk.
+ */
 function extractCoverFromNotes(notes?: string | null): string | null {
   if (!notes) return null;
-  const m = notes.match(/Cover(?:\s*image)?(?:\s*URL)?:\s*(https?:\/\/\S+|\/api\/uploads\/\S+)/i);
+  const m = notes.match(/Cover(?:\s*image)?(?:\s*URL)?:\s*(data:image\/\S+|https?:\/\/\S+|\/\S+)/i);
   return m ? m[1].trim() : null;
 }
 
@@ -192,7 +197,14 @@ export default function AdminSubmissionsPage() {
         load();
       } else {
         const errData = await r.json().catch(() => ({}));
-        toast.error(errData.error || `Failed to ${act.replace(/_/g, " ")} submission`);
+        // A failed publish carries the underlying cause in `reason`. Showing
+        // only the headline left an editor with "could not be published" and
+        // nothing to act on, when the real cause is usually a specific
+        // database or category problem that names itself.
+        const headline = errData.error || `Failed to ${act.replace(/_/g, " ")} submission`;
+        const detail = errData.reason && errData.reason !== "unknown" ? `\n\nReason: ${errData.reason}` : "";
+        toast.error(`${headline}${detail}`, { duration: detail ? 12000 : 5000 });
+        if (detail) console.error("Publish failure detail:", errData);
       }
     } catch (err) {
       toast.error(`Network error: Failed to ${act.replace(/_/g, " ")} submission`);
@@ -307,7 +319,7 @@ export default function AdminSubmissionsPage() {
 
         <div className="grid lg:grid-cols-5 gap-6" style={{ minHeight: "60vh" }}>
           {/* List */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 min-w-0">
             <div className="card-sacred admin-submission-list">
               {loading ? (
                 <div className="flex justify-center py-10">
@@ -376,7 +388,10 @@ export default function AdminSubmissionsPage() {
           </div>
 
           {/* Detail panel */}
-          <div className="lg:col-span-3">
+          {/* min-w-0: a grid track sizes to its widest child by default, so one
+              long unbroken string in the detail panel stretched the whole
+              layout past the screen edge instead of wrapping inside it. */}
+          <div className="lg:col-span-3 min-w-0">
             {selected ? (() => {
               const allAssets = extractAllAssets(selected);
               const coverImg = selected.coverImageUrl || extractCoverFromNotes(selected.notes);
@@ -384,7 +399,10 @@ export default function AdminSubmissionsPage() {
               const linkAssets = allAssets.filter(a => a.type === "link" || a.type === "pdf");
 
               return (
-                <div className="card-sacred admin-submission-detail p-4 sm:p-6" style={{ background: "var(--surface-2)" }}>
+                <div
+                  className="card-sacred admin-submission-detail p-4 sm:p-6"
+                  style={{ background: "var(--surface-2)", minWidth: 0, maxWidth: "100%", overflowX: "hidden" }}
+                >
                   {/* Header */}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1 mr-3">
@@ -546,7 +564,14 @@ export default function AdminSubmissionsPage() {
                       </div>
                       <div
                         className="font-body text-sm leading-relaxed p-4 rounded-lg prose-editor-content border border-[var(--border)]"
-                        style={{ background: "var(--surface-3)", color: "var(--ink)", maxHeight: 500, overflowY: "auto" }}
+                        style={{
+                          background: "var(--surface-3)",
+                          color: "var(--ink)",
+                          maxHeight: 500,
+                          overflowY: "auto",
+                          overflowX: "auto",
+                          overflowWrap: "anywhere",
+                        }}
                         dangerouslySetInnerHTML={{ __html: selected.body }}
                       />
                     </div>
@@ -556,7 +581,22 @@ export default function AdminSubmissionsPage() {
                   {selected.notes && (
                     <div className="mb-4">
                       <div className="form-label mb-1">Author Notes &amp; Links</div>
-                      <div className="font-body text-sm p-3.5 rounded-lg border border-[var(--border)]" style={{ background: "var(--surface-3)", color: "var(--ink-soft)", whiteSpace: "pre-wrap" }}>{selected.notes}</div>
+                      {/* Notes carry pasted URLs, which contain no spaces and so
+                          never wrap on their own. Without an explicit break they
+                          pushed the whole detail panel wider than a phone screen
+                          and pulled every field out of view to the right. */}
+                      <div
+                        className="font-body text-sm p-3.5 rounded-lg border border-[var(--border)]"
+                        style={{
+                          background: "var(--surface-3)",
+                          color: "var(--ink-soft)",
+                          whiteSpace: "pre-wrap",
+                          overflowWrap: "anywhere",
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {selected.notes}
+                      </div>
                     </div>
                   )}
 
@@ -596,8 +636,8 @@ export default function AdminSubmissionsPage() {
                           <ChevronDown size={14} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" style={{ color: "var(--muted)" }} />
                         </div>
                         {!imgUrl && (
-                          <div className="p-2.5 rounded bg-rose-950/20 border border-rose-900/40 text-rose-400 font-ui text-[11px] leading-relaxed">
-                            ⚠️ Warning: This submission has no cover image. A cover image is compulsory to publish as an article.
+                          <div className="p-2.5 rounded bg-amber-950/20 border border-amber-900/40 text-amber-400 font-ui text-[11px] leading-relaxed">
+                            This submission has no cover image, so the journal's default cover will be used. You can still publish it.
                           </div>
                         )}
                       </div>
@@ -632,12 +672,17 @@ export default function AdminSubmissionsPage() {
                     </>)}
                     {!selected.deletedAt && selected.status === "ACCEPTED" && (() => {
                       const imgUrl = selected.coverImageUrl || extractCoverFromNotes(selected.notes);
+                      // A missing cover is a warning, not a blocker. Essays
+                      // written in the browser never carry one, so disabling the
+                      // button here left approved work permanently unpublishable
+                      // — the publication step falls back to a default cover.
                       return (
                         <button
                           type="button"
-                          disabled={!imgUrl || !!actionLoading}
+                          disabled={!!actionLoading}
                           onClick={() => patchAction(selected.id, "publish", { categorySlug: publishCategory })}
                           className="btn-sacred btn-gold text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                          title={imgUrl ? undefined : "No cover image found — the journal's default cover will be used"}
                         >
                           {actionLoading === "publish" ? <span className="animate-spin text-xs">↻</span> : <Globe size={12} />} Publish as Article
                         </button>

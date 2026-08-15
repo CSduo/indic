@@ -88,21 +88,32 @@ export default function SubmitWritePage() {
   const { user } = useAuth();
   const draftIdParam = new URLSearchParams(search).get("draftId");
 
+  // A signed-in author is published under the name on their account. That name
+  // wins over anything cached in a local draft or carried over from an older
+  // submission — the account name is what the desk matches ownership against,
+  // so a divergent byline detaches the work from the person who wrote it.
+  const accountName = (user?.name || (user as any)?.username || "").trim();
+
   const [draft, setDraft] = useState<Draft>(() => {
     const d = loadDraft();
     const type = sessionStorage.getItem("anvikshiki_submit_type") || "essay";
-    return { ...d, type, fullName: d.fullName || user?.name || (user as any)?.username || "", email: d.email || user?.email || "" };
+    return {
+      ...d,
+      type,
+      fullName: accountName || d.fullName || "",
+      email: user?.email || d.email || "",
+    };
   });
 
   useEffect(() => {
     if (user) {
       setDraft((prev) => ({
         ...prev,
-        fullName: prev.fullName || user.name || (user as any)?.username || "",
-        email: prev.email || user.email || "",
+        fullName: accountName || prev.fullName || "",
+        email: user.email || prev.email || "",
       }));
     }
-  }, [user]);
+  }, [user, accountName]);
   const [serverDraftId, setServerDraftId] = useState<string | null>(null);
   const [loadingDraft, setLoadingDraft] = useState(!!draftIdParam);
 
@@ -781,8 +792,9 @@ export default function SubmitWritePage() {
         setDraft((prev) => ({
           ...prev,
           type: typeMap[s.type] || "essay",
-          fullName: s.submitterName || prev.fullName,
-          email: s.submitterEmail || prev.email,
+          // Account name still wins when resuming an older draft.
+          fullName: accountName || s.submitterName || prev.fullName,
+          email: user?.email || s.submitterEmail || prev.email,
           institution: pick("Institution") || prev.institution,
           domain: pick("Domain") || prev.domain,
           keywords: pick("Keywords") || prev.keywords,
@@ -1124,8 +1136,15 @@ export default function SubmitWritePage() {
                   placeholder="Your full name"
                   value={draft.fullName}
                   onChange={e => set("fullName", e.target.value)}
-                  readOnly={Boolean(user?.name || (user as any)?.username)}
+                  readOnly={Boolean(accountName)}
+                  title={accountName ? "This work is published under your account name" : undefined}
                 />
+                {accountName ? (
+                  <p className="mt-1 font-ui text-[10px]" style={{ color: "var(--ink-faint)" }}>
+                    Your work is published under your account name. Change it in{" "}
+                    <a href="/account/profile" className="underline">account settings</a>.
+                  </p>
+                ) : null}
               </F>
               <F label="Email Address *" error={errors.email}>
                 <input

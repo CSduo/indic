@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { HealthCheckResponse } from "@workspace/api-zod";
 import { db, usersTable, submissionsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { activeStorageProvider, storageIsDegraded, storageTiers } from "../lib/storage";
 
 const router: IRouter = Router();
 
@@ -29,13 +30,24 @@ router.get("/health", async (req, res) => {
   }
 
   const ok = dbReachable && schemaReady;
+  // `storageProvider` used to echo an env var the upload code never reads, so
+  // it could report "local" while files were going to Cloudinary, or the
+  // reverse. It now reports the tier an upload would actually land in.
   return res.status(ok ? 200 : 503).json({
     ok,
     service: "anvikshiki-api",
     time: new Date().toISOString(),
     environment: {
       hasCloudinaryUrl: Boolean(process.env.CLOUDINARY_URL),
-      storageProvider: process.env.STORAGE_PROVIDER || "local",
+      hasVercelBlobToken: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+    },
+    storage: {
+      activeProvider: activeStorageProvider(),
+      degraded: storageIsDegraded(),
+      warning: storageIsDegraded()
+        ? "No durable external file storage is configured. Uploads are stored on a local/ephemeral filesystem or inlined into the database. Set BLOB_READ_WRITE_TOKEN or CLOUDINARY_URL."
+        : null,
+      tiers: storageTiers(),
     },
     database: {
       reachable: dbReachable,

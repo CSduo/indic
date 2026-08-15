@@ -1,27 +1,25 @@
-import { Router, type Request } from "express";
+﻿import { Router } from "express";
 import { db } from "@workspace/db";
-import { submissionsTable, articlesTable, papersTable, usersTable, adminsTable } from "@workspace/db";
-import { eq, and, isNull, isNotNull, or, ilike, desc, inArray, sql } from "drizzle-orm";
+import { submissionsTable, articlesTable, papersTable, usersTable } from "@workspace/db";
+import { eq, and, isNull, isNotNull, or, ilike, desc } from "drizzle-orm";
 import { getUserAuth } from "../lib/auth";
+import { ownsAuthoredWork, resolveViewer, type Viewer } from "../lib/viewer";
 import {
   normalizeCategorySlug,
   slugify,
+  syncSubmissionFromPublication,
 } from "../lib/publication-sync";
 import { z } from "zod";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import path from "path";
-import fs from "fs";
-import { countUnresolvedArticleImages, sanitizeArticleBody } from "../lib/content";
+import { countUnresolvedArticleImages, sanitizeArticleBody, MAX_BODY_CHARS } from "../lib/content";
 import { hasExpectedFileSignature } from "../lib/file-validation";
-import { put } from "@vercel/blob";
+import { persistUploadedFile, UPLOADS_DIR } from "../lib/storage";
 
 import { sendSubmissionNotification } from "../lib/notifier";
 
 const router = Router();
-
-const UPLOADS_DIR = process.env.UPLOADS_DIR || "/tmp/anvikshiki-uploads";
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const storage = multer.memoryStorage();
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -33,62 +31,13 @@ async function saveFile(file: any, subFolder: string): Promise<string> {
     throw new Error("Uploaded file content does not match its extension");
   }
   const extension = path.extname(file.originalname).toLowerCase();
-  const filename = `${subFolder}-${crypto.randomUUID()}${extension}`;
-
-  // 1. If Vercel Blob is configured (highest priority)
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
-    try {
-      const blob = await put(`anvikshiki/${filename}`, file.buffer, {
-        access: "public",
-        token: process.env.BLOB_READ_WRITE_TOKEN,
-      });
-      if (blob?.url) return blob.url;
-    } catch (blobErr) {
-      console.warn("Vercel Blob upload failed, attempting fallback...", blobErr);
-    }
-  }
-
-  // 2. If Cloudinary is configured
-  if (process.env.CLOUDINARY_URL) {
-    try {
-      const isAudio = file.mimetype.startsWith("audio/") || [".webm", ".mp3", ".ogg", ".wav", ".m4a"].includes(extension);
-      const uploadResult = await new Promise<any>((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          {
-            folder: `anvikshiki/${subFolder}`,
-            resource_type: isAudio ? "video" : "auto",
-          },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        );
-        uploadStream.end(file.buffer);
-      });
-      if (uploadResult?.secure_url) {
-        return uploadResult.secure_url;
-      }
-    } catch (cloudErr) {
-      console.warn("Cloudinary upload failed, attempting fallback...", cloudErr);
-    }
-  }
-
-  // 3. Fallback to local / serverless disk (/tmp or UPLOADS_DIR)
-  try {
-    const filePath = path.join(UPLOADS_DIR, filename);
-    await fs.promises.writeFile(filePath, file.buffer);
-    const apiBase = process.env.API_BASE_URL || "";
-    return `${apiBase}/api/uploads/${filename}`;
-  } catch (diskErr) {
-    console.warn("Disk upload failed, attempting Base64 Data URI fallback...", diskErr);
-  }
-
-  // 4. In-memory Base64 Data URI fallback for images up to 5MB
-  if (file.mimetype.startsWith("image/") && file.size <= 5 * 1024 * 1024) {
-    return `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
-  }
-
-  throw new Error("Unable to store uploaded file across all storage providers.");
+  const stored = await persistUploadedFile({
+    buffer: file.buffer,
+    filename: `${subFolder}-${crypto.randomUUID()}${extension}`,
+    mimeType: file.mimetype,
+    folder: subFolder,
+  });
+  return stored.url;
 }
 
 
@@ -145,9 +94,17 @@ const submissionSchema = z.object({
   audioPublicId: z.string().optional().or(z.literal("")).or(z.null()),
 });
 
+/**
+ * The byline of a submission is the account's own name, never a typed-in value.
+ * A signed-in author's profile name is authoritative: it is what the account
+ * desk matches ownership against and what appears on the published page, so
+ * letting the form supply a different string produced work the author could no
+ * longer find or edit. The submitted name is used only for guests, who have no
+ * account name to draw on.
+ */
 async function resolveSubmitterIdentity(auth: any, fallbackName?: string | null, fallbackEmail?: string | null) {
-  let userId: string | null = auth?.userId || null;
-  let name = (fallbackName || "Anonymous Scholar").trim();
+  const userId: string | null = auth?.userId || null;
+  let name = (fallbackName || "").trim();
   let email = (fallbackEmail || auth?.email || "").trim().toLowerCase();
 
   if (userId) {
@@ -157,13 +114,12 @@ async function resolveSubmitterIdentity(auth: any, fallbackName?: string | null,
         .from(usersTable)
         .where(eq(usersTable.id, userId))
         .limit(1);
-      if (user) {
-        if (user.name) name = user.name.trim();
-        if (user.email) email = user.email.trim().toLowerCase();
-      }
+      if (user?.name?.trim()) name = user.name.trim();
+      if (user?.email) email = user.email.trim().toLowerCase();
     } catch {}
   }
-  return { userId, name, email };
+
+  return { userId, name: name || "Anonymous Scholar", email };
 }
 
 // POST /api/submissions (JSON body)
@@ -205,7 +161,7 @@ router.post("/submissions", async (req, res) => {
   }
 });
 
-// POST /api/uploads/cloudinary-signature — request upload signature for direct browser uploads
+// POST /api/uploads/cloudinary-signature â€” request upload signature for direct browser uploads
 router.post("/uploads/cloudinary-signature", async (req, res) => {
   try {
     const auth = await getUserAuth(req);
@@ -256,7 +212,7 @@ router.post("/uploads/cloudinary-signature", async (req, res) => {
   }
 });
 
-// POST /api/submissions/upload — handles metadata and Cloudinary URLs (JSON) or local file upload fallback (multipart)
+// POST /api/submissions/upload â€” handles metadata and Cloudinary URLs (JSON) or local file upload fallback (multipart)
 router.post(
   "/submissions/upload",
   (req, res, next) => {
@@ -416,88 +372,12 @@ router.post(
 
 // Publication is an editorial action. Authors may work on drafts and submitted
 // revisions, and may manage/hide/trash their submitted or published works from their desk.
-const USER_EDITABLE_STATUSES = ["DRAFT", "RECEIVED", "REVISION_REQUESTED"];
+// Kept in step with the account desk's own list. When the two disagreed, the
+// desk offered an "Edit" button for statuses the API refused, so the author saw
+// a save fail for no stated reason. Accepted and published work is handled
+// separately below by forwarding the edit to the live article or paper.
+const USER_EDITABLE_STATUSES = ["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED"];
 const USER_DELETABLE_STATUSES = ["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "REJECTED", "PUBLISHED", "ACCEPTED", "ARCHIVED"];
-
-/**
- * Attribution key for a person. Names and email local parts are reduced to
- * letters and digits so "Xiyato Saanvi", "xiyato saanvi" and the local part of
- * "xiyatosaanvi@gmail.com" all resolve to the same author.
- */
-function identityKey(value?: string | null): string {
-  return (value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
-}
-
-const normalizedAuthorSql = (column: any) =>
-  sql<string>`lower(regexp_replace(coalesce(${column}, ''), '[^a-zA-Z0-9]+', '', 'g'))`;
-
-type Viewer = {
-  userId: string;
-  email: string;
-  isAdmin: boolean;
-  /** Attribution keys that identify this person as the author of a work. */
-  identities: Set<string>;
-  name: string;
-};
-
-/**
- * Resolve who is asking, together with the author identities their account owns.
- * Published articles and papers carry only an author name, so the account desk
- * matches them by identity rather than by a hardcoded email allowlist.
- */
-async function resolveViewer(req: Request): Promise<Viewer | null> {
-  const auth = await getUserAuth(req);
-  if (!auth || !auth.userId) return null;
-
-  let dbUser: any = null;
-  let dbAdmin: any = null;
-
-  try {
-    const userRows = await db.select().from(usersTable).where(eq(usersTable.id, auth.userId)).limit(1);
-    dbUser = userRows[0] || null;
-  } catch (err) {
-    req.log?.warn?.({ err }, "Failed to lookup user in resolveViewer");
-  }
-
-  try {
-    const cleanEmail = auth.email ? auth.email.trim().toLowerCase() : "";
-    if (cleanEmail) {
-      const adminRows = await db.select().from(adminsTable)
-        .where(or(eq(adminsTable.id, auth.userId), ilike(adminsTable.email, cleanEmail)))
-        .limit(1);
-      dbAdmin = adminRows[0] || null;
-    } else {
-      const adminRows = await db.select().from(adminsTable)
-        .where(eq(adminsTable.id, auth.userId))
-        .limit(1);
-      dbAdmin = adminRows[0] || null;
-    }
-  } catch (err) {
-    req.log?.warn?.({ err }, "Failed to lookup admin in resolveViewer");
-  }
-
-  const email = (auth.email || dbUser?.email || dbAdmin?.email || "").toLowerCase().trim();
-  const name = (dbUser?.name || dbAdmin?.name || "").trim();
-
-  // Keys shorter than four characters are too weak to attribute a work by.
-  const identities = new Set(
-    [name, email.split("@")[0]].map(identityKey).filter(key => key.length >= 4),
-  );
-
-  return {
-    userId: auth.userId,
-    email,
-    name,
-    isAdmin: (auth as any).role === "ADMIN" || dbUser?.role === "ADMIN" || Boolean(dbAdmin),
-    identities,
-  };
-}
-
-function ownsAuthoredWork(viewer: Viewer, authorName?: string | null): boolean {
-  if (viewer.isAdmin) return true;
-  const key = identityKey(authorName);
-  return key.length > 0 && viewer.identities.has(key);
-}
 
 const SUBMISSION_LIST_COLUMNS = {
   id: submissionsTable.id,
@@ -554,7 +434,7 @@ const PAPER_LIST_COLUMNS = {
   sourceSubmissionId: papersTable.sourceSubmissionId,
 };
 
-// POST /api/submissions/write — full essay written in browser
+// POST /api/submissions/write â€” full essay written in browser
 router.post("/submissions/write", async (req, res) => {
   try {
     const auth = await getUserAuth(req);
@@ -566,7 +446,7 @@ router.post("/submissions/write", async (req, res) => {
       title: z.string().trim().max(500).optional().or(z.literal("")),
       domain: z.string().trim().max(160).optional(),
       abstract: z.string().trim().max(10000).optional().default(""),
-      body: z.string().max(500_000).optional().default(""),
+      body: z.string().max(MAX_BODY_CHARS).optional().default(""),
       notes: z.string().trim().max(5000).optional(),
       consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).optional().transform(v => v === true || v === "true"),
       status: z.enum(["DRAFT", "RECEIVED"]).optional().default("RECEIVED"),
@@ -588,7 +468,7 @@ router.post("/submissions/write", async (req, res) => {
       });
     }
 
-    // Only signed-in users may save drafts — drafts must be resumable/owned.
+    // Only signed-in users may save drafts â€” drafts must be resumable/owned.
     if (isDraft && !auth) return res.status(401).json({ error: "Sign in to save a draft" });
 
     // Full submissions still require the declaration + minimum content.
@@ -629,7 +509,7 @@ router.post("/submissions/write", async (req, res) => {
   }
 });
 
-// GET /api/submissions (user's own — includes drafts and published essays/papers)
+// GET /api/submissions (user's own â€” includes drafts and published essays/papers)
 // ?deleted=true returns only soft-deleted submissions; otherwise excludes them
 router.get("/submissions", async (req, res) => {
   try {
@@ -866,11 +746,105 @@ router.get("/submissions/:id", async (req, res) => {
   }
 });
 
-// PUT /api/submissions/:id — owner updates a draft, or submits a saved draft for review
+/**
+ * Update a published article or paper that the account desk surfaced under a
+ * synthetic `art-` / `paper-` id. Without this the id was passed straight to a
+ * `submissions.id` lookup, which matched nothing and â€” once the column type
+ * rejected the prefixed value â€” failed the whole request with a bare 500. This
+ * is why "Edit" on a published work never saved.
+ */
+async function updateSyntheticPublication(req: any, res: any, viewer: Viewer, id: string) {
+  const isPaper = id.startsWith("paper-");
+  const table = isPaper ? papersTable : articlesTable;
+  const realId = id.replace(isPaper ? "paper-" : "art-", "");
+
+  const [existing] = await db.select().from(table as any).where(eq((table as any).id, realId)).limit(1);
+  if (!existing) return res.status(404).json({ error: isPaper ? "Paper not found" : "Article not found" });
+  if (!ownsAuthoredWork(viewer, (existing as any).authorName)) {
+    return res.status(403).json({ error: "You can only edit work published under your own name" });
+  }
+  if ((existing as any).deletedAt) {
+    return res.status(409).json({ error: "Restore this work from Trash before editing it" });
+  }
+
+  const schema = z.object({
+    title: z.string().trim().max(500).optional().or(z.literal("")),
+    abstract: z.string().trim().max(10_000).optional(),
+    body: z.string().max(MAX_BODY_CHARS).optional(),
+    domain: z.string().trim().max(160).optional(),
+    submitterName: z.string().trim().max(160).optional().or(z.literal("")),
+    coverUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
+    coverImageUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
+    audioUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
+
+  const data = parsed.data;
+  if (data.body !== undefined) {
+    const unresolvedImages = countUnresolvedArticleImages(data.body);
+    if (unresolvedImages > 0) {
+      return res.status(400).json({
+        error: `${unresolvedImages} embedded image${unresolvedImages === 1 ? " is" : "s are"} not stored. Import the DOCX or upload the images before saving.`,
+        code: "UNRESOLVED_ARTICLE_IMAGES",
+      });
+    }
+  }
+
+  const cover = data.coverUrl !== undefined ? data.coverUrl : data.coverImageUrl;
+  const updates: Record<string, any> = { updatedAt: new Date() };
+  if (data.title) updates.title = data.title;
+  // Byline follows the account; only an administrator may reattribute a work.
+  if (viewer.isAdmin && data.submitterName) updates.authorName = data.submitterName;
+  else if (viewer.name) updates.authorName = viewer.name;
+  if (data.domain !== undefined) updates.categorySlug = normalizeCategorySlug(data.domain);
+  if (data.body !== undefined) updates.body = sanitizeArticleBody(data.body);
+  if (data.abstract !== undefined) {
+    if (isPaper) updates.abstract = data.abstract;
+    else updates.excerpt = data.abstract;
+  }
+  if (cover !== undefined) {
+    if (isPaper) updates.coverImageUrl = cover || null;
+    else updates.heroImageUrl = cover || null;
+  }
+  if (!isPaper && data.audioUrl !== undefined) updates.audioUrl = data.audioUrl || null;
+
+  const [updated] = await db.update(table as any).set(updates)
+    .where(and(eq((table as any).id, realId), isNull((table as any).deletedAt)))
+    .returning();
+  if (!updated) return res.status(404).json({ error: "Work not found" });
+
+  // Keep the editorial record in step so a later re-sync cannot overwrite the
+  // author's edit with the older submission text.
+  await syncSubmissionFromPublication(updated as any, isPaper ? "paper" : "article")
+    .catch(err => req.log?.warn?.({ err }, "Submission back-sync after synthetic edit failed"));
+
+  return res.json({
+    success: true,
+    submission: {
+      id,
+      title: (updated as any).title,
+      slug: (updated as any).slug,
+      status: (updated as any).status,
+      type: isPaper ? "PAPER" : "ESSAY",
+      abstract: isPaper ? (updated as any).abstract : (updated as any).excerpt,
+      body: sanitizeArticleBody((updated as any).body),
+      coverImageUrl: isPaper ? (updated as any).coverImageUrl : (updated as any).heroImageUrl,
+    },
+    publication: { kind: isPaper ? "paper" : "article", id: realId, slug: (updated as any).slug },
+  });
+}
+
+// PUT /api/submissions/:id â€” owner updates a draft, or submits a saved draft for review
 router.put("/submissions/:id", async (req, res) => {
   try {
-    const auth = await getUserAuth(req);
-    if (!auth) return res.status(401).json({ error: "Unauthorized" });
+    const viewer = await resolveViewer(req);
+    if (!viewer) return res.status(401).json({ error: "Unauthorized" });
+    const auth = { userId: viewer.userId, email: viewer.email, role: viewer.isAdmin ? "ADMIN" : "USER" };
+
+    if (req.params.id.startsWith("art-") || req.params.id.startsWith("paper-")) {
+      return await updateSyntheticPublication(req, res, viewer, req.params.id);
+    }
 
     const [existing] = await db.select().from(submissionsTable)
       .where(eq(submissionsTable.id, req.params.id)).limit(1);
@@ -879,8 +853,25 @@ router.put("/submissions/:id", async (req, res) => {
       return res.status(403).json({ error: "Forbidden" });
     }
     if (existing.deletedAt) return res.status(409).json({ error: "Restore this submission before editing it" });
+
     if (!USER_EDITABLE_STATUSES.includes(existing.status)) {
-      return res.status(403).json({ error: "This submission can no longer be edited" });
+      // Once a work is accepted or live, the public article/paper is the record
+      // that matters. Rejecting the save outright stranded authors with an
+      // "Edit" button that could never succeed; forward the edit to the linked
+      // publication instead, so what they typed reaches the page readers see.
+      const [linkedArticle] = await db.select({ id: articlesTable.id })
+        .from(articlesTable).where(eq(articlesTable.sourceSubmissionId, existing.id)).limit(1);
+      if (linkedArticle) {
+        return await updateSyntheticPublication(req, res, viewer, `art-${linkedArticle.id}`);
+      }
+      const [linkedPaper] = await db.select({ id: papersTable.id })
+        .from(papersTable).where(eq(papersTable.sourceSubmissionId, existing.id)).limit(1);
+      if (linkedPaper) {
+        return await updateSyntheticPublication(req, res, viewer, `paper-${linkedPaper.id}`);
+      }
+      return res.status(403).json({
+        error: "This submission is with the editors and has no published version yet, so it cannot be edited right now.",
+      });
     }
 
     const schema = z.object({
@@ -890,7 +881,7 @@ router.put("/submissions/:id", async (req, res) => {
       title: z.string().trim().max(500).optional().or(z.literal("")),
       domain: z.string().trim().max(160).optional(),
       abstract: z.string().trim().max(10000).optional(),
-      body: z.string().max(500_000).optional(),
+      body: z.string().max(MAX_BODY_CHARS).optional(),
       notes: z.string().trim().max(5000).optional(),
       consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).optional(),
       status: z.enum(["DRAFT", "RECEIVED"]).optional(),
@@ -917,8 +908,15 @@ router.put("/submissions/:id", async (req, res) => {
 
     const updates: Record<string, any> = { updatedAt: new Date() };
     if (data.type) updates.type = data.type;
-    if (data.submitterName !== undefined) updates.submitterName = data.submitterName;
-    if (data.submitterEmail !== undefined) updates.submitterEmail = data.submitterEmail;
+    // Keep the byline pinned to the account name so an edit cannot detach the
+    // work from the author who owns it. Admins may still reattribute.
+    if (viewer.isAdmin) {
+      if (data.submitterName !== undefined) updates.submitterName = data.submitterName;
+      if (data.submitterEmail !== undefined) updates.submitterEmail = data.submitterEmail;
+    } else {
+      if (viewer.name) updates.submitterName = viewer.name;
+      if (viewer.email) updates.submitterEmail = viewer.email;
+    }
     if (data.title !== undefined) updates.title = data.title;
     if (data.domain !== undefined) updates.domain = normalizeCategorySlug(data.domain);
     if (data.abstract !== undefined) updates.abstract = data.abstract;
@@ -966,7 +964,7 @@ router.put("/submissions/:id", async (req, res) => {
   }
 });
 
-// DELETE /api/submissions/:id — move an active submission or article/paper to Trash
+// DELETE /api/submissions/:id â€” move an active submission or article/paper to Trash
 router.delete("/submissions/:id", async (req, res) => {
   try {
     const viewer = await resolveViewer(req);
@@ -1043,7 +1041,7 @@ router.delete("/submissions/:id", async (req, res) => {
   }
 });
 
-// POST /api/submissions/:id/restore — restore an item from Trash
+// POST /api/submissions/:id/restore â€” restore an item from Trash
 router.post("/submissions/:id/restore", async (req, res) => {
   try {
     const viewer = await resolveViewer(req);
@@ -1117,7 +1115,7 @@ router.post("/submissions/:id/restore", async (req, res) => {
   }
 });
 
-// DELETE /api/submissions/:id/permanent — permanently erase item from DB
+// DELETE /api/submissions/:id/permanent â€” permanently erase item from DB
 router.delete("/submissions/:id/permanent", async (req, res) => {
   try {
     const viewer = await resolveViewer(req);
@@ -1127,7 +1125,7 @@ router.delete("/submissions/:id/permanent", async (req, res) => {
     const id = req.params.id;
 
     // Permanent erasure is only ever allowed on an item the caller owns and
-    // has already moved to Trash — never on live published work.
+    // has already moved to Trash â€” never on live published work.
     if (id.startsWith("art-")) {
       const realId = id.replace("art-", "");
       const [art] = await db.select().from(articlesTable).where(eq(articlesTable.id, realId)).limit(1);

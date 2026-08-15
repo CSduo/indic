@@ -1,6 +1,8 @@
 import { drizzle } from "drizzle-orm/node-postgres";
+import { sql as sqlOperator } from "drizzle-orm";
 import pg from "pg";
 import * as schema from "./schema/index";
+import { runSchemaRepair, type SchemaRepairReport } from "./ensure-schema";
 
 const { Pool } = pg;
 
@@ -74,4 +76,103 @@ if (process.env.VERIFY_DATABASE_ON_START === "true") {
 
 export const db = drizzle(pool, { schema });
 
+export type DbClient = typeof db;
+
+/**
+ * Postgres error codes that mean "the connection or transaction was lost, but
+ * the same statement is safe to run again": serialization failure, deadlock,
+ * connection failure, and admin shutdown. Serverless pools see these routinely
+ * when a pooled connection is recycled between invocations.
+ */
+const TRANSIENT_PG_CODES = new Set(["40001", "40P01", "08000", "08003", "08006", "57P01", "57P03", "XX000"]);
+
+function isTransientDbError(err: any): boolean {
+  if (!err) return false;
+  if (typeof err.code === "string" && TRANSIENT_PG_CODES.has(err.code)) return true;
+  const message = String(err.message || "").toLowerCase();
+  return (
+    message.includes("connection terminated") ||
+    message.includes("connection reset") ||
+    message.includes("timeout exceeded when trying to connect") ||
+    message.includes("server closed the connection")
+  );
+}
+
+/**
+ * Run a database operation, retrying only transient connection/serialization
+ * failures with jittered exponential backoff. Application errors (constraint
+ * violations, missing columns, bad input) are rethrown immediately so they stay
+ * visible instead of being retried into a timeout.
+ */
+export async function withDbRetry<T>(
+  operation: (client: DbClient) => Promise<T>,
+  maxRetries = 3,
+): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation(db);
+    } catch (err) {
+      lastError = err;
+      if (attempt === maxRetries || !isTransientDbError(err)) throw err;
+      const backoff = Math.min(1000, 50 * 2 ** attempt) + Math.floor(Math.random() * 50);
+      console.warn(
+        `Transient database error (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${backoff}ms:`,
+        (err as any)?.message,
+      );
+      await new Promise(resolve => setTimeout(resolve, backoff));
+    }
+  }
+
+  throw lastError;
+}
+
+/** Close the pool cleanly so a shutting-down process does not leak connections. */
+export async function closeDatabasePool(): Promise<void> {
+  try {
+    await pool.end();
+  } catch (err: any) {
+    console.warn("Database pool teardown error:", err?.message || err);
+  }
+}
+
+/**
+ * Bring the live database in line with the Drizzle schema. Idempotent — every
+ * statement is `IF NOT EXISTS`, nothing is dropped or rewritten.
+ */
+export async function repairDatabaseSchema(): Promise<SchemaRepairReport> {
+  return runSchemaRepair(statement => db.execute(sqlOperator.raw(statement)));
+}
+
+let schemaReady: Promise<SchemaRepairReport | null> | null = null;
+
+/**
+ * Repair the schema at most once per process. Request handlers await this
+ * before their first query, so a cold serverless start cannot serve a request
+ * against a half-migrated table.
+ */
+export function ensureDatabaseSchema(): Promise<SchemaRepairReport | null> {
+  if (!schemaReady) {
+    schemaReady = repairDatabaseSchema()
+      .then(report => {
+        if (report.failed.length > 0) {
+          console.warn(
+            `Schema repair completed with ${report.failed.length} skipped statement(s):`,
+            report.failed,
+          );
+        }
+        return report;
+      })
+      .catch(err => {
+        console.error("Schema repair failed entirely:", err);
+        // Clear the cache so a later request can retry instead of being stuck.
+        schemaReady = null;
+        return null;
+      });
+  }
+  return schemaReady;
+}
+
 export * from "./schema/index";
+export { schemaRepairStatements, type SchemaRepairReport } from "./ensure-schema";

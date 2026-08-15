@@ -1,9 +1,10 @@
-import { Router } from "express";
+﻿import { Router } from "express";
 import { db } from "@workspace/db";
 import { papersTable, categoriesTable, submissionsTable, usersTable } from "@workspace/db";
 import { eq, and, desc, ilike, inArray, or, sql, isNull } from "drizzle-orm";
-import { categorySlugCandidates } from "../lib/publication-sync";
-import { sanitizeArticleBody } from "../lib/content";
+import { categorySlugCandidates, normalizeCategorySlug, syncSubmissionFromPublication } from "../lib/publication-sync";
+import { ownsAuthoredWork, resolveViewer } from "../lib/viewer";
+import { countUnresolvedArticleImages, sanitizeArticleBody, MAX_BODY_CHARS } from "../lib/content";
 import { parsePagination, toLikePattern } from "../lib/request";
 import { z } from "zod";
 
@@ -163,53 +164,90 @@ router.get("/papers/:slug", async (req, res) => {
   }
 });
 
-// PATCH /api/papers/:slug/edit
+const paperEditSchema = z.object({
+  title: z.string().trim().min(1).max(500).optional(),
+  authorName: z.string().trim().min(1).max(160).optional(),
+  institution: z.string().trim().max(300).optional().or(z.literal("")),
+  categorySlug: z.string().trim().min(1).max(100).optional(),
+  abstract: z.string().max(10_000).optional(),
+  body: z.string().max(MAX_BODY_CHARS).optional(),
+  coverImageUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
+  pdfUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
+  manuscriptUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
+  citationText: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
+  doi: z.string().max(255).optional().or(z.literal("")),
+  tags: z.array(z.string().trim().min(1).max(80)).max(30).optional(),
+  references: z.array(z.object({
+    id: z.string().max(120).optional(),
+    title: z.string().max(500),
+    url: z.string().max(2_000).optional(),
+    citation: z.string().max(2_000).optional(),
+  })).max(200).optional(),
+  seoTitle: z.string().max(200).optional().or(z.literal("")),
+  seoDescription: z.string().max(500).optional().or(z.literal("")),
+});
+
+// PATCH /api/papers/:slug/edit â€” author can update their own paper
 router.patch("/papers/:slug/edit", async (req, res) => {
   try {
-    const { getUserAuth } = await import("../lib/auth");
-    const auth = await getUserAuth(req);
-    if (!auth) return res.status(401).json({ error: "You must be logged in to edit" });
+    const viewer = await resolveViewer(req);
+    if (!viewer) return res.status(401).json({ error: "You must be logged in to edit" });
 
     const { slug } = req.params;
-    const [row] = await db
+    const [existing] = await db
       .select({
-        paper: {
-          id: papersTable.id,
-          slug: papersTable.slug,
-          authorName: papersTable.authorName,
-        },
+        id: papersTable.id,
+        slug: papersTable.slug,
+        authorName: papersTable.authorName,
+        sourceSubmissionId: papersTable.sourceSubmissionId,
       })
       .from(papersTable)
-      .where(and(eq(papersTable.slug, slug), eq(papersTable.status, "PUBLISHED"), isNull(papersTable.deletedAt)))
+      .where(and(eq(papersTable.slug, slug), isNull(papersTable.deletedAt)))
       .limit(1);
 
-    if (!row) return res.status(404).json({ error: "Paper not found" });
+    if (!existing) return res.status(404).json({ error: "Paper not found" });
+    if (!ownsAuthoredWork(viewer, existing.authorName)) {
+      return res.status(403).json({ error: "You can only edit papers published under your own name" });
+    }
 
-    const parsed = z.object({
-      title: z.string().trim().min(1).max(500).optional(),
-      authorName: z.string().trim().min(1).max(160).optional(),
-      categorySlug: z.string().trim().min(1).max(100).optional(),
-      abstract: z.string().max(10_000).optional(),
-      body: z.string().max(500_000).optional(),
-      coverImageUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
-      pdfUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
-      citationText: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
-    }).safeParse(req.body);
+    const parsed = paperEditSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
     }
 
-    const { title, authorName, categorySlug, abstract, body, coverImageUrl, pdfUrl, citationText } = parsed.data;
+    const data = parsed.data;
+
+    if (data.body !== undefined) {
+      const unresolved = countUnresolvedArticleImages(data.body);
+      if (unresolved > 0) {
+        return res.status(400).json({
+          error: `${unresolved} embedded image${unresolved === 1 ? " is" : "s are"} not stored. Upload the images before saving.`,
+          code: "UNRESOLVED_ARTICLE_IMAGES",
+        });
+      }
+    }
+
     const updates: Record<string, any> = { updatedAt: new Date() };
-    if (typeof title === "string" && title.trim()) updates.title = title.trim();
-    if (typeof authorName === "string" && authorName.trim()) updates.authorName = authorName.trim();
-    if (typeof categorySlug === "string" && categorySlug.trim()) updates.categorySlug = categorySlug.trim();
-    if (typeof abstract === "string") updates.abstract = abstract.trim();
-    if (typeof citationText === "string") updates.citationText = citationText.trim();
-    if (pdfUrl !== undefined) updates.pdfUrl = pdfUrl || null;
-    if (coverImageUrl !== undefined) updates.coverImageUrl = coverImageUrl || null;
-    if (body !== undefined) {
-      const sanitized = sanitizeArticleBody(body);
+    if (data.title?.trim()) updates.title = data.title.trim();
+    // The byline follows the account; only an administrator may reattribute.
+    if (viewer.isAdmin && data.authorName?.trim()) {
+      updates.authorName = data.authorName.trim();
+    } else if (viewer.name) {
+      updates.authorName = viewer.name;
+    }
+    if (data.categorySlug?.trim()) updates.categorySlug = normalizeCategorySlug(data.categorySlug);
+    if (typeof data.abstract === "string") updates.abstract = data.abstract.trim();
+    if (typeof data.citationText === "string") updates.citationText = data.citationText.trim();
+    if (data.doi !== undefined) updates.doi = data.doi || null;
+    const pdf = data.pdfUrl !== undefined ? data.pdfUrl : data.manuscriptUrl;
+    if (pdf !== undefined) updates.pdfUrl = pdf || null;
+    if (data.coverImageUrl !== undefined) updates.coverImageUrl = data.coverImageUrl || null;
+    if (data.tags !== undefined) updates.tags = data.tags;
+    if (data.references !== undefined) updates.references = data.references;
+    if (data.seoTitle !== undefined) updates.seoTitle = data.seoTitle || null;
+    if (data.seoDescription !== undefined) updates.seoDescription = data.seoDescription || null;
+    if (data.body !== undefined) {
+      const sanitized = sanitizeArticleBody(data.body);
       updates.body = sanitized;
       const rawText = sanitized.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
       const words = rawText ? rawText.split(/\s+/).filter(Boolean).length : 0;
@@ -219,24 +257,13 @@ router.patch("/papers/:slug/edit", async (req, res) => {
     const [updated] = await db
       .update(papersTable)
       .set(updates)
-      .where(and(eq(papersTable.slug, slug), isNull(papersTable.deletedAt)))
-      .returning({
-        id: papersTable.id,
-        slug: papersTable.slug,
-        title: papersTable.title,
-        abstract: papersTable.abstract,
-        body: papersTable.body,
-        coverImageUrl: papersTable.coverImageUrl,
-        categorySlug: papersTable.categorySlug,
-        authorName: papersTable.authorName,
-        peerReviewed: papersTable.peerReviewed,
-        readingMinutes: papersTable.readingMinutes,
-        pdfUrl: papersTable.pdfUrl,
-        citationText: papersTable.citationText,
-        status: papersTable.status,
-        publishedAt: papersTable.publishedAt,
-        updatedAt: papersTable.updatedAt,
-      });
+      .where(and(eq(papersTable.id, existing.id), isNull(papersTable.deletedAt)))
+      .returning();
+
+    if (!updated) return res.status(404).json({ error: "Paper not found" });
+
+    await syncSubmissionFromPublication(updated, "paper")
+      .catch(err => console.warn("Submission back-sync after paper edit failed:", err));
 
     return res.json({
       success: true,

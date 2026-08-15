@@ -2,13 +2,10 @@ import { Router } from "express";
 import { db, mediaAssetsTable } from "@workspace/db";
 import multer from "multer";
 import path from "path";
-import fs from "fs";
-import { UPLOADS_DIR } from "./submissions";
-import { v2 as cloudinary } from "cloudinary";
 import { getAdminAuth, getUserAuth } from "../lib/auth";
 import { sanitizeArticleBody } from "../lib/content";
 import { hasExpectedFileSignature } from "../lib/file-validation";
-import { put } from "@vercel/blob";
+import { persistUploadedFile } from "../lib/storage";
 // @ts-ignore — mammoth has no bundled types but works fine
 import mammoth from "mammoth";
 
@@ -169,99 +166,45 @@ router.post("/media/upload", async (req: any, res: any, next: any): Promise<void
       return res.status(400).json({ error: "Paper uploads must be PDF files" });
     }
 
-    let url: string | null = null;
-    let storageKey: string = `${context}-${crypto.randomUUID()}${extension}`;
     const filename = `${context}-${crypto.randomUUID()}${extension}`;
 
-    // 1. Upload to Vercel Blob if configured
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      try {
-        const blob = await put(`anvikshiki/${filename}`, file.buffer, {
-          access: "public",
-          token: process.env.BLOB_READ_WRITE_TOKEN,
-        });
-        if (blob?.url) {
-          url = blob.url;
-          storageKey = blob.url;
-        }
-      } catch (blobErr) {
-        console.warn("Media Vercel Blob upload failed, trying fallback...", blobErr);
-      }
-    }
-
-    // 2. Upload to Cloudinary if configured
-    if (!url && process.env.CLOUDINARY_URL) {
-      try {
-        const uploadResult = await new Promise<any>((resolve, reject) => {
-          const uploadOptions: any = {
-            folder: `anvikshiki/${context}`,
-            resource_type: isAudio ? "video" : isPdf ? "raw" : "image",
-          };
-          
-          if (isImage) {
-            uploadOptions.transformation = context === "avatar"
-              ? [{ width: 400, height: 400, crop: "fill", gravity: "face" }]
-              : [{ width: 1200, crop: "limit" }];
-          }
-
-          const uploadStream = cloudinary.uploader.upload_stream(
-            uploadOptions,
-            (error, result) => {
-              if (error) reject(error);
-              else resolve(result);
-            }
-          );
-          uploadStream.end(file.buffer);
-        });
-
-        if (uploadResult?.secure_url && uploadResult?.public_id) {
-          url = uploadResult.secure_url;
-          storageKey = uploadResult.public_id;
-        }
-      } catch (cloudErr) {
-        console.warn("Media Cloudinary upload failed, trying fallback...", cloudErr);
-      }
-    }
-
-    // 3. Fallback to local disk / serverless temp disk (/tmp/anvikshiki-uploads)
-    if (!url) {
-      try {
-        const filePath = path.join(UPLOADS_DIR, filename);
-        await fs.promises.writeFile(filePath, file.buffer);
-        const apiBase = process.env.API_BASE_URL || "";
-        url = `${apiBase}/api/uploads/${filename}`;
-        storageKey = filename;
-      } catch (diskErr) {
-        console.warn("Media disk write failed, trying Base64 fallback...", diskErr);
-      }
-    }
-
-    // 4. In-memory Base64 Data URI fallback for images up to 5MB
-    if (!url && isImage && file.size <= 5 * 1024 * 1024) {
-      url = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
-      storageKey = `inline-${filename}`;
-    }
-
-    if (!url) {
+    let stored;
+    try {
+      stored = await persistUploadedFile({
+        buffer: file.buffer,
+        filename,
+        mimeType: file.mimetype,
+        folder: context,
+      });
+    } catch (storageErr: any) {
       return res.status(500).json({
-        error: "Failed to store uploaded file across all storage providers.",
+        error: storageErr?.message || "Failed to store uploaded file across all storage providers.",
         code: "STORAGE_FAILED",
       });
     }
 
-    const [asset] = await db.insert(mediaAssetsTable).values({
-      url,
-      storageKey,
-      mimeType: file.mimetype,
-      extension,
-      sizeBytes: file.size,
-      context,
-    }).returning();
+    // The URL is what the article body will reference, so it must be returned
+    // even if the bookkeeping row cannot be written. Failing the whole upload
+    // because media_assets is unavailable discards a file already stored.
+    let asset: any = null;
+    try {
+      [asset] = await db.insert(mediaAssetsTable).values({
+        url: stored.url,
+        storageKey: stored.storageKey,
+        mimeType: file.mimetype,
+        extension,
+        sizeBytes: file.size,
+        context,
+      }).returning();
+    } catch (assetErr) {
+      req.log?.warn?.({ err: assetErr }, "Stored the upload but could not record the media asset");
+    }
 
     return res.status(201).json({
       success: true,
-      url,
-      mediaAsset: asset,
+      url: stored.url,
+      storageProvider: stored.provider,
+      mediaAsset: asset || { url: stored.url, storageKey: stored.storageKey },
     });
   } catch (err: any) {
     req.log?.error(err);
@@ -322,46 +265,15 @@ router.post("/media/extract-doc",
           if (buffer.length > MAX_IMAGE_BYTES) {
             throw new Error("An embedded document image exceeds the 10 MB image limit");
           }
-          const ext = MIME_TO_EXTENSIONS[contentType][0].slice(1);
-
-          // 1. If Vercel Blob configured
-          if (process.env.BLOB_READ_WRITE_TOKEN) {
-            const filename = `doc-import-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
-            const blob = await put(`anvikshiki/doc_imports/${filename}`, buffer, {
-              access: "public",
-              token: process.env.BLOB_READ_WRITE_TOKEN,
-            });
-            return { src: blob.url };
-          }
-
-          // 2. If Cloudinary configured
-          if (process.env.CLOUDINARY_URL) {
-            const uploadResult = await new Promise<any>((resolve, reject) => {
-              const stream = cloudinary.uploader.upload_stream(
-                { folder: "anvikshiki/doc_imports", resource_type: "image" },
-                (err: any, result: any) => (err ? reject(err) : resolve(result))
-              );
-              stream.end(buffer);
-            });
-            if (!uploadResult?.secure_url) {
-              throw new Error("Cloudinary did not return a secure image URL");
-            }
-            return { src: uploadResult.secure_url };
-          }
-
-          // 3. Fallback to local / serverless temp disk (/tmp/anvikshiki-uploads)
-          try {
-            const filename = `doc-import-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
-            const filePath = path.join(UPLOADS_DIR, filename);
-            await fs.promises.writeFile(filePath, buffer);
-            const apiBase = process.env.API_BASE_URL || "";
-            return { src: `${apiBase}/api/uploads/${filename}` };
-          } catch (diskErr) {
-            console.warn("Doc image disk save failed, using Data URI fallback...", diskErr);
-          }
-
-          // 4. Fallback to inline Base64 data URI
-          return { src: `data:${contentType};base64,${buffer.toString("base64")}` };
+          const ext = MIME_TO_EXTENSIONS[contentType][0];
+          const filename = `doc-import-${Date.now()}-${Math.random().toString(36).substring(2, 8)}${ext}`;
+          const stored = await persistUploadedFile({
+            buffer,
+            filename,
+            mimeType: contentType,
+            folder: "doc_imports",
+          });
+          return { src: stored.url };
         } catch (err) {
           // If individual image error occurs, fall back to inline base64 if possible
           try {

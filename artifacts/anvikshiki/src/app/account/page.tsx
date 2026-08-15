@@ -208,9 +208,13 @@ export default function AccountPage() {
     const canEdit = USER_EDITABLE_STATUSES.has(submission.status);
     const canDelete = USER_DELETABLE_STATUSES.has(submission.status);
     const isPublished = submission.status === "PUBLISHED";
-    const readUrl = submission.type === "PAPER" || submission.itemType === "PAPER"
-      ? `/papers/${submission.slug}`
-      : `/articles/${submission.slug}`;
+    const isPaper = submission.type === "PAPER" || submission.itemType === "PAPER";
+    const readUrl = isPaper ? `/papers/${submission.slug}` : `/articles/${submission.slug}`;
+    // The editor resolves papers and essays from different collections, so tell
+    // it which one to load first instead of letting it guess from the slug.
+    const editUrl = isPublished && submission.slug
+      ? `/account/edit/${submission.slug}${isPaper ? "?type=paper" : ""}`
+      : `/submit/write?draftId=${submission.id}`;
 
     return (
       <div key={submission.id} className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-4 flex flex-col">
@@ -240,7 +244,7 @@ export default function AccountPage() {
 
               {canEdit ? (
                 <Link
-                  href={isPublished && submission.slug ? `/account/edit/${submission.slug}` : `/submit/write?draftId=${submission.id}`}
+                  href={editUrl}
                   className="btn-ink px-2 py-1 text-[10px] text-[var(--gold)] hover:bg-[var(--gold)]/10"
                   title={isDraft ? "Resume writing" : "Edit article, images, title, and body text"}
                 >

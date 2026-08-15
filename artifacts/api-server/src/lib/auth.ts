@@ -100,24 +100,37 @@ export async function verifyAdminToken(token: string) {
   }
 }
 
+/**
+ * `Authorization: Bearer <token>` fallback. Cookies are the browser path, but
+ * scripts, mobile clients, and any request whose cookie was dropped by a
+ * cross-site policy have no other way to authenticate — without this they were
+ * silently treated as anonymous and got a 401 on every write.
+ */
+function getBearerToken(req: Request): string | null {
+  const header = req.get("authorization") || req.headers.authorization;
+  if (!header) return null;
+  const match = String(header).match(/^Bearer\s+(\S+)$/i);
+  return match ? match[1] : null;
+}
+
 export function getUserTokenFromRequest(req: Request): string | null {
   // cookie-parser puts cookies in req.cookies
   const fromCookies = (req as any).cookies?.user_session;
   if (fromCookies) return fromCookies;
   // fallback: manual header parse
   const cookie = req.headers.cookie;
-  if (!cookie) return null;
-  const match = cookie.match(/(?:^|;\s*)user_session=([^;]+)/);
-  return match ? decodeURIComponent(match[1]) : null;
+  const match = cookie?.match(/(?:^|;\s*)user_session=([^;]+)/);
+  if (match) return decodeURIComponent(match[1]);
+  return getBearerToken(req);
 }
 
 export function getAdminTokenFromRequest(req: Request): string | null {
   const fromCookies = (req as any).cookies?.admin_session;
   if (fromCookies) return fromCookies;
   const cookie = req.headers.cookie;
-  if (!cookie) return null;
-  const match = cookie.match(/(?:^|;\s*)admin_session=([^;]+)/);
-  return match ? decodeURIComponent(match[1]) : null;
+  const match = cookie?.match(/(?:^|;\s*)admin_session=([^;]+)/);
+  if (match) return decodeURIComponent(match[1]);
+  return getBearerToken(req);
 }
 
 export async function getUserAuth(req: Request) {
