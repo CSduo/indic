@@ -7,7 +7,7 @@ import path from "path";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { ensureDefaultCategories } from "./lib/publication-sync";
-import { UPLOADS_DIR } from "./routes/submissions";
+import { UPLOADS_DIR } from "./lib/storage";
 import healthRouter from "./routes/health";
 import { db, articlesTable, papersTable, ensureDatabaseSchema } from "@workspace/db";
 import { eq, and, or, ilike, isNull } from "drizzle-orm";

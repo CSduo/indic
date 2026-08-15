@@ -13,17 +13,13 @@ import { z } from "zod";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import path from "path";
-import fs from "fs";
 import { countUnresolvedArticleImages, sanitizeArticleBody, MAX_BODY_CHARS } from "../lib/content";
 import { hasExpectedFileSignature } from "../lib/file-validation";
-import { put } from "@vercel/blob";
+import { persistUploadedFile, UPLOADS_DIR } from "../lib/storage";
 
 import { sendSubmissionNotification } from "../lib/notifier";
 
 const router = Router();
-
-const UPLOADS_DIR = process.env.UPLOADS_DIR || "/tmp/anvikshiki-uploads";
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const storage = multer.memoryStorage();
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -35,62 +31,13 @@ async function saveFile(file: any, subFolder: string): Promise<string> {
     throw new Error("Uploaded file content does not match its extension");
   }
   const extension = path.extname(file.originalname).toLowerCase();
-  const filename = `${subFolder}-${crypto.randomUUID()}${extension}`;
-
-  // 1. If Vercel Blob is configured (highest priority)
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
-    try {
-      const blob = await put(`anvikshiki/${filename}`, file.buffer, {
-        access: "public",
-        token: process.env.BLOB_READ_WRITE_TOKEN,
-      });
-      if (blob?.url) return blob.url;
-    } catch (blobErr) {
-      console.warn("Vercel Blob upload failed, attempting fallback...", blobErr);
-    }
-  }
-
-  // 2. If Cloudinary is configured
-  if (process.env.CLOUDINARY_URL) {
-    try {
-      const isAudio = file.mimetype.startsWith("audio/") || [".webm", ".mp3", ".ogg", ".wav", ".m4a"].includes(extension);
-      const uploadResult = await new Promise<any>((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          {
-            folder: `anvikshiki/${subFolder}`,
-            resource_type: isAudio ? "video" : "auto",
-          },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        );
-        uploadStream.end(file.buffer);
-      });
-      if (uploadResult?.secure_url) {
-        return uploadResult.secure_url;
-      }
-    } catch (cloudErr) {
-      console.warn("Cloudinary upload failed, attempting fallback...", cloudErr);
-    }
-  }
-
-  // 3. Fallback to local / serverless disk (/tmp or UPLOADS_DIR)
-  try {
-    const filePath = path.join(UPLOADS_DIR, filename);
-    await fs.promises.writeFile(filePath, file.buffer);
-    const apiBase = process.env.API_BASE_URL || "";
-    return `${apiBase}/api/uploads/${filename}`;
-  } catch (diskErr) {
-    console.warn("Disk upload failed, attempting Base64 Data URI fallback...", diskErr);
-  }
-
-  // 4. In-memory Base64 Data URI fallback for images up to 5MB
-  if (file.mimetype.startsWith("image/") && file.size <= 5 * 1024 * 1024) {
-    return `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
-  }
-
-  throw new Error("Unable to store uploaded file across all storage providers.");
+  const stored = await persistUploadedFile({
+    buffer: file.buffer,
+    filename: `${subFolder}-${crypto.randomUUID()}${extension}`,
+    mimeType: file.mimetype,
+    folder: subFolder,
+  });
+  return stored.url;
 }
 
 

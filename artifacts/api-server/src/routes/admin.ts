@@ -647,28 +647,36 @@ router.delete("/admin/submissions/:id", requireAdmin, requireAdminRole("ADMIN", 
     if (!existing) return res.status(404).json({ error: "Submission not found" });
     if (existing.deletedAt) return res.status(409).json({ error: "Submission is already in Trash" });
 
-    const [linkedArticle] = await db.select({ id: articlesTable.id })
-      .from(articlesTable)
-      .where(and(eq(articlesTable.sourceSubmissionId, existing.id), isNull(articlesTable.deletedAt)))
-      .limit(1);
-    const [linkedPaper] = await db.select({ id: papersTable.id })
-      .from(papersTable)
-      .where(and(eq(papersTable.sourceSubmissionId, existing.id), isNull(papersTable.deletedAt)))
-      .limit(1);
-    if (linkedArticle || linkedPaper) {
-      return res.status(409).json({
-        error: "Move the linked public article or paper to Trash before deleting this submission",
-      });
-    }
-
     const now = new Date();
+
+    // Trashing a submission also trashes the public article or paper it was
+    // published as. Refusing the delete until an editor hunts down the linked
+    // record on another screen left the work on the live site, which is the
+    // opposite of what "delete" is asked to do. The author-side delete has
+    // always cascaded this way; the desk now matches it.
+    const [trashedArticle] = await db.update(articlesTable)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(and(eq(articlesTable.sourceSubmissionId, existing.id), isNull(articlesTable.deletedAt)))
+      .returning({ id: articlesTable.id, slug: articlesTable.slug });
+    const [trashedPaper] = await db.update(papersTable)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(and(eq(papersTable.sourceSubmissionId, existing.id), isNull(papersTable.deletedAt)))
+      .returning({ id: papersTable.id, slug: papersTable.slug });
+
     const [submission] = await db.update(submissionsTable)
       .set({ deletedAt: now, updatedAt: now })
       .where(and(eq(submissionsTable.id, req.params.id), isNull(submissionsTable.deletedAt)))
       .returning();
     if (!submission) return res.status(404).json({ error: "Submission not found" });
 
-    return res.json({ success: true, submission });
+    return res.json({
+      success: true,
+      submission,
+      alsoTrashed: {
+        article: trashedArticle?.slug || null,
+        paper: trashedPaper?.slug || null,
+      },
+    });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed" });
@@ -677,12 +685,32 @@ router.delete("/admin/submissions/:id", requireAdmin, requireAdminRole("ADMIN", 
 
 router.post("/admin/submissions/:id/restore", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
   try {
+    const now = new Date();
     const [submission] = await db.update(submissionsTable)
-      .set({ deletedAt: null, updatedAt: new Date() })
+      .set({ deletedAt: null, updatedAt: now })
       .where(and(eq(submissionsTable.id, req.params.id), isNotNull(submissionsTable.deletedAt)))
       .returning();
     if (!submission) return res.status(404).json({ error: "Submission not found in Trash" });
-    return res.json({ success: true, submission });
+
+    // Mirror the cascade on delete: a restored submission brings its public
+    // article or paper back with it, so a restore is not a half-restore.
+    const [restoredArticle] = await db.update(articlesTable)
+      .set({ deletedAt: null, updatedAt: now })
+      .where(and(eq(articlesTable.sourceSubmissionId, submission.id), isNotNull(articlesTable.deletedAt)))
+      .returning({ slug: articlesTable.slug });
+    const [restoredPaper] = await db.update(papersTable)
+      .set({ deletedAt: null, updatedAt: now })
+      .where(and(eq(papersTable.sourceSubmissionId, submission.id), isNotNull(papersTable.deletedAt)))
+      .returning({ slug: papersTable.slug });
+
+    return res.json({
+      success: true,
+      submission,
+      alsoRestored: {
+        article: restoredArticle?.slug || null,
+        paper: restoredPaper?.slug || null,
+      },
+    });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed" });
@@ -696,18 +724,29 @@ router.delete("/admin/submissions/:id/permanent", requireAdmin, requireAdminRole
     if (!existing) return res.status(404).json({ error: "Submission not found" });
     if (!existing.deletedAt) return res.status(409).json({ error: "Move the submission to Trash before permanently deleting it" });
 
-    const [linkedArticle] = await db.select({ id: articlesTable.id })
+    const [linkedArticle] = await db.select({ id: articlesTable.id, deletedAt: articlesTable.deletedAt })
       .from(articlesTable)
       .where(eq(articlesTable.sourceSubmissionId, req.params.id))
       .limit(1);
-    const [linkedPaper] = await db.select({ id: papersTable.id })
+    const [linkedPaper] = await db.select({ id: papersTable.id, deletedAt: papersTable.deletedAt })
       .from(papersTable)
       .where(eq(papersTable.sourceSubmissionId, req.params.id))
       .limit(1);
-    if (linkedArticle || linkedPaper) {
+
+    // Live public work is never erased as a side effect. Once the linked record
+    // is itself in Trash, erasing the submission takes it along — the foreign
+    // key would otherwise block the delete and strand the editor.
+    if ((linkedArticle && !linkedArticle.deletedAt) || (linkedPaper && !linkedPaper.deletedAt)) {
       return res.status(409).json({
-        error: "Permanently delete the linked article or paper first",
+        error: "Move the linked public article or paper to Trash before permanently deleting this submission",
       });
+    }
+
+    if (linkedArticle) {
+      await db.delete(articlesTable).where(eq(articlesTable.id, linkedArticle.id));
+    }
+    if (linkedPaper) {
+      await db.delete(papersTable).where(eq(papersTable.id, linkedPaper.id));
     }
 
     await db.delete(submissionsTable)
