@@ -130,35 +130,6 @@ function WisdomStrip() {
 }
 
 
-const INITIAL_RECENT_PUBLICATIONS: RecentPublication[] = [
-  {
-    id: "init-1",
-    kind: "article",
-    slug: "beyond-angkor-why-is-vietnam-frequently-excluded",
-    title: "Beyond Angkor: Why Is Vietnam Frequently Excluded from the History of Hindu Influence in Southeast Asia?",
-    summary: "Exploring Champa architecture, Sanskrit inscriptions, and the deep civilizational heritage of coastal Vietnam.",
-    imageUrl: "/images/provided/champa-temple.jpg",
-    categorySlug: "history",
-    categoryName: "History",
-    authorName: "Chaitanya",
-    publishedAt: "2026-08-04T00:00:00.000Z",
-    readingMinutes: 20,
-  },
-  {
-    id: "init-2",
-    kind: "article",
-    slug: "why-this-website-exists",
-    title: "Why This Website Exists",
-    summary: "An introduction to Anvikshiki and the vision of open civilizational scholarship.",
-    imageUrl: "/images/provided/about-hero.jpg",
-    categorySlug: "psychology",
-    categoryName: "Psychology",
-    authorName: "Xiyato Saanvi",
-    publishedAt: "2026-07-07T00:00:00.000Z",
-    readingMinutes: 1,
-  },
-];
-
 export default function HomePage() {
   const [recentPage, setRecentPage] = useState(1);
   const recentTrackRef = useRef<HTMLDivElement>(null);
@@ -176,7 +147,7 @@ export default function HomePage() {
     placeholderData: { articles: [] },
   });
 
-  const { data: articlesData } = useQuery({
+  const { data: articlesData, isLoading: isLoadingArticles } = useQuery({
     queryKey: ["home-articles"],
     queryFn: () =>
       fetch(`${base}/api/articles?limit=24`, { credentials: "include" })
@@ -185,7 +156,7 @@ export default function HomePage() {
     placeholderData: { articles: [], total: 0 },
   });
 
-  const { data: papersData } = useQuery({
+  const { data: papersData, isLoading: isLoadingPapers } = useQuery({
     queryKey: ["home-papers"],
     queryFn: () =>
       fetch(`${base}/api/papers?limit=24`, { credentials: "include" })
@@ -259,7 +230,7 @@ export default function HomePage() {
         return b.id.localeCompare(a.id);
       })
       .slice(0, 24);
-    return merged.length > 0 ? merged : INITIAL_RECENT_PUBLICATIONS;
+    return merged;
   })();
 
   const recentPublications = mergedPublications;
@@ -324,23 +295,38 @@ export default function HomePage() {
       </section>
 
       {/* ─── RECENTLY UPLOADED ─── */}
-      {recentPublications.length > 0 && (() => {
-        const RECENT_PER_PAGE = 6;
-        const totalRecentPages = Math.max(1, Math.ceil(recentPublications.length / RECENT_PER_PAGE));
-        const paginatedRecent = recentPublications.slice((recentPage - 1) * RECENT_PER_PAGE, recentPage * RECENT_PER_PAGE);
+      <section className="home-v3-section py-12">
+        <div className="container-anv">
+          <div className="flex flex-col items-center justify-center text-center mb-10">
+            <h2 className="text-center text-3xl md:text-5xl font-extrabold uppercase tracking-[0.18em] text-[var(--ink)]">
+              Recently Submitted
+            </h2>
+            <div className="w-24 h-1 bg-[var(--gold)] my-4 rounded-full" />
+            <Link href="/archive" className="home-v3-view-all text-sm uppercase tracking-widest font-bold mt-1 text-[var(--ink)] hover:text-[var(--gold)]">
+              View All Archives <ArrowRight size={14} />
+            </Link>
+          </div>
 
-        return (
-          <section className="home-v3-section py-12">
-            <div className="container-anv">
-              <div className="flex flex-col items-center justify-center text-center mb-10">
-                <h2 className="text-center text-3xl md:text-5xl font-extrabold uppercase tracking-[0.18em] text-[var(--ink)]">
-                  Recently Submitted
-                </h2>
-                <div className="w-24 h-1 bg-[var(--gold)] my-4 rounded-full" />
-                <Link href="/archive" className="home-v3-view-all text-sm uppercase tracking-widest font-bold mt-1 text-[var(--ink)] hover:text-[var(--gold)]">
-                  View All Archives <ArrowRight size={14} />
-                </Link>
-              </div>
+          {isLoadingArticles && recentPublications.length === 0 ? (
+            <div className="flex flex-col gap-10">
+              {[1, 2].map((k) => (
+                <div key={k} className="article-card-enhanced relative w-full rounded-3xl overflow-hidden border border-[var(--border)]" style={{ backgroundColor: 'var(--surface-card)' }}>
+                  <div className="w-full h-[300px] md:h-[400px] bg-white/[0.03] animate-pulse" />
+                  <div className="p-6 md:p-8 space-y-4">
+                    <div className="h-8 bg-white/10 rounded-lg w-2/3 animate-pulse" />
+                    <div className="h-4 bg-white/5 rounded w-full animate-pulse" />
+                    <div className="h-4 bg-white/5 rounded w-1/2 animate-pulse" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : recentPublications.length > 0 ? (() => {
+            const RECENT_PER_PAGE = 6;
+            const totalRecentPages = Math.max(1, Math.ceil(recentPublications.length / RECENT_PER_PAGE));
+            const paginatedRecent = recentPublications.slice((recentPage - 1) * RECENT_PER_PAGE, recentPage * RECENT_PER_PAGE);
+
+            return (
+              <>
 
               <div className="flex flex-col gap-10">
                 {paginatedRecent.map((publication) => {
@@ -422,10 +408,11 @@ export default function HomePage() {
                   </button>
                 </div>
               )}
-            </div>
-          </section>
-        );
-      })()}
+            </>
+          );
+        })() : null}
+      </div>
+    </section>
 
       {/* ─── FEATURED ESSAYS (API data only) ─── */}
       {realEssays && (

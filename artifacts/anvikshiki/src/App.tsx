@@ -74,6 +74,29 @@ const queryClient = new QueryClient({
   },
 });
 
+const appBase = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+// Eagerly prefetch homepage data on script load so articles are ready before render
+try {
+  queryClient.prefetchQuery({
+    queryKey: ["home-articles"],
+    queryFn: () => fetch(`${appBase}/api/articles?limit=24`, { credentials: "include" }).then(r => r.json()),
+    staleTime: 1000 * 60 * 10,
+  });
+  queryClient.prefetchQuery({
+    queryKey: ["home-featured"],
+    queryFn: () => fetch(`${appBase}/api/articles?featured=true&limit=4`, { credentials: "include" }).then(r => r.json()),
+    staleTime: 1000 * 60 * 10,
+  });
+  queryClient.prefetchQuery({
+    queryKey: ["home-papers"],
+    queryFn: () => fetch(`${appBase}/api/papers?limit=24`, { credentials: "include" }).then(r => r.json()),
+    staleTime: 1000 * 60 * 10,
+  });
+} catch {
+  // Ignore prefetch failures
+}
+
 // ── Stable shell wrappers ──────────────────────────────────────────────────
 // CRITICAL: these must be defined OUTSIDE the Router function as named
 // components. If they're inline arrow functions inside Route's `component`

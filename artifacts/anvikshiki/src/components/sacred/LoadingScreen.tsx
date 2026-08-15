@@ -10,23 +10,31 @@ const WISDOM_QUOTES = [
 export function LoadingScreen({ onDone }: { onDone?: () => void }) {
   const [pct, setPct] = useState(0);
   const [fade, setFade] = useState(false);
-  const [quoteIdx, setQuoteIdx] = useState(0);
+  const [quoteIdx] = useState(() => Math.floor(Math.random() * WISDOM_QUOTES.length));
 
   useEffect(() => {
-    setQuoteIdx(Math.floor(Math.random() * WISDOM_QUOTES.length));
-    const steps = [15, 35, 60, 82, 100];
-    let i = 0;
-    const tick = () => {
-      if (i < steps.length) {
-        setPct(steps[i++]);
-        setTimeout(tick, i === steps.length ? 150 : 250 + Math.random() * 150);
+    // Snappy, elegant 380ms progress curve
+    const startTime = performance.now();
+    const duration = 380;
+
+    let animFrame: number;
+    const updateProgress = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(1, elapsed / duration);
+      // Ease-out cubic curve
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setPct(Math.round(eased * 100));
+
+      if (progress < 1) {
+        animFrame = requestAnimationFrame(updateProgress);
       } else {
         setFade(true);
-        setTimeout(() => onDone?.(), 550);
+        setTimeout(() => onDone?.(), 300);
       }
     };
-    const timer = setTimeout(tick, 200);
-    return () => clearTimeout(timer);
+
+    animFrame = requestAnimationFrame(updateProgress);
+    return () => cancelAnimationFrame(animFrame);
   }, [onDone]);
 
   const currentQuote = WISDOM_QUOTES[quoteIdx];
@@ -46,7 +54,7 @@ export function LoadingScreen({ onDone }: { onDone?: () => void }) {
         justifyContent: "center",
         background: "#000000",
         color: "#FFFFFF",
-        transition: "opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1)",
+        transition: "opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1)",
         opacity: fade ? 0 : 1,
         pointerEvents: fade ? "none" : "auto",
         padding: "2rem",
@@ -98,60 +106,77 @@ export function LoadingScreen({ onDone }: { onDone?: () => void }) {
               fontWeight: 600,
             }}
           >
-            Journal &amp; Research Platform
+            A Journal of Indic Ideas
           </span>
           <span style={{ width: 20, height: 1, background: "#C84A10", opacity: 0.8 }} />
         </div>
 
-        {/* Glowing Progress Bar */}
-        <div style={{ width: "100%", maxWidth: "240px", margin: "0 auto 1.5rem" }}>
-          <div
+        {/* Dynamic Sanskrit quote */}
+        <div style={{ minHeight: "48px", marginBottom: "2rem" }}>
+          <p
+            className="font-display"
             style={{
-              height: "2px",
-              background: "#1F1F1F",
-              borderRadius: "4px",
-              overflow: "hidden",
-              position: "relative",
+              fontSize: "1.05rem",
+              color: "#E5E5E5",
+              letterSpacing: "0.08em",
+              marginBottom: "0.2rem",
+              fontStyle: "italic",
             }}
           >
-            <div
-              style={{
-                height: "100%",
-                background: "linear-gradient(90deg, #C84A10, #E06020)",
-                width: `${pct}%`,
-                transition: "width 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
-                boxShadow: "0 0 12px rgba(200, 74, 16, 0.8)",
-                borderRadius: "4px",
-              }}
-            />
-          </div>
+            "{currentQuote.text}"
+          </p>
+          <p
+            className="font-ui"
+            style={{
+              fontSize: "0.65rem",
+              letterSpacing: "0.15em",
+              textTransform: "uppercase",
+              color: "#C84A10",
+              opacity: 0.85,
+            }}
+          >
+            {currentQuote.sub}
+          </p>
         </div>
 
-        {/* Quote & Progress text */}
-        <p
-          className="font-body"
+        {/* Progress bar container */}
+        <div
           style={{
-            fontSize: "0.82rem",
-            color: "#D4D4D4",
-            fontStyle: "italic",
-            marginBottom: "0.25rem",
+            width: "100%",
+            maxWidth: "240px",
+            margin: "0 auto 0.75rem",
+            height: "2px",
+            background: "rgba(255, 255, 255, 0.08)",
+            borderRadius: "2px",
+            overflow: "hidden",
+            position: "relative",
           }}
         >
-          "{currentQuote.sub}"
-        </p>
-        <p
+          <div
+            style={{
+              height: "100%",
+              width: `${pct}%`,
+              background: "linear-gradient(90deg, #C84A10, #E07A5F, #FFB703)",
+              transition: "width 0.05s linear",
+              borderRadius: "2px",
+              boxShadow: "0 0 8px rgba(200, 74, 16, 0.6)",
+            }}
+          />
+        </div>
+
+        {/* Progress percentage counter */}
+        <div
           className="font-ui"
           style={{
-            fontSize: "0.6rem",
+            fontSize: "0.62rem",
             letterSpacing: "0.2em",
-            textTransform: "uppercase",
-            color: "#737373",
+            color: "#525252",
+            fontVariantNumeric: "tabular-nums",
           }}
         >
-          {currentQuote.text} · {pct}%
-        </p>
+          {pct}%
+        </div>
       </div>
     </div>
   );
 }
-

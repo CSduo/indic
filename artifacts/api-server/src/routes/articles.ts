@@ -27,11 +27,10 @@ router.get("/sync-live-publications", async (req, res) => {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
-});// GET /api/articles
+});
+// GET /api/articles
 router.get("/articles", async (req, res) => {
   try {
-    await ensureLiveSubmissionsPublished();
-
     const { category, featured, q, limit: lim, offset: off } = req.query;
     const { limit, offset } = parsePagination(lim, off);
 
@@ -55,50 +54,66 @@ router.get("/articles", async (req, res) => {
 
     const includeBody = req.query.includeBody === "true";
 
-    const articles = await db
-      .select({
-        id: articlesTable.id,
-        slug: articlesTable.slug,
-        title: articlesTable.title,
-        subtitle: articlesTable.subtitle,
-        excerpt: articlesTable.excerpt,
-        body: articlesTable.body,
-        heroImageUrl: articlesTable.heroImageUrl,
-        categorySlug: articlesTable.categorySlug,
-        authorName: articlesTable.authorName,
-        featured: articlesTable.featured,
-        status: articlesTable.status,
-        readingMinutes: articlesTable.readingMinutes,
-        publishedAt: articlesTable.publishedAt,
-        updatedAt: articlesTable.updatedAt,
-        category: categoriesTable,
-      })
-      .from(articlesTable)
-      .leftJoin(categoriesTable, eq(articlesTable.categorySlug, categoriesTable.slug))
-      .where(and(...conditions))
-      .orderBy(desc(articlesTable.publishedAt), desc(articlesTable.id))
-      .limit(limit).offset(offset);
+    const selectFields: Record<string, any> = {
+      id: articlesTable.id,
+      slug: articlesTable.slug,
+      title: articlesTable.title,
+      subtitle: articlesTable.subtitle,
+      excerpt: articlesTable.excerpt,
+      heroImageUrl: articlesTable.heroImageUrl,
+      categorySlug: articlesTable.categorySlug,
+      authorName: articlesTable.authorName,
+      featured: articlesTable.featured,
+      status: articlesTable.status,
+      readingMinutes: articlesTable.readingMinutes,
+      publishedAt: articlesTable.publishedAt,
+      updatedAt: articlesTable.updatedAt,
+      category: categoriesTable,
+    };
+    if (includeBody) {
+      selectFields.body = articlesTable.body;
+    }
 
-    const [{ count }] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(articlesTable)
-      .where(and(...conditions));
+    const [articles, [{ count }]] = await Promise.all([
+      db
+        .select(selectFields)
+        .from(articlesTable)
+        .leftJoin(categoriesTable, eq(articlesTable.categorySlug, categoriesTable.slug))
+        .where(and(...conditions))
+        .orderBy(desc(articlesTable.publishedAt), desc(articlesTable.id))
+        .limit(limit).offset(offset),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(articlesTable)
+        .where(and(...conditions)),
+    ]);
 
-    const result = articles.map(r => {
-      const rawText = (r.body || r.excerpt || "")
-        .replace(/<script[^>]*>([\S\s]*?)<\/script>/gim, "")
-        .replace(/<style[^>]*>([\S\s]*?)<\/style>/gim, "")
-        .replace(/<[^>]+>/g, " ")
-        .replace(/&nbsp;/gi, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-      const words = rawText ? rawText.split(/\s+/).filter(Boolean).length : 0;
-      const blockLines = (r.body || r.excerpt || "")
-        .split(/\r?\n|<br\s*\/?>|<\/p>|<\/div>|<\/li>/i)
-        .map(l => l.replace(/<[^>]*>/g, "").trim())
-        .filter(Boolean);
-      const lines = Math.max(blockLines.length, words > 0 ? Math.ceil(words / 13) : 0);
-      const calcMinutes = words > 0 ? (words < 100 ? 1 : Math.max(1, Math.ceil(words / 200))) : (r.readingMinutes || 1);
+    const result = articles.map((r: any) => {
+      let words = 0;
+      let lines = 0;
+      let calcMinutes = r.readingMinutes || 1;
+
+      if (includeBody && r.body) {
+        const rawText = (r.body || r.excerpt || "")
+          .replace(/<script[^>]*>([\S\s]*?)<\/script>/gim, "")
+          .replace(/<style[^>]*>([\S\s]*?)<\/style>/gim, "")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/&nbsp;/gi, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        words = rawText ? rawText.split(/\s+/).filter(Boolean).length : 0;
+        const blockLines = (r.body || r.excerpt || "")
+          .split(/\r?\n|<br\s*\/?>|<\/p>|<\/div>|<\/li>/i)
+          .map((l: string) => l.replace(/<[^>]*>/g, "").trim())
+          .filter(Boolean);
+        lines = Math.max(blockLines.length, words > 0 ? Math.ceil(words / 13) : 0);
+        calcMinutes = words > 0 ? (words < 100 ? 1 : Math.max(1, Math.ceil(words / 200))) : (r.readingMinutes || 1);
+      } else {
+        const rawExcerpt = (r.excerpt || "").trim();
+        const excerptWords = rawExcerpt ? rawExcerpt.split(/\s+/).filter(Boolean).length : 0;
+        words = (r.readingMinutes ? r.readingMinutes * 180 : 0) || excerptWords || 0;
+        lines = Math.max(1, Math.ceil(words / 13));
+      }
 
       const art: any = {
         id: r.id,
@@ -125,7 +140,7 @@ router.get("/articles", async (req, res) => {
       return art;
     });
 
-    res.setHeader("Cache-Control", "public, max-age=30, s-maxage=120, stale-while-revalidate=600");
+    res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
     return res.json({ articles: result, total: Number(count), limit, offset });
   } catch (err: any) {
     console.error("GET /api/articles ERROR:", err);
