@@ -130,20 +130,27 @@ function WisdomStrip() {
 }
 
 
+/** How long the front page may reuse a cached listing before refetching. */
+const HOME_STALE_TIME = 1000 * 60;
+
 export default function HomePage() {
   const [recentPage, setRecentPage] = useState(1);
   const recentTrackRef = useRef<HTMLDivElement>(null);
 
   // ── Cached data fetching via React Query ─────────────────────────────────
-  // Data is served instantly from cache on repeat visits (10 min staleTime set
-  // globally in App.tsx). Only the very first visit triggers a network request.
+  // Data is served from cache on repeat visits within HOME_STALE_TIME, so
+  // navigating back here does not re-fetch.
 
+  // The home page is where a newly published work is expected to show up, so
+  // its listings are held for a minute rather than ten. Navigating away and
+  // back is still instant; a piece published a moment ago is no longer missing
+  // from the front page for the rest of the editor's session.
   const { data: featuredData } = useQuery({
     queryKey: ["home-featured"],
     queryFn: () =>
       fetch(`${base}/api/articles?featured=true&limit=4`, { credentials: "include" })
         .then(r => r.json()),
-    staleTime: 1000 * 60 * 10,
+    staleTime: HOME_STALE_TIME,
     placeholderData: { articles: [] },
   });
 
@@ -152,7 +159,7 @@ export default function HomePage() {
     queryFn: () =>
       fetch(`${base}/api/articles?limit=24`, { credentials: "include" })
         .then(r => r.json()),
-    staleTime: 1000 * 60 * 10,
+    staleTime: HOME_STALE_TIME,
     placeholderData: { articles: [], total: 0 },
   });
 
@@ -161,7 +168,7 @@ export default function HomePage() {
     queryFn: () =>
       fetch(`${base}/api/papers?limit=24`, { credentials: "include" })
         .then(r => r.json()),
-    staleTime: 1000 * 60 * 10,
+    staleTime: HOME_STALE_TIME,
     placeholderData: { papers: [], total: 0 },
   });
 

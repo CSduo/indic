@@ -77,21 +77,26 @@ const queryClient = new QueryClient({
 const appBase = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 // Eagerly prefetch homepage data on script load so articles are ready before render
+// Must match HOME_STALE_TIME in app/page.tsx. If the prefetch seeds the cache
+// with a longer lifetime, the home page reuses that entry and a work published
+// moments ago stays missing from the front page.
+const HOME_PREFETCH_STALE_TIME = 1000 * 60;
+
 try {
   queryClient.prefetchQuery({
     queryKey: ["home-articles"],
     queryFn: () => fetch(`${appBase}/api/articles?limit=24`, { credentials: "include" }).then(r => r.json()),
-    staleTime: 1000 * 60 * 10,
+    staleTime: HOME_PREFETCH_STALE_TIME,
   });
   queryClient.prefetchQuery({
     queryKey: ["home-featured"],
     queryFn: () => fetch(`${appBase}/api/articles?featured=true&limit=4`, { credentials: "include" }).then(r => r.json()),
-    staleTime: 1000 * 60 * 10,
+    staleTime: HOME_PREFETCH_STALE_TIME,
   });
   queryClient.prefetchQuery({
     queryKey: ["home-papers"],
     queryFn: () => fetch(`${appBase}/api/papers?limit=24`, { credentials: "include" }).then(r => r.json()),
-    staleTime: 1000 * 60 * 10,
+    staleTime: HOME_PREFETCH_STALE_TIME,
   });
 } catch {
   // Ignore prefetch failures
@@ -234,6 +239,24 @@ function Router() {
       </Switch>
     </>
   );
+}
+
+/**
+ * Publishing, editing, and deleting all announce themselves with an
+ * "anv:content-changed" event. Listening for it here — on the query client
+ * rather than inside one page — means the cached listings are dropped no
+ * matter which screen the editor is on.
+ *
+ * Previously only the home page listened, and only while it was mounted. An
+ * editor publishing from the admin desk was by definition not on the home
+ * page, so nothing invalidated the cache; navigating to the front page then
+ * reused the listing fetched before the publish, and the new work appeared to
+ * be missing from the site.
+ */
+if (typeof window !== "undefined") {
+  window.addEventListener("anv:content-changed", () => {
+    void queryClient.invalidateQueries();
+  });
 }
 
 function App() {

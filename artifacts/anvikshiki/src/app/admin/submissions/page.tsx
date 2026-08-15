@@ -195,6 +195,10 @@ export default function AdminSubmissionsPage() {
         setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status, editorNotes } : s));
         setSelected((prev: any) => prev?.id === id ? { ...prev, status, editorNotes } : prev);
         load();
+        // Publishing changes what the public site should show. Without this the
+        // home page kept serving its cached listing and the newly published
+        // work did not appear until that cache expired.
+        window.dispatchEvent(new Event("anv:content-changed"));
       } else {
         const errData = await r.json().catch(() => ({}));
         // A failed publish carries the underlying cause in `reason`. Showing

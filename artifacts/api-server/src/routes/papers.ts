@@ -5,7 +5,7 @@ import { eq, and, desc, ilike, inArray, or, sql, isNull } from "drizzle-orm";
 import { categorySlugCandidates, normalizeCategorySlug, syncSubmissionFromPublication } from "../lib/publication-sync";
 import { ownsAuthoredWork, resolveViewer } from "../lib/viewer";
 import { countUnresolvedArticleImages, sanitizeArticleBody, MAX_BODY_CHARS } from "../lib/content";
-import { parsePagination, toLikePattern } from "../lib/request";
+import { parsePagination, toLikePattern, PUBLIC_CONTENT_CACHE_CONTROL } from "../lib/request";
 import { z } from "zod";
 
 const router = Router();
@@ -108,7 +108,7 @@ router.get("/papers", async (req, res) => {
       };
     });
 
-    res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
+    res.setHeader("Cache-Control", PUBLIC_CONTENT_CACHE_CONTROL);
     return res.json({ papers: result, total: Number(count), limit, offset });
   } catch (err) {
     req.log.error(err);

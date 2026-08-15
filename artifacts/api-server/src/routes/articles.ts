@@ -7,7 +7,7 @@ import { ownsAuthoredWork, resolveViewer } from "../lib/viewer";
 import { countUnresolvedArticleImages, sanitizeArticleBody, MAX_BODY_CHARS } from "../lib/content";
 import { recoverLegacyInlineImages } from "../lib/legacy-content";
 import { z } from "zod";
-import { parsePagination, toLikePattern } from "../lib/request";
+import { parsePagination, toLikePattern, PUBLIC_CONTENT_CACHE_CONTROL } from "../lib/request";
 
 const router = Router();
 
@@ -116,7 +116,7 @@ router.get("/articles", async (req, res) => {
       return art;
     });
 
-    res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
+    res.setHeader("Cache-Control", PUBLIC_CONTENT_CACHE_CONTROL);
     return res.json({ articles: result, total: Number(count), limit, offset });
   } catch (err: any) {
     console.error("GET /api/articles ERROR:", err);
