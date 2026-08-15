@@ -37,45 +37,58 @@ async function saveFile(file: any, subFolder: string): Promise<string> {
 
   // 1. If Vercel Blob is configured (highest priority)
   if (process.env.BLOB_READ_WRITE_TOKEN) {
-    const blob = await put(`anvikshiki/${filename}`, file.buffer, {
-      access: "public",
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-    });
-    return blob.url;
+    try {
+      const blob = await put(`anvikshiki/${filename}`, file.buffer, {
+        access: "public",
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+      });
+      if (blob?.url) return blob.url;
+    } catch (blobErr) {
+      console.warn("Vercel Blob upload failed, attempting fallback...", blobErr);
+    }
   }
 
   // 2. If Cloudinary is configured
   if (process.env.CLOUDINARY_URL) {
-    const isAudio = file.mimetype.startsWith("audio/") || [".webm", ".mp3", ".ogg", ".wav", ".m4a"].includes(extension);
-    const uploadResult = await new Promise<any>((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          folder: `anvikshiki/${subFolder}`,
-          resource_type: isAudio ? "video" : "auto",
-        },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
-      );
-      uploadStream.end(file.buffer);
-    });
-    if (!uploadResult?.secure_url) {
-      throw new Error("STORAGE_UPLOAD_FAILED");
+    try {
+      const isAudio = file.mimetype.startsWith("audio/") || [".webm", ".mp3", ".ogg", ".wav", ".m4a"].includes(extension);
+      const uploadResult = await new Promise<any>((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: `anvikshiki/${subFolder}`,
+            resource_type: isAudio ? "video" : "auto",
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        uploadStream.end(file.buffer);
+      });
+      if (uploadResult?.secure_url) {
+        return uploadResult.secure_url;
+      }
+    } catch (cloudErr) {
+      console.warn("Cloudinary upload failed, attempting fallback...", cloudErr);
     }
-    return uploadResult.secure_url;
   }
 
-  // 3. Fallback to local disk ONLY in development/local test environment
-  if (process.env.NODE_ENV === "development" || process.env.VITEST) {
+  // 3. Fallback to local / serverless disk (/tmp or UPLOADS_DIR)
+  try {
     const filePath = path.join(UPLOADS_DIR, filename);
     await fs.promises.writeFile(filePath, file.buffer);
     const apiBase = process.env.API_BASE_URL || "";
     return `${apiBase}/api/uploads/${filename}`;
+  } catch (diskErr) {
+    console.warn("Disk upload failed, attempting Base64 Data URI fallback...", diskErr);
   }
 
-  // Error out if running in production without cloud storage configured
-  throw new Error("BLOB_STORAGE_MISSING");
+  // 4. In-memory Base64 Data URI fallback for images up to 5MB
+  if (file.mimetype.startsWith("image/") && file.size <= 5 * 1024 * 1024) {
+    return `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
+  }
+
+  throw new Error("Unable to store uploaded file across all storage providers.");
 }
 
 

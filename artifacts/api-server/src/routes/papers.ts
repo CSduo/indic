@@ -5,6 +5,7 @@ import { eq, and, desc, ilike, inArray, or, sql, isNull } from "drizzle-orm";
 import { categorySlugCandidates } from "../lib/publication-sync";
 import { sanitizeArticleBody } from "../lib/content";
 import { parsePagination, toLikePattern } from "../lib/request";
+import { z } from "zod";
 
 const router = Router();
 
@@ -159,6 +160,91 @@ router.get("/papers/:slug", async (req, res) => {
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed" });
+  }
+});
+
+// PATCH /api/papers/:slug/edit
+router.patch("/papers/:slug/edit", async (req, res) => {
+  try {
+    const { getUserAuth } = await import("../lib/auth");
+    const auth = await getUserAuth(req);
+    if (!auth) return res.status(401).json({ error: "You must be logged in to edit" });
+
+    const { slug } = req.params;
+    const [row] = await db
+      .select({
+        paper: {
+          id: papersTable.id,
+          slug: papersTable.slug,
+          authorName: papersTable.authorName,
+        },
+      })
+      .from(papersTable)
+      .where(and(eq(papersTable.slug, slug), eq(papersTable.status, "PUBLISHED"), isNull(papersTable.deletedAt)))
+      .limit(1);
+
+    if (!row) return res.status(404).json({ error: "Paper not found" });
+
+    const parsed = z.object({
+      title: z.string().trim().min(1).max(500).optional(),
+      authorName: z.string().trim().min(1).max(160).optional(),
+      categorySlug: z.string().trim().min(1).max(100).optional(),
+      abstract: z.string().max(10_000).optional(),
+      body: z.string().max(500_000).optional(),
+      coverImageUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
+      pdfUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
+      citationText: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
+    }).safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
+    }
+
+    const { title, authorName, categorySlug, abstract, body, coverImageUrl, pdfUrl, citationText } = parsed.data;
+    const updates: Record<string, any> = { updatedAt: new Date() };
+    if (typeof title === "string" && title.trim()) updates.title = title.trim();
+    if (typeof authorName === "string" && authorName.trim()) updates.authorName = authorName.trim();
+    if (typeof categorySlug === "string" && categorySlug.trim()) updates.categorySlug = categorySlug.trim();
+    if (typeof abstract === "string") updates.abstract = abstract.trim();
+    if (typeof citationText === "string") updates.citationText = citationText.trim();
+    if (pdfUrl !== undefined) updates.pdfUrl = pdfUrl || null;
+    if (coverImageUrl !== undefined) updates.coverImageUrl = coverImageUrl || null;
+    if (body !== undefined) {
+      const sanitized = sanitizeArticleBody(body);
+      updates.body = sanitized;
+      const rawText = sanitized.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      const words = rawText ? rawText.split(/\s+/).filter(Boolean).length : 0;
+      updates.readingMinutes = words > 0 ? (words < 100 ? 1 : Math.max(1, Math.ceil(words / 200))) : 1;
+    }
+
+    const [updated] = await db
+      .update(papersTable)
+      .set(updates)
+      .where(and(eq(papersTable.slug, slug), isNull(papersTable.deletedAt)))
+      .returning({
+        id: papersTable.id,
+        slug: papersTable.slug,
+        title: papersTable.title,
+        abstract: papersTable.abstract,
+        body: papersTable.body,
+        coverImageUrl: papersTable.coverImageUrl,
+        categorySlug: papersTable.categorySlug,
+        authorName: papersTable.authorName,
+        peerReviewed: papersTable.peerReviewed,
+        readingMinutes: papersTable.readingMinutes,
+        pdfUrl: papersTable.pdfUrl,
+        citationText: papersTable.citationText,
+        status: papersTable.status,
+        publishedAt: papersTable.publishedAt,
+        updatedAt: papersTable.updatedAt,
+      });
+
+    return res.json({
+      success: true,
+      paper: { ...updated, body: sanitizeArticleBody(updated.body) },
+    });
+  } catch (err: any) {
+    console.error("PATCH /api/papers/:slug/edit ERROR:", err);
+    return res.status(500).json({ error: err.message || "Failed to update paper" });
   }
 });
 

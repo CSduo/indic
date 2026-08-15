@@ -276,7 +276,13 @@ router.patch("/articles/:slug/edit", async (req, res) => {
     if (typeof authorName === "string" && authorName.trim()) updates.authorName = authorName.trim();
     if (typeof categorySlug === "string" && categorySlug.trim()) updates.categorySlug = categorySlug.trim();
     if (typeof excerpt === "string") updates.excerpt = excerpt.trim();
-    if (body !== undefined) updates.body = sanitizeArticleBody(body);
+    if (body !== undefined) {
+      const sanitized = sanitizeArticleBody(body);
+      updates.body = sanitized;
+      const rawText = sanitized.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      const words = rawText ? rawText.split(/\s+/).filter(Boolean).length : 0;
+      updates.readingMinutes = words > 0 ? (words < 100 ? 1 : Math.max(1, Math.ceil(words / 200))) : 1;
+    }
     if (heroImageUrl !== undefined) updates.heroImageUrl = heroImageUrl || null;
 
     const [updated] = await db

@@ -570,95 +570,105 @@ export default function SubmitUploadPage() {
         isCloudinary = health?.environment?.storageProvider === "cloudinary";
       }
 
+      let uploadSucceeded = false;
+
       if (isCloudinary) {
-        const uploadToCloudinary = async (file: File, folder: string, resourceType: string) => {
-          const sigRes = await fetch(`${base()}/api/uploads/cloudinary-signature`, {
+        try {
+          const uploadToCloudinary = async (file: File, folder: string, resourceType: string) => {
+            const sigRes = await fetch(`${base()}/api/uploads/cloudinary-signature`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ folder }),
+            });
+            if (!sigRes.ok) {
+              const errData = await sigRes.json();
+              throw new Error(errData.error || "Failed to generate upload signature");
+            }
+            const sigData = await sigRes.json();
+
+            const cloudData = new FormData();
+            cloudData.append("file", file);
+            cloudData.append("api_key", sigData.apiKey);
+            cloudData.append("timestamp", String(sigData.timestamp));
+            cloudData.append("signature", sigData.signature);
+            cloudData.append("folder", sigData.folder);
+
+            const uploadUrl = `https://api.cloudinary.com/v1_1/${sigData.cloudName}/${resourceType}/upload`;
+            const uploadRes = await fetch(uploadUrl, {
+              method: "POST",
+              body: cloudData,
+            });
+
+            if (!uploadRes.ok) {
+              const errText = await uploadRes.text();
+              console.error("Cloudinary upload failure response:", errText);
+              throw new Error("Failed to upload file to Cloudinary cloud storage.");
+            }
+
+            const resData = await uploadRes.json();
+            if (typeof resData.secure_url !== "string" || !resData.secure_url || typeof resData.public_id !== "string" || !resData.public_id) {
+              throw new Error("Cloudinary did not return a secure file URL");
+            }
+            return {
+              secureUrl: resData.secure_url,
+              publicId: resData.public_id,
+              resourceType: resData.resource_type || resourceType,
+            };
+          };
+
+          setProgress(30);
+          const manuscriptResult = await uploadToCloudinary(mainFile, "submissions/manuscripts", "auto");
+
+          let coverImageUrl = null;
+          let coverImagePublicId = null;
+          let coverImageResourceType = null;
+
+          if (imgFile) {
+            setProgress(50);
+            const coverResult = await uploadToCloudinary(imgFile, "submissions/covers", "image");
+            coverImageUrl = coverResult.secureUrl;
+            coverImagePublicId = coverResult.publicId;
+            coverImageResourceType = coverResult.resourceType;
+          }
+
+          setProgress(85);
+          const payload = {
+            submitterName: details.fullName || details.name || "",
+            submitterEmail: details.email || "",
+            title: details.title || "",
+            abstract: details.abstract || "See attached manuscript.",
+            type,
+            consent: true,
+            domain: details.domain,
+            keywords: details.keywords,
+            notes: details.notes,
+            manuscriptUrl: manuscriptResult.secureUrl,
+            manuscriptPublicId: manuscriptResult.publicId,
+            manuscriptResourceType: manuscriptResult.resourceType,
+            coverUrl: coverImageUrl,
+            coverPublicId: coverImagePublicId,
+            coverResourceType: coverImageResourceType,
+          };
+
+          const response = await fetch(`${base()}/api/submissions/upload`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify({ folder }),
+            body: JSON.stringify(payload),
           });
-          if (!sigRes.ok) {
-            const errData = await sigRes.json();
-            throw new Error(errData.error || "Failed to generate upload signature");
-          }
-          const sigData = await sigRes.json();
-
-          const cloudData = new FormData();
-          cloudData.append("file", file);
-          cloudData.append("api_key", sigData.apiKey);
-          cloudData.append("timestamp", String(sigData.timestamp));
-          cloudData.append("signature", sigData.signature);
-          cloudData.append("folder", sigData.folder);
-
-          const uploadUrl = `https://api.cloudinary.com/v1_1/${sigData.cloudName}/${resourceType}/upload`;
-          const uploadRes = await fetch(uploadUrl, {
-            method: "POST",
-            body: cloudData,
-          });
-
-          if (!uploadRes.ok) {
-            const errText = await uploadRes.text();
-            console.error("Cloudinary upload failure response:", errText);
-            throw new Error("Failed to upload file to Cloudinary cloud storage.");
-          }
-
-          const resData = await uploadRes.json();
-          if (typeof resData.secure_url !== "string" || !resData.secure_url || typeof resData.public_id !== "string" || !resData.public_id) {
-            throw new Error("Cloudinary did not return a secure file URL");
-          }
-          return {
-            secureUrl: resData.secure_url,
-            publicId: resData.public_id,
-            resourceType: resData.resource_type || resourceType,
-          };
-        };
-
-        setProgress(30);
-        const manuscriptResult = await uploadToCloudinary(mainFile, "submissions/manuscripts", "auto");
-
-        let coverImageUrl = null;
-        let coverImagePublicId = null;
-        let coverImageResourceType = null;
-
-        if (imgFile) {
-          setProgress(50);
-          const coverResult = await uploadToCloudinary(imgFile, "submissions/covers", "image");
-          coverImageUrl = coverResult.secureUrl;
-          coverImagePublicId = coverResult.publicId;
-          coverImageResourceType = coverResult.resourceType;
+          setProgress(100);
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "Submission failed");
+          sessionStorage.setItem("anvikshiki_submit_id", data.submission?.id || "");
+          uploadSucceeded = true;
+        } catch (cloudErr) {
+          console.warn("Direct Cloudinary upload failed, falling back to direct server upload...", cloudErr);
+          uploadSucceeded = false;
         }
+      }
 
-        setProgress(85);
-        const payload = {
-          submitterName: details.fullName || details.name || "",
-          submitterEmail: details.email || "",
-          title: details.title || "",
-          abstract: details.abstract || "See attached manuscript.",
-          type,
-          consent: true,
-          domain: details.domain,
-          keywords: details.keywords,
-          notes: details.notes,
-          manuscriptUrl: manuscriptResult.secureUrl,
-          manuscriptPublicId: manuscriptResult.publicId,
-          manuscriptResourceType: manuscriptResult.resourceType,
-          coverUrl: coverImageUrl,
-          coverPublicId: coverImagePublicId,
-          coverResourceType: coverImageResourceType,
-        };
-
-        const response = await fetch(`${base()}/api/submissions/upload`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify(payload),
-        });
-        setProgress(100);
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Submission failed");
-        sessionStorage.setItem("anvikshiki_submit_id", data.submission?.id || "");
-      } else {
+      if (!uploadSucceeded) {
         // Fallback to local multipart form upload
         const formData = new FormData();
         formData.append("manuscript", mainFile);
@@ -730,59 +740,54 @@ export default function SubmitUploadPage() {
 
       let coverUrl = null;
 
-      if (isCloudinary) {
-        const uploadToCloudinary = async (file: File, folder: string, resourceType: string) => {
-          const sigRes = await fetch(`${base()}/api/uploads/cloudinary-signature`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ folder }),
-          });
-          if (!sigRes.ok) {
-            const errData = await sigRes.json();
-            throw new Error(errData.error || "Failed to generate upload signature");
+      const uploadLocal = async (file: File, context: string) => {
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("context", context);
+        const res = await fetch(`${base()}/api/media/upload`, { method: "POST", credentials: "include", body: fd });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || "Local upload failed");
+        if (typeof d.url !== "string" || !d.url) throw new Error("Image storage did not return a URL");
+        return d.url;
+      };
+
+      if (imgFile) {
+        setProgress(40);
+        if (isCloudinary) {
+          try {
+            const sigRes = await fetch(`${base()}/api/uploads/cloudinary-signature`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ folder: "submissions/covers" }),
+            });
+            if (!sigRes.ok) throw new Error("Failed to generate upload signature");
+            const sigData = await sigRes.json();
+
+            const cloudData = new FormData();
+            cloudData.append("file", imgFile);
+            cloudData.append("api_key", sigData.apiKey);
+            cloudData.append("timestamp", String(sigData.timestamp));
+            cloudData.append("signature", sigData.signature);
+            cloudData.append("folder", sigData.folder);
+
+            const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${sigData.cloudName}/image/upload`, {
+              method: "POST",
+              body: cloudData,
+            });
+
+            if (!uploadRes.ok) throw new Error("Cloudinary upload failed");
+            const resData = await uploadRes.json();
+            if (typeof resData.secure_url === "string" && resData.secure_url) {
+              coverUrl = resData.secure_url;
+            } else {
+              throw new Error("No secure URL");
+            }
+          } catch (cloudErr) {
+            console.warn("Direct Cloudinary cover upload failed, falling back to server media upload...", cloudErr);
+            coverUrl = await uploadLocal(imgFile, "submission_cover");
           }
-          const sigData = await sigRes.json();
-
-          const cloudData = new FormData();
-          cloudData.append("file", file);
-          cloudData.append("api_key", sigData.apiKey);
-          cloudData.append("timestamp", String(sigData.timestamp));
-          cloudData.append("signature", sigData.signature);
-          cloudData.append("folder", sigData.folder);
-
-          const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${sigData.cloudName}/${resourceType}/upload`, {
-            method: "POST",
-            body: cloudData,
-          });
-
-          if (!uploadRes.ok) throw new Error("Failed to upload file to Cloudinary cloud storage.");
-          const resData = await uploadRes.json();
-          if (typeof resData.secure_url !== "string" || !resData.secure_url) {
-            throw new Error("Cloudinary did not return a secure file URL");
-          }
-          return resData.secure_url;
-        };
-
-        if (imgFile) {
-          setProgress(40);
-          coverUrl = await uploadToCloudinary(imgFile, "submissions/covers", "image");
-        }
-      } else {
-        // Fallback local upload first
-        const uploadLocal = async (file: File, context: string) => {
-          const fd = new FormData();
-          fd.append("file", file);
-          fd.append("context", context);
-          const res = await fetch(`${base()}/api/media/upload`, { method: "POST", credentials: "include", body: fd });
-          const d = await res.json().catch(() => ({}));
-          if (!res.ok) throw new Error(d.error || "Local upload failed");
-          if (typeof d.url !== "string" || !d.url) throw new Error("Image storage did not return a URL");
-          return d.url;
-        };
-
-        if (imgFile) {
-          setProgress(40);
+        } else {
           coverUrl = await uploadLocal(imgFile, "submission_cover");
         }
       }

@@ -169,72 +169,86 @@ router.post("/media/upload", async (req: any, res: any, next: any): Promise<void
       return res.status(400).json({ error: "Paper uploads must be PDF files" });
     }
 
-    let url: string;
-    let storageKey: string;
+    let url: string | null = null;
+    let storageKey: string = `${context}-${crypto.randomUUID()}${extension}`;
+    const filename = `${context}-${crypto.randomUUID()}${extension}`;
 
     // 1. Upload to Vercel Blob if configured
     if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const filename = `${context}-${crypto.randomUUID()}${extension}`;
-      const blob = await put(`anvikshiki/${filename}`, file.buffer, {
-        access: "public",
-        token: process.env.BLOB_READ_WRITE_TOKEN,
-      });
-      url = blob.url;
-      storageKey = blob.url;
-    }
-    // 2. Upload to Cloudinary if configured
-    else if (process.env.CLOUDINARY_URL) {
-      const uploadResult = await new Promise<any>((resolve, reject) => {
-        const uploadOptions: any = {
-          folder: `anvikshiki/${context}`,
-          resource_type: isAudio ? "video" : isPdf ? "raw" : "image",
-        };
-        
-        if (isImage) {
-          uploadOptions.transformation = context === "avatar"
-            ? [{ width: 400, height: 400, crop: "fill", gravity: "face" }]
-            : [{ width: 1200, crop: "limit" }];
-        }
-
-        const uploadStream = cloudinary.uploader.upload_stream(
-          uploadOptions,
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        );
-        uploadStream.end(file.buffer);
-      });
-
-      if (
-        !uploadResult?.secure_url ||
-        typeof uploadResult.secure_url !== "string" ||
-        !uploadResult.public_id ||
-        typeof uploadResult.public_id !== "string"
-      ) {
-        return res.status(502).json({
-          error: "Storage did not return a secure URL for the uploaded file",
-          code: "STORAGE_UPLOAD_INCOMPLETE",
+      try {
+        const blob = await put(`anvikshiki/${filename}`, file.buffer, {
+          access: "public",
+          token: process.env.BLOB_READ_WRITE_TOKEN,
         });
+        if (blob?.url) {
+          url = blob.url;
+          storageKey = blob.url;
+        }
+      } catch (blobErr) {
+        console.warn("Media Vercel Blob upload failed, trying fallback...", blobErr);
       }
-      url = uploadResult.secure_url;
-      storageKey = uploadResult.public_id;
     }
-    // 3. Fallback to local disk sandbox ONLY in development/local test environment
-    else if (process.env.NODE_ENV === "development" || process.env.VITEST) {
-      const filename = `${context}-${crypto.randomUUID()}${extension}`;
-      const filePath = path.join(UPLOADS_DIR, filename);
-      await fs.promises.writeFile(filePath, file.buffer);
-      const apiBase = process.env.API_BASE_URL || "";
-      url = `${apiBase}/api/uploads/${filename}`;
-      storageKey = filename;
+
+    // 2. Upload to Cloudinary if configured
+    if (!url && process.env.CLOUDINARY_URL) {
+      try {
+        const uploadResult = await new Promise<any>((resolve, reject) => {
+          const uploadOptions: any = {
+            folder: `anvikshiki/${context}`,
+            resource_type: isAudio ? "video" : isPdf ? "raw" : "image",
+          };
+          
+          if (isImage) {
+            uploadOptions.transformation = context === "avatar"
+              ? [{ width: 400, height: 400, crop: "fill", gravity: "face" }]
+              : [{ width: 1200, crop: "limit" }];
+          }
+
+          const uploadStream = cloudinary.uploader.upload_stream(
+            uploadOptions,
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          );
+          uploadStream.end(file.buffer);
+        });
+
+        if (uploadResult?.secure_url && uploadResult?.public_id) {
+          url = uploadResult.secure_url;
+          storageKey = uploadResult.public_id;
+        }
+      } catch (cloudErr) {
+        console.warn("Media Cloudinary upload failed, trying fallback...", cloudErr);
+      }
     }
-    else {
-      return res.status(503).json({
-        error: "Storage is not configured. Please set BLOB_READ_WRITE_TOKEN or CLOUDINARY_URL.",
-        code: "STORAGE_NOT_CONFIGURED",
+
+    // 3. Fallback to local disk / serverless temp disk (/tmp/anvikshiki-uploads)
+    if (!url) {
+      try {
+        const filePath = path.join(UPLOADS_DIR, filename);
+        await fs.promises.writeFile(filePath, file.buffer);
+        const apiBase = process.env.API_BASE_URL || "";
+        url = `${apiBase}/api/uploads/${filename}`;
+        storageKey = filename;
+      } catch (diskErr) {
+        console.warn("Media disk write failed, trying Base64 fallback...", diskErr);
+      }
+    }
+
+    // 4. In-memory Base64 Data URI fallback for images up to 5MB
+    if (!url && isImage && file.size <= 5 * 1024 * 1024) {
+      url = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
+      storageKey = `inline-${filename}`;
+    }
+
+    if (!url) {
+      return res.status(500).json({
+        error: "Failed to store uploaded file across all storage providers.",
+        code: "STORAGE_FAILED",
       });
     }
+
     const [asset] = await db.insert(mediaAssetsTable).values({
       url,
       storageKey,
@@ -335,20 +349,29 @@ router.post("/media/extract-doc",
             return { src: uploadResult.secure_url };
           }
 
-          // 3. Fallback to local disk sandbox ONLY in development/local test environment
-          if (process.env.NODE_ENV === "development" || process.env.VITEST) {
+          // 3. Fallback to local / serverless temp disk (/tmp/anvikshiki-uploads)
+          try {
             const filename = `doc-import-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
             const filePath = path.join(UPLOADS_DIR, filename);
             await fs.promises.writeFile(filePath, buffer);
-            const apiBase = process.env.API_BASE_URL || "http://localhost:3001";
-            const baseClean = apiBase.replace(/\/$/, "");
-            return { src: `${baseClean}/api/uploads/${filename}` };
+            const apiBase = process.env.API_BASE_URL || "";
+            return { src: `${apiBase}/api/uploads/${filename}` };
+          } catch (diskErr) {
+            console.warn("Doc image disk save failed, using Data URI fallback...", diskErr);
           }
 
-          throw new Error("No persistent storage configured for document images");
+          // 4. Fallback to inline Base64 data URI
+          return { src: `data:${contentType};base64,${buffer.toString("base64")}` };
         } catch (err) {
-          imageImportErrors.push(err);
-          throw err;
+          // If individual image error occurs, fall back to inline base64 if possible
+          try {
+            const buffer: Buffer = await image.readAsBuffer();
+            const contentType = String(image.contentType || "image/jpeg").toLowerCase();
+            return { src: `data:${contentType};base64,${buffer.toString("base64")}` };
+          } catch {
+            imageImportErrors.push(err);
+            throw err;
+          }
         }
       };
 
