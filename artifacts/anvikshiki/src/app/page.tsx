@@ -6,6 +6,7 @@ import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { PrismaticBurst, YantraPattern } from "@/components/sacred/ColorfulDecor";
 import { DOMAIN_META, DOMAIN_ORDER } from "@/lib/domainMeta";
+import { withContentVersion } from "@/lib/contentVersion";
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (p: string) => `${base}${p.startsWith("/") ? p : `/${p}`}`;
@@ -133,6 +134,9 @@ function WisdomStrip() {
 /** How long the front page may reuse a cached listing before refetching. */
 const HOME_STALE_TIME = 1000 * 60;
 
+/** Public listing URL, bypassing the edge cache only after this browser publishes. */
+const publicContentUrl = (url: string) => withContentVersion(url);
+
 export default function HomePage() {
   const [recentPage, setRecentPage] = useState(1);
   const recentTrackRef = useRef<HTMLDivElement>(null);
@@ -145,32 +149,44 @@ export default function HomePage() {
   // its listings are held for a minute rather than ten. Navigating away and
   // back is still instant; a piece published a moment ago is no longer missing
   // from the front page for the rest of the editor's session.
+  // Published articles and papers are public. Sending the session cookie with
+  // them gained nothing and only made these responses look per-user to caches.
   const { data: featuredData } = useQuery({
     queryKey: ["home-featured"],
-    queryFn: () =>
-      fetch(`${base}/api/articles?featured=true&limit=4`, { credentials: "include" })
-        .then(r => r.json()),
+    queryFn: () => fetch(publicContentUrl(`${base}/api/articles?featured=true&limit=4`)).then(r => r.json()),
     staleTime: HOME_STALE_TIME,
     placeholderData: { articles: [] },
   });
 
-  const { data: articlesData, isLoading: isLoadingArticles } = useQuery({
+  const {
+    data: articlesData,
+    isLoading: isLoadingArticles,
+    isPlaceholderData: articlesArePlaceholder,
+  } = useQuery({
     queryKey: ["home-articles"],
-    queryFn: () =>
-      fetch(`${base}/api/articles?limit=24`, { credentials: "include" })
-        .then(r => r.json()),
+    queryFn: () => fetch(publicContentUrl(`${base}/api/articles?limit=24`)).then(r => r.json()),
     staleTime: HOME_STALE_TIME,
     placeholderData: { articles: [], total: 0 },
   });
 
-  const { data: papersData, isLoading: isLoadingPapers } = useQuery({
+  const {
+    data: papersData,
+    isLoading: isLoadingPapers,
+    isPlaceholderData: papersArePlaceholder,
+  } = useQuery({
     queryKey: ["home-papers"],
-    queryFn: () =>
-      fetch(`${base}/api/papers?limit=24`, { credentials: "include" })
-        .then(r => r.json()),
+    queryFn: () => fetch(publicContentUrl(`${base}/api/papers?limit=24`)).then(r => r.json()),
     staleTime: HOME_STALE_TIME,
     placeholderData: { papers: [], total: 0 },
   });
+
+  // `placeholderData` counts as data, so react-query reports isLoading === false
+  // from the very first render. Gating the skeleton on isLoading therefore never
+  // showed it: the section fell straight through to its "nothing to show" branch
+  // and rendered an empty space until the request landed. The placeholder flag is
+  // the signal that the empty arrays are a stand-in rather than a real result.
+  const recentStillLoading =
+    isLoadingArticles || isLoadingPapers || articlesArePlaceholder || papersArePlaceholder;
 
   const featuredEssays: any[] = featuredData?.articles || [];
 
@@ -243,9 +259,9 @@ export default function HomePage() {
   const recentPublications = mergedPublications;
 
   // Re-fetch when content changes (e.g. after publish/delete from admin)
-  const { refetch: refetchArticles } = useQuery({ queryKey: ["home-articles"], queryFn: () => fetch(`${base}/api/articles?limit=24`, { credentials: "include" }).then(r => r.json()), enabled: false });
-  const { refetch: refetchPapers }   = useQuery({ queryKey: ["home-papers"],   queryFn: () => fetch(`${base}/api/papers?limit=24`,   { credentials: "include" }).then(r => r.json()), enabled: false });
-  const { refetch: refetchFeatured } = useQuery({ queryKey: ["home-featured"], queryFn: () => fetch(`${base}/api/articles?featured=true&limit=4`, { credentials: "include" }).then(r => r.json()), enabled: false });
+  const { refetch: refetchArticles } = useQuery({ queryKey: ["home-articles"], queryFn: () => fetch(publicContentUrl(`${base}/api/articles?limit=24`)).then(r => r.json()), enabled: false });
+  const { refetch: refetchPapers }   = useQuery({ queryKey: ["home-papers"],   queryFn: () => fetch(publicContentUrl(`${base}/api/papers?limit=24`)).then(r => r.json()), enabled: false });
+  const { refetch: refetchFeatured } = useQuery({ queryKey: ["home-featured"], queryFn: () => fetch(publicContentUrl(`${base}/api/articles?featured=true&limit=4`)).then(r => r.json()), enabled: false });
 
   useEffect(() => {
     const onContentChanged = () => { void refetchArticles(); void refetchPapers(); void refetchFeatured(); };
@@ -314,7 +330,7 @@ export default function HomePage() {
             </Link>
           </div>
 
-          {isLoadingArticles && recentPublications.length === 0 ? (
+          {recentStillLoading && recentPublications.length === 0 ? (
             <div className="flex flex-col gap-10">
               {[1, 2].map((k) => (
                 <div key={k} className="article-card-enhanced relative w-full rounded-3xl overflow-hidden border border-[var(--border)]" style={{ backgroundColor: 'var(--surface-card)' }}>
@@ -417,7 +433,11 @@ export default function HomePage() {
               )}
             </>
           );
-        })() : null}
+        })() : (
+          <p className="text-center font-ui text-sm text-[var(--muted)] py-8">
+            No publications yet. Newly published work appears here.
+          </p>
+        )}
       </div>
     </section>
 

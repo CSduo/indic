@@ -331,7 +331,25 @@ const INDEX_STATEMENTS = [
 export type SchemaRepairReport = {
   applied: number;
   failed: Array<{ statement: string; error: string }>;
+  /** True when the repair was skipped because the database already matched. */
+  skipped?: boolean;
 };
+
+/** Key in `site_settings` holding the fingerprint of the last applied repair. */
+export const SCHEMA_MARKER_KEY = "schema_repair_fingerprint";
+
+/**
+ * Cheap deterministic fingerprint of the statement list. Changing, adding, or
+ * removing any statement changes this value, which is what triggers a re-run.
+ */
+export function schemaFingerprint(): string {
+  const source = schemaRepairStatements().join("\n");
+  let hash = 5381;
+  for (let i = 0; i < source.length; i++) {
+    hash = ((hash << 5) + hash + source.charCodeAt(i)) | 0;
+  }
+  return `v1-${(hash >>> 0).toString(36)}-${source.length}`;
+}
 
 /** Every repair statement, in dependency order. */
 export function schemaRepairStatements(): string[] {

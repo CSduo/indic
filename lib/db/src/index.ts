@@ -2,7 +2,12 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { sql as sqlOperator } from "drizzle-orm";
 import pg from "pg";
 import * as schema from "./schema/index";
-import { runSchemaRepair, type SchemaRepairReport } from "./ensure-schema";
+import {
+  runSchemaRepair,
+  schemaFingerprint,
+  SCHEMA_MARKER_KEY,
+  type SchemaRepairReport,
+} from "./ensure-schema";
 
 const { Pool } = pg;
 
@@ -140,39 +145,117 @@ export async function closeDatabasePool(): Promise<void> {
 /**
  * Bring the live database in line with the Drizzle schema. Idempotent — every
  * statement is `IF NOT EXISTS`, nothing is dropped or rewritten.
+ *
+ * This always runs the full statement list. Callers on the request path should
+ * use `ensureDatabaseSchema()` instead, which skips the work when the database
+ * is already up to date.
  */
 export async function repairDatabaseSchema(): Promise<SchemaRepairReport> {
-  return runSchemaRepair(statement => db.execute(sqlOperator.raw(statement)));
+  const report = await runSchemaRepair(statement => db.execute(sqlOperator.raw(statement)));
+  await recordSchemaFingerprint();
+  return report;
+}
+
+/** Persist the fingerprint of the statement list we just applied. */
+async function recordSchemaFingerprint(): Promise<void> {
+  const fingerprint = schemaFingerprint();
+  if (!/^[a-z0-9_]+$/.test(SCHEMA_MARKER_KEY) || !/^[A-Za-z0-9_.-]+$/.test(fingerprint)) return;
+
+  try {
+    await db.execute(sqlOperator.raw(`
+      INSERT INTO site_settings (id, key, value, description, updated_at)
+      VALUES ('${crypto.randomUUID()}', '${SCHEMA_MARKER_KEY}', '${fingerprint}',
+              'Set automatically; identifies the last applied schema repair.', now())
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()
+    `));
+  } catch (err: any) {
+    // Not fatal — without the marker the repair simply runs again next time.
+    console.warn("Could not record the schema fingerprint:", err?.message || err);
+  }
+}
+
+/**
+ * One cheap query: is the live database already at this schema revision?
+ *
+ * `to_regclass` returns NULL for a table that does not exist rather than
+ * raising, so this is a single round trip that is safe to run against a
+ * completely empty database. Probing with a plain SELECT instead would raise
+ * "relation does not exist", and an erroring statement can take the connection
+ * down with it — which would then fail the very repair meant to fix things.
+ */
+async function schemaAlreadyCurrent(): Promise<boolean> {
+  // The marker key is a fixed module constant, not user input. Asserting its
+  // shape here keeps it that way, so embedding it as a literal below stays safe
+  // even if someone edits the constant later.
+  if (!/^[a-z0-9_]+$/.test(SCHEMA_MARKER_KEY)) return false;
+
+  try {
+    // Two statements rather than one. Postgres resolves table references when
+    // it plans a statement, so naming site_settings inside a query guarded by
+    // `WHERE to_regclass(...) IS NOT NULL` still raises "relation does not
+    // exist" on a database that has never been provisioned — the guard never
+    // gets a chance to run. Asking the catalogue first is the only form that is
+    // safe against an empty database, and it is still two round trips against
+    // the hundred-plus the full repair costs.
+    const presence: any = await db.execute(
+      sqlOperator.raw(`SELECT to_regclass('public.site_settings') IS NOT NULL AS present`),
+    );
+    const presentRows = presence?.rows ?? presence ?? [];
+    if (presentRows[0]?.present !== true) return false;
+
+    const result: any = await db.execute(
+      sqlOperator.raw(`SELECT value FROM site_settings WHERE key = '${SCHEMA_MARKER_KEY}' LIMIT 1`),
+    );
+    const rows = result?.rows ?? result ?? [];
+    return rows[0]?.value === schemaFingerprint();
+  } catch (err: any) {
+    console.warn("Schema fingerprint probe failed; running the full repair:", err?.message || err);
+    return false;
+  }
 }
 
 let schemaReady: Promise<SchemaRepairReport | null> | null = null;
 
 /**
- * Repair the schema at most once per process. Request handlers await this
- * before their first query, so a cold serverless start cannot serve a request
- * against a half-migrated table.
+ * Make sure the schema is current, at most once per process.
+ *
+ * The full repair is ~75 sequential DDL statements. Running it unconditionally
+ * on every cold start cost a round trip per statement — barely noticeable
+ * against a local database, but seconds against a managed one, paid by whoever
+ * happened to make the first request after a new serverless instance started.
+ *
+ * So the common case is now a single indexed lookup of a fingerprint written by
+ * the last successful repair. The DDL only runs when that fingerprint is
+ * missing or stale, which is exactly when the schema has actually changed.
  */
 export function ensureDatabaseSchema(): Promise<SchemaRepairReport | null> {
   if (!schemaReady) {
-    schemaReady = repairDatabaseSchema()
-      .then(report => {
-        if (report.failed.length > 0) {
-          console.warn(
-            `Schema repair completed with ${report.failed.length} skipped statement(s):`,
-            report.failed,
-          );
-        }
-        return report;
-      })
-      .catch(err => {
-        console.error("Schema repair failed entirely:", err);
-        // Clear the cache so a later request can retry instead of being stuck.
-        schemaReady = null;
-        return null;
-      });
+    schemaReady = (async () => {
+      if (await schemaAlreadyCurrent()) {
+        return { applied: 0, failed: [], skipped: true };
+      }
+      const report = await repairDatabaseSchema();
+      if (report.failed.length > 0) {
+        console.warn(
+          `Schema repair completed with ${report.failed.length} skipped statement(s):`,
+          report.failed,
+        );
+      }
+      return report;
+    })().catch(err => {
+      console.error("Schema repair failed entirely:", err);
+      // Clear the cache so a later request can retry instead of being stuck.
+      schemaReady = null;
+      return null;
+    });
   }
   return schemaReady;
 }
 
 export * from "./schema/index";
-export { schemaRepairStatements, type SchemaRepairReport } from "./ensure-schema";
+export {
+  schemaRepairStatements,
+  schemaFingerprint,
+  SCHEMA_MARKER_KEY,
+  type SchemaRepairReport,
+} from "./ensure-schema";

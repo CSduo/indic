@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import { useState } from "react";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { withContentVersion } from "@/lib/contentVersion";
 import { SacredHeader } from "@/components/sacred/SacredHeader";
 import { SacredFooter } from "@/components/sacred/SacredFooter";
 import { LoadingScreen } from "@/components/sacred/LoadingScreen";
@@ -14,7 +15,11 @@ import { PageTransition } from "@/components/providers/PageTransition";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 
 /* ── Public pages — lazy loaded (code splitting) ── */
-const HomePage              = lazy(() => import("@/app/page"));
+// The landing route is the exception: splitting it out meant the browser had to
+// fetch index.html, then the entry bundle, and only then discover it needed a
+// further chunk before it could render anything. Almost every visitor lands
+// here, so that extra round trip was pure latency on the most-used page.
+import HomePage from "@/app/page";
 const BrowsePage            = lazy(() => import("@/app/browse/page"));
 const DomainsPage           = lazy(() => import("@/app/domains/page"));
 const DomainPage            = lazy(() => import("@/app/domains/[slug]/page"));
@@ -83,19 +88,21 @@ const appBase = import.meta.env.BASE_URL.replace(/\/$/, "");
 const HOME_PREFETCH_STALE_TIME = 1000 * 60;
 
 try {
+  // These are public listings — no session cookie, so the CDN can serve them
+  // and the request is not held up behind anything auth-related.
   queryClient.prefetchQuery({
     queryKey: ["home-articles"],
-    queryFn: () => fetch(`${appBase}/api/articles?limit=24`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetch(withContentVersion(`${appBase}/api/articles?limit=24`)).then(r => r.json()),
     staleTime: HOME_PREFETCH_STALE_TIME,
   });
   queryClient.prefetchQuery({
     queryKey: ["home-featured"],
-    queryFn: () => fetch(`${appBase}/api/articles?featured=true&limit=4`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetch(withContentVersion(`${appBase}/api/articles?featured=true&limit=4`)).then(r => r.json()),
     staleTime: HOME_PREFETCH_STALE_TIME,
   });
   queryClient.prefetchQuery({
     queryKey: ["home-papers"],
-    queryFn: () => fetch(`${appBase}/api/papers?limit=24`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetch(withContentVersion(`${appBase}/api/papers?limit=24`)).then(r => r.json()),
     staleTime: HOME_PREFETCH_STALE_TIME,
   });
 } catch {
