@@ -79,6 +79,18 @@ async function getMediaUploadAuth(req: any) {
   return await getUserAuth(req) || await getAdminAuth(req);
 }
 
+/** A .docx is a zip archive: "PK\x03\x04". */
+function startsWithZipSignature(buffer: Buffer): boolean {
+  return buffer.length >= 4
+    && buffer[0] === 0x50 && buffer[1] === 0x4b && buffer[2] === 0x03 && buffer[3] === 0x04;
+}
+
+/** A legacy .doc is an OLE2 compound file. */
+function startsWithLegacyDocSignature(buffer: Buffer): boolean {
+  const magic = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
+  return buffer.length >= 8 && magic.every((b, i) => buffer[i] === b);
+}
+
 // Always store in memory so we can stream to Cloudinary without touching the filesystem
 const storage = multer.memoryStorage();
 
@@ -103,12 +115,15 @@ const docUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
   fileFilter: (_req: any, file: any, cb: any): void => {
+    // Accept on extension alone and let the handler judge the actual bytes.
+    // Browsers and operating systems disagree about the MIME type of a .docx —
+    // Chrome on one machine sends the wordprocessingml type, another sends
+    // application/zip, a file dragged from some clients sends nothing at all.
+    // Requiring the header to match rejected perfectly good documents before
+    // anything had looked inside them, reported as a bare "extraction failed".
     const ext = path.extname(file.originalname).toLowerCase();
-    const allowed =
-      (ext === ".docx" && DOCX_MIME_TYPES.has(file.mimetype)) ||
-      (ext === ".txt" && ["text/plain", "application/octet-stream"].includes(file.mimetype));
-    if (!allowed) {
-      cb(new Error("Only DOCX or plain-text files are accepted."));
+    if (ext !== ".docx" && ext !== ".txt" && ext !== ".doc") {
+      cb(new Error("Import a .docx or .txt file. If your document is a PDF or a Word 97-2003 .doc, re-export it as .docx first."));
       return;
     }
     cb(null, true);
@@ -235,6 +250,28 @@ router.post("/media/extract-doc",
       const file = req.file;
       const ext = path.extname(file.originalname).toLowerCase();
 
+      // A .docx is a zip; a .doc is an OLE compound file. Word silently accepts
+      // either, so people rename one to the other and cannot understand why the
+      // import fails. Detect it from the bytes and say exactly what to do.
+      if (ext !== ".txt" && !startsWithZipSignature(file.buffer)) {
+        if (startsWithLegacyDocSignature(file.buffer)) {
+          return res.status(415).json({
+            error: "This is a Word 97-2003 document (.doc), which cannot be read directly. Open it in Word or Google Docs and use \"Save as\" / \"Download as\" to produce a .docx, then import that.",
+            code: "LEGACY_DOC_FORMAT",
+          });
+        }
+        if (file.buffer.subarray(0, 5).toString("ascii") === "%PDF-") {
+          return res.status(415).json({
+            error: "This is a PDF. Import a .docx or .txt file instead, or paste the text directly into the editor.",
+            code: "PDF_NOT_SUPPORTED",
+          });
+        }
+        return res.status(415).json({
+          error: "This file is not a .docx document. If it came from Word or Google Docs, re-export it as .docx and try again.",
+          code: "NOT_A_DOCX",
+        });
+      }
+
       if (ext === ".txt") {
         if (file.buffer.includes(0)) {
           return res.status(400).json({ error: "The text file contains binary data" });
@@ -248,9 +285,10 @@ router.post("/media/extract-doc",
         return res.json({ html: sanitizeArticleBody(html) });
       }
 
-      if (!hasExpectedFileSignature(file)) {
-        return res.status(400).json({ error: "The uploaded file is not a valid DOCX document" });
-      }
+      // The zip check above already established these bytes are a .docx
+      // container. Re-checking by file extension here would reject a document
+      // that is genuinely a .docx but happens to be named .doc — a rename that
+      // Word itself tolerates, so authors do it without realising.
 
       // DOCX — use mammoth to convert to HTML
       // If Cloudinary is configured, embedded images are uploaded and returned as <img> tags
@@ -292,21 +330,46 @@ router.post("/media/extract-doc",
         { convertImage: mammoth.images.imgElement(imageHandler) }
       );
 
+      const html = sanitizeArticleBody(result.value || "");
+
+      // Images that could not be stored no longer discard the import. Throwing
+      // away a whole manuscript because one picture failed is a far worse
+      // outcome than importing the text and saying which images are missing —
+      // especially as the author cannot tell from the old message what to fix.
       if (imageImportErrors.length > 0) {
-        req.log?.error(
+        req.log?.warn(
           { imageErrorCount: imageImportErrors.length, firstError: imageImportErrors[0] },
-          "Document import failed while persisting embedded images",
+          "Imported document text, but some embedded images could not be stored",
         );
-        return res.status(502).json({
-          error: "The document text was read, but one or more embedded images could not be stored. Nothing was imported; please retry.",
-          code: "DOCUMENT_IMAGE_UPLOAD_FAILED",
+      }
+
+      if (!html.trim()) {
+        return res.status(422).json({
+          error: "This document appears to be empty, or its text is stored as images rather than as text. Nothing could be imported.",
+          code: "DOCUMENT_EMPTY",
         });
       }
 
-      return res.json({ html: sanitizeArticleBody(result.value || "") });
+      return res.json({
+        html,
+        imagesFailed: imageImportErrors.length,
+        warning: imageImportErrors.length > 0
+          ? `The text was imported, but ${imageImportErrors.length} embedded image${imageImportErrors.length === 1 ? "" : "s"} could not be stored. Add ${imageImportErrors.length === 1 ? "it" : "them"} with "Add Image".`
+          : undefined,
+      });
     } catch (err: any) {
-      req.log?.error(err);
-      return res.status(500).json({ error: "Document extraction failed" });
+      req.log?.error({ err }, "Document extraction failed");
+      // mammoth's own messages are written for the person holding the file
+      // ("Are you sure this is a valid .docx file?"). Replacing them with a
+      // blanket "Document extraction failed" left the author with nothing to
+      // act on — which is exactly how this was reported.
+      const detail = typeof err?.message === "string" && err.message.trim() ? err.message.trim() : "";
+      return res.status(422).json({
+        error: detail
+          ? `The document could not be read: ${detail}`
+          : "The document could not be read. Re-export it as a .docx from Word or Google Docs and try again.",
+        code: "DOCUMENT_EXTRACTION_FAILED",
+      });
     }
   }
 );

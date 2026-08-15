@@ -416,11 +416,22 @@ export default function SubmitWritePage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const isTxt = file.name.endsWith(".txt");
-    const isDocx = file.name.toLowerCase().endsWith(".docx");
+    const lower = file.name.toLowerCase();
+    const isTxt = lower.endsWith(".txt");
+    const isDocx = lower.endsWith(".docx");
+    const isLegacyDoc = lower.endsWith(".doc");
+    const isPdf = lower.endsWith(".pdf");
 
     if (!isTxt && !isDocx) {
-      setError("Please upload a .docx or .txt file");
+      // Name the actual problem and the fix. "Please upload a .docx or .txt"
+      // told someone holding a .doc nothing about how to proceed.
+      setError(
+        isLegacyDoc
+          ? "This is a Word 97-2003 document (.doc). Open it in Word or Google Docs and save it as .docx, then import that."
+          : isPdf
+            ? "PDFs cannot be imported as editable text. Export the document as .docx, or paste the text straight into the editor."
+            : "Import a .docx or .txt file. If your document came from Word or Google Docs, re-export it as .docx.",
+      );
       if (importDocInputRef.current) importDocInputRef.current.value = "";
       return;
     }
@@ -451,10 +462,13 @@ export default function SubmitWritePage() {
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || "Failed to extract document content");
+          throw new Error(err.error || `Failed to extract document content (${res.status})`);
         }
         const data = await res.json();
         htmlContent = data.html || "";
+        // Images that could not be stored no longer discard the import, so tell
+        // the author what is missing rather than letting them find out later.
+        if (data.warning) setMetadataNotice(data.warning);
       }
 
       insertImportedHtml(htmlContent, isDocx ? "document" : "text file");
