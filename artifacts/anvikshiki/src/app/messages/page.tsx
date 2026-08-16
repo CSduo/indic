@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, PenSquare, Search, Users, X } from "lucide-react";
+import { ArrowLeft, Check, PenSquare, Search, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { createPoller, messagesApi, type ConversationSummary } from "@/lib/messagesApi";
@@ -44,7 +44,7 @@ function Avatar({ name, url, size = 44 }: { name: string; url?: string | null; s
   );
 }
 
-/** The "new message" panel — search people, or assemble a group. */
+/** The "new message" panel â€” search people, or assemble a group. */
 function ComposePanel({ onClose }: { onClose: () => void }) {
   const [, navigate] = useLocation();
   const [query, setQuery] = useState("");
@@ -69,12 +69,15 @@ function ComposePanel({ onClose }: { onClose: () => void }) {
     if (chosen.length === 0) return;
     setBusy(true);
     try {
-      const { conversation } = await messagesApi.start(
+      const { conversation, pendingRequest } = await messagesApi.start(
         chosen.map(c => c.id),
         isGroup ? "GROUP" : "DIRECT",
         isGroup ? (title.trim() || undefined) : undefined,
       );
       onClose();
+      if (pendingRequest) {
+        toast.success("Send one message — they'll see it as a request, and can reply once they accept.");
+      }
       navigate(`/messages/${conversation.id}`);
     } catch (err: any) {
       toast.error(err.message || "Could not start that conversation");
@@ -126,7 +129,7 @@ function ComposePanel({ onClose }: { onClose: () => void }) {
             <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--ink-meta)" }} />
             <input
               className="input-sacred w-full pl-9 text-sm"
-              placeholder="Search people by name…"
+              placeholder="Search people by nameâ€¦"
               value={query}
               onChange={e => setQuery(e.target.value)}
               autoFocus
@@ -160,10 +163,14 @@ function ComposePanel({ onClose }: { onClose: () => void }) {
 
         <div className="flex items-center justify-between gap-3 border-t border-[var(--hairline)] px-4 py-3">
           <p className="font-ui text-[11px] text-[var(--muted)]">
-            {chosen.length === 0 ? "Pick one person, or several for a group." : isGroup ? `Group of ${chosen.length + 1}` : "Direct message"}
+            {chosen.length === 0
+              ? "Pick one person, or several for a group."
+              : isGroup
+                ? `Group of ${chosen.length + 1} — everyone must already have accepted a message from you.`
+                : "Direct message"}
           </p>
           <button type="button" onClick={start} disabled={busy || chosen.length === 0} className="btn-terracotta">
-            {busy ? <><span className="spinner-editorial" aria-hidden="true" /> Starting…</> : "Start"}
+            {busy ? <><span className="spinner-editorial" aria-hidden="true" /> Startingâ€¦</> : "Start"}
           </button>
         </div>
       </div>
@@ -175,6 +182,9 @@ export default function MessagesInboxPage() {
   const { user, loading } = useAuthContext();
   const [, navigate] = useLocation();
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [requests, setRequests] = useState<ConversationSummary[]>([]);
+  const [tab, setTab] = useState<"inbox" | "requests">("inbox");
+  const [acting, setActing] = useState<string | null>(null);
   const [busy, setBusy] = useState(true);
   const [composing, setComposing] = useState(false);
   const [filter, setFilter] = useState("");
@@ -184,12 +194,33 @@ export default function MessagesInboxPage() {
     try {
       const data = await messagesApi.inbox();
       setConversations(data.conversations);
+      setRequests(data.requests || []);
     } catch {
       // Leave whatever is on screen rather than blanking the inbox.
     } finally {
       setBusy(false);
     }
   }, []);
+
+  const respond = async (id: string, accept: boolean) => {
+    setActing(id);
+    try {
+      if (accept) {
+        await messagesApi.acceptRequest(id);
+        toast.success("Request accepted â€” you can reply now.");
+        await load();
+        navigate(`/messages/${id}`);
+      } else {
+        await messagesApi.declineRequest(id);
+        setRequests(list => list.filter(r => r.id !== id));
+        toast.success("Request removed.");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Could not do that");
+    } finally {
+      setActing(null);
+    }
+  };
 
   useEffect(() => {
     if (loading) return;
@@ -235,12 +266,76 @@ export default function MessagesInboxPage() {
           </button>
         </div>
 
+        {/* Requests are a separate list on purpose. Someone you have not
+            admitted should never be mixed in with people you actually talk to,
+            and the accept step must be impossible to miss. */}
+        {requests.length > 0 ? (
+          <div className="mb-4 flex items-center gap-1 border-b border-[var(--hairline)]">
+            {([
+              ["inbox", `Inbox`],
+              ["requests", `Requests (${requests.length})`],
+            ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setTab(key)}
+                className="relative px-3 py-2 font-ui text-[11px] uppercase tracking-[0.14em]"
+                style={{
+                  color: tab === key ? "var(--ink)" : "var(--ink-meta)",
+                  fontWeight: tab === key ? 600 : 400,
+                }}
+                aria-current={tab === key}
+              >
+                {label}
+                {tab === key ? (
+                  <span className="absolute inset-x-2 -bottom-px h-0.5" style={{ background: "var(--accent)" }} />
+                ) : null}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {tab === "requests" ? (
+          <ul className="space-y-2">
+            {requests.map(rq => (
+              <li key={rq.id} className="rounded-[2px] border border-[var(--hairline)] bg-[var(--surface)] p-4">
+                <div className="flex items-start gap-3">
+                  <Avatar name={rq.title} url={rq.avatarUrl} />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-body text-sm font-semibold text-[var(--ink)]">{rq.title}</p>
+                    <p className="mt-1 font-body text-[13px] leading-6 text-[var(--ink-body)]">{rq.preview}</p>
+                    <p className="mono-label mt-1">Wants to message you Â· {relativeTime(rq.lastMessageAt)}</p>
+                    <div className="mt-3 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => respond(rq.id, true)}
+                        disabled={acting === rq.id}
+                        className="btn-terracotta text-[11px]"
+                      >
+                        {acting === rq.id ? <span className="spinner-editorial" aria-hidden="true" /> : <Check size={13} />} Accept
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => respond(rq.id, false)}
+                        disabled={acting === rq.id}
+                        className="btn-ink text-[11px]"
+                      >
+                        <X size={13} /> Decline
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+        <>
         {conversations.length > 4 ? (
           <div className="relative mb-4">
             <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--ink-meta)" }} />
             <input
               className="input-sacred w-full pl-9 text-sm"
-              placeholder="Search your conversations…"
+              placeholder="Search your conversationsâ€¦"
               value={filter}
               onChange={e => setFilter(e.target.value)}
             />
@@ -311,6 +406,8 @@ export default function MessagesInboxPage() {
               </li>
             ))}
           </ul>
+        )}
+        </>
         )}
       </div>
 

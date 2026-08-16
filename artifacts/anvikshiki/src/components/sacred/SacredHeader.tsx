@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { BookMarked, LogOut, Menu, Search, User, X } from "lucide-react";
+import { BookMarked, LogOut, Menu, MessageSquare, Search, User, X } from "lucide-react";
 import { toast } from "sonner";
 import { GlobalSidebar } from "@/components/sacred/GlobalSidebar";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Emblem } from "@/components/brand/Emblem";
+import { createPoller, messagesApi } from "@/lib/messagesApi";
 
 export function SacredHeader() {
   const [loc, navigate] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [unreadMessages, setUnreadMessages] = useState(0);
   const { user, logout } = useAuthContext();
 
   useEffect(() => {
@@ -20,6 +22,21 @@ export function SacredHeader() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // The badge rides the same cheap cursor endpoint the inbox polls, so having
+  // it in the header everywhere costs one small request rather than a second
+  // stream of traffic.
+  useEffect(() => {
+    if (!user) { setUnreadMessages(0); return; }
+    let cancelled = false;
+    const read = async () => {
+      const { totalUnread } = await messagesApi.cursor();
+      if (!cancelled) setUnreadMessages(totalUnread);
+    };
+    void read();
+    const stop = createPoller({ onTick: read, activeMs: 15000, idleMs: 60000 });
+    return () => { cancelled = true; stop(); };
+  }, [user?.id]);
 
   const handleLogout = async () => {
     await logout();
@@ -74,6 +91,28 @@ export function SacredHeader() {
               >
                 <Search size={20} strokeWidth={1.8} />
               </Link>
+
+              {/* Messages needs to be one tap away, with the unread count on
+                  it — a private inbox buried in a dropdown is one nobody
+                  checks, and the whole point of it is being reachable. */}
+              {user ? (
+                <Link
+                  href="/messages"
+                  className="sacred-icon-btn relative p-1.5 text-[var(--ink)] hover:text-[var(--gold)]"
+                  aria-label={unreadMessages > 0 ? `Messages, ${unreadMessages} unread` : "Messages"}
+                >
+                  <MessageSquare size={20} strokeWidth={1.8} />
+                  {unreadMessages > 0 ? (
+                    <span
+                      aria-hidden="true"
+                      className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full px-1 font-ui text-[9px] font-bold leading-none"
+                      style={{ background: "var(--accent)", color: "#fff" }}
+                    >
+                      {unreadMessages > 9 ? "9+" : unreadMessages}
+                    </span>
+                  ) : null}
+                </Link>
+              ) : null}
 
               {user ? (
                 <div className="relative">

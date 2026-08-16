@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "wouter";
-import { ArrowLeft, BookOpen, Building2, Mail, MessageSquare, User, X } from "lucide-react";
+import { Link, useParams, useLocation } from "wouter";
+import { ArrowLeft, BookOpen, Building2, Mail, MessageSquare, User, UserCheck, UserPlus, X } from "lucide-react";
+import { toast } from "sonner";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { EmptyState } from "@/components/sacred/EmptyState";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { messagesApi } from "@/lib/messagesApi";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -29,9 +32,58 @@ interface WorkPreview {
   isPaper?: boolean;
 }
 
+type Social = { followers: number; following: number; youFollow: boolean; followsYou: boolean };
+
 export default function PublicProfilePage() {
   const params = useParams<{ userId: string }>();
   const userId = params.userId;
+  const [, navigateTo] = useLocation();
+  const { user: viewer } = useAuthContext();
+  const [social, setSocial] = useState<Social | null>(null);
+  const [socialBusy, setSocialBusy] = useState(false);
+
+  useEffect(() => {
+    if (!userId) return;
+    fetch(`${base()}/api/users/${userId}/social`, { credentials: "include" })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => d && setSocial(d))
+      .catch(() => setSocial(null));
+  }, [userId, viewer?.id]);
+
+  const toggleFollow = async () => {
+    if (!viewer) { navigateTo("/login"); return; }
+    if (!social) return;
+    const next = !social.youFollow;
+    setSocialBusy(true);
+    // Optimistic, so the button answers the tap immediately.
+    setSocial({ ...social, youFollow: next, followers: social.followers + (next ? 1 : -1) });
+    try {
+      const res = await fetch(`${base()}/api/users/${userId}/follow`, {
+        method: next ? "POST" : "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+    } catch (err: any) {
+      setSocial({ ...social, youFollow: !next, followers: social.followers + (next ? -1 : 1) });
+      toast.error(err.message || "Could not update that");
+    } finally {
+      setSocialBusy(false);
+    }
+  };
+
+  const startConversation = async () => {
+    if (!viewer) { navigateTo("/login"); return; }
+    setSocialBusy(true);
+    try {
+      const { conversation, pendingRequest } = await messagesApi.start([userId], "DIRECT");
+      if (pendingRequest) toast.success("Send one message — they'll see it as a request.");
+      navigateTo(`/messages/${conversation.id}`);
+    } catch (err: any) {
+      toast.error(err.message || "Could not open that conversation");
+    } finally {
+      setSocialBusy(false);
+    }
+  };
 
   const [profile, setProfile] = useState<PublicUser | null>(null);
   const [works, setWorks] = useState<WorkPreview[]>([]);
@@ -169,16 +221,44 @@ export default function PublicProfilePage() {
                 <p className="mt-4 font-body text-[15px] leading-relaxed text-[var(--ink-soft)] max-w-2xl">{profile.bio}</p>
               )}
 
-              <div className="mt-6 flex gap-6 border-t border-[var(--border)] pt-4">
+              <div className="mt-6 flex flex-wrap gap-6 border-t border-[var(--border)] pt-4">
                 <div>
                   <div className="font-display text-2xl text-[var(--gold)]">{works.length}</div>
-                  <div className="font-ui text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--ink-faint)] mt-1">Published Works</div>
+                  <div className="mono-label mt-1">Published Works</div>
                 </div>
                 <div>
                   <div className="font-display text-2xl text-[var(--gold)]">{new Set(works.map(w => w.categorySlug).filter(Boolean)).size}</div>
-                  <div className="font-ui text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--ink-faint)] mt-1">Domains</div>
+                  <div className="mono-label mt-1">Domains</div>
+                </div>
+                <div>
+                  <div className="font-display text-2xl text-[var(--gold)]">{social?.followers ?? "—"}</div>
+                  <div className="mono-label mt-1">Followers</div>
+                </div>
+                <div>
+                  <div className="font-display text-2xl text-[var(--gold)]">{social?.following ?? "—"}</div>
+                  <div className="mono-label mt-1">Following</div>
                 </div>
               </div>
+
+              {/* Follow and message live on the profile itself — finding
+                  someone and being able to reach them should not be two
+                  separate journeys. */}
+              {viewer && viewer.id !== userId ? (
+                <div className="mt-5 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={toggleFollow}
+                    disabled={socialBusy}
+                    className={social?.youFollow ? "btn-ink" : "btn-terracotta"}
+                  >
+                    {social?.youFollow ? <><UserCheck size={14} /> Following</> : <><UserPlus size={14} /> Follow</>}
+                  </button>
+                  <button type="button" onClick={startConversation} disabled={socialBusy} className="btn-ink">
+                    <MessageSquare size={14} /> Message
+                  </button>
+                  {social?.followsYou ? <span className="status-chip">Follows you</span> : null}
+                </div>
+              ) : null}
             </div>
           </div>
           </div>

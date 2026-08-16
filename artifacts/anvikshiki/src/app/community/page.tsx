@@ -65,6 +65,40 @@ export default function CommunityPage() {
       </section>
 
       <section className="container-anv pb-14">
+        {/* The Assembly is the one section here that is actually live, so it
+            leads rather than sitting in a row of "coming soon" cards. */}
+        <ParchmentCard className="mb-4 p-6 md:p-8">
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div className="min-w-0">
+              <div className="mb-3 flex items-center gap-3">
+                <span className="grid h-12 w-12 place-items-center rounded-[2px] border border-[var(--hairline)] bg-[var(--surface)]" style={{ color: "var(--accent)" }}>
+                  <Users size={22} />
+                </span>
+                <span className="status-chip status-chip--done">Open now</span>
+              </div>
+              <p className="mono-label mb-2">Members</p>
+              <h2 className="font-display text-3xl text-[var(--ink)]">The Assembly</h2>
+              <p className="mt-3 max-w-xl font-body text-sm leading-6 text-[var(--ink-body)]">
+                Everyone who writes and reads here. Follow the people whose work you want to
+                follow, and message them directly — anyone you have not met yet will receive it
+                as a request first.
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-col gap-2 sm:flex-row md:flex-col">
+              <Link href="/community/members" className="btn-terracotta justify-center">
+                <Users size={14} /> Browse members
+              </Link>
+              {user ? (
+                <Link href="/messages" className="btn-ink justify-center">
+                  <MessageCircle size={14} /> Your messages
+                </Link>
+              ) : (
+                <Link href="/login" className="btn-ink justify-center">Sign in to message</Link>
+              )}
+            </div>
+          </div>
+        </ParchmentCard>
+
         <div className="grid gap-4 md:grid-cols-3">
           {[
             { title: "Gatherings", label: "Events", desc: "Reading circles, symposia, and community sessions will appear here.", icon: Users, domain: "community" },
@@ -83,7 +117,7 @@ export default function CommunityPage() {
                 <p className="type-section-label mb-2">{item.label}</p>
                 <h2 className="font-display text-3xl text-[var(--ink)]">{item.title}</h2>
                 <p className="mt-3 font-body text-sm leading-6 text-[var(--ink-soft)]">{item.desc}</p>
-                <button type="button" className="btn-ink mt-5 w-full">Coming Soon</button>
+                <button type="button" className="btn-ink mt-5 w-full" disabled>Coming Soon</button>
               </ParchmentCard>
             );
           })}

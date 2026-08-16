@@ -1,4 +1,4 @@
-const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
+﻿const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
 async function json<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${base()}/api${path}`, { credentials: "include", ...init });
@@ -51,9 +51,9 @@ export type Message = {
 };
 
 export const messagesApi = {
-  inbox: () => json<{ conversations: ConversationSummary[]; totalUnread: number }>("/conversations"),
+  inbox: () => json<{ conversations: ConversationSummary[]; requests: ConversationSummary[]; totalUnread: number; requestCount: number }>("/conversations"),
 
-  /** Deliberately tiny — this is what gets polled. */
+  /** Deliberately tiny â€” this is what gets polled. */
   cursor: () => json<{ cursor: string; totalUnread: number }>("/conversations/cursor"),
 
   conversation: (id: string) => json<{
@@ -108,6 +108,8 @@ export const messagesApi = {
       `/messages/people?q=${encodeURIComponent(q)}`,
     ),
 
+  acceptRequest: (id: string) => json(`/conversations/${id}/accept`, { method: "POST" }),
+  declineRequest: (id: string) => json(`/conversations/${id}/request`, { method: "DELETE" }),
   markRead: (id: string) => json(`/conversations/${id}/read`, { method: "POST" }),
   typing: (id: string) => json(`/conversations/${id}/typing`, { method: "POST" }),
   react: (messageId: string, emoji: string) =>
@@ -145,7 +147,7 @@ export const messagesApi = {
  * Serverless cannot hold a websocket open, so new messages are discovered by
  * asking. The cost of asking is managed rather than ignored: a visible tab with
  * a thread open checks often, a backgrounded tab barely checks at all, and a
- * hidden tab stops entirely — the browser push notification covers that case.
+ * hidden tab stops entirely â€” the browser push notification covers that case.
  * Every check hits the cursor endpoint, which returns two values, so a poll
  * that finds nothing is close to free.
  */
