@@ -1,4 +1,4 @@
-import { Suspense, lazy } from "react";
+﻿import { Suspense, lazy } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
@@ -14,7 +14,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { PageTransition } from "@/components/providers/PageTransition";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 
-/* ── Public pages — lazy loaded (code splitting) ── */
+/* â”€â”€ Public pages â€” lazy loaded (code splitting) â”€â”€ */
 // The landing route is the exception: splitting it out meant the browser had to
 // fetch index.html, then the entry bundle, and only then discover it needed a
 // further chunk before it could render anything. Almost every visitor lands
@@ -52,7 +52,7 @@ const SavedPage             = lazy(() => import("@/app/saved/page"));
 const PrivacyPage           = lazy(() => import("@/app/privacy/page"));
 const TermsPage             = lazy(() => import("@/app/terms/page"));
 
-/* ── Admin pages — lazy loaded ── */
+/* â”€â”€ Admin pages â€” lazy loaded â”€â”€ */
 const AdminLoginPage        = lazy(() => import("@/app/admin/login/page"));
 const AdminDashboardPage    = lazy(() => import("@/app/admin/page"));
 const AdminArticlesPage     = lazy(() => import("@/app/admin/articles/page"));
@@ -64,9 +64,12 @@ const AdminNewsletterPage   = lazy(() => import("@/app/admin/newsletter/page"));
 const AdminSettingsPage     = lazy(() => import("@/app/admin/settings/page"));
 const AdminUsersPage        = lazy(() => import("@/app/admin/users/page"));
 
+const MessagesInboxPage    = lazy(() => import("@/app/messages/page"));
+const ConversationPage     = lazy(() => import("@/app/messages/[id]/page"));
+
 const NotFound = lazy(() => import("@/pages/not-found"));
 
-// ── 10-minute staleTime: content articles don't change every 2 minutes.
+// â”€â”€ 10-minute staleTime: content articles don't change every 2 minutes.
 // Using a long staleTime means navigating back to any page that used useQuery
 // returns data INSTANTLY from the in-memory cache rather than re-fetching.
 const queryClient = new QueryClient({
@@ -88,7 +91,7 @@ const appBase = import.meta.env.BASE_URL.replace(/\/$/, "");
 const HOME_PREFETCH_STALE_TIME = 1000 * 60;
 
 try {
-  // These are public listings — no session cookie, so the CDN can serve them
+  // These are public listings â€” no session cookie, so the CDN can serve them
   // and the request is not held up behind anything auth-related.
   queryClient.prefetchQuery({
     queryKey: ["home-articles"],
@@ -109,11 +112,11 @@ try {
   // Ignore prefetch failures
 }
 
-// ── Stable shell wrappers ──────────────────────────────────────────────────
+// â”€â”€ Stable shell wrappers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // CRITICAL: these must be defined OUTSIDE the Router function as named
 // components. If they're inline arrow functions inside Route's `component`
 // prop, React sees a new reference on every render and unmounts/remounts the
-// entire page — causing the "hanging" between navigations.
+// entire page â€” causing the "hanging" between navigations.
 
 function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -137,12 +140,14 @@ function AdminShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ── Pre-defined stable route components ──────────────────────────────────
+// â”€â”€ Pre-defined stable route components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Each must be a named component (not an inline arrow) so React can keep the
 // DOM stable across renders. This eliminates the unmount-remount cycle.
 
 const RouteHome              = () => <AppShell><HomePage /></AppShell>;
 const RouteBrowse            = () => <AppShell><BrowsePage /></AppShell>;
+const RouteMessages          = () => <AppShell><MessagesInboxPage /></AppShell>;
+const RouteConversation      = () => <AppShell><ConversationPage /></AppShell>;
 const RouteDomains           = () => <AppShell><DomainsPage /></AppShell>;
 const RouteDomain            = () => <AppShell><DomainPage /></AppShell>;
 const RouteArticle           = () => <AppShell><ArticlePage /></AppShell>;
@@ -242,6 +247,9 @@ function Router() {
         <Route path="/admin/settings"          component={RouteAdminSettings} />
         <Route path="/admin/users"             component={RouteAdminUsers} />
 
+        <Route path="/messages"                component={RouteMessages} />
+        <Route path="/messages/:id"            component={RouteConversation} />
+
         <Route component={NotFound} />
       </Switch>
     </>
@@ -250,8 +258,8 @@ function Router() {
 
 /**
  * Publishing, editing, and deleting all announce themselves with an
- * "anv:content-changed" event. Listening for it here — on the query client
- * rather than inside one page — means the cached listings are dropped no
+ * "anv:content-changed" event. Listening for it here â€” on the query client
+ * rather than inside one page â€” means the cached listings are dropped no
  * matter which screen the editor is on.
  *
  * Previously only the home page listened, and only while it was mounted. An

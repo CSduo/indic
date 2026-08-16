@@ -20,6 +20,7 @@ import backupRouter from "./backup";
 import rssRouter from "./rss";
 import sitemapRouter from "./sitemap";
 import pushRouter from "./push";
+import messagesRouter from "./messages";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(backupRouter);
 router.use(rssRouter);
 router.use(sitemapRouter);
 router.use(pushRouter);
+router.use(messagesRouter);
 
 export default router;

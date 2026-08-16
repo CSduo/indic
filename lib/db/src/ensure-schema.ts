@@ -23,6 +23,9 @@ const ENUMS: Record<string, string[]> = {
   file_category: ["MANUSCRIPT", "COVER", "SUPPORTING", "SUPPLEMENTARY"],
   priority: ["LOW", "NORMAL", "HIGH", "URGENT"],
   item_type: ["ARTICLE", "PAPER"],
+  conversation_kind: ["DIRECT", "GROUP"],
+  conversation_role: ["MEMBER", "ADMIN"],
+  message_kind: ["TEXT", "IMAGE", "AUDIO", "FILE", "SYSTEM"],
 };
 
 const ENUM_STATEMENTS = Object.entries(ENUMS).map(([name, labels]) => `
@@ -188,6 +191,56 @@ const TABLE_STATEMENTS = [
      "ip_address" text,
      "created_at" timestamp DEFAULT now() NOT NULL
    );`,
+  `CREATE TABLE IF NOT EXISTS "conversations" (
+     "id" text PRIMARY KEY NOT NULL,
+     "kind" "conversation_kind" DEFAULT 'DIRECT' NOT NULL,
+     "title" varchar(200),
+     "avatar_url" text,
+     "direct_key" text,
+     "created_by" text REFERENCES "users"("id") ON DELETE SET NULL,
+     "last_message_at" timestamp DEFAULT now() NOT NULL,
+     "last_message_preview" text,
+     "created_at" timestamp DEFAULT now() NOT NULL,
+     "updated_at" timestamp DEFAULT now() NOT NULL
+   );`,
+  `CREATE TABLE IF NOT EXISTS "conversation_members" (
+     "id" text PRIMARY KEY NOT NULL,
+     "conversation_id" text NOT NULL REFERENCES "conversations"("id") ON DELETE CASCADE,
+     "user_id" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+     "role" "conversation_role" DEFAULT 'MEMBER' NOT NULL,
+     "last_read_at" timestamp,
+     "muted" boolean DEFAULT false NOT NULL,
+     "joined_at" timestamp DEFAULT now() NOT NULL,
+     "left_at" timestamp
+   );`,
+  `CREATE TABLE IF NOT EXISTS "messages" (
+     "id" text PRIMARY KEY NOT NULL,
+     "conversation_id" text NOT NULL REFERENCES "conversations"("id") ON DELETE CASCADE,
+     "sender_id" text REFERENCES "users"("id") ON DELETE SET NULL,
+     "kind" "message_kind" DEFAULT 'TEXT' NOT NULL,
+     "body" text,
+     "media_url" text,
+     "media_mime_type" text,
+     "media_size_bytes" integer,
+     "media_name" text,
+     "reply_to_id" text,
+     "created_at" timestamp DEFAULT now() NOT NULL,
+     "edited_at" timestamp,
+     "deleted_at" timestamp
+   );`,
+  `CREATE TABLE IF NOT EXISTS "message_reactions" (
+     "id" text PRIMARY KEY NOT NULL,
+     "message_id" text NOT NULL REFERENCES "messages"("id") ON DELETE CASCADE,
+     "user_id" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+     "emoji" varchar(16) NOT NULL,
+     "created_at" timestamp DEFAULT now() NOT NULL
+   );`,
+  `CREATE TABLE IF NOT EXISTS "typing_indicators" (
+     "id" text PRIMARY KEY NOT NULL,
+     "conversation_id" text NOT NULL REFERENCES "conversations"("id") ON DELETE CASCADE,
+     "user_id" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+     "updated_at" timestamp DEFAULT now() NOT NULL
+   );`,
   `CREATE TABLE IF NOT EXISTS "push_subscriptions" (
      "id" text PRIMARY KEY NOT NULL,
      "user_id" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
@@ -326,6 +379,14 @@ const INDEX_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS "submissions_deleted_at_idx" ON "submissions" ("deleted_at");`,
   `CREATE INDEX IF NOT EXISTS "notifications_user_idx" ON "notifications" ("user_id");`,
   `CREATE INDEX IF NOT EXISTS "push_subscriptions_user_idx" ON "push_subscriptions" ("user_id");`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "conversations_direct_key_idx" ON "conversations" ("direct_key");`,
+  `CREATE INDEX IF NOT EXISTS "conversations_last_message_idx" ON "conversations" ("last_message_at");`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "conversation_members_unique" ON "conversation_members" ("conversation_id", "user_id");`,
+  `CREATE INDEX IF NOT EXISTS "conversation_members_user_idx" ON "conversation_members" ("user_id");`,
+  `CREATE INDEX IF NOT EXISTS "messages_conversation_idx" ON "messages" ("conversation_id", "created_at");`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "message_reactions_unique" ON "message_reactions" ("message_id", "user_id", "emoji");`,
+  `CREATE INDEX IF NOT EXISTS "message_reactions_message_idx" ON "message_reactions" ("message_id");`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "typing_indicators_unique" ON "typing_indicators" ("conversation_id", "user_id");`,
   `CREATE INDEX IF NOT EXISTS "notifications_unread_idx" ON "notifications" ("user_id", "read");`,
   `CREATE INDEX IF NOT EXISTS "articles_category_idx" ON "articles" ("category_slug");`,
   `CREATE INDEX IF NOT EXISTS "papers_category_idx" ON "papers" ("category_slug");`,

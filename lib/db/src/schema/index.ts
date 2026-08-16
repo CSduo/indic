@@ -232,6 +232,114 @@ export const notificationsTable = pgTable("notifications", {
   index("notifications_unread_idx").on(t.userId, t.read),
 ]);
 
+export const conversationKindEnum = pgEnum("conversation_kind", ["DIRECT", "GROUP"]);
+export const conversationRoleEnum = pgEnum("conversation_role", ["MEMBER", "ADMIN"]);
+export const messageKindEnum = pgEnum("message_kind", ["TEXT", "IMAGE", "AUDIO", "FILE", "SYSTEM"]);
+
+/**
+ * A direct thread between two people, or a named group.
+ *
+ * `directKey` is what stops two people ending up with two parallel private
+ * threads: for a DIRECT conversation it holds both user ids sorted and joined,
+ * so the unique index makes a second one impossible no matter who opens it
+ * first. It is null for groups, which may legitimately repeat their members.
+ *
+ * `lastMessageAt` is denormalised so the inbox can be ordered without touching
+ * the messages table — that list is read constantly and must stay cheap.
+ */
+export const conversationsTable = pgTable("conversations", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  kind: conversationKindEnum("kind").notNull().default("DIRECT"),
+  title: varchar("title", { length: 200 }),
+  avatarUrl: text("avatar_url"),
+  directKey: text("direct_key"),
+  createdBy: text("created_by").references(() => usersTable.id, { onDelete: "set null" }),
+  lastMessageAt: timestamp("last_message_at").defaultNow().notNull(),
+  lastMessagePreview: text("last_message_preview"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("conversations_direct_key_idx").on(t.directKey),
+  index("conversations_last_message_idx").on(t.lastMessageAt),
+]);
+
+/**
+ * Who is in a conversation, and how much of it they have read.
+ *
+ * `lastReadAt` is the whole basis of unread counts and read receipts, so it
+ * lives on the membership rather than being derived per message — one row per
+ * person per thread instead of one row per person per message.
+ *
+ * Leaving sets `leftAt` rather than deleting the row: the history stays
+ * coherent, and "X left the group" can still be shown.
+ */
+export const conversationMembersTable = pgTable("conversation_members", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  conversationId: text("conversation_id").notNull().references(() => conversationsTable.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  role: conversationRoleEnum("role").notNull().default("MEMBER"),
+  lastReadAt: timestamp("last_read_at"),
+  muted: boolean("muted").notNull().default(false),
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+  leftAt: timestamp("left_at"),
+}, (t) => [
+  uniqueIndex("conversation_members_unique").on(t.conversationId, t.userId),
+  index("conversation_members_user_idx").on(t.userId),
+]);
+
+/**
+ * One message. Media lives on the same row rather than a side table because a
+ * message carries at most one attachment here, and a join per message on the
+ * hottest read path in the product is not worth the normalisation.
+ *
+ * Deleting sets `deletedAt` and blanks the body at read time: an "unsent"
+ * message must leave a visible gap in the thread, otherwise replies to it stop
+ * making sense.
+ */
+export const messagesTable = pgTable("messages", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  conversationId: text("conversation_id").notNull().references(() => conversationsTable.id, { onDelete: "cascade" }),
+  senderId: text("sender_id").references(() => usersTable.id, { onDelete: "set null" }),
+  kind: messageKindEnum("kind").notNull().default("TEXT"),
+  body: text("body"),
+  mediaUrl: text("media_url"),
+  mediaMimeType: text("media_mime_type"),
+  mediaSizeBytes: integer("media_size_bytes"),
+  mediaName: text("media_name"),
+  replyToId: text("reply_to_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  editedAt: timestamp("edited_at"),
+  deletedAt: timestamp("deleted_at"),
+}, (t) => [
+  index("messages_conversation_idx").on(t.conversationId, t.createdAt),
+]);
+
+/** One emoji from one person on one message. */
+export const messageReactionsTable = pgTable("message_reactions", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  messageId: text("message_id").notNull().references(() => messagesTable.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  emoji: varchar("emoji", { length: 16 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("message_reactions_unique").on(t.messageId, t.userId, t.emoji),
+  index("message_reactions_message_idx").on(t.messageId),
+]);
+
+/**
+ * Who is typing, refreshed by the client and treated as expired after a few
+ * seconds. A table rather than memory because serverless instances do not
+ * share state — anything held in a process is invisible to the next request.
+ */
+export const typingIndicatorsTable = pgTable("typing_indicators", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  conversationId: text("conversation_id").notNull().references(() => conversationsTable.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("typing_indicators_unique").on(t.conversationId, t.userId),
+]);
+
 /**
  * Browser push endpoints, one row per device a reader has approved.
  *
