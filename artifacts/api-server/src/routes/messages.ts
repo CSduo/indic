@@ -1,4 +1,4 @@
-import { Router } from "express";
+﻿import { Router } from "express";
 import multer from "multer";
 import { z } from "zod";
 import {
@@ -9,11 +9,13 @@ import {
   messageReactionsTable,
   typingIndicatorsTable,
   usersTable,
+  followsTable,
 } from "@workspace/db";
-import { and, asc, desc, eq, gt, ilike, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, ilike, inArray, isNotNull, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { getUserAuth } from "../lib/auth";
 import { persistUploadedFile } from "../lib/storage";
 import { sendPushToUser } from "../lib/push";
+import { notifyUser } from "../lib/notify";
 import {
   describeConversation,
   directKeyFor,
@@ -56,6 +58,31 @@ async function markRead(conversationId: string, userId: string) {
   `);
 }
 
+/**
+ * A pending request lets the sender write exactly once.
+ *
+ * Without this cap, "request to message" would be decoration: anyone could
+ * fill a stranger's request list with an unlimited stream before it was ever
+ * accepted. One message is enough to say who you are and why.
+ */
+const REQUEST_MESSAGE_ALLOWANCE = 1;
+
+type RequestState = {
+  pending: boolean;
+  /** True when the viewer is the one who sent the request. */
+  iRequested: boolean;
+};
+
+async function requestStateFor(conversationId: string, userId: string): Promise<RequestState> {
+  const [row] = await db
+    .select({ requestedBy: conversationsTable.requestedBy, acceptedAt: conversationsTable.acceptedAt })
+    .from(conversationsTable)
+    .where(eq(conversationsTable.id, conversationId))
+    .limit(1);
+  const pending = Boolean(row && !row.acceptedAt && row.requestedBy);
+  return { pending, iRequested: pending && row!.requestedBy === userId };
+}
+
 /** Every endpoint here is private; there is no anonymous view of a thread. */
 async function requireUser(req: any, res: any): Promise<string | null> {
   const auth = await getUserAuth(req);
@@ -66,10 +93,10 @@ async function requireUser(req: any, res: any): Promise<string | null> {
   return auth.userId;
 }
 
-/* ─── Inbox ────────────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Inbox â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 /**
- * GET /api/conversations — the inbox.
+ * GET /api/conversations â€” the inbox.
  *
  * Reads only the conversations table plus one aggregate for unread counts, so
  * the cost does not grow with message volume. This is the most-polled endpoint
@@ -90,6 +117,8 @@ router.get("/conversations", async (req, res) => {
         lastMessagePreview: conversationsTable.lastMessagePreview,
         muted: conversationMembersTable.muted,
         lastReadAt: conversationMembersTable.lastReadAt,
+        requestedBy: conversationsTable.requestedBy,
+        acceptedAt: conversationsTable.acceptedAt,
       })
       .from(conversationsTable)
       .innerJoin(conversationMembersTable, eq(conversationMembersTable.conversationId, conversationsTable.id))
@@ -128,9 +157,10 @@ router.get("/conversations", async (req, res) => {
       byConversation.set(m.conversationId, list);
     }
 
-    const conversations = rows.map(row => {
+    const all = rows.map(row => {
       const members = byConversation.get(row.id) || [];
       const described = describeConversation(row, members, userId);
+      const pending = Boolean(!row.acceptedAt && row.requestedBy);
       return {
         id: row.id,
         kind: row.kind,
@@ -142,12 +172,24 @@ router.get("/conversations", async (req, res) => {
         unread: unread.get(row.id) || 0,
         muted: row.muted,
         memberCount: members.length,
+        pending,
+        iRequested: pending && row.requestedBy === userId,
       };
     });
 
+    // Requests are kept out of the main inbox. Mixing an unaccepted stranger
+    // in with real conversations is how an inbox becomes something people stop
+    // opening, and it makes the accept step easy to miss.
+    const conversations = all.filter(c => !c.pending || c.iRequested);
+    const requests = all.filter(c => c.pending && !c.iRequested);
+
     return res.json({
       conversations,
+      requests,
+      // A pending request is not an unread message; it is counted separately
+      // so the inbox badge never nags about someone you have not admitted.
       totalUnread: conversations.reduce((sum, c) => sum + c.unread, 0),
+      requestCount: requests.length,
     });
   } catch (err) {
     req.log?.error({ err }, "Failed to list conversations");
@@ -156,7 +198,7 @@ router.get("/conversations", async (req, res) => {
 });
 
 /**
- * GET /api/conversations/cursor — a tiny endpoint the client polls.
+ * GET /api/conversations/cursor â€” a tiny endpoint the client polls.
  *
  * Returns only the newest activity timestamp and the total unread count. The
  * client compares it against what it already has and only fetches the full
@@ -178,10 +220,10 @@ router.get("/conversations/cursor", async (req, res) => {
   }
 });
 
-/* ─── Starting a conversation ──────────────────────────────────────────── */
+/* â”€â”€â”€ Starting a conversation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 /**
- * POST /api/conversations — open a direct thread, or create a group.
+ * POST /api/conversations â€” open a direct thread, or create a group.
  *
  * Opening a direct thread is idempotent: the sorted-pair key means asking
  * twice returns the same conversation rather than splitting the history in
@@ -203,7 +245,7 @@ router.post("/conversations", async (req, res) => {
     const others = [...new Set(parsed.data.userIds.filter(id => id !== userId))];
     if (others.length === 0) return res.status(400).json({ error: "Choose someone to message" });
 
-    // Only real accounts may be added — a stale id would otherwise create a
+    // Only real accounts may be added â€” a stale id would otherwise create a
     // conversation with a member who can never read it.
     const found = await db
       .select({ id: usersTable.id })
@@ -237,10 +279,22 @@ router.post("/conversations", async (req, res) => {
         return res.json({ conversation: { id: existing.id }, created: false });
       }
 
+      // Someone the recipient already follows is not a stranger, so their
+      // thread opens immediately. Anyone else has to be accepted first â€” that
+      // is what stops the directory turning into an open channel to every
+      // member of the site.
+      const [theyFollowMe] = await db
+        .select({ id: followsTable.id })
+        .from(followsTable)
+        .where(and(eq(followsTable.followerId, others[0]), eq(followsTable.followingId, userId)))
+        .limit(1);
+
       const [conversation] = await db.insert(conversationsTable).values({
         kind: "DIRECT",
         directKey: key,
         createdBy: userId,
+        requestedBy: theyFollowMe ? null : userId,
+        acceptedAt: theyFollowMe ? new Date() : null,
       }).returning({ id: conversationsTable.id });
 
       await db.insert(conversationMembersTable).values([
@@ -248,11 +302,36 @@ router.post("/conversations", async (req, res) => {
         { conversationId: conversation.id, userId: others[0], role: "MEMBER" },
       ]);
 
-      return res.status(201).json({ conversation: { id: conversation.id }, created: true });
+      return res.status(201).json({
+        conversation: { id: conversation.id },
+        created: true,
+        pendingRequest: !theyFollowMe,
+      });
+    }
+
+    // A group may only be assembled from people who have actually agreed to
+    // hear from you â€” otherwise a group becomes a way around the request step.
+    const reachable = await db
+      .select({ other: conversationsTable.directKey })
+      .from(conversationsTable)
+      .where(and(
+        eq(conversationsTable.kind, "DIRECT"),
+        isNotNull(conversationsTable.acceptedAt),
+        inArray(conversationsTable.directKey, others.map(id => directKeyFor(userId, id))),
+      ));
+    const acceptedKeys = new Set(reachable.map(r => r.other));
+    const notReachable = others.filter(id => !acceptedKeys.has(directKeyFor(userId, id)));
+    if (notReachable.length > 0) {
+      return res.status(403).json({
+        error: "You can only start a group with people who have accepted a message from you.",
+        code: "GROUP_MEMBERS_NOT_ACCEPTED",
+        blocked: notReachable.length,
+      });
     }
 
     const [conversation] = await db.insert(conversationsTable).values({
       kind: "GROUP",
+      acceptedAt: new Date(),
       title: title || null,
       createdBy: userId,
     }).returning({ id: conversationsTable.id });
@@ -270,9 +349,9 @@ router.post("/conversations", async (req, res) => {
   }
 });
 
-/* ─── A single thread ──────────────────────────────────────────────────── */
+/* â”€â”€â”€ A single thread â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
-/** GET /api/conversations/:id — details, members, and who is typing. */
+/** GET /api/conversations/:id â€” details, members, and who is typing. */
 router.get("/conversations/:id", async (req, res) => {
   try {
     const userId = await requireUser(req, res);
@@ -320,7 +399,7 @@ router.get("/conversations/:id", async (req, res) => {
 });
 
 /**
- * GET /api/conversations/:id/messages — a page of the thread.
+ * GET /api/conversations/:id/messages â€” a page of the thread.
  *
  * `before` pages backwards through history; `after` fetches only what is new,
  * which is what the open thread polls with.
@@ -438,7 +517,7 @@ router.get("/conversations/:id/messages", async (req, res) => {
   }
 });
 
-/* ─── Sending ──────────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Sending â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 async function deliverMessage(options: {
   conversationId: string;
@@ -456,10 +535,10 @@ async function deliverMessage(options: {
     await Promise.all(recipients
       .filter(r => !r.muted)
       .map(r => sendPushToUser(r.userId, {
-        title: conversationTitle === senderName ? senderName : `${senderName} · ${conversationTitle}`,
+        title: conversationTitle === senderName ? senderName : `${senderName} Â· ${conversationTitle}`,
         body: preview,
         url: `/messages/${conversationId}`,
-        // One notification per conversation, replaced as it goes — a burst of
+        // One notification per conversation, replaced as it goes â€” a burst of
         // messages should not become a wall of separate alerts.
         tag: `conversation-${conversationId}`,
       })));
@@ -468,7 +547,7 @@ async function deliverMessage(options: {
   }
 }
 
-/** POST /api/conversations/:id/messages — send text, optionally quoting. */
+/** POST /api/conversations/:id/messages â€” send text, optionally quoting. */
 router.post("/conversations/:id/messages", async (req, res) => {
   try {
     const userId = await requireUser(req, res);
@@ -483,6 +562,29 @@ router.post("/conversations/:id/messages", async (req, res) => {
     }).safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "Write a message first", details: parsed.error.flatten() });
+    }
+
+    // While a request is pending the sender gets one message, and the
+    // recipient cannot reply at all without accepting â€” replying *is*
+    // accepting, so an implicit one would defeat the point.
+    const request = await requestStateFor(req.params.id, userId);
+    if (request.pending) {
+      if (!request.iRequested) {
+        return res.status(403).json({
+          error: "Accept this message request before replying.",
+          code: "REQUEST_NOT_ACCEPTED",
+        });
+      }
+      const [{ sent }] = await db
+        .select({ sent: sql<number>`count(*)` })
+        .from(messagesTable)
+        .where(and(eq(messagesTable.conversationId, req.params.id), eq(messagesTable.senderId, userId)));
+      if (Number(sent) >= REQUEST_MESSAGE_ALLOWANCE) {
+        return res.status(403).json({
+          error: "You have sent your message request. You can write again once they accept it.",
+          code: "REQUEST_LIMIT_REACHED",
+        });
+      }
     }
 
     // A quote must point at a message in this same thread, or it would leak a
@@ -524,7 +626,7 @@ router.post("/conversations/:id/messages", async (req, res) => {
       conversationTitle: conversation?.title || senderName,
     });
 
-    // Sending is also reading — nobody has unread messages in a thread they
+    // Sending is also reading â€” nobody has unread messages in a thread they
     // are actively typing in.
     await markRead(req.params.id, userId);
 
@@ -541,7 +643,7 @@ router.post("/conversations/:id/messages", async (req, res) => {
   }
 });
 
-/** POST /api/conversations/:id/attachments — send a photo, voice note, or file. */
+/** POST /api/conversations/:id/attachments â€” send a photo, voice note, or file. */
 router.post(
   "/conversations/:id/attachments",
   (req: any, res: any, next: any) => {
@@ -611,9 +713,9 @@ router.post(
   },
 );
 
-/* ─── Message actions ──────────────────────────────────────────────────── */
+/* â”€â”€â”€ Message actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
-/** PATCH /api/messages/:id — edit your own message. */
+/** PATCH /api/messages/:id â€” edit your own message. */
 router.patch("/messages/:id", async (req, res) => {
   try {
     const userId = await requireUser(req, res);
@@ -641,7 +743,7 @@ router.patch("/messages/:id", async (req, res) => {
   }
 });
 
-/** DELETE /api/messages/:id — unsend your own message. */
+/** DELETE /api/messages/:id â€” unsend your own message. */
 router.delete("/messages/:id", async (req, res) => {
   try {
     const userId = await requireUser(req, res);
@@ -663,7 +765,7 @@ router.delete("/messages/:id", async (req, res) => {
   }
 });
 
-/** PUT /api/messages/:id/reactions — add or remove one of your reactions. */
+/** PUT /api/messages/:id/reactions â€” add or remove one of your reactions. */
 router.put("/messages/:id/reactions", async (req, res) => {
   try {
     const userId = await requireUser(req, res);
@@ -706,9 +808,9 @@ router.put("/messages/:id/reactions", async (req, res) => {
   }
 });
 
-/* ─── Read state, typing, membership ───────────────────────────────────── */
+/* â”€â”€â”€ Read state, typing, membership â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
-/** POST /api/conversations/:id/read — mark everything up to now as seen. */
+/** POST /api/conversations/:id/read â€” mark everything up to now as seen. */
 router.post("/conversations/:id/read", async (req, res) => {
   try {
     const userId = await requireUser(req, res);
@@ -725,7 +827,7 @@ router.post("/conversations/:id/read", async (req, res) => {
   }
 });
 
-/** POST /api/conversations/:id/typing — refresh the typing signal. */
+/** POST /api/conversations/:id/typing â€” refresh the typing signal. */
 router.post("/conversations/:id/typing", async (req, res) => {
   try {
     const userId = await requireUser(req, res);
@@ -747,7 +849,7 @@ router.post("/conversations/:id/typing", async (req, res) => {
   }
 });
 
-/** PATCH /api/conversations/:id — rename a group, or mute it for yourself. */
+/** PATCH /api/conversations/:id â€” rename a group, or mute it for yourself. */
 router.patch("/conversations/:id", async (req, res) => {
   try {
     const userId = await requireUser(req, res);
@@ -788,7 +890,7 @@ router.patch("/conversations/:id", async (req, res) => {
   }
 });
 
-/** POST /api/conversations/:id/members — add people to a group. */
+/** POST /api/conversations/:id/members â€” add people to a group. */
 router.post("/conversations/:id/members", async (req, res) => {
   try {
     const userId = await requireUser(req, res);
@@ -823,7 +925,7 @@ router.post("/conversations/:id/members", async (req, res) => {
   }
 });
 
-/** DELETE /api/conversations/:id/members/:userId — leave, or remove someone. */
+/** DELETE /api/conversations/:id/members/:userId â€” leave, or remove someone. */
 router.delete("/conversations/:id/members/:userId", async (req, res) => {
   try {
     const userId = await requireUser(req, res);
@@ -851,9 +953,73 @@ router.delete("/conversations/:id/members/:userId", async (req, res) => {
   }
 });
 
-/* ─── Finding people ───────────────────────────────────────────────────── */
+/** POST /api/conversations/:id/accept â€” accept a message request. */
+router.post("/conversations/:id/accept", async (req, res) => {
+  try {
+    const userId = await requireUser(req, res);
+    if (!userId) return;
+    const membership = await requireMembership(req.params.id, userId);
+    if (!membership) return res.status(404).json({ error: "Conversation not found" });
 
-/** GET /api/messages/people?q= — search accounts to start a conversation with. */
+    const request = await requestStateFor(req.params.id, userId);
+    if (!request.pending) return res.json({ success: true, alreadyOpen: true });
+    if (request.iRequested) {
+      return res.status(403).json({ error: "The other person has to accept this one" });
+    }
+
+    await db.update(conversationsTable)
+      .set({ acceptedAt: new Date(), requestedBy: null, updatedAt: new Date() })
+      .where(eq(conversationsTable.id, req.params.id));
+
+    const [me] = await db.select({ name: usersTable.name })
+      .from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    const others = await recipientsOf(req.params.id, userId);
+    await Promise.all(others.map(o => notifyUser({
+      userId: o.userId,
+      type: "MESSAGE_REQUEST_ACCEPTED",
+      message: `${me?.name || "Someone"} accepted your message request.`,
+      href: `/messages/${req.params.id}`,
+      pushTitle: "Message request accepted",
+      tag: `conversation-${req.params.id}`,
+    })));
+
+    return res.json({ success: true });
+  } catch (err) {
+    req.log?.error({ err }, "Failed to accept request");
+    return res.status(500).json({ error: "Could not accept that request" });
+  }
+});
+
+/**
+ * DELETE /api/conversations/:id/request â€” decline.
+ *
+ * The whole conversation goes, not just the membership: a declined request
+ * should leave nothing behind, and keeping the row would let the sender see
+ * that it had been read and then refused.
+ */
+router.delete("/conversations/:id/request", async (req, res) => {
+  try {
+    const userId = await requireUser(req, res);
+    if (!userId) return;
+    const membership = await requireMembership(req.params.id, userId);
+    if (!membership) return res.status(404).json({ error: "Conversation not found" });
+
+    const request = await requestStateFor(req.params.id, userId);
+    if (!request.pending || request.iRequested) {
+      return res.status(400).json({ error: "There is no pending request to decline here" });
+    }
+
+    await db.delete(conversationsTable).where(eq(conversationsTable.id, req.params.id));
+    return res.json({ success: true });
+  } catch (err) {
+    req.log?.error({ err }, "Failed to decline request");
+    return res.status(500).json({ error: "Could not decline that request" });
+  }
+});
+
+/* â”€â”€â”€ Finding people â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+/** GET /api/messages/people?q= â€” search accounts to start a conversation with. */
 router.get("/messages/people", async (req, res) => {
   try {
     const userId = await requireUser(req, res);

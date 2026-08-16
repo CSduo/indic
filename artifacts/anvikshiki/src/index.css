@@ -6338,3 +6338,9 @@ button.editor-tool.is-active {
   font-size: 0.625rem;
   letter-spacing: 0.12em;
 }
+
+@keyframes notificationInviteIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+

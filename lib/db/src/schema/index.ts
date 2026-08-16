@@ -232,6 +232,20 @@ export const notificationsTable = pgTable("notifications", {
   index("notifications_unread_idx").on(t.userId, t.read),
 ]);
 
+/**
+ * One person following another. Directional and unique, so following someone
+ * twice is impossible and "follows back" is simply the mirrored row existing.
+ */
+export const followsTable = pgTable("follows", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  followerId: text("follower_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  followingId: text("following_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("follows_unique").on(t.followerId, t.followingId),
+  index("follows_following_idx").on(t.followingId),
+]);
+
 export const conversationKindEnum = pgEnum("conversation_kind", ["DIRECT", "GROUP"]);
 export const conversationRoleEnum = pgEnum("conversation_role", ["MEMBER", "ADMIN"]);
 export const messageKindEnum = pgEnum("message_kind", ["TEXT", "IMAGE", "AUDIO", "FILE", "SYSTEM"]);
@@ -254,6 +268,15 @@ export const conversationsTable = pgTable("conversations", {
   avatarUrl: text("avatar_url"),
   directKey: text("direct_key"),
   createdBy: text("created_by").references(() => usersTable.id, { onDelete: "set null" }),
+  /**
+   * A direct thread opened by someone the recipient does not follow starts as
+   * a request: it sits in a separate list, the sender may write once, and
+   * nothing further is delivered until the recipient accepts. `acceptedAt`
+   * null with a `requestedBy` set is what "pending" means; both null is a
+   * group, which has no request step.
+   */
+  requestedBy: text("requested_by").references(() => usersTable.id, { onDelete: "set null" }),
+  acceptedAt: timestamp("accepted_at"),
   lastMessageAt: timestamp("last_message_at").defaultNow().notNull(),
   lastMessagePreview: text("last_message_preview"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

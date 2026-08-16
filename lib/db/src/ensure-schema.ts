@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Idempotent schema repair.
  *
  * The production database predates several migrations and `drizzle-kit push` is
  * a manual step that is not part of the Vercel build. When a column that the
  * Drizzle schema knows about is missing from the live table, every query that
- * names it fails with `column ... does not exist` — which is why publishing a
+ * names it fails with `column ... does not exist` â€” which is why publishing a
  * submission, loading an article, or saving an edit returned a 500 while the
  * code itself was correct.
  *
@@ -191,6 +191,12 @@ const TABLE_STATEMENTS = [
      "ip_address" text,
      "created_at" timestamp DEFAULT now() NOT NULL
    );`,
+  `CREATE TABLE IF NOT EXISTS "follows" (
+     "id" text PRIMARY KEY NOT NULL,
+     "follower_id" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+     "following_id" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+     "created_at" timestamp DEFAULT now() NOT NULL
+   );`,
   `CREATE TABLE IF NOT EXISTS "conversations" (
      "id" text PRIMARY KEY NOT NULL,
      "kind" "conversation_kind" DEFAULT 'DIRECT' NOT NULL,
@@ -298,6 +304,12 @@ const TABLE_STATEMENTS = [
 
 /** table -> "column definition" fragments appended to ADD COLUMN IF NOT EXISTS. */
 const COLUMN_STATEMENTS: Record<string, string[]> = {
+  // Message requests were added after conversations shipped, so an existing
+  // deployment needs these two columns rather than a fresh table.
+  conversations: [
+    `"requested_by" text REFERENCES "users"("id") ON DELETE SET NULL`,
+    `"accepted_at" timestamp`,
+  ],
   users: [
     `"avatar_url" text`,
     `"bio" text`,
@@ -379,6 +391,8 @@ const INDEX_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS "submissions_deleted_at_idx" ON "submissions" ("deleted_at");`,
   `CREATE INDEX IF NOT EXISTS "notifications_user_idx" ON "notifications" ("user_id");`,
   `CREATE INDEX IF NOT EXISTS "push_subscriptions_user_idx" ON "push_subscriptions" ("user_id");`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "follows_unique" ON "follows" ("follower_id", "following_id");`,
+  `CREATE INDEX IF NOT EXISTS "follows_following_idx" ON "follows" ("following_id");`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "conversations_direct_key_idx" ON "conversations" ("direct_key");`,
   `CREATE INDEX IF NOT EXISTS "conversations_last_message_idx" ON "conversations" ("last_message_at");`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "conversation_members_unique" ON "conversation_members" ("conversation_id", "user_id");`,

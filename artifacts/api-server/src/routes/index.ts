@@ -21,6 +21,7 @@ import rssRouter from "./rss";
 import sitemapRouter from "./sitemap";
 import pushRouter from "./push";
 import messagesRouter from "./messages";
+import communityRouter from "./community";
 
 const router: IRouter = Router();
 
@@ -46,5 +47,6 @@ router.use(rssRouter);
 router.use(sitemapRouter);
 router.use(pushRouter);
 router.use(messagesRouter);
+router.use(communityRouter);
 
 export default router;

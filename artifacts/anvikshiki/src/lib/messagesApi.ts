@@ -97,7 +97,7 @@ export const messagesApi = {
   },
 
   start: (userIds: string[], kind: "DIRECT" | "GROUP" = "DIRECT", title?: string) =>
-    json<{ conversation: { id: string }; created: boolean }>("/conversations", {
+    json<{ conversation: { id: string }; created: boolean; pendingRequest?: boolean }>("/conversations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ kind, userIds, title }),

@@ -11,6 +11,7 @@ import { LoadingScreen } from "@/components/sacred/LoadingScreen";
 import { PageSkeleton } from "@/components/sacred/PageSkeleton";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { NotificationInvite } from "@/components/sacred/NotificationInvite";
 import { PageTransition } from "@/components/providers/PageTransition";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 
@@ -64,6 +65,7 @@ const AdminNewsletterPage   = lazy(() => import("@/app/admin/newsletter/page"));
 const AdminSettingsPage     = lazy(() => import("@/app/admin/settings/page"));
 const AdminUsersPage        = lazy(() => import("@/app/admin/users/page"));
 
+const CommunityMembersPage = lazy(() => import("@/app/community/members/page"));
 const MessagesInboxPage    = lazy(() => import("@/app/messages/page"));
 const ConversationPage     = lazy(() => import("@/app/messages/[id]/page"));
 
@@ -146,6 +148,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
 
 const RouteHome              = () => <AppShell><HomePage /></AppShell>;
 const RouteBrowse            = () => <AppShell><BrowsePage /></AppShell>;
+const RouteCommunityMembers  = () => <AppShell><CommunityMembersPage /></AppShell>;
 const RouteMessages          = () => <AppShell><MessagesInboxPage /></AppShell>;
 const RouteConversation      = () => <AppShell><ConversationPage /></AppShell>;
 const RouteDomains           = () => <AppShell><DomainsPage /></AppShell>;
@@ -247,6 +250,7 @@ function Router() {
         <Route path="/admin/settings"          component={RouteAdminSettings} />
         <Route path="/admin/users"             component={RouteAdminUsers} />
 
+        <Route path="/community/members"       component={RouteCommunityMembers} />
         <Route path="/messages"                component={RouteMessages} />
         <Route path="/messages/:id"            component={RouteConversation} />
 
@@ -290,6 +294,7 @@ function App() {
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
             <Router />
           </WouterRouter>
+          <NotificationInvite />
           <Toaster
             position="top-center"
             toastOptions={{
