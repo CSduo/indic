@@ -232,6 +232,29 @@ export const notificationsTable = pgTable("notifications", {
   index("notifications_unread_idx").on(t.userId, t.read),
 ]);
 
+/**
+ * Browser push endpoints, one row per device a reader has approved.
+ *
+ * Tied to a user id, which is what makes the behaviour "notifications follow
+ * the account": a signed-out visitor has no row, so nothing is ever sent to
+ * them, and signing back in on the same browser resumes delivery.
+ *
+ * The endpoint is unique because the browser reissues the same URL for the
+ * same device, so a second approval must update rather than duplicate.
+ */
+export const pushSubscriptionsTable = pgTable("push_subscriptions", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastUsedAt: timestamp("last_used_at").defaultNow().notNull(),
+}, (t) => [
+  index("push_subscriptions_user_idx").on(t.userId),
+]);
+
 // Audit logs
 export const auditLogsTable = pgTable("audit_logs", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),

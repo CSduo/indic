@@ -18,6 +18,7 @@ import {
   unpublishPublicPublicationForSubmission,
 } from "../lib/publication-sync";
 import { z } from "zod";
+import { notifyUser } from "../lib/notify";
 import { sanitizeArticleBody, MAX_BODY_CHARS } from "../lib/content";
 
 const router = Router();
@@ -605,14 +606,14 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
       }
 
       if (previous.status !== "PUBLISHED" && previous.userId) {
-        try {
-          await db.insert(notificationsTable).values({
-            userId: previous.userId,
-            type: "SUBMISSION_STATUS",
-            message: `Your submission "${previous.title}" is now published.`,
-            href: "/account",
-          });
-        } catch {}
+        await notifyUser({
+          userId: previous.userId,
+          type: "SUBMISSION_STATUS",
+          message: `Your submission "${previous.title}" is now published.`,
+          href: "/account",
+          pushTitle: "Your work is published",
+          tag: `submission-${req.params.id}`,
+        });
       }
       return res.json({ submission, publication });
     }
@@ -622,14 +623,14 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
     }
 
     if (parsed.data.status && parsed.data.status !== previous.status && previous.userId) {
-      try {
-        await db.insert(notificationsTable).values({
-          userId: previous.userId,
-          type: "SUBMISSION_STATUS",
-          message: `Your submission "${previous.title}" is now ${parsed.data.status.toLowerCase().replace(/_/g, " ")}.`,
-          href: "/account",
-        });
-      } catch {}
+      await notifyUser({
+        userId: previous.userId,
+        type: "SUBMISSION_STATUS",
+        message: `Your submission "${previous.title}" is now ${parsed.data.status.toLowerCase().replace(/_/g, " ")}.`,
+        href: "/account",
+        pushTitle: "Update on your submission",
+        tag: `submission-${req.params.id}`,
+      });
     }
 
     return res.json({ submission });

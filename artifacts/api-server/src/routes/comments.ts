@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { commentsTable, articlesTable, usersTable } from "@workspace/db";
-import { eq, and, isNull, desc } from "drizzle-orm";
+import { eq, and, isNull, desc, sql } from "drizzle-orm";
 import { getUserAuth, getAdminAuth } from "../lib/auth";
+import { notifyUser } from "../lib/notify";
 import { z } from "zod";
 
 const router = Router();
@@ -13,6 +14,86 @@ async function requireAdmin(req: any, res: any, next: any) {
   if (!auth) return res.status(401).json({ error: "Unauthorized" });
   req.adminAuth = auth;
   next();
+}
+
+/** A short, readable preview of a comment for a notification line. */
+function excerptOf(content: string, limit = 90): string {
+  const flat = content.replace(/\s+/g, " ").trim();
+  return flat.length > limit ? `${flat.slice(0, limit - 1)}…` : flat;
+}
+
+/**
+ * Notify the people a new comment concerns: the author of the article, and —
+ * when it is a reply — whoever wrote the comment being replied to.
+ *
+ * Nobody is notified about their own comment, and each person is notified at
+ * most once even when they are both the article's author and the parent
+ * commenter. Every failure is swallowed: this runs after the comment has
+ * already been accepted, and must not turn a successful post into an error.
+ */
+async function notifyCommentParticipants(req: any, options: {
+  articleId: string;
+  comment: { id: string; authorName: string; content: string };
+  parentId: string | null;
+  commenterUserId: string | null;
+}): Promise<void> {
+  const { articleId, comment, parentId, commenterUserId } = options;
+
+  try {
+    const [article] = await db.select({
+      slug: articlesTable.slug,
+      title: articlesTable.title,
+      authorName: articlesTable.authorName,
+    }).from(articlesTable).where(eq(articlesTable.id, articleId)).limit(1);
+    if (!article) return;
+
+    const href = `/articles/${article.slug}`;
+    const preview = excerptOf(comment.content);
+    const notified = new Set<string>();
+    if (commenterUserId) notified.add(commenterUserId);
+
+    // The person being replied to hears first — it is addressed to them.
+    if (parentId) {
+      const [parent] = await db.select({ userId: commentsTable.userId })
+        .from(commentsTable).where(eq(commentsTable.id, parentId)).limit(1);
+      if (parent?.userId && !notified.has(parent.userId)) {
+        notified.add(parent.userId);
+        await notifyUser({
+          userId: parent.userId,
+          type: "COMMENT_REPLY",
+          message: `${comment.authorName} replied to you on "${article.title}": ${preview}`,
+          href,
+          pushTitle: `${comment.authorName} replied to you`,
+          tag: `comment-${articleId}`,
+        });
+      }
+    }
+
+    // Published work carries only an author name, so the account is matched by
+    // the same normalised-identity rule the rest of the site uses.
+    if (article.authorName) {
+      const key = article.authorName.toLowerCase().replace(/[^a-z0-9]+/g, "");
+      if (key.length >= 4) {
+        const [author] = await db.select({ id: usersTable.id })
+          .from(usersTable)
+          .where(sql`lower(regexp_replace(coalesce(${usersTable.name}, ''), '[^a-zA-Z0-9]+', '', 'g')) = ${key}`)
+          .limit(1);
+        if (author?.id && !notified.has(author.id)) {
+          notified.add(author.id);
+          await notifyUser({
+            userId: author.id,
+            type: "COMMENT_ON_WORK",
+            message: `${comment.authorName} commented on "${article.title}": ${preview}`,
+            href,
+            pushTitle: `New comment on "${article.title}"`,
+            tag: `comment-${articleId}`,
+          });
+        }
+      }
+    }
+  } catch (err) {
+    req.log?.warn?.({ err }, "Could not notify comment participants");
+  }
 }
 
 // GET /api/articles/:articleId/comments — all approved top-level comments + their replies
@@ -129,6 +210,18 @@ router.post("/articles/:articleId/comments", async (req, res) => {
       approved: isLoggedIn, // auto-approve logged-in users
     }).returning();
 
+    // Tell the people this comment concerns. Only once it is actually visible:
+    // notifying about a comment still awaiting moderation would announce
+    // something the recipient cannot yet see, and would leak unapproved text.
+    if (comment.approved) {
+      void notifyCommentParticipants(req, {
+        articleId,
+        comment,
+        parentId: parsed.data.parentId || null,
+        commenterUserId: auth?.userId || null,
+      });
+    }
+
     return res.status(201).json({
       success: true,
       comment: { ...comment, replies: [] },
@@ -217,6 +310,16 @@ router.patch("/comments/:id/approve", requireAdmin, async (req, res) => {
       .where(eq(commentsTable.id, req.params.id))
       .returning();
     if (!comment) return res.status(404).json({ error: "Comment not found" });
+
+    // A held comment becomes visible only now, so this is the moment its
+    // participants should hear about it.
+    void notifyCommentParticipants(req, {
+      articleId: comment.articleId,
+      comment,
+      parentId: comment.parentId || null,
+      commenterUserId: comment.userId || null,
+    });
+
     return res.json({ success: true, comment });
   } catch (err) {
     req.log.error(err);

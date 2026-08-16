@@ -6,6 +6,7 @@ import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { EmptyState } from "@/components/sacred/EmptyState";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { NotificationSettings } from "@/components/sacred/NotificationSettings";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -65,6 +66,10 @@ export default function NotificationsPage() {
         </div>
 
         <OrnamentDivider className="mb-8" />
+
+        <div className="mb-8">
+          <NotificationSettings />
+        </div>
 
         {loading ? (
           <div className="flex justify-center py-12">

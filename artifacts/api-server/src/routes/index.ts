@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+﻿import { Router, type IRouter } from "express";
 import authRouter from "./auth";
 import articlesRouter from "./articles";
 import papersRouter from "./papers";
@@ -19,6 +19,7 @@ import commentsRouter from "./comments";
 import backupRouter from "./backup";
 import rssRouter from "./rss";
 import sitemapRouter from "./sitemap";
+import pushRouter from "./push";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use(commentsRouter);
 router.use(backupRouter);
 router.use(rssRouter);
 router.use(sitemapRouter);
+router.use(pushRouter);
 
 export default router;

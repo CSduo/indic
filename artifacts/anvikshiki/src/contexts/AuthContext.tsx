@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { disableNotifications, resumeNotificationsIfAlreadyGranted } from "@/lib/pushNotifications";
 
 interface User {
   id: string;
@@ -95,12 +96,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refresh();
   }, [refresh]);
 
+  // Someone who already allowed notifications, then signed out and back in,
+  // should not be asked a second time: the browser permission is still granted,
+  // so quietly re-register this device against the account now signed in. This
+  // never prompts — with no existing permission it does nothing at all.
+  useEffect(() => {
+    if (!user) return;
+    void resumeNotificationsIfAlreadyGranted();
+  }, [user?.id]);
+
   const login = useCallback((u: User) => {
     applyUser(u);
     setLoading(false);
   }, [applyUser]);
 
   const logout = useCallback(async () => {
+    // Detach this device before the session goes, so nothing is delivered to a
+    // browser nobody is signed in on.
+    await disableNotifications().catch(() => {});
     try {
       await fetch(`${BASE}/api/auth/logout`, { method: "POST", credentials: "include" });
     } catch {}

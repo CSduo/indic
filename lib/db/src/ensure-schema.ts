@@ -188,6 +188,16 @@ const TABLE_STATEMENTS = [
      "ip_address" text,
      "created_at" timestamp DEFAULT now() NOT NULL
    );`,
+  `CREATE TABLE IF NOT EXISTS "push_subscriptions" (
+     "id" text PRIMARY KEY NOT NULL,
+     "user_id" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+     "endpoint" text NOT NULL UNIQUE,
+     "p256dh" text NOT NULL,
+     "auth" text NOT NULL,
+     "user_agent" text,
+     "created_at" timestamp DEFAULT now() NOT NULL,
+     "last_used_at" timestamp DEFAULT now() NOT NULL
+   );`,
   `CREATE TABLE IF NOT EXISTS "media_assets" (
      "id" text PRIMARY KEY NOT NULL,
      "url" text NOT NULL,
@@ -315,6 +325,7 @@ const INDEX_STATEMENTS = [
   `CREATE UNIQUE INDEX IF NOT EXISTS "papers_source_submission_id_idx" ON "papers" ("source_submission_id");`,
   `CREATE INDEX IF NOT EXISTS "submissions_deleted_at_idx" ON "submissions" ("deleted_at");`,
   `CREATE INDEX IF NOT EXISTS "notifications_user_idx" ON "notifications" ("user_id");`,
+  `CREATE INDEX IF NOT EXISTS "push_subscriptions_user_idx" ON "push_subscriptions" ("user_id");`,
   `CREATE INDEX IF NOT EXISTS "notifications_unread_idx" ON "notifications" ("user_id", "read");`,
   `CREATE INDEX IF NOT EXISTS "articles_category_idx" ON "articles" ("category_slug");`,
   `CREATE INDEX IF NOT EXISTS "papers_category_idx" ON "papers" ("category_slug");`,
