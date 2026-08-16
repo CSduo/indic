@@ -1,19 +1,21 @@
-/* Minimal Aesthetic Design Kit — Google Fonts (must be first @import) */
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,600&family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@500;600;700;800&display=swap');
+﻿/* Minimal Aesthetic Design Kit â€” Google Fonts (must be first @import) */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,600&family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 @theme {
-  /* Display / Editorial headings — Cormorant Garamond (unchanged, already great) */
+  /* Display / Editorial headings â€” Cormorant Garamond (unchanged, already great) */
   --font-display: "Cormorant Garamond", "Noto Serif Devanagari", "Noto Serif Sharada", "Noto Serif Tamil", "Noto Serif Telugu", "Noto Serif Grantha", "Noto Serif Kannada", "Noto Serif Malayalam", "Noto Serif Bengali", "Noto Serif Gurmukhi", Georgia, serif;
-  /* Body text — Inter (clean, neutral, maximally readable on-screen) */
+  /* Body text â€” Inter (clean, neutral, maximally readable on-screen) */
   --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  /* UI labels — Montserrat (uppercase, wide tracking, professional) */
+  /* UI labels â€” Montserrat (uppercase, wide tracking, professional) */
   --font-ui: "Montserrat", "Inter", system-ui, sans-serif;
+  /* Eyebrows, metadata, reference codes â€” monospace carries the editorial voice */
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 :root {
   color-scheme: light;
-  /* ── Substack-Style High-Contrast Light Theme (Pure White & Pitch Black) ── */
+  /* â”€â”€ Substack-Style High-Contrast Light Theme (Pure White & Pitch Black) â”€â”€ */
   --bg: #FFFFFF;          /* Pure, bright, clean white */
   --bg-deep: #FAFAFA;
   --bg-alt: #F5F5F5;
@@ -30,7 +32,7 @@
   --ink-faint: #525252;   /* Neutral Grey */
   --muted: #737373;
   
-  /* ZERO Yellow & ZERO Red — High contrast monochrome */
+  /* ZERO Yellow & ZERO Red â€” High contrast monochrome */
   --gold: #000000;        /* Pitch Black */
   --gold-bright: #171717;
   --gold-soft: #404040;
@@ -90,7 +92,7 @@
 
 [data-theme="dark"] {
   color-scheme: dark;
-  /* ── Substack-Style High-Contrast Dark Theme (Pitch Black & Piercing White) ── */
+  /* â”€â”€ Substack-Style High-Contrast Dark Theme (Pitch Black & Piercing White) â”€â”€ */
   --bg: #000000;          /* Pitch dark black */
   --bg-deep: #050505;
   --bg-alt: #0A0A0A;
@@ -107,7 +109,7 @@
   --ink-faint: #A3A3A3;   /* Light Neutral Grey */
   --muted: #888888;
   
-  /* ZERO Yellow & ZERO Red — High contrast monochrome */
+  /* ZERO Yellow & ZERO Red â€” High contrast monochrome */
   --gold: #FFFFFF;        /* Pure Piercing White */
   --gold-bright: #FFFFFF;
   --gold-soft: #D4D4D4;
@@ -177,7 +179,7 @@ body::before {
   display: none !important;
 }
 
-/* ── Dark mode: pure black background, no warm gradients ── */
+/* â”€â”€ Dark mode: pure black background, no warm gradients â”€â”€ */
 [data-theme="dark"] body,
 [data-theme="dark"] html {
   background: var(--bg) !important;
@@ -743,7 +745,7 @@ button {
 .parchment-card:hover,
 .domain-card:hover {
   transform: translateY(-3px);
-  /* On hover: border brightens toward deep ink — editorial premium feel */
+  /* On hover: border brightens toward deep ink â€” editorial premium feel */
   border-color: rgba(20, 20, 20, 0.22);
   box-shadow: 0 2px 8px rgba(42,31,14,0.08), 0 8px 32px rgba(42,31,14,0.10);
 }
@@ -928,7 +930,7 @@ button {
 .type-gold-label {
   display: block;
   font-family: var(--font-ui);
-  /* Minimal Aesthetic: 10px, uppercase, wide tracking 0.28em — Montserrat */
+  /* Minimal Aesthetic: 10px, uppercase, wide tracking 0.28em â€” Montserrat */
   font-size: .625rem;
   font-weight: 700;
   letter-spacing: .28em;
@@ -1052,7 +1054,7 @@ button {
 .prose-anv blockquote::before,
 .article-body blockquote::before,
 .prose-sacred blockquote::before {
-  content: "“";
+  content: "â€œ";
   position: absolute;
   top: -0.2rem;
   left: 1rem;
@@ -1217,7 +1219,7 @@ button {
   color: var(--ink);
 }
 
-/* ── Admin horizontal top nav ── */
+/* â”€â”€ Admin horizontal top nav â”€â”€ */
 .admin-topnav {
   position: sticky;
   top: 0;
@@ -1300,7 +1302,7 @@ button {
   border-color: var(--border-terracotta, rgba(180,80,60,0.25));
 }
 
-/* ── Admin page layout ── */
+/* â”€â”€ Admin page layout â”€â”€ */
 .admin-layout {
   display: flex;
   flex-direction: column;
@@ -1444,7 +1446,7 @@ button {
   50% { opacity: .7; transform: scale(1.25); }
 }
 
-/* ── Page skeleton loading animation ── */
+/* â”€â”€ Page skeleton loading animation â”€â”€ */
 @keyframes skeletonShimmer {
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
@@ -1484,7 +1486,7 @@ button {
   100% { opacity: 0;    transform: translateY(-140px) translateX(var(--ember-drift2, -4px)) scale(0.12); }
 }
 
-/* ── Loading screen background layers ─────────────────────────────────── */
+/* â”€â”€ Loading screen background layers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .anv-ls-hero-img  { display: block; }
 .anv-ls-base      { background: linear-gradient(168deg, #f7ede0 0%, var(--bg) 45%, #fdf0f5 100%); }
 .anv-ls-bloom-top { background: radial-gradient(circle, rgba(249,115,22,0.10) 0%, transparent 60%); }
@@ -1593,9 +1595,9 @@ button {
   }
 }
 
-/* ═══════════════════════════════════════════════════════════
-   Sacred Header — Editorial redesign
-   ═══════════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   Sacred Header â€” Editorial redesign
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 .sacred-header-row {
   position: relative;
@@ -1619,7 +1621,7 @@ button {
   padding-right: 0.5rem;
 }
 
-/* Emblem box — fits cleanly inside the header row */
+/* Emblem box â€” fits cleanly inside the header row */
 .sacred-emblem-box {
   display: flex;
   align-items: center;
@@ -1778,7 +1780,7 @@ button {
   background: rgba(139, 96, 32, 0.08);
 }
 
-/* ── Hero emblem — absolutely anchored to far-left of header ─── */
+/* â”€â”€ Hero emblem â€” absolutely anchored to far-left of header â”€â”€â”€ */
 .sacred-header-outer {
   position: relative;
   overflow: visible;
@@ -1854,7 +1856,7 @@ button {
 }
 
 
-/* ── Celestial theme toggle ──────────────────────────────────── */
+/* â”€â”€ Celestial theme toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .anv-theme-toggle {
   position: relative;
   display: flex;
@@ -2061,9 +2063,9 @@ button {
   border-top: 1px solid var(--border-gold);
 }
 
-/* ═══════════════════════════════════════════════════════════
-   Homepage v2 — Full-width desktop layout
-   ═══════════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   Homepage v2 â€” Full-width desktop layout
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 .home-v2 {
   background: var(--bg-deep);
@@ -2071,7 +2073,7 @@ button {
   min-height: 100dvh;
 }
 
-/* ── Hero ── */
+/* â”€â”€ Hero â”€â”€ */
 .home-v2-hero {
   border-bottom: 1px solid var(--border-gold);
 }
@@ -2225,7 +2227,7 @@ button {
   box-shadow: 0 8px 40px rgba(0,0,0,0.15);
 }
 
-/* ── Shared section styles ── */
+/* â”€â”€ Shared section styles â”€â”€ */
 .home-v2-section {
   padding: 2.75rem 0;
 }
@@ -2268,7 +2270,7 @@ button {
 
 .home-v2-view-all:hover { opacity: 0.75; }
 
-/* ── Essay grid ── */
+/* â”€â”€ Essay grid â”€â”€ */
 .home-v2-essay-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -2349,7 +2351,7 @@ button {
   flex-shrink: 0;
 }
 
-/* ── Domain grid ── */
+/* â”€â”€ Domain grid â”€â”€ */
 .home-v2-domain-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -2383,7 +2385,7 @@ button {
   line-height: 1.2;
 }
 
-/* ── Action rows ── */
+/* â”€â”€ Action rows â”€â”€ */
 .home-v2-action {
   display: grid;
   grid-template-columns: 48px 1fr 32px;
@@ -2405,7 +2407,7 @@ button {
   text-align: center;
 }
 
-/* ── Bottom ornament ── */
+/* â”€â”€ Bottom ornament â”€â”€ */
 .home-v2-ornament {
   display: flex;
   align-items: center;
@@ -2432,20 +2434,20 @@ button {
   line-height: 1;
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   RESPONSIVE DESIGN SYSTEM — Mobile-first, Android-safe
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   RESPONSIVE DESIGN SYSTEM â€” Mobile-first, Android-safe
    Breakpoints used:
-     xs  : 320px  (very small Androids — Galaxy A01, old Xiaomis)
-     sm  : 480px  (mid Android — Galaxy A series)
-     md  : 640px  (large phones — Galaxy S/Ultra, Pixel 6+)
+     xs  : 320px  (very small Androids â€” Galaxy A01, old Xiaomis)
+     sm  : 480px  (mid Android â€” Galaxy A series)
+     md  : 640px  (large phones â€” Galaxy S/Ultra, Pixel 6+)
      lg  : 1024px (laptops, Chromebooks, large tablets)
      xl  : 1280px (desktops)
 
    Rules in this block come AFTER all component rules so they win
-   at equal specificity — no !important needed.
-   ═══════════════════════════════════════════════════════════════════ */
+   at equal specificity â€” no !important needed.
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* ── 1. Global overflow & scroll safety ───────────────────────── */
+/* â”€â”€ 1. Global overflow & scroll safety â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 html {
   overflow-x: hidden;
   scroll-behavior: smooth;
@@ -2459,9 +2461,9 @@ body {
   max-width: 100vw;
 }
 
-/* ── 2. Header — mobile-first, no overflow ─────────────────────── */
+/* â”€â”€ 2. Header â€” mobile-first, no overflow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
-/* BASE (< 480px — small Androids: 320–479px) */
+/* BASE (< 480px â€” small Androids: 320â€“479px) */
 .sacred-header-row {
   min-height: 70px;
   height: auto;
@@ -2486,7 +2488,7 @@ body {
   letter-spacing: 0.15em;
 }
 
-/* Touch targets — Android minimum 44 × 44 px */
+/* Touch targets â€” Android minimum 44 Ã— 44 px */
 .sacred-icon-btn {
   width: 44px;
   height: 44px;
@@ -2498,7 +2500,7 @@ body {
   flex-shrink: 0;
 }
 
-/* SM (480px – 639px) */
+/* SM (480px â€“ 639px) */
 @media (min-width: 480px) {
   .sacred-header-row { min-height: 76px; height: auto; }
   .sacred-emblem-box  { width: 48px; height: 48px; }
@@ -2507,7 +2509,7 @@ body {
   .sacred-brand-sub   { font-size: 0.6rem; letter-spacing: 0.22em; }
 }
 
-/* MD (640px – 1023px — large phones & small tablets) */
+/* MD (640px â€“ 1023px â€” large phones & small tablets) */
 @media (min-width: 640px) {
   .sacred-header-row  { height: 76px; overflow: visible; }
   .sacred-emblem-box  { width: 54px; height: 54px; }
@@ -2517,7 +2519,7 @@ body {
   .sacred-actions     { gap: 0.35rem; }
 }
 
-/* LG (1024px+ — desktop) */
+/* LG (1024px+ â€” desktop) */
 @media (min-width: 1024px) {
   .sacred-header-row  { height: 88px; overflow: visible; }
   .sacred-emblem-box  { width: 64px; height: 64px; }
@@ -2533,7 +2535,7 @@ body {
   .sacred-actions     { gap: 0.5rem; }
 }
 
-/* ── 3. Touch targets & interaction ────────────────────────────── */
+/* â”€â”€ 3. Touch targets & interaction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .home-v2-btn-primary,
 .home-v2-btn-outline,
 .home-v2-action,
@@ -2561,7 +2563,7 @@ body {
   padding-block: 0.9rem;
 }
 
-/* ── 4. Hero section — hide right column on small screens ─────── */
+/* â”€â”€ 4. Hero section â€” hide right column on small screens â”€â”€â”€â”€â”€â”€â”€ */
 
 /* Mobile (< 640px): single-column, no image */
 @media (max-width: 639px) {
@@ -2594,7 +2596,7 @@ body {
   }
 }
 
-/* Tablet (640px – 1023px): two-column hero, compact */
+/* Tablet (640px â€“ 1023px): two-column hero, compact */
 @media (min-width: 640px) and (max-width: 1023px) {
   .home-v2-hero-inner {
     grid-template-columns: 1fr 220px;
@@ -2625,7 +2627,7 @@ body {
   }
 }
 
-/* ── 5. Homepage sections — tighter on mobile ─────────────────── */
+/* â”€â”€ 5. Homepage sections â€” tighter on mobile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @media (max-width: 639px) {
   .home-v2-section {
     padding: 1.75rem 0;
@@ -2682,14 +2684,14 @@ body {
   }
 }
 
-/* ── 6. Domain grid — Android safe ────────────────────────────── */
+/* â”€â”€ 6. Domain grid â€” Android safe â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
-/* Default (< 640px) is 3-col from original CSS — override to 2-col */
+/* Default (< 640px) is 3-col from original CSS â€” override to 2-col */
 @media (max-width: 639px) {
-  /* already handled above — 2 cols */
+  /* already handled above â€” 2 cols */
 }
 
-/* ── 7. Safe-area insets for notched/edge-to-edge Androids ─────── */
+/* â”€â”€ 7. Safe-area insets for notched/edge-to-edge Androids â”€â”€â”€â”€â”€â”€â”€ */
 @supports (padding: env(safe-area-inset-top)) {
   header.sticky {
     padding-top: env(safe-area-inset-top);
@@ -2702,14 +2704,14 @@ body {
   }
 }
 
-/* ── 8. Container padding — tighter on very small screens ──────── */
+/* â”€â”€ 8. Container padding â€” tighter on very small screens â”€â”€â”€â”€â”€â”€â”€â”€ */
 @media (max-width: 359px) {
   .container-anv {
     padding-inline: 0.75rem;
   }
 }
 
-/* ── 9. Reduced motion — respect Android accessibility setting ──── */
+/* â”€â”€ 9. Reduced motion â€” respect Android accessibility setting â”€â”€â”€â”€ */
 @media (prefers-reduced-motion: reduce) {
   .home-v2-essay-card,
   .home-v2-domain-card,
@@ -2726,12 +2728,12 @@ body {
   }
 }
 
-/* ── 10. Prevent horizontal body scroll from drawer overlay ──────── */
+/* â”€â”€ 10. Prevent horizontal body scroll from drawer overlay â”€â”€â”€â”€â”€â”€â”€â”€ */
 body:has(.sacred-drawer) {
   overflow: hidden;
 }
 
-/* ── 11. Tablet-specific nav — show full nav at 768px+ ─────────── */
+/* â”€â”€ 11. Tablet-specific nav â€” show full nav at 768px+ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 /* Rationale: Android tablets (768px) have enough room for the nav */
 @media (min-width: 768px) and (max-width: 1023px) {
   .sacred-nav {
@@ -2763,7 +2765,7 @@ body:has(.sacred-drawer) {
   }
 }
 
-/* ── 12. Essay card — better mobile layout ──────────────────────── */
+/* â”€â”€ 12. Essay card â€” better mobile layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @media (max-width: 639px) {
   .home-v2-essay-card {
     min-height: 160px;
@@ -2775,17 +2777,17 @@ body:has(.sacred-drawer) {
   }
 }
 
-/* ── 13. Smooth scroll container fix for Android ────────────────── */
+/* â”€â”€ 13. Smooth scroll container fix for Android â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 * {
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   HOME V3 — Cinematic video-hero redesign
-   ═══════════════════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   HOME V3 â€” Cinematic video-hero redesign
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* ── Hero ── */
+/* â”€â”€ Hero â”€â”€ */
 .home-v3-hero {
   position: relative;
   min-height: auto;
@@ -2992,7 +2994,7 @@ body:has(.sacred-drawer) {
 }
 .home-v3-chip:hover { opacity: 0.78; }
 
-/* Animal-glyph frieze — bottom of hero */
+/* Animal-glyph frieze â€” bottom of hero */
 .home-v3-frieze {
   position: relative;
   z-index: 1;
@@ -3018,7 +3020,7 @@ body:has(.sacred-drawer) {
   filter: sepia(0.6) brightness(0.75);
 }
 
-/* ── Shared section styles ── */
+/* â”€â”€ Shared section styles â”€â”€ */
 .home-v3-section {
   padding: 5rem 0;
   border-top: 1px solid var(--border-subtle);
@@ -3098,7 +3100,7 @@ body:has(.sacred-drawer) {
 }
 .home-v3-view-all:hover { gap: 0.55rem; color: var(--ink); }
 
-/* ── Featured Essays ── */
+/* â”€â”€ Featured Essays â”€â”€ */
 .home-recent-actions,
 .home-recent-nav {
   display: flex;
@@ -3393,7 +3395,7 @@ body:has(.sacred-drawer) {
 
 /* Corner flourish */
 .home-v3-domain-card::before {
-  content: '✦';
+  content: 'âœ¦';
   position: absolute;
   top: 8px;
   right: 10px;
@@ -3470,7 +3472,7 @@ body:has(.sacred-drawer) {
   letter-spacing: 0.5em;
 }
 
-/* ── Action Rows ── */
+/* â”€â”€ Action Rows â”€â”€ */
 .home-v3-actions-section {
   border-top: 1px solid var(--border-subtle);
   background: repeating-linear-gradient(
@@ -3564,7 +3566,7 @@ body:has(.sacred-drawer) {
 }
 .home-v3-action:hover .home-v3-action-arrow { transform: translateX(4px); opacity: 1; }
 
-/* ── Closing ornament ── */
+/* â”€â”€ Closing ornament â”€â”€ */
 .home-v3-ornament {
   display: flex;
   align-items: center;
@@ -3581,7 +3583,7 @@ body:has(.sacred-drawer) {
 .home-v3-ornament i { font-style: normal; color: var(--gold-soft); }
 .home-v3-ornament b { font-weight: 400; color: var(--gold); }
 
-/* ── Responsive adjustments ── */
+/* â”€â”€ Responsive adjustments â”€â”€ */
 @media (max-width: 768px) {
   .home-v3-hero {
     min-height: auto;
@@ -3615,7 +3617,7 @@ body:has(.sacred-drawer) {
     display: block !important;
   }
 
-  /* Lighter overlay on mobile — don't hide the image */
+  /* Lighter overlay on mobile â€” don't hide the image */
   .home-v3-video-wrap::after {
     background:
       linear-gradient(to bottom, transparent 50%, rgba(22, 14, 6, 0.35) 100%);
@@ -3670,7 +3672,7 @@ body:has(.sacred-drawer) {
   }
 }
 
-/* ─── Global Sidebar Styles ─── */
+/* â”€â”€â”€ Global Sidebar Styles â”€â”€â”€ */
 .global-sidebar-overlay {
   position: fixed;
   inset: 0;
@@ -3836,12 +3838,12 @@ body:has(.sacred-drawer) {
   to { transform: translateX(0); }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════
-   ORANGE SAKURA THEME  +  20× AESTHETICISM ENHANCEMENT
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   ORANGE SAKURA THEME  +  20Ã— AESTHETICISM ENHANCEMENT
    Saffron / amber palette; richly ornamented domain cards & sections
-═══════════════════════════════════════════════════════════════════════ */
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* ── Sakura palette tokens ─────────────────────────────────────────── */
+/* â”€â”€ Sakura palette tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :root {
   --sakura-1: #ffaa52;
   --sakura-2: #ff9f43;
@@ -3851,7 +3853,7 @@ body:has(.sacred-drawer) {
   --sakura-6: #f97316;
 }
 
-/* ── Section mandala ornament ────────────────────────────────────────── */
+/* â”€â”€ Section mandala ornament â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .home-v3-section-mandala {
   display: block;
   margin: 0 auto 0.4rem;
@@ -3860,7 +3862,7 @@ body:has(.sacred-drawer) {
   animation: rotateSlow 30s linear infinite;
 }
 
-/* ── Section backgrounds — sacred geometry atmospheric layers ─────────── */
+/* â”€â”€ Section backgrounds â€” sacred geometry atmospheric layers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .home-v3-section {
   position: relative;
   overflow: hidden;
@@ -3892,7 +3894,7 @@ body:has(.sacred-drawer) {
   pointer-events: none;
 }
 
-/* ── Domain grid — 14-domain layout (7×2 so every row is fully symmetric) ── */
+/* â”€â”€ Domain grid â€” 14-domain layout (7Ã—2 so every row is fully symmetric) â”€â”€ */
 .home-v3-domains-expanded {
   grid-template-columns: repeat(7, 1fr);
 }
@@ -3901,12 +3903,12 @@ body:has(.sacred-drawer) {
   .home-v3-domains-expanded { grid-template-columns: repeat(2, 1fr); }
 }
 
-/* ── Domain card — radial bloom background ───────────────────────────── */
+/* â”€â”€ Domain card â€” radial bloom background â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .home-v3-domain-card {
   padding: 2rem 1.25rem 1.5rem;
 }
 
-/* Override ::before — radial glow from top instead of text corner mark */
+/* Override ::before â€” radial glow from top instead of text corner mark */
 .home-v3-domain-card::before {
   content: '';
   position: absolute;
@@ -3924,7 +3926,7 @@ body:has(.sacred-drawer) {
 
 .home-v3-domain-card:hover::before { opacity: 1; }
 
-/* Override ::after — shimmer sweep on hover */
+/* Override ::after â€” shimmer sweep on hover */
 .home-v3-domain-card::after {
   content: '';
   position: absolute;
@@ -3946,7 +3948,7 @@ body:has(.sacred-drawer) {
   background-position: 300% center;
 }
 
-/* ── Domain icon wrapper — outer dashed ring ─────────────────────────── */
+/* â”€â”€ Domain icon wrapper â€” outer dashed ring â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .home-v3-domain-icon-wrap {
   position: relative;
   display: flex;
@@ -4002,7 +4004,7 @@ body:has(.sacred-drawer) {
   font-size: 1rem;
 }
 
-/* Domain ornament — spaced diamonds */
+/* Domain ornament â€” spaced diamonds */
 .home-v3-domain-ornament {
   display: flex;
   align-items: center;
@@ -4012,7 +4014,7 @@ body:has(.sacred-drawer) {
   margin-top: 0.25rem;
 }
 
-/* ── Chip hover refinement ────────────────────────────────────────────── */
+/* â”€â”€ Chip hover refinement â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .home-v3-chip {
   transition: opacity var(--motion-fast), transform var(--motion-fast), box-shadow var(--motion-fast);
 }
@@ -4023,12 +4025,12 @@ body:has(.sacred-drawer) {
   box-shadow: 0 3px 10px rgba(0,0,0,0.09);
 }
 
-/* ── Section head ornament row ────────────────────────────────────────── */
+/* â”€â”€ Section head ornament row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .home-v3-section-head.centered {
   padding-top: 0.25rem;
 }
 
-/* ── Theme toggle — enhanced visibility ──────────────────────────────── */
+/* â”€â”€ Theme toggle â€” enhanced visibility â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .anv-theme-toggle {
   background: var(--surface-elevated);
   border: 1.5px solid color-mix(in srgb, var(--gold) 52%, transparent);
@@ -4044,21 +4046,21 @@ body:has(.sacred-drawer) {
     0 1px 4px rgba(0,0,0,0.11);
 }
 
-/* ── Sacred header — subtle gold gradient underline on scroll ────────── */
+/* â”€â”€ Sacred header â€” subtle gold gradient underline on scroll â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .sacred-header-scrolled {
   box-shadow:
     0 1px 0 var(--border-gold),
     0 4px 20px rgba(42,31,14,0.10);
 }
 
-/* ── Essay card — richer hover ────────────────────────────────────────── */
+/* â”€â”€ Essay card â€” richer hover â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .home-v3-essay-card:hover {
   box-shadow:
     var(--shadow-lg),
     0 0 0 1px var(--border-gold);
 }
 
-/* ── Action strip richness ────────────────────────────────────────────── */
+/* â”€â”€ Action strip richness â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .home-v3-action {
   border: 1px solid color-mix(in srgb, var(--action-bg, var(--gold)) 28%, transparent);
   transition:
@@ -4074,7 +4076,7 @@ body:has(.sacred-drawer) {
   transform: translateX(3px);
 }
 
-/* ── Frieze — richer bar with lotus accent ───────────────────────────── */
+/* â”€â”€ Frieze â€” richer bar with lotus accent â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .home-v3-frieze-line {
   display: inline-block;
   width: 48px;
@@ -4087,21 +4089,21 @@ body:has(.sacred-drawer) {
   animation: lampBreath 3.6s ease-in-out infinite;
 }
 
-/* ── Footer logo container hover ─────────────────────────────────────── */
+/* â”€â”€ Footer logo container hover â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 footer .font-display:first-child {
   transition: color var(--motion-fast) ease;
 }
 
-/* ── 404 page animate-float ──────────────────────────────────────────── */
+/* â”€â”€ 404 page animate-float â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .animate-float {
   animation: marginaliaDrift 7s ease-in-out infinite;
 }
 
-/* ════════════════════════════════════════════════════════════════════════
-   FLORAL DECOR — enhanced lotus / petal decorative system
-   ════════════════════════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   FLORAL DECOR â€” enhanced lotus / petal decorative system
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* ── Animate-spin-slow utility (used by LotusRing) ─────────────────────── */
+/* â”€â”€ Animate-spin-slow utility (used by LotusRing) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @keyframes spinSlow {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
@@ -4110,7 +4112,7 @@ footer .font-display:first-child {
   animation: spinSlow 24s linear infinite;
 }
 
-/* ── Lotus bloom entrance ────────────────────────────────────────────────── */
+/* â”€â”€ Lotus bloom entrance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @keyframes lotusBloom {
   0%   { opacity: 0; transform: scale(0.6) rotate(-15deg); }
   60%  { opacity: 1; transform: scale(1.04) rotate(2deg); }
@@ -4120,7 +4122,7 @@ footer .font-display:first-child {
   animation: lotusBloom 1.1s cubic-bezier(.16,1,.3,1) both;
 }
 
-/* ── Soft pulse for centre glow ──────────────────────────────────────────── */
+/* â”€â”€ Soft pulse for centre glow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @keyframes lotusPulse {
   0%, 100% { opacity: 0.35; transform: scale(1); }
   50%       { opacity: 0.55; transform: scale(1.08); }
@@ -4129,7 +4131,7 @@ footer .font-display:first-child {
   animation: lotusPulse 4s ease-in-out infinite;
 }
 
-/* ── Floral page background watermark ───────────────────────────────────── */
+/* â”€â”€ Floral page background watermark â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .floral-page-bg {
   position: relative;
   overflow: hidden;
@@ -4148,7 +4150,7 @@ footer .font-display:first-child {
   z-index: 0;
 }
 
-/* ── Parchment card inner glow on hover ─────────────────────────────────── */
+/* â”€â”€ Parchment card inner glow on hover â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .card-parchment.hoverable:hover {
   box-shadow:
     var(--shadow-lg),
@@ -4156,7 +4158,7 @@ footer .font-display:first-child {
     0 0 0 1px rgba(139,96,32,0.16);
 }
 
-/* ── Floral border row ───────────────────────────────────────────────────── */
+/* â”€â”€ Floral border row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .floral-border-row {
   display: flex;
   align-items: center;
@@ -4165,20 +4167,20 @@ footer .font-display:first-child {
   color: var(--gold);
 }
 
-/* ── Section divider with gradient lines ────────────────────────────────── */
+/* â”€â”€ Section divider with gradient lines â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .section-divider-gradient {
   height: 1px;
   background: linear-gradient(to right, transparent 0%, var(--border-gold) 20%, var(--gold-soft) 50%, var(--border-gold) 80%, transparent 100%);
   opacity: 0.6;
 }
 
-/* ── Corner ornament absolute positioning helpers ───────────────────────── */
+/* â”€â”€ Corner ornament absolute positioning helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .corner-tl { position: absolute; top: 0; left: 0; }
 .corner-tr { position: absolute; top: 0; right: 0; }
 .corner-bl { position: absolute; bottom: 0; left: 0; }
 .corner-br { position: absolute; bottom: 0; right: 0; }
 
-/* ── Input sacred — remove browser search cancel button ─────────────────── */
+/* â”€â”€ Input sacred â€” remove browser search cancel button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 input[type="search"]::-webkit-search-cancel-button {
   -webkit-appearance: none;
   appearance: none;
@@ -4187,7 +4189,7 @@ input[type="search"]::-webkit-search-decoration {
   -webkit-appearance: none;
 }
 
-/* ── Sacred header — subtle lotus shimmer on brand name ─────────────────── */
+/* â”€â”€ Sacred header â€” subtle lotus shimmer on brand name â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .sacred-brand-name {
   background: linear-gradient(
     135deg,
@@ -4207,19 +4209,19 @@ input[type="search"]::-webkit-search-decoration {
   100% { background-position: 200% center; }
 }
 
-/* ── Lotus ring — slow counter-rotation variant ──────────────────────────── */
+/* â”€â”€ Lotus ring â€” slow counter-rotation variant â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .lotus-ring-counter {
   animation: spinSlow 36s linear infinite reverse;
 }
 
-/* ── Page rise for inner content behind petals ──────────────────────────── */
+/* â”€â”€ Page rise for inner content behind petals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .z-content { position: relative; z-index: 1; }
 
-/* ════════════════════════════════════════════════════════════════════════
-   COLORFUL DECOR SYSTEM — vivid spectrum aesthetics
-   ════════════════════════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   COLORFUL DECOR SYSTEM â€” vivid spectrum aesthetics
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* ── Stats Bar ───────────────────────────────────────────────────────── */
+/* â”€â”€ Stats Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .home-stats-bar {
   background: var(--bg-alt);
   border-top: 1px solid var(--border-gold);
@@ -4284,7 +4286,7 @@ input[type="search"]::-webkit-search-decoration {
   opacity: 0.6;
 }
 
-/* ── Wisdom Strip ────────────────────────────────────────────────────── */
+/* â”€â”€ Wisdom Strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .home-wisdom-strip {
   position: relative;
   background: linear-gradient(135deg,
@@ -4379,7 +4381,7 @@ input[type="search"]::-webkit-search-decoration {
 }
 .home-wisdom-dot:hover { transform: scale(1.4); }
 
-/* ── Pillars Section ─────────────────────────────────────────────────── */
+/* â”€â”€ Pillars Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .home-pillars-section {
   padding: 4rem 0;
   background: var(--bg);
@@ -4447,7 +4449,7 @@ input[type="search"]::-webkit-search-decoration {
   color: var(--ink-soft);
 }
 
-/* ── Domain icon vivid ring ──────────────────────────────────────────── */
+/* â”€â”€ Domain icon vivid ring â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .home-v3-domain-icon-vivid {
   background: color-mix(in srgb, var(--icon-color, var(--gold)) 16%, var(--surface)) !important;
   border: 2px solid color-mix(in srgb, var(--icon-color, var(--gold)) 42%, transparent) !important;
@@ -4468,7 +4470,7 @@ input[type="search"]::-webkit-search-decoration {
   opacity: 0.85;
 }
 
-/* ── Background yantra watermark in domains section ─────────────────── */
+/* â”€â”€ Background yantra watermark in domains section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .home-domains-yantra {
   position: absolute;
   top: 50%; left: 50%;
@@ -4477,7 +4479,7 @@ input[type="search"]::-webkit-search-decoration {
   z-index: 0;
 }
 
-/* ── Featured quote section ─────────────────────────────────────────── */
+/* â”€â”€ Featured quote section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .home-quote-section {
   background: linear-gradient(135deg, var(--bg-deep) 0%, var(--bg-alt) 100%);
   border-top: 1px solid var(--border-gold);
@@ -4517,7 +4519,7 @@ input[type="search"]::-webkit-search-decoration {
 }
 .home-quote-dash { margin-right: 0.4em; }
 
-/* ── Gradient section title ──────────────────────────────────────────── */
+/* â”€â”€ Gradient section title â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .home-v3-section-title {
   background: linear-gradient(135deg, var(--ink) 0%, var(--gold-bright) 55%, var(--terracotta) 100%);
   -webkit-background-clip: text;
@@ -4531,7 +4533,7 @@ input[type="search"]::-webkit-search-decoration {
   to   { background-position: 100% center; }
 }
 
-/* ── Domain chip vivid hover ─────────────────────────────────────────── */
+/* â”€â”€ Domain chip vivid hover â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .home-v3-chip {
   display: inline-flex;
   align-items: center;
@@ -4543,7 +4545,7 @@ input[type="search"]::-webkit-search-decoration {
   box-shadow: 0 4px 12px rgba(0,0,0,0.12);
 }
 
-/* ── Premium Sacred Table Styles ─────────────────────────────────────── */
+/* â”€â”€ Premium Sacred Table Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .sacred-table {
   width: 100%;
   border-collapse: separate;
@@ -4631,7 +4633,7 @@ input[type="search"]::-webkit-search-decoration {
 
 .prose-editor-content blockquote::before,
 .prose-editor blockquote::before {
-  content: "“";
+  content: "â€œ";
   position: absolute;
   top: -0.2rem;
   left: 1rem;
@@ -4771,7 +4773,7 @@ input[type="search"]::-webkit-search-decoration {
   }
 }
 
-/* ── Premium skeleton loading animations ── */
+/* â”€â”€ Premium skeleton loading animations â”€â”€ */
 @keyframes anv-pulse {
   0%, 100% { opacity: 0.55; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.08); }
@@ -5084,11 +5086,11 @@ input[type="search"]::-webkit-search-decoration {
 }
 
 /* ==========================================================================
-   MINIMAL AESTHETIC DESIGN KIT — Utility Classes
+   MINIMAL AESTHETIC DESIGN KIT â€” Utility Classes
    From: Desktop/Minimal_Aesthetic_Design_Kit/theme.css
    ========================================================================== */
 
-/* Frosted Glass Floating Pill — for overlays, floating controls, nav badges */
+/* Frosted Glass Floating Pill â€” for overlays, floating controls, nav badges */
 .glass-pill {
   background-color: rgba(0, 0, 0, 0.42);
   backdrop-filter: blur(12px);
@@ -5109,7 +5111,7 @@ input[type="search"]::-webkit-search-decoration {
   box-shadow: 0 2px 12px rgba(42, 31, 14, 0.06);
 }
 
-/* Editorial card with generous rounding — kit's aesthetic-card */
+/* Editorial card with generous rounding â€” kit's aesthetic-card */
 .aesthetic-card {
   background-color: var(--surface-card);
   border: 1px solid rgba(42, 31, 14, 0.09);
@@ -5123,7 +5125,7 @@ input[type="search"]::-webkit-search-decoration {
   box-shadow: 0 8px 32px rgba(42, 31, 14, 0.10);
 }
 
-/* Tracking label — Montserrat, 10px, uppercase, 0.28em spacing */
+/* Tracking label â€” Montserrat, 10px, uppercase, 0.28em spacing */
 .label-tracking {
   font-family: var(--font-ui);
   font-size: 0.625rem;
@@ -5665,4 +5667,674 @@ input[type="search"]::-webkit-search-decoration {
 
 .doi-badge:hover {
   border-color: var(--gold-soft);
+}
+
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   EDITORIAL DESIGN SYSTEM
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   A high-contrast, architectural layer over the existing achromatic theme.
+   Three things change, deliberately and no more:
+
+     1. A signature crimson. The palette was entirely black and white, which
+        reads as unfinished rather than restrained â€” nothing could be marked as
+        important. One accent, used sparingly, carries emphasis and state.
+     2. Architectural geometry. Pill and 22px radii read consumer-app; a 2px
+        radius reads as a printed page, which is what a journal should be.
+     3. Tactile response. Every control now answers a press, so the interface
+        feels physical rather than inert, particularly on a phone.
+
+   Loaded last so it settles the cascade without editing five thousand lines
+   above it.
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+
+:root {
+  /* Signature accent â€” used for emphasis, never for large fields of colour. */
+  --accent: #810100;
+  --accent-hover: #5E0100;
+  --accent-wash: #FDF3F3;
+  --accent-ring: rgba(129, 1, 0, 0.18);
+
+  /* Semantic state. Distinct from the accent so "done" never reads as "urgent". */
+  --state-success: #15643A;
+  --state-success-bg: #F0FDF4;
+  --state-error: #9B1C1C;
+  --state-error-bg: #FEF2F2;
+
+  /* Architectural radii. */
+  --radius-edge: 2px;
+
+  /* Hairlines, per the editorial spec. */
+  --hairline: #E5E5E5;
+  --hairline-strong: #CFCFCF;
+
+  /* Body copy sits a step off pure black; headings keep the full contrast. */
+  --ink-body: #3A3A3A;
+  --ink-meta: #5A5A5A;
+}
+
+[data-theme="dark"] {
+  /* The crimson is lifted on dark ground so it stays legible against black
+     without becoming a different hue. */
+  --accent: #E4483F;
+  --accent-hover: #F26A60;
+  --accent-wash: rgba(228, 72, 63, 0.10);
+  --accent-ring: rgba(228, 72, 63, 0.28);
+
+  --state-success: #4ADE80;
+  --state-success-bg: rgba(74, 222, 128, 0.10);
+  --state-error: #F87171;
+  --state-error-bg: rgba(248, 113, 113, 0.10);
+
+  --hairline: rgba(255, 255, 255, 0.12);
+  --hairline-strong: rgba(255, 255, 255, 0.22);
+
+  --ink-body: #D4D4D4;
+  --ink-meta: #A3A3A3;
+}
+
+/* â”€â”€ Typography â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+h1, h2, h3, h4,
+.font-display {
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+h1, h2 { line-height: 1.08; }
+h3, h4 { line-height: 1.15; }
+
+/* Long-form reading copy. Applied to article bodies rather than globally, so
+   interface chrome keeps its own tighter rhythm. */
+.prose-editor-content,
+.article-body,
+.reader-body {
+  color: var(--ink-body);
+  line-height: 1.7;
+}
+
+/* Eyebrow / metadata voice â€” monospace, wide, quiet. */
+.eyebrow,
+.section-label,
+.form-label,
+.mono-label {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-meta);
+  font-weight: 500;
+}
+
+/* â”€â”€ Buttons: architectural geometry + tactile press â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+.btn-sacred,
+.btn-primary,
+.btn-secondary,
+.btn-terracotta,
+.btn-ink,
+.btn-gold,
+.btn-ghost,
+.btn-rose {
+  border-radius: var(--radius-edge);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  transition:
+    background-color 150ms var(--ease-ink),
+    border-color 150ms var(--ease-ink),
+    color 150ms var(--ease-ink),
+    box-shadow 150ms var(--ease-ink),
+    transform 150ms var(--ease-ink);
+}
+
+/* The press. Applies to every control, including anchors styled as buttons. */
+.btn-sacred:active:not(:disabled),
+.btn-primary:active:not(:disabled),
+.btn-secondary:active:not(:disabled),
+.btn-terracotta:active:not(:disabled),
+.btn-ink:active:not(:disabled),
+.btn-gold:active:not(:disabled),
+.btn-ghost:active:not(:disabled),
+.btn-rose:active:not(:disabled),
+.btn-accent:active:not(:disabled) {
+  transform: scale(0.98) translateY(1px);
+}
+
+/* Primary â€” ink ground, crimson on hover. */
+.btn-terracotta,
+.btn-primary,
+.btn-gold {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+
+.btn-terracotta:hover:not(:disabled),
+.btn-primary:hover:not(:disabled),
+.btn-gold:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px var(--accent-ring);
+}
+
+/* Secondary outline. */
+.btn-ink,
+.btn-secondary,
+.btn-ghost {
+  background: transparent;
+  border-color: var(--hairline-strong);
+  color: var(--ink);
+}
+
+.btn-ink:hover:not(:disabled),
+.btn-secondary:hover:not(:disabled),
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+/* Accent â€” reserved for the single most consequential action on a screen. */
+.btn-accent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.35rem;
+  padding: 0.65rem 1.4rem;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-edge);
+  background: var(--accent);
+  color: #FFFFFF;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 150ms var(--ease-ink), transform 150ms var(--ease-ink), box-shadow 150ms var(--ease-ink);
+}
+
+.btn-accent:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  box-shadow: 0 4px 12px var(--accent-ring);
+}
+
+/* A control mid-request is unmistakably inert. */
+.btn-sacred:disabled,
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-terracotta:disabled,
+.btn-ink:disabled,
+.btn-gold:disabled,
+.btn-ghost:disabled,
+.btn-rose:disabled,
+.btn-accent:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Text link with a travelling arrow. */
+.link-editorial {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+  transition: color 150ms var(--ease-ink);
+}
+
+.link-editorial:hover { color: var(--accent); }
+.link-editorial svg { transition: transform 200ms var(--ease-ink); }
+.link-editorial:hover svg { transform: translateX(4px); }
+
+/* Keyboard users get the same emphasis as pointer users. */
+.btn-sacred:focus-visible,
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-terracotta:focus-visible,
+.btn-ink:focus-visible,
+.btn-gold:focus-visible,
+.btn-ghost:focus-visible,
+.btn-rose:focus-visible,
+.btn-accent:focus-visible,
+.input-sacred:focus-visible,
+.select-sacred:focus-visible,
+.textarea-sacred:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* â”€â”€ Inline spinner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+.spinner-editorial {
+  width: 0.85em;
+  height: 0.85em;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spinner-editorial-spin 620ms linear infinite;
+  flex: none;
+}
+
+@keyframes spinner-editorial-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner-editorial { animation-duration: 2s; }
+  .btn-sacred:active:not(:disabled),
+  .btn-primary:active:not(:disabled),
+  .btn-terracotta:active:not(:disabled),
+  .btn-ink:active:not(:disabled),
+  .btn-accent:active:not(:disabled) { transform: none; }
+}
+
+/* â”€â”€ Cards & media frames â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+.card-parchment,
+.card-anv,
+.card-sacred,
+.parchment-card {
+  border-radius: var(--radius-edge);
+  border-color: var(--hairline);
+  box-shadow: none;
+}
+
+.card-parchment.hoverable:hover,
+.card-anv:hover,
+.card-sacred:hover,
+.parchment-card:hover,
+.domain-card:hover {
+  transform: none;
+  border-color: color-mix(in srgb, var(--ink) 40%, transparent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.photo-card,
+.feature-panel {
+  border-radius: var(--radius-edge);
+  border-color: var(--hairline);
+}
+
+.photo-card:hover,
+.feature-panel:hover {
+  transform: none;
+  border-color: color-mix(in srgb, var(--ink) 40%, transparent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+/* Image wells: the picture moves, the frame does not. */
+.media-well {
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.media-well img {
+  transition: transform 500ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.group:hover .media-well img,
+.media-well:hover img {
+  transform: scale(1.03);
+}
+
+/* â”€â”€ Fields â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+.input-sacred,
+.select-sacred,
+.textarea-sacred {
+  border-radius: var(--radius-edge);
+  border-color: var(--hairline-strong);
+}
+
+.input-sacred:focus,
+.select-sacred:focus,
+.textarea-sacred:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+/* â”€â”€ Status pills: upload, import, save â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-edge);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-meta);
+}
+
+.status-chip::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+.status-chip--done {
+  color: var(--state-success);
+  border-color: color-mix(in srgb, var(--state-success) 30%, transparent);
+  background: var(--state-success-bg);
+}
+
+.status-chip--busy { color: var(--ink-meta); }
+.status-chip--busy::before { animation: status-chip-pulse 1.1s ease-in-out infinite; }
+
+.status-chip--failed {
+  color: var(--state-error);
+  border-color: color-mix(in srgb, var(--state-error) 30%, transparent);
+  background: var(--state-error-bg);
+}
+
+@keyframes status-chip-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.25; }
+}
+
+/* â”€â”€ Confirmation card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+.confirm-card {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-edge);
+  background: var(--surface);
+  padding: 2rem;
+}
+
+@media (min-width: 640px) {
+  .confirm-card { padding: 2.5rem; }
+}
+
+.confirm-card__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-meta);
+}
+
+.confirm-card__eyebrow::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--state-success);
+  flex: none;
+}
+
+.confirm-card__title {
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 3vw, 2.1rem);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin: 0.85rem 0 0.6rem;
+  text-wrap: balance;
+}
+
+.confirm-card__note {
+  border-left: 2px solid var(--accent);
+  background: var(--surface-2);
+  padding: 1rem;
+  color: var(--ink-body);
+  font-size: 0.9rem;
+  line-height: 1.65;
+}
+
+/* â”€â”€ Toasts (sonner) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+[data-sonner-toast] {
+  border-radius: var(--radius-edge) !important;
+  border: 1px solid var(--hairline) !important;
+  background: var(--surface) !important;
+  color: var(--ink) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10) !important;
+  font-family: var(--font-body) !important;
+}
+
+[data-sonner-toast] [data-title] {
+  font-family: var(--font-body) !important;
+  font-size: 0.875rem !important;
+  color: var(--ink) !important;
+}
+
+[data-sonner-toast] [data-description] {
+  color: var(--ink-meta) !important;
+  font-size: 0.8125rem !important;
+}
+
+[data-sonner-toast][data-type="success"] [data-icon] { color: var(--state-success) !important; }
+[data-sonner-toast][data-type="error"] [data-icon]   { color: var(--state-error) !important; }
+
+/* A crimson rule marks the toast without flooding it with colour. */
+[data-sonner-toast]::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: var(--accent);
+}
+
+[data-sonner-toast][data-type="success"]::before { background: var(--state-success); }
+[data-sonner-toast][data-type="error"]::before   { background: var(--state-error); }
+
+/* â”€â”€ Comments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+.comment-item {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-edge);
+  background: var(--surface);
+  padding: 1rem 1.15rem;
+  transition: border-color 200ms var(--ease-ink);
+}
+
+.comment-item:hover { border-color: var(--hairline-strong); }
+
+.comment-item__meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-meta);
+}
+
+.comment-item__author {
+  color: var(--ink);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.comment-item__body {
+  margin-top: 0.55rem;
+  color: var(--ink-body);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+/* A reply is set in from its parent with a hairline spine. */
+.comment-reply {
+  margin-left: 1.1rem;
+  padding-left: 1.1rem;
+  border-left: 1px solid var(--hairline);
+}
+
+/* â”€â”€ Writing surface â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+.prose-editor,
+.prose-editor-content {
+  font-family: var(--font-body);
+  color: var(--ink-body);
+  line-height: 1.75;
+}
+
+.prose-editor h1,
+.prose-editor-content h1 { font-size: 1.9rem; margin: 1.6rem 0 0.7rem; }
+.prose-editor h2,
+.prose-editor-content h2 { font-size: 1.5rem; margin: 1.5rem 0 0.6rem; }
+.prose-editor h3,
+.prose-editor-content h3 { font-size: 1.25rem; margin: 1.3rem 0 0.5rem; }
+
+.prose-editor h1, .prose-editor h2, .prose-editor h3, .prose-editor h4,
+.prose-editor-content h1, .prose-editor-content h2, .prose-editor-content h3, .prose-editor-content h4 {
+  font-family: var(--font-display);
+  color: var(--ink);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  font-weight: 500;
+}
+
+.prose-editor p,
+.prose-editor-content p { margin: 0 0 1.05rem; }
+
+/* A pulled quote, not an indented paragraph. */
+.prose-editor blockquote,
+.prose-editor-content blockquote {
+  margin: 1.5rem 0;
+  padding: 0.2rem 0 0.2rem 1.35rem;
+  border-left: 2px solid var(--accent);
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-style: italic;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.prose-editor blockquote p:last-child,
+.prose-editor-content blockquote p:last-child { margin-bottom: 0; }
+
+.prose-editor ul, .prose-editor ol,
+.prose-editor-content ul, .prose-editor-content ol {
+  margin: 0 0 1.05rem;
+  padding-left: 1.4rem;
+}
+
+.prose-editor li,
+.prose-editor-content li { margin-bottom: 0.4rem; }
+
+.prose-editor ul, .prose-editor-content ul { list-style: disc; }
+.prose-editor ol, .prose-editor-content ol { list-style: decimal; }
+
+.prose-editor strong, .prose-editor-content strong { font-weight: 700; color: var(--ink); }
+.prose-editor em, .prose-editor-content em { font-style: italic; }
+.prose-editor mark, .prose-editor-content mark {
+  background: var(--accent-wash);
+  color: var(--ink);
+  padding: 0.05em 0.2em;
+}
+
+.prose-editor hr, .prose-editor-content hr {
+  margin: 2rem 0;
+  border: 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.prose-editor a, .prose-editor-content a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.prose-editor figure, .prose-editor-content figure { margin: 1.75rem 0; }
+.prose-editor figcaption, .prose-editor-content figcaption {
+  margin-top: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-meta);
+  text-align: center;
+}
+
+.prose-editor img, .prose-editor-content img { border-radius: var(--radius-edge); }
+
+/* The empty editor should invite, not sit blank. */
+.prose-editor:empty::before,
+.prose-editor[data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ink-meta);
+  opacity: 0.65;
+  pointer-events: none;
+  font-style: italic;
+}
+
+/* Toolbar controls read as one instrument rather than scattered glyphs. */
+.editor-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-width: 1.9rem;
+  min-height: 1.9rem;
+  padding: 0 0.45rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-edge);
+  background: transparent;
+  color: var(--ink-meta);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  cursor: pointer;
+  transition: background-color 120ms var(--ease-ink), color 120ms var(--ease-ink), border-color 120ms var(--ease-ink), transform 120ms var(--ease-ink);
+}
+
+.editor-tool:hover {
+  background: var(--surface-2);
+  border-color: var(--hairline);
+  color: var(--ink);
+}
+
+.editor-tool:active { transform: scale(0.94); }
+
+/* Specificity is raised deliberately: these buttons also carry Tailwind
+   utilities (font-bold, italic, underline), and depending on how the utility
+   layer is ordered a bare class selector can lose to them. Qualifying with the
+   element keeps the pressed state winning in dev and in the built bundle. */
+button.editor-tool[aria-pressed="true"],
+button.editor-tool.is-active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+
+/* â”€â”€ Upload wells â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+.upload-zone {
+  border-radius: var(--radius-edge);
+  border: 1px dashed var(--hairline-strong);
+  transition: border-color 160ms var(--ease-ink), background-color 160ms var(--ease-ink);
+}
+
+.upload-zone:hover,
+.upload-zone.active {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+
+/* â”€â”€ Badges â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+.badge {
+  border-radius: var(--radius-edge);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
 }

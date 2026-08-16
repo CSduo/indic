@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, Link, useSearch } from "wouter";
-import { ArrowLeft, Image as ImageIcon, X, CheckCircle, AlertCircle, Lock, Save, FileText, Link2, Mic, Square, Play, Pause, Trash2, Volume2, Upload, Maximize2, Minimize2 } from "lucide-react";
+import { ArrowLeft, Image as ImageIcon, X, CheckCircle, AlertCircle, Lock, Save, FileText, Link2, Mic, Square, Play, Pause, Trash2, Volume2, Upload, Maximize2, Minimize2, Quote, List, ListOrdered, Minus, Highlighter, Eraser } from "lucide-react";
 import { LotusIcon, LotusDivider } from "@/components/sacred/LotusIcon";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -12,6 +12,24 @@ import {
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const STORAGE_KEY = "anvikshiki_write_draft";
+
+/**
+ * The "this formatting is on" state for a toolbar button.
+ *
+ * Driven from React rather than a CSS attribute selector: these buttons also
+ * carry utility classes, and whether a stylesheet rule or a utility wins here
+ * depends on build ordering that is easy to disturb. A writer needs to be able
+ * to see at a glance whether bold is on, so it is not worth leaving to the
+ * cascade.
+ */
+function activeToolStyle(active: boolean): React.CSSProperties | undefined {
+  if (!active) return undefined;
+  return {
+    background: "var(--ink)",
+    borderColor: "var(--ink)",
+    color: "var(--bg)",
+  };
+}
 
 const DOMAINS = ["Philosophy","History","Psychology","Sociology","Science","Geopolitics","Civilizational Thought","Aesthetics","Sanskrit Studies","Political Theory"];
 const LANGUAGES = ["English", "Sanskrit", "Hindi", "Bengali", "Tamil", "Telugu", "Kannada", "Malayalam", "Gujarati", "Marathi", "Odia", "Punjabi", "Assamese", "Urdu", "Nepali", "Maithili", "Dogri", "Konkani", "Santhali", "Bodo", "Sindhi", "Manipuri", "Kashmiri", "Sharada Script", "Grantha Script"];
@@ -628,6 +646,34 @@ export default function SubmitWritePage() {
     if (editorRef.current) {
       set("body", editorRef.current.innerHTML);
     }
+    updateEditorStates();
+  };
+
+  /**
+   * Wrap the selection in a link. `createLink` needs an existing selection, so
+   * with nothing selected it would quietly do nothing; inserting the address as
+   * its own visible text is what a writer expects instead.
+   */
+  const insertEditorLink = () => {
+    const selected = window.getSelection()?.toString() || "";
+    const raw = window.prompt(selected ? `Link "${selected}" to:` : "Paste the link address:", "https://");
+    if (!raw) return;
+    const href = raw.trim();
+    if (!/^https?:\/\/\S+$/i.test(href)) {
+      setError("A link must be a full web address starting with http:// or https://");
+      return;
+    }
+    editorRef.current?.focus();
+    if (selected) {
+      document.execCommand("createLink", false, href);
+    } else {
+      document.execCommand(
+        "insertHTML",
+        false,
+        `<a href="${href}" target="_blank" rel="noopener noreferrer">${href}</a>`,
+      );
+    }
+    if (editorRef.current) set("body", editorRef.current.innerHTML);
     updateEditorStates();
   };
 
@@ -1459,12 +1505,10 @@ export default function SubmitWritePage() {
                   type="button"
                   onMouseDown={e => { e.preventDefault(); execCmd("bold"); }}
                   onTouchStart={e => { e.preventDefault(); execCmd("bold"); }}
-                  className="p-1 px-2.5 rounded hover:bg-white/5 font-bold text-xs border-none cursor-pointer transition-all"
-                  style={{
-                    color: isBold ? "var(--gold)" : "var(--ink-soft)",
-                    background: isBold ? "rgba(201, 152, 58, 0.15)" : "transparent"
-                  }}
-                  title="Bold"
+                  className="editor-tool font-bold"
+                  aria-pressed={isBold}
+                  style={activeToolStyle(isBold)}
+                  title="Bold (Ctrl+B)"
                 >
                   B
                 </button>
@@ -1472,12 +1516,10 @@ export default function SubmitWritePage() {
                   type="button"
                   onMouseDown={e => { e.preventDefault(); execCmd("italic"); }}
                   onTouchStart={e => { e.preventDefault(); execCmd("italic"); }}
-                  className="p-1 px-2.5 rounded hover:bg-white/5 italic text-xs border-none cursor-pointer transition-all"
-                  style={{
-                    color: isItalic ? "var(--gold)" : "var(--ink-soft)",
-                    background: isItalic ? "rgba(201, 152, 58, 0.15)" : "transparent"
-                  }}
-                  title="Italic"
+                  className="editor-tool italic"
+                  aria-pressed={isItalic}
+                  style={activeToolStyle(isItalic)}
+                  title="Italic (Ctrl+I)"
                 >
                   I
                 </button>
@@ -1485,12 +1527,10 @@ export default function SubmitWritePage() {
                   type="button"
                   onMouseDown={e => { e.preventDefault(); execCmd("underline"); }}
                   onTouchStart={e => { e.preventDefault(); execCmd("underline"); }}
-                  className="p-1 px-2.5 rounded hover:bg-white/5 underline text-xs border-none cursor-pointer transition-all"
-                  style={{
-                    color: isUnderline ? "var(--gold)" : "var(--ink-soft)",
-                    background: isUnderline ? "rgba(201, 152, 58, 0.15)" : "transparent"
-                  }}
-                  title="Underline"
+                  className="editor-tool underline"
+                  aria-pressed={isUnderline}
+                  style={activeToolStyle(isUnderline)}
+                  title="Underline (Ctrl+U)"
                 >
                   U
                 </button>
@@ -1498,44 +1538,78 @@ export default function SubmitWritePage() {
                   type="button"
                   onMouseDown={e => { e.preventDefault(); toggleBlockquote(); }}
                   onTouchStart={e => { e.preventDefault(); toggleBlockquote(); }}
-                  className="p-1 px-2.5 rounded hover:bg-white/5 text-xs border-none cursor-pointer transition-all"
-                  style={{
-                    color: isQuoteActive ? "var(--gold)" : "var(--ink-soft)",
-                    fontWeight: "bold",
-                    background: isQuoteActive ? "rgba(201, 152, 58, 0.15)" : "transparent"
-                  }}
-                  title="Toggle Quote Block"
+                  className="editor-tool"
+                  aria-pressed={isQuoteActive}
+                  style={activeToolStyle(isQuoteActive)}
+                  title="Pull quote"
                 >
-                  "
+                  <Quote size={13} />
                 </button>
 
-                <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+                <div className="h-4 w-px bg-[var(--hairline)] mx-1" />
 
-                {/* Colors */}
-                <select
-                  className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
-                  onChange={e => execCmd("foreColor", e.target.value)}
-                  onMouseDown={e => e.stopPropagation()}
-                  defaultValue=""
+                {/* Structure — lists, links, and section rules. An essay needs
+                    more than bold and italic to be readable; these were the
+                    pieces missing from the toolbar. */}
+                <button
+                  type="button"
+                  onMouseDown={e => { e.preventDefault(); execCmd("insertUnorderedList"); }}
+                  onTouchStart={e => { e.preventDefault(); execCmd("insertUnorderedList"); }}
+                  className="editor-tool"
+                  title="Bulleted list"
                 >
-                  <option value="">Text Color</option>
-                  <option value="#ffffff">White</option>
-                  <option value="#a3a3a3">Muted Gray</option>
-                </select>
-
-                {/* Highlights */}
-                <select
-                  className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
-                  onChange={e => execCmd("hiliteColor", e.target.value)}
-                  onMouseDown={e => e.stopPropagation()}
-                  defaultValue=""
+                  <List size={13} />
+                </button>
+                <button
+                  type="button"
+                  onMouseDown={e => { e.preventDefault(); execCmd("insertOrderedList"); }}
+                  onTouchStart={e => { e.preventDefault(); execCmd("insertOrderedList"); }}
+                  className="editor-tool"
+                  title="Numbered list"
                 >
-                  <option value="">Highlight</option>
-                  <option value="rgba(255,255,255,0.15)">White glow</option>
-                  <option value="transparent">None</option>
-                </select>
+                  <ListOrdered size={13} />
+                </button>
+                <button
+                  type="button"
+                  onMouseDown={e => { e.preventDefault(); insertEditorLink(); }}
+                  onTouchStart={e => { e.preventDefault(); insertEditorLink(); }}
+                  className="editor-tool"
+                  title="Add a link"
+                >
+                  <Link2 size={13} />
+                </button>
+                <button
+                  type="button"
+                  onMouseDown={e => { e.preventDefault(); execCmd("insertHorizontalRule"); }}
+                  onTouchStart={e => { e.preventDefault(); execCmd("insertHorizontalRule"); }}
+                  className="editor-tool"
+                  title="Section break"
+                >
+                  <Minus size={13} />
+                </button>
 
-                <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+                <div className="h-4 w-px bg-[var(--hairline)] mx-1" />
+
+                <button
+                  type="button"
+                  onMouseDown={e => { e.preventDefault(); execCmd("hiliteColor", "var(--accent-wash)"); }}
+                  onTouchStart={e => { e.preventDefault(); execCmd("hiliteColor", "var(--accent-wash)"); }}
+                  className="editor-tool"
+                  title="Highlight"
+                >
+                  <Highlighter size={13} />
+                </button>
+                <button
+                  type="button"
+                  onMouseDown={e => { e.preventDefault(); execCmd("removeFormat"); }}
+                  onTouchStart={e => { e.preventDefault(); execCmd("removeFormat"); }}
+                  className="editor-tool"
+                  title="Clear formatting"
+                >
+                  <Eraser size={13} />
+                </button>
+
+                <div className="h-4 w-px bg-[var(--hairline)] mx-1" />
 
                 {/* Image upload inline */}
                 <input
