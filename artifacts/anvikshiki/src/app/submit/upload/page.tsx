@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   AlertCircle, ArrowLeft, ArrowRight, CheckCircle, Image as ImageIcon,
@@ -15,6 +15,8 @@ import {
   summarizeImportedHtml,
   type ImportedContentSummary,
 } from "@/lib/documentImport";
+import { loadPdfjs } from "@/lib/pdfjs";
+import { clearSubmissionDraft, loadSubmissionDetails, loadSubmissionType, missingSubmissionDetails } from "@/lib/submissionDraft";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
@@ -35,7 +37,7 @@ function escapeHtml(value: string): string {
   })[character] || character);
 }
 
-/* ── Text/HTML extraction helpers ────────────────────────────────── */
+/* â”€â”€ Text/HTML extraction helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 /** Convert plain text (newlines) to HTML paragraphs */
 function plainTextToHtml(text: string): string {
@@ -47,12 +49,7 @@ function plainTextToHtml(text: string): string {
 }
 
 async function extractPdfAsHtml(file: File): Promise<string> {
-  // Dynamically import pdfjs-dist to keep initial bundle small
-  const pdfjsLib = await import("pdfjs-dist");
-  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-    "pdfjs-dist/build/pdf.worker.mjs",
-    import.meta.url,
-  ).toString();
+  const pdfjsLib = await loadPdfjs();
 
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -78,7 +75,15 @@ async function extractPdfAsHtml(file: File): Promise<string> {
     }
     pages.push(pageText);
   }
-  return plainTextToHtml(pages.join("\n\n"));
+  const text = pages.join("\n\n").trim();
+  if (!text) {
+    // A scanned PDF has no text layer at all. Saying so is far more useful than
+    // returning an empty import that looks like a silent failure.
+    throw new Error(
+      "This PDF has no selectable text â€” it looks like a scan of a printed page. Import a .docx, or paste the text into the editor.",
+    );
+  }
+  return plainTextToHtml(text);
 }
 
 export default function SubmitUploadPage() {
@@ -106,6 +111,20 @@ export default function SubmitUploadPage() {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
   const [extracting, setExtracting] = useState(false);
+
+  // Read once on mount and again whenever this tab regains focus, so returning
+  // from the details step shows the updated values without a reload.
+  const [savedDetails, setSavedDetails] = useState<Record<string, any>>(() => loadSubmissionDetails());
+  useEffect(() => {
+    const refresh = () => setSavedDetails(loadSubmissionDetails());
+    window.addEventListener("focus", refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
+  const detailGaps = missingSubmissionDetails(savedDetails);
 
   // Inline Voice Note recording states
   const [inlineRecording, setInlineRecording] = useState(false);
@@ -227,7 +246,7 @@ export default function SubmitUploadPage() {
     }
   };
 
-  /* ── File validation ─────────────────────────────────────────────── */
+  /* â”€â”€ File validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const pickMain = (file: File) => {
     if (file.size > 50 * 1024 * 1024) { setError("File must be under 50 MB"); return; }
     const lowerName = file.name.toLowerCase();
@@ -253,7 +272,7 @@ export default function SubmitUploadPage() {
     setError("");
   };
 
-  /* ── Extract HTML from file and navigate to write editor ────────── */
+  /* â”€â”€ Extract HTML from file and navigate to write editor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const extractAndWrite = async (file: File) => {
     setExtracting(true);
     setError("");
@@ -273,14 +292,14 @@ export default function SubmitUploadPage() {
       }
 
       if (isTxt) {
-        // Browser-side: plain text → HTML paragraphs
+        // Browser-side: plain text â†’ HTML paragraphs
         const text = await file.text();
         htmlContent = plainTextToHtml(text);
       } else if (isPdf) {
-        // Browser-side PDF → HTML paragraphs (text layer only)
+        // Browser-side PDF â†’ HTML paragraphs (text layer only)
         htmlContent = await extractPdfAsHtml(file);
       } else if (isDocx) {
-        // Server-side mammoth → full HTML with embedded images uploaded to Cloudinary
+        // Server-side mammoth â†’ full HTML with embedded images uploaded to Cloudinary
         const formData = new FormData();
         formData.append("file", file);
         const res = await fetch(`${base()}/api/media/extract-doc`, {
@@ -310,7 +329,7 @@ export default function SubmitUploadPage() {
     }
   };
 
-  /* ── Fetch text from URL ─────────────────────────────────────────── */
+  /* â”€â”€ Fetch text from URL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const fetchUrl = async () => {
     if (!urlValue.trim()) { setUrlImportError("Please enter a URL"); return; }
     let url: string;
@@ -532,7 +551,7 @@ export default function SubmitUploadPage() {
       if (inlineImgInputRef.current) inlineImgInputRef.current.value = "";
     }
   };
-  /* ── Traditional file upload (sends to API) ──────────────────────── */
+  /* â”€â”€ Traditional file upload (sends to API) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const submit = async () => {
     if (!mainFile) { setError("Please upload your manuscript file"); return; }
     if (!declared) { setError("Please confirm the declaration"); return; }
@@ -540,21 +559,21 @@ export default function SubmitUploadPage() {
     setSubmitting(true);
     setProgress(15);
 
-    const detailsRaw = sessionStorage.getItem("anvikshiki_submit_details");
-    const typeRaw = sessionStorage.getItem("anvikshiki_submit_type") || "essay";
-    const details = detailsRaw ? JSON.parse(detailsRaw) : {};
+    const details = loadSubmissionDetails();
+    const typeRaw = loadSubmissionType("essay");
     const typeMap: Record<string, string> = {
       essay: "ESSAY", paper: "PAPER", review: "REVIEW",
       commentary: "COMMENTARY", "book-review": "COMMENTARY", translation: "ESSAY",
     };
     const type = typeMap[typeRaw.toLowerCase()] || "ESSAY";
 
-    if (!details.fullName && !details.name) {
-      setError("Submission details are missing. Please go back to Details.");
-      setSubmitting(false); setProgress(0); return;
-    }
-    if (!details.email || !details.title) {
-      setError("Submission details are missing. Please go back to Details.");
+    // Name the specific gaps rather than saying "details are missing", which
+    // left the author guessing at which step and which field.
+    const missing = missingSubmissionDetails(details);
+    if (missing.length > 0) {
+      setError(
+        `Your submission still needs ${missing.join(", ")}. Nothing here is lost — use "Edit details" above to add ${missing.length === 1 ? "it" : "them"} and come straight back.`,
+      );
       setSubmitting(false); setProgress(0); return;
     }
 
@@ -694,8 +713,7 @@ export default function SubmitUploadPage() {
         sessionStorage.setItem("anvikshiki_submit_id", data.submission?.id || "");
       }
 
-      sessionStorage.removeItem("anvikshiki_submit_details");
-      sessionStorage.removeItem("anvikshiki_submit_type");
+            clearSubmissionDraft();
       navigate("/submit/success");
     } catch (err: any) {
       setError(err.message || "Submission failed. Please try again.");
@@ -712,17 +730,19 @@ export default function SubmitUploadPage() {
     setSubmitting(true);
     setProgress(15);
 
-    const detailsRaw = sessionStorage.getItem("anvikshiki_submit_details");
-    const typeRaw = sessionStorage.getItem("anvikshiki_submit_type") || "essay";
-    const details = detailsRaw ? JSON.parse(detailsRaw) : {};
+    const details = loadSubmissionDetails();
+    const typeRaw = loadSubmissionType("essay");
     const typeMap: Record<string, string> = {
       essay: "ESSAY", paper: "PAPER", review: "REVIEW",
       commentary: "COMMENTARY", "book-review": "COMMENTARY", translation: "ESSAY",
     };
     const type = typeMap[typeRaw.toLowerCase()] || "ESSAY";
 
-    if (!details.fullName && !details.name) {
-      setError("Submission details are missing. Please go back to Details.");
+    const missing = missingSubmissionDetails(details);
+    if (missing.length > 0) {
+      setError(
+        `Your submission still needs ${missing.join(", ")}. Your writing is saved — use "Edit details" above to add ${missing.length === 1 ? "it" : "them"} and come straight back.`,
+      );
       setSubmitting(false); setProgress(0); return;
     }
 
@@ -823,8 +843,7 @@ export default function SubmitUploadPage() {
       if (!response.ok) throw new Error(data.error || "Submission failed");
       sessionStorage.setItem("anvikshiki_submit_id", data.submission?.id || "");
 
-      sessionStorage.removeItem("anvikshiki_submit_details");
-      sessionStorage.removeItem("anvikshiki_submit_type");
+            clearSubmissionDraft();
       navigate("/submit/success");
     } catch (err: any) {
       setError(err.message || "Submission failed. Please try again.");
@@ -853,7 +872,7 @@ export default function SubmitUploadPage() {
           imageAlt="Illustrated manuscript submission"
           eyebrow="Upload Manuscript"
           title="Send the manuscript."
-          description="Attach your file or paste a URL — your content flows directly into the editor."
+          description="Attach your file or paste a URL â€” your content flows directly into the editor."
           glyph="submit"
           focal="center"
         />
@@ -863,6 +882,34 @@ export default function SubmitUploadPage() {
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <ParchmentCard className="p-5 md:p-7">
             <SubmissionStepper active={1} className="mb-7" />
+
+            {/* The details from the previous step, always visible and always
+                editable. Going back no longer means losing what is typed here:
+                the draft is kept in local storage, so returning to this step
+                restores it. */}
+            <div className="mb-6 flex flex-col gap-2 rounded-[2px] border border-[var(--border)] bg-[var(--surface-2)] p-3.5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="font-ui text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">
+                  Submitting as
+                </p>
+                <p className="truncate font-body text-sm text-[var(--ink)]">
+                  {savedDetails.fullName || savedDetails.name || "—"}
+                  {savedDetails.title ? <span className="text-[var(--muted)]"> · {savedDetails.title}</span> : null}
+                  {savedDetails.domain ? <span className="text-[var(--muted)]"> · {savedDetails.domain}</span> : null}
+                </p>
+                {detailGaps.length > 0 ? (
+                  <p className="mt-1 font-ui text-[11px] text-[var(--terracotta)]">
+                    Still needed: {detailGaps.join(", ")}
+                  </p>
+                ) : null}
+              </div>
+              <Link
+                href="/submit/details"
+                className="btn-ink shrink-0 self-start px-3 py-1.5 text-[11px] sm:self-auto"
+              >
+                Edit details
+              </Link>
+            </div>
 
             {editorBody ? (
               <div className="space-y-6">
@@ -887,7 +934,7 @@ export default function SubmitUploadPage() {
                     className="btn-ink min-h-11 shrink-0 self-start text-[11px] uppercase tracking-wider px-3 py-1.5 sm:self-auto"
                     style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-gold)", cursor: "pointer" }}
                   >
-                    ✕ Discard & Re-Upload
+                    âœ• Discard & Re-Upload
                   </button>
                 </div>
 
@@ -1022,7 +1069,7 @@ export default function SubmitUploadPage() {
                       title="Insert Inline Image"
                     >
                       <ImageIcon size={13} />
-                      <span>{insertingInlineImage ? "Uploading…" : "Add Image"}</span>
+                      <span>{insertingInlineImage ? "Uploadingâ€¦" : "Add Image"}</span>
                     </button>
 
                     <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
@@ -1044,7 +1091,7 @@ export default function SubmitUploadPage() {
                       title="Insert Voice Note"
                     >
                       <Mic size={13} />
-                      <span>{uploadingInlineAudio ? "Uploading…" : "Add VN"}</span>
+                      <span>{uploadingInlineAudio ? "Uploadingâ€¦" : "Add VN"}</span>
                     </button>
                   </div>
 
@@ -1057,7 +1104,7 @@ export default function SubmitUploadPage() {
                           {inlineRecording 
                             ? `Recording: ${Math.floor(inlineRecordTime / 60)}:${(inlineRecordTime % 60).toString().padStart(2, '0')} / 5:00` 
                             : uploadingInlineAudio 
-                            ? 'Uploading voice note…' 
+                            ? 'Uploading voice noteâ€¦' 
                             : 'Record or upload a voice note to insert at cursor'}
                         </span>
                       </div>
@@ -1135,7 +1182,7 @@ export default function SubmitUploadPage() {
                     onDrop={(e) => { e.preventDefault(); setDragging(null); const f = e.dataTransfer.files[0]; if (f) pickImg(f); }}
                     icon={<ImageIcon size={38} className="text-[var(--gold)]" />}
                     accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
-                    formatHint="JPG, PNG, WEBP, GIF · Max 10 MB"
+                    formatHint="JPG, PNG, WEBP, GIF Â· Max 10 MB"
                     browseLabel="Browse Images"
                     onRemove={() => setImgFile(null)}
                     inputRef={imgRef}
@@ -1145,7 +1192,7 @@ export default function SubmitUploadPage() {
               </div>
             ) : (
               <div>
-                {/* ── Source tabs ───────────────────────────────────────── */}
+                {/* â”€â”€ Source tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="mb-6 flex rounded-[8px] border border-[var(--border-gold)] bg-[var(--surface)] p-1">
                   {(["file", "url"] as const).map((t) => (
                     <button
@@ -1177,7 +1224,7 @@ export default function SubmitUploadPage() {
                         onDrop={(e) => { e.preventDefault(); setDragging(null); const f = e.dataTransfer.files[0]; if (f) pickMain(f); }}
                         icon={<Upload size={38} className="text-[var(--gold)]" />}
                         accept=".pdf,.doc,.docx,.txt"
-                        formatHint="PDF, DOC, DOCX, TXT · Max 50 MB"
+                        formatHint="PDF, DOC, DOCX, TXT Â· Max 50 MB"
                         browseLabel="Browse Files"
                         onRemove={() => setMainFile(null)}
                         inputRef={mainRef}
@@ -1193,7 +1240,7 @@ export default function SubmitUploadPage() {
                           className="mt-3 inline-flex items-center gap-2 rounded-[8px] border border-[var(--border-gold)] bg-[var(--surface-elevated)] px-4 py-2 font-ui text-xs font-bold uppercase tracking-[0.1em] text-[var(--gold)] transition hover:bg-[var(--surface)] cursor-pointer"
                         >
                           <FileText size={13} />
-                          {extracting ? "Extracting text…" : "Extract text into Editor →"}
+                          {extracting ? "Extracting textâ€¦" : "Extract text into Editor â†’"}
                         </button>
                       )}
                     </div>
@@ -1212,7 +1259,7 @@ export default function SubmitUploadPage() {
                         onDrop={(e) => { e.preventDefault(); setDragging(null); const f = e.dataTransfer.files[0]; if (f) pickImg(f); }}
                         icon={<ImageIcon size={38} className="text-[var(--gold)]" />}
                         accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
-                        formatHint="JPG, PNG, WEBP, GIF · Max 10 MB"
+                        formatHint="JPG, PNG, WEBP, GIF Â· Max 10 MB"
                         browseLabel="Browse Images"
                         onRemove={() => setImgFile(null)}
                         inputRef={imgRef}
@@ -1221,7 +1268,7 @@ export default function SubmitUploadPage() {
                     </div>
                   </div>
                 ) : (
-                /* ── URL tab ─────────────────────────────────────────── */
+                /* â”€â”€ URL tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
                 <div className="space-y-4">
                   <p className="font-body text-sm leading-6 text-[var(--ink-soft)]">
                     Paste the URL of a web article, blog post, or publicly accessible document. Its text and
@@ -1229,7 +1276,7 @@ export default function SubmitUploadPage() {
                   </p>
                   <div className="rounded-lg border border-[var(--border-gold)] bg-[var(--surface-3)] p-3 font-body text-xs leading-5 text-[var(--ink-soft)]">
                     <strong className="font-ui text-[11px] uppercase tracking-[0.08em] text-[var(--ink)]">Google Docs</strong>
-                    <span className="block mt-1">Set sharing to <em>Anyone with link — Viewer</em>, then paste its full Google Docs link. The importer keeps readable text and available images; nothing is published automatically.</span>
+                    <span className="block mt-1">Set sharing to <em>Anyone with link â€” Viewer</em>, then paste its full Google Docs link. The importer keeps readable text and available images; nothing is published automatically.</span>
                   </div>
                   <div>
                     <label className="form-label" htmlFor="url-input">Article / Document URL *</label>
@@ -1330,7 +1377,7 @@ export default function SubmitUploadPage() {
                 className="btn-terracotta w-full justify-center py-4 mt-6"
               >
                 {submitting
-                  ? `Uploading ${progress}%…`
+                  ? `Uploading ${progress}%â€¦`
                   : <>Submit Edited Article <ArrowRight size={14} /></>}
               </button>
             ) : (
@@ -1342,7 +1389,7 @@ export default function SubmitUploadPage() {
                   className="btn-terracotta w-full justify-center py-4"
                 >
                   {submitting
-                    ? `Uploading ${progress}%…`
+                    ? `Uploading ${progress}%â€¦`
                     : <>Submit for Review <ArrowRight size={14} /></>}
                 </button>
               )
@@ -1374,7 +1421,7 @@ export default function SubmitUploadPage() {
   );
 }
 
-/* ── UploadZone — uses overlay input for reliable mobile taps ─────── */
+/* â”€â”€ UploadZone â€” uses overlay input for reliable mobile taps â”€â”€â”€â”€â”€â”€â”€ */
 function UploadZone({
   file, dragging, onDragOver, onDragLeave, onDrop,
   icon, accept, formatHint, browseLabel, onRemove, inputRef, onFileChange,
@@ -1399,7 +1446,7 @@ function UploadZone({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      {/* Invisible full-zone file input — catches taps on mobile */}
+      {/* Invisible full-zone file input â€” catches taps on mobile */}
       {!file && (
         <input
           ref={inputRef}

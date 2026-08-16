@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useLocation, Link } from "wouter";
 import { Check, X, Trash2, Globe, ArchiveRestore, Download, ChevronDown, Clock, Edit3, ExternalLink, Eye, FileText, Image as ImageIcon, Link2, Maximize2 } from "lucide-react";
 import { toast } from "sonner";
@@ -38,7 +38,7 @@ function statusBadge(status: string) {
 
 /**
  * Parse a cover reference out of the submission notes. Accepts absolute URLs,
- * site-relative paths, and inline base64 data URIs — the last is what the
+ * site-relative paths, and inline base64 data URIs â€” the last is what the
  * upload pipeline produces when no blob or CDN provider is configured, and
  * omitting it made those covers look absent to the desk.
  */
@@ -128,7 +128,6 @@ export default function AdminSubmissionsPage() {
   const [selected, setSelected] = useState<any | null>(null);
   const [editorNotes, setEditorNotes] = useState("");
   const [confirm, setConfirm] = useState<{ msg: string; action: () => void } | null>(null);
-  const [publishCategory, setPublishCategory] = useState("philosophy");
 
   // Document & Lightbox preview states
   const [activePreviewUrl, setActivePreviewUrl] = useState<string | null>(null);
@@ -289,7 +288,7 @@ export default function AdminSubmissionsPage() {
               onClick={() => setLightboxImg(null)}
               className="absolute -top-11 right-0 min-h-11 min-w-11 text-white/80 hover:text-white p-2 text-sm font-ui"
             >
-              ✕ Close Lightbox
+              âœ• Close Lightbox
             </button>
             <img src={lightboxImg} alt="Enlarged preview" className="max-w-full max-h-[85vh] object-contain rounded-lg border border-white/20 shadow-2xl" />
           </div>
@@ -301,7 +300,7 @@ export default function AdminSubmissionsPage() {
         <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="font-display text-2xl" style={{ color: "var(--gold-bright)" }}>Submissions</h1>
-            <p className="font-ui text-xs mt-1" style={{ color: "var(--muted)" }}>{submissions.length} total · {submissions.filter(s => !s.status || s.status === "RECEIVED").length} pending review</p>
+            <p className="font-ui text-xs mt-1" style={{ color: "var(--muted)" }}>{submissions.length} total Â· {submissions.filter(s => !s.status || s.status === "RECEIVED").length} pending review</p>
           </div>
           <div className="flex w-full flex-wrap items-stretch gap-2 sm:w-auto sm:items-center">
             <button
@@ -310,7 +309,7 @@ export default function AdminSubmissionsPage() {
               onClick={runPublicSync}
               className="admin-submission-filter min-h-11 px-3 rounded-lg bg-[rgba(201,152,58,0.15)] hover:bg-[rgba(201,152,58,0.25)] border border-[var(--border-gold)] text-xs text-[var(--gold-bright)] font-ui font-semibold inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
             >
-              {syncing ? <span className="animate-spin text-xs">↻</span> : <Globe size={12} />}
+              {syncing ? <span className="animate-spin text-xs">â†»</span> : <Globe size={12} />}
               {syncing ? "Reconciling..." : "Reconcile Publications"}
             </button>
             {FILTER_OPTS.map(f => (
@@ -346,8 +345,7 @@ export default function AdminSubmissionsPage() {
                     onClick={() => {
                       setSelected(s);
                       setEditorNotes(s.editorNotes || "");
-                      setPublishCategory(categories[0]?.slug || "philosophy");
-                      const pdfAsset = assets.find(a => a.type === "pdf");
+                                      const pdfAsset = assets.find(a => a.type === "pdf");
                       if (pdfAsset) {
                         setActivePreviewUrl(pdfAsset.url);
                         setActivePreviewType("pdf");
@@ -363,7 +361,7 @@ export default function AdminSubmissionsPage() {
                       <div className="font-ui text-sm font-medium leading-tight line-clamp-1" style={{ color: "var(--ink-soft)" }}>{s.title}</div>
                       <span className={`badge badge-${s.deletedAt ? "draft" : statusBadge(s.status)} shrink-0 text-[0.6rem]`}>{s.deletedAt ? "trash" : s.status || "received"}</span>
                     </div>
-                    <div className="font-ui text-xs" style={{ color: "var(--muted)" }}>{s.submitterName} · {s.type}</div>
+                    <div className="font-ui text-xs" style={{ color: "var(--muted)" }}>{s.submitterName} Â· {s.type}</div>
                     
                     {/* Visual Asset Badges before selecting */}
                     <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
@@ -384,7 +382,7 @@ export default function AdminSubmissionsPage() {
                       )}
                     </div>
 
-                    <div className="font-ui text-[10px] mt-1" style={{ color: "var(--ink-faint)" }}>{s.createdAt ? new Date(s.createdAt).toLocaleDateString("en-IN") : "—"}</div>
+                    <div className="font-ui text-[10px] mt-1" style={{ color: "var(--ink-faint)" }}>{s.createdAt ? new Date(s.createdAt).toLocaleDateString("en-IN") : "â€”"}</div>
                   </button>
                 );
               })}
@@ -417,7 +415,7 @@ export default function AdminSubmissionsPage() {
                         {selected.domain && <span className="badge badge-draft text-[0.6rem]">{selected.domain}</span>}
                       </div>
                     </div>
-                    <button type="button" onClick={() => setSelected(null)} className="admin-submission-close grid min-h-11 min-w-11 shrink-0 place-items-center font-ui text-sm" style={{ color: "var(--muted)" }} aria-label="Close submission details">✕</button>
+                    <button type="button" onClick={() => setSelected(null)} className="admin-submission-close grid min-h-11 min-w-11 shrink-0 place-items-center font-ui text-sm" style={{ color: "var(--muted)" }} aria-label="Close submission details">âœ•</button>
                   </div>
 
                   {/* Embedded PDF / Document Viewer Frame */}
@@ -429,10 +427,10 @@ export default function AdminSubmissionsPage() {
                         </span>
                         <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                           <a href={activePreviewUrl} target="_blank" rel="noopener noreferrer" className="admin-submission-action min-h-11 px-3 text-xs text-[var(--ink-soft)] hover:text-white flex items-center justify-center gap-1 font-ui">
-                            <ExternalLink size={12} /> Open Full Frame ↗
+                            <ExternalLink size={12} /> Open Full Frame â†—
                           </a>
                           <button type="button" onClick={() => { setActivePreviewUrl(null); setActivePreviewType(null); }} className="admin-submission-action min-h-11 px-3 text-xs text-[var(--muted)] hover:text-white font-ui">
-                            ✕ Close Viewer
+                            âœ• Close Viewer
                           </button>
                         </div>
                       </div>
@@ -460,8 +458,8 @@ export default function AdminSubmissionsPage() {
                     {[
                       ["Author", selected.submitterName],
                       ["Email", selected.submitterEmail],
-                      ["Institution", selected.institution || "—"],
-                      ["Submitted", selected.createdAt ? new Date(selected.createdAt).toLocaleString("en-IN") : "—"]
+                      ["Institution", selected.institution || "â€”"],
+                      ["Submitted", selected.createdAt ? new Date(selected.createdAt).toLocaleString("en-IN") : "â€”"]
                     ].map(([k, v]) => (
                       <div key={k}>
                         <div className="font-ui text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: "var(--gold)" }}>{k}</div>
@@ -512,7 +510,7 @@ export default function AdminSubmissionsPage() {
                                 rel="noopener noreferrer"
                                 className="admin-submission-action min-h-11 w-full px-3 rounded bg-white/5 hover:bg-white/10 text-xs text-[var(--ink-soft)] font-ui font-medium inline-flex items-center justify-center gap-1 sm:w-auto"
                               >
-                                <ExternalLink size={12} /> Open ↗
+                                <ExternalLink size={12} /> Open â†—
                               </a>
                               <a
                                 href={assetItem.url}
@@ -616,29 +614,24 @@ export default function AdminSubmissionsPage() {
                     />
                   </div>
 
-                  {/* Category selector — shown when about to publish */}
+                  {/* The section is the author's decision, not the desk's. It
+                      is shown here for confirmation but is no longer a choice
+                      to make: publishing uses the domain the author selected. */}
                   {!selected.deletedAt && selected.status === "ACCEPTED" && (() => {
                     const imgUrl = selected.coverImageUrl || extractCoverFromNotes(selected.notes);
+                    const authorDomain = selected.domain || "";
+                    const domainLabel =
+                      categories.find(c => c.slug === authorDomain)?.name
+                      || (authorDomain ? authorDomain.replace(/-/g, " ") : "Archive (no domain given)");
                     return (
                       <div className="mb-4 p-3.5 rounded-lg" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}>
-                        <div className="form-label mb-2" style={{ color: "var(--ink)" }}>Category for Publication</div>
+                        <div className="form-label mb-2" style={{ color: "var(--ink)" }}>Section</div>
                         <p className="font-ui text-xs mb-2" style={{ color: "var(--muted)" }}>
-                          Choose the section where this article will appear on the website.
+                          Chosen by the author on submission. It will be published here.
                         </p>
-                        <div className="relative mb-3">
-                          <select
-                            id="publish-category-select"
-                            value={publishCategory}
-                            onChange={e => setPublishCategory(e.target.value)}
-                            className="admin-submission-category input-sacred min-h-11 w-full pr-8 text-sm appearance-none"
-                            style={{ color: "var(--ink-soft)", background: "var(--surface-3)", cursor: "pointer" }}
-                          >
-                            {categories.map(c => (
-                              <option key={c.slug} value={c.slug}>{c.name}</option>
-                            ))}
-                          </select>
-                          <ChevronDown size={14} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" style={{ color: "var(--muted)" }} />
-                        </div>
+                        <p className="mb-3 font-body text-sm capitalize" style={{ color: "var(--ink)" }}>
+                          {domainLabel}
+                        </p>
                         {!imgUrl && (
                           <div className="p-2.5 rounded bg-amber-950/20 border border-amber-900/40 text-amber-400 font-ui text-[11px] leading-relaxed">
                             This submission has no cover image, so the journal's default cover will be used. You can still publish it.
@@ -660,18 +653,18 @@ export default function AdminSubmissionsPage() {
                     </>}
                     {!selected.deletedAt && (!selected.status || selected.status === "RECEIVED" || selected.status === "UNDER_REVIEW") && (<>
                       <button type="button" disabled={!!actionLoading} onClick={() => patchAction(selected.id, "approve")} className="btn-sacred text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50" style={{ background: "rgba(26,74,56,0.3)", border: "1px solid rgba(74,222,128,0.3)", color: "#4ade80" }}>
-                        {actionLoading === "approve" ? <span className="animate-spin text-xs">↻</span> : <Check size={12} />} Approve
+                        {actionLoading === "approve" ? <span className="animate-spin text-xs">â†»</span> : <Check size={12} />} Approve
                       </button>
                       {(!selected.status || selected.status === "RECEIVED") && (
                         <button type="button" disabled={!!actionLoading} onClick={() => patchAction(selected.id, "under_review")} className="btn-sacred btn-ghost text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50">
-                          {actionLoading === "under_review" ? <span className="animate-spin text-xs">↻</span> : <Clock size={12} />} Under Review
+                          {actionLoading === "under_review" ? <span className="animate-spin text-xs">â†»</span> : <Clock size={12} />} Under Review
                         </button>
                       )}
                       <button type="button" disabled={!!actionLoading} onClick={() => patchAction(selected.id, "revision_requested")} className="btn-sacred btn-ghost text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50">
-                        {actionLoading === "revision_requested" ? <span className="animate-spin text-xs">↻</span> : <Edit3 size={12} />} Request Revision
+                        {actionLoading === "revision_requested" ? <span className="animate-spin text-xs">â†»</span> : <Edit3 size={12} />} Request Revision
                       </button>
                       <button type="button" disabled={!!actionLoading} onClick={() => setConfirm({ msg: 'Reject this submission? The author will be notified.', action: () => patchAction(selected.id, 'reject') })} className="btn-sacred text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50" style={{ background: "rgba(139,26,74,0.2)", border: "1px solid var(--border-rose)", color: "var(--lotus)" }}>
-                        {actionLoading === "reject" ? <span className="animate-spin text-xs">↻</span> : <X size={12} />} Reject
+                        {actionLoading === "reject" ? <span className="animate-spin text-xs">â†»</span> : <X size={12} />} Reject
                       </button>
                     </>)}
                     {!selected.deletedAt && selected.status === "ACCEPTED" && (() => {
@@ -679,16 +672,16 @@ export default function AdminSubmissionsPage() {
                       // A missing cover is a warning, not a blocker. Essays
                       // written in the browser never carry one, so disabling the
                       // button here left approved work permanently unpublishable
-                      // — the publication step falls back to a default cover.
+                      // â€” the publication step falls back to a default cover.
                       return (
                         <button
                           type="button"
                           disabled={!!actionLoading}
-                          onClick={() => patchAction(selected.id, "publish", { categorySlug: publishCategory })}
+                          onClick={() => patchAction(selected.id, "publish", selected.domain ? { categorySlug: selected.domain } : {})}
                           className="btn-sacred btn-gold text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
-                          title={imgUrl ? undefined : "No cover image found — the journal's default cover will be used"}
+                          title={imgUrl ? undefined : "No cover image found â€” the journal's default cover will be used"}
                         >
-                          {actionLoading === "publish" ? <span className="animate-spin text-xs">↻</span> : <Globe size={12} />} Publish as Article
+                          {actionLoading === "publish" ? <span className="animate-spin text-xs">â†»</span> : <Globe size={12} />} Publish as Article
                         </button>
                       );
                     })()}
@@ -700,20 +693,20 @@ export default function AdminSubmissionsPage() {
                         <button
                           type="button"
                           disabled={!!actionLoading}
-                          onClick={() => patchAction(selected.id, "publish", { categorySlug: publishCategory })}
+                          onClick={() => patchAction(selected.id, "publish", selected.domain ? { categorySlug: selected.domain } : {})}
                           className="btn-sacred btn-gold text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50"
-                          title="Rebuild this work's public article — use this if it shows as published but is not on the site"
+                          title="Rebuild this work's public article â€” use this if it shows as published but is not on the site"
                         >
-                          {actionLoading === "publish" ? <span className="animate-spin text-xs">↻</span> : <Globe size={12} />} Republish to Site
+                          {actionLoading === "publish" ? <span className="animate-spin text-xs">â†»</span> : <Globe size={12} />} Republish to Site
                         </button>
                         <button type="button" disabled={!!actionLoading} onClick={() => patchAction(selected.id, "unpublish")} className="btn-sacred btn-ghost text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50">
-                          {actionLoading === "unpublish" ? <span className="animate-spin text-xs">↻</span> : <ArchiveRestore size={12} />} Unpublish
+                          {actionLoading === "unpublish" ? <span className="animate-spin text-xs">â†»</span> : <ArchiveRestore size={12} />} Unpublish
                         </button>
                       </>
                     )}
                     {!selected.deletedAt && (
                       <button type="button" disabled={!!actionLoading} onClick={() => del(selected.id)} className="btn-sacred text-xs py-1.5 px-3 ml-auto inline-flex items-center gap-1.5 disabled:opacity-50" style={{ background: "rgba(139,26,74,0.12)", border: "1px solid rgba(139,26,74,0.3)", color: "var(--rose-bright)" }}>
-                        {actionLoading === "delete" ? <span className="animate-spin text-xs">↻</span> : <Trash2 size={12} />} Delete
+                        {actionLoading === "delete" ? <span className="animate-spin text-xs">â†»</span> : <Trash2 size={12} />} Delete
                       </button>
                     )}
                   </div>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Download, ExternalLink } from "lucide-react";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from "pdfjs-dist";
+import { loadPdfjs } from "@/lib/pdfjs";
 
 export function DocumentViewer({ url, title }: { url: string; title: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -32,11 +33,7 @@ export function DocumentViewer({ url, title }: { url: string; title: string }) {
 
     void (async () => {
       try {
-        const pdfjs = await import("pdfjs-dist");
-        pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-          "pdfjs-dist/build/pdf.worker.mjs",
-          import.meta.url,
-        ).toString();
+        const pdfjs = await loadPdfjs();
         const loadingTask = pdfjs.getDocument({ url });
         loadingTaskRef.current = loadingTask;
         const document = await loadingTask.promise;

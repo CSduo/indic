@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
@@ -7,6 +7,7 @@ import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { SubmissionStepper } from "@/components/manuscript/SubmissionStepper";
 import { useAuth } from "@/hooks/useAuth";
+import { loadSubmissionDetails, loadSubmissionType, saveSubmissionDetails } from "@/lib/submissionDraft";
 
 const DOMAINS = ["Philosophy", "History", "Psychology", "Sociology", "Science", "Geopolitics", "Civilizational Thought", "Aesthetics", "Sanskrit Studies", "Political Theory"];
 const LENGTHS = ["Short (< 3,000 words)", "Medium (3,000-7,000 words)", "Long (7,000-15,000 words)", "Extended (> 15,000 words)"];
@@ -67,14 +68,8 @@ export default function SubmitDetailsPage() {
   const accountEmail = (user?.email || "").trim();
 
   useEffect(() => {
-    const type = sessionStorage.getItem("anvikshiki_submit_type") || "";
-    const saved = sessionStorage.getItem("anvikshiki_submit_details");
-    let parsed: Partial<FormData> = {};
-    if (saved) {
-      try {
-        parsed = JSON.parse(saved);
-      } catch {}
-    }
+    const type = loadSubmissionType("");
+    const parsed = loadSubmissionDetails() as Partial<FormData>;
     setForm({
       ...EMPTY,
       ...parsed,
@@ -90,7 +85,7 @@ export default function SubmitDetailsPage() {
         fullName: accountName || current.fullName,
         email: accountEmail || current.email,
       };
-      sessionStorage.setItem("anvikshiki_submit_details", JSON.stringify(next));
+      saveSubmissionDetails(next);
       return next;
     });
   }, [accountName, accountEmail]);
@@ -98,7 +93,7 @@ export default function SubmitDetailsPage() {
   const set = (key: keyof FormData, value: string) => {
     setForm((current) => {
       const next = { ...current, [key]: value };
-      sessionStorage.setItem("anvikshiki_submit_details", JSON.stringify(next));
+      saveSubmissionDetails(next);
       return next;
     });
     if (errors[key]) setErrors((current) => ({ ...current, [key]: undefined }));
