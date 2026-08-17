@@ -997,6 +997,42 @@ router.get("/admin/database-info", requireAdmin, requireAdminRole("ADMIN"), asyn
   }
 });
 
+// GET /api/admin/database-timing — measures function region and DB query roundtrip latency
+router.get("/admin/database-timing", requireAdmin, requireAdminRole("ADMIN"), async (req, res) => {
+  try {
+    const functionRegion = process.env.VERCEL_REGION || process.env.AWS_REGION || "local";
+    const samples: number[] = [];
+
+    // Warm query
+    const t0 = performance.now();
+    await db.execute(sql`SELECT 1 as ping`);
+    const firstQueryMs = Math.round(performance.now() - t0);
+
+    // Subsequent sample queries
+    for (let i = 0; i < 5; i++) {
+      const start = performance.now();
+      await db.execute(sql`SELECT 1 as ping`);
+      samples.push(Math.round(performance.now() - start));
+    }
+
+    const sorted = [...samples].sort((a, b) => a - b);
+    const subsequentMedianMs = sorted[Math.floor(sorted.length / 2)];
+
+    return res.json({
+      functionRegion,
+      firstQueryMs,
+      subsequentMedianMs,
+      samples,
+      note: subsequentMedianMs < 30
+        ? "Database is co-located with serverless functions (<30ms roundtrip)."
+        : "High roundtrip latency detected — check function and database region alignment.",
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to measure database timings");
+    return res.status(500).json({ error: "Timing benchmark failed" });
+  }
+});
+
 // POST /api/admin/submissions/sync-public-archives â€” rebuild missing public
 // records for submissions already marked PUBLISHED. This is the repair path for
 // a work that shows as published on the desk but is absent from the journal.
