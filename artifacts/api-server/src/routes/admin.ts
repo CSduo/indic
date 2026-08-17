@@ -997,6 +997,55 @@ router.get("/admin/database-info", requireAdmin, requireAdminRole("ADMIN"), asyn
   }
 });
 
+/**
+ * GET /api/admin/database-timing — where the time in a request actually goes.
+ *
+ * Switching to a pooled endpoint removed the connection handshake and changed
+ * the response time by nothing, which means the handshake was never the cost.
+ * This separates the two remaining candidates by timing several trivial
+ * queries in a row.
+ *
+ * The first includes whatever setup the pool still has to do. Every one after
+ * it runs on a connection that is already open and doing nothing else, so its
+ * duration is the round trip to the database and essentially nothing else.
+ *
+ * If those later queries are single-digit milliseconds, the database is close
+ * and the cost is elsewhere. If they are a couple of hundred, the compute is
+ * simply far away from the function asking — and no amount of pooling will fix
+ * distance.
+ */
+router.get("/admin/database-timing", requireAdmin, requireAdminRole("ADMIN"), async (req, res) => {
+  try {
+    const samples: Array<{ query: number; ms: number }> = [];
+
+    for (let i = 0; i < 6; i++) {
+      const started = Date.now();
+      await db.execute(sql`SELECT 1 AS ok`);
+      samples.push({ query: i + 1, ms: Date.now() - started });
+    }
+
+    const first = samples[0].ms;
+    const rest = samples.slice(1).map(s => s.ms);
+    const median = [...rest].sort((a, b) => a - b)[Math.floor(rest.length / 2)];
+
+    return res.json({
+      samples,
+      firstQueryMs: first,
+      subsequentMedianMs: median,
+      // Reported so the region can be compared with the database's own.
+      functionRegion: process.env.VERCEL_REGION || "unknown",
+      interpretation: median >= 100
+        ? "Each round trip is expensive, which means the database is far from the function. Pooling cannot fix distance — the function has to run in the database's region."
+        : median >= 25
+          ? "Round trips are moderate. Distance is a contributor but not the whole story."
+          : "Round trips are cheap. The database is close, and the remaining time is being spent somewhere other than waiting on it.",
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to time the database");
+    return res.status(500).json({ error: "Could not time the database.", code: "LOAD_FAILED" });
+  }
+});
+
 // POST /api/admin/submissions/sync-public-archives â€” rebuild missing public
 // records for submissions already marked PUBLISHED. This is the repair path for
 // a work that shows as published on the desk but is absent from the journal.
