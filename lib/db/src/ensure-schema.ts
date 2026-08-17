@@ -26,6 +26,7 @@ const ENUMS: Record<string, string[]> = {
   conversation_kind: ["DIRECT", "GROUP"],
   conversation_role: ["MEMBER", "ADMIN"],
   message_kind: ["TEXT", "IMAGE", "AUDIO", "FILE", "SYSTEM"],
+  content_view_kind: ["ARTICLE", "PAPER", "PROFILE"],
 };
 
 const ENUM_STATEMENTS = Object.entries(ENUMS).map(([name, labels]) => `
@@ -196,6 +197,19 @@ const TABLE_STATEMENTS = [
      "follower_id" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
      "following_id" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
      "created_at" timestamp DEFAULT now() NOT NULL
+   );`,
+  `CREATE TABLE IF NOT EXISTS "content_views" (
+     "id" text PRIMARY KEY NOT NULL,
+     "kind" "content_view_kind" DEFAULT 'ARTICLE' NOT NULL,
+     "target_id" text NOT NULL,
+     "author_id" text REFERENCES "users"("id") ON DELETE CASCADE,
+     "viewer_id" text REFERENCES "users"("id") ON DELETE SET NULL,
+     "session_key" text NOT NULL,
+     "progress_pct" integer DEFAULT 0 NOT NULL,
+     "read_seconds" integer DEFAULT 0 NOT NULL,
+     "referrer_host" text,
+     "created_at" timestamp DEFAULT now() NOT NULL,
+     "updated_at" timestamp DEFAULT now() NOT NULL
    );`,
   `CREATE TABLE IF NOT EXISTS "conversations" (
      "id" text PRIMARY KEY NOT NULL,
@@ -400,6 +414,11 @@ const INDEX_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS "notifications_user_idx" ON "notifications" ("user_id");`,
   `CREATE INDEX IF NOT EXISTS "push_subscriptions_user_idx" ON "push_subscriptions" ("user_id");`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "follows_unique" ON "follows" ("follower_id", "following_id");`,
+  // One row per reader per thing — this index is what makes a repeat visit an
+  // update rather than a second view.
+  `CREATE UNIQUE INDEX IF NOT EXISTS "content_views_unique" ON "content_views" ("kind", "target_id", "session_key");`,
+  `CREATE INDEX IF NOT EXISTS "content_views_author_idx" ON "content_views" ("author_id", "created_at");`,
+  `CREATE INDEX IF NOT EXISTS "content_views_target_idx" ON "content_views" ("kind", "target_id");`,
   `CREATE INDEX IF NOT EXISTS "follows_following_idx" ON "follows" ("following_id");`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "conversations_direct_key_idx" ON "conversations" ("direct_key");`,
   `CREATE INDEX IF NOT EXISTS "conversations_last_message_idx" ON "conversations" ("last_message_at");`,

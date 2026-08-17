@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/sacred/EmptyState";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { messagesApi } from "@/lib/messagesApi";
 import { PeopleListPanel } from "@/components/community/PeopleListPanel";
+import { recordProfileView } from "@/lib/recordView";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -136,6 +137,13 @@ export default function PublicProfilePage() {
     window.addEventListener("anv:content-changed", loadProfile);
     return () => window.removeEventListener("anv:content-changed", loadProfile);
   }, [loadProfile]);
+
+  // A profile visit is counted once per visitor, and never when you are
+  // looking at your own page — your own attention is not readership.
+  useEffect(() => {
+    if (!userId || viewer?.id === userId) return;
+    recordProfileView(userId);
+  }, [userId, viewer?.id]);
 
   if (loading) {
     return (

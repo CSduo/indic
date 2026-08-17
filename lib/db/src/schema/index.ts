@@ -393,6 +393,49 @@ export const pushSubscriptionsTable = pgTable("push_subscriptions", {
 ]);
 
 // Audit logs
+/**
+ * One reader's engagement with one thing, kept as a single evolving row.
+ *
+ * Not an event log. A log would grow without bound and would have to be
+ * aggregated on every read, which on this database is the one thing that is
+ * genuinely expensive. Instead each reader-and-target pair has one row that is
+ * updated as they read: the furthest they got, how long they spent, when they
+ * last looked. Counting views is then counting rows.
+ *
+ * `sessionKey` is what identifies a reader who is not signed in. It is a random
+ * value the browser keeps, never an IP address and never anything derived from
+ * one — it exists to stop one person refreshing a page from counting as fifty
+ * readers, and it deliberately cannot identify anybody.
+ *
+ * `authorId` is denormalised onto the row so an author's statistics are one
+ * indexed lookup rather than a join through articles for every query.
+ */
+export const contentViewKindEnum = pgEnum("content_view_kind", ["ARTICLE", "PAPER", "PROFILE"]);
+
+export const contentViewsTable = pgTable("content_views", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  kind: contentViewKindEnum("kind").notNull().default("ARTICLE"),
+  /** The article, paper or user being looked at. */
+  targetId: text("target_id").notNull(),
+  /** Who owns the thing — the author, or the owner of the profile. */
+  authorId: text("author_id").references(() => usersTable.id, { onDelete: "cascade" }),
+  /** Null for a signed-out reader; they are counted, never identified. */
+  viewerId: text("viewer_id").references(() => usersTable.id, { onDelete: "set null" }),
+  sessionKey: text("session_key").notNull(),
+  /** How far through they got, 0–100. Also what resumes their place. */
+  progressPct: integer("progress_pct").notNull().default(0),
+  /** Time actually spent with the page in front of them, in seconds. */
+  readSeconds: integer("read_seconds").notNull().default(0),
+  /** Where they arrived from, host only — never a full URL with a query. */
+  referrerHost: text("referrer_host"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("content_views_unique").on(t.kind, t.targetId, t.sessionKey),
+  index("content_views_author_idx").on(t.authorId, t.createdAt),
+  index("content_views_target_idx").on(t.kind, t.targetId),
+]);
+
 export const auditLogsTable = pgTable("audit_logs", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   adminId: text("admin_id").references(() => adminsTable.id),

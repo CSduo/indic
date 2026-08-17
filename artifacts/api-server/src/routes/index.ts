@@ -22,6 +22,7 @@ import sitemapRouter from "./sitemap";
 import pushRouter from "./push";
 import messagesRouter from "./messages";
 import communityRouter from "./community";
+import viewsRouter from "./views";
 
 const router: IRouter = Router();
 
@@ -48,5 +49,6 @@ router.use(sitemapRouter);
 router.use(pushRouter);
 router.use(messagesRouter);
 router.use(communityRouter);
+router.use(viewsRouter);
 
 export default router;

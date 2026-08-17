@@ -467,7 +467,8 @@ export default function ArticlePage() {
 
   return (
     <div className="bg-[var(--bg)]">
-      <ReadingProgress />
+      {/* Measures as well as indicates — this is where readership comes from. */}
+      <ReadingProgress targetId={article.slug || slug} kind="ARTICLE" />
 
       <section className="container-anv py-8 md:py-16 text-center max-w-4xl mx-auto">
         <nav className="mb-6 flex items-center justify-center gap-2 font-ui text-xs font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]" aria-label="Breadcrumb">
