@@ -49,7 +49,7 @@ router.get("/saved-items", async (req, res) => {
     return res.json({ savedItems: hydratedItems });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not load your saved items. Please try again.", code: "LOAD_FAILED" });
   }
 });
 
@@ -106,7 +106,7 @@ router.post("/saved-items", async (req, res) => {
     return res.status(201).json({ success: true, savedItem });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not save that item. Please try again.", code: "SAVE_FAILED" });
   }
 });
 
@@ -133,7 +133,7 @@ router.delete("/saved-items/:id", async (req, res) => {
     return res.json({ success: true });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not remove that saved item. Please try again.", code: "DELETE_FAILED" });
   }
 });
 

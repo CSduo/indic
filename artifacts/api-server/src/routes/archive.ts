@@ -37,7 +37,7 @@ router.get("/archive", async (req, res) => {
     });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not load the archive. Please try again.", code: "LOAD_FAILED" });
   }
 });
 

@@ -40,13 +40,37 @@ const sslConfig = process.env.PGSSL === "false"
     ? { rejectUnauthorized: process.env.PGSSL_REJECT_UNAUTHORIZED !== "false" }
     : undefined;
 
-// Robust connection pool with configuration for production stability
+/**
+ * How long a pooled connection is kept when nothing is using it.
+ *
+ * This is the one lever on request latency that is available from inside the
+ * code. Opening a connection to this database costs roughly 650ms — TCP, TLS
+ * and authentication — which is almost the entire time an API request takes;
+ * the queries themselves are close to free. Closing the connection after 30
+ * seconds of quiet meant a warm serverless instance paid that cost again for
+ * anyone who arrived half a minute after the last visitor, which on a site
+ * with this much traffic is nearly everyone.
+ *
+ * Serverless instances live for minutes, so the connection is now held for as
+ * long as the instance that owns it, and a keepalive stops anything in the
+ * middle deciding an idle socket is dead. A connection dropped from the other
+ * end is not a problem: the pool's error handler discards it and the next
+ * caller opens a fresh one.
+ */
+const idleTimeoutMillis = Number(process.env.PG_IDLE_TIMEOUT_MS)
+  || (isVercel ? 10 * 60 * 1000 : 30 * 1000);
+
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL || "postgresql://localhost:5432/placeholder",
   max: maxConnections,
   ssl: sslConfig,
-  idleTimeoutMillis: 30000, // Close idle connections after 30s
+  idleTimeoutMillis,
   connectionTimeoutMillis: 10000, // Timeout after 10s on connect
+  // Without this, an idle TLS connection can be dropped silently by a NAT or
+  // load balancer in between, and the drop is only discovered as a failed
+  // query on the next request.
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
 });
 
 // Handle errors on idle clients in the pool to prevent process crash

@@ -157,7 +157,7 @@ router.post("/submissions", async (req, res) => {
     return res.status(201).json({ success: true, submission, publication: null });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not save your submission. Please try again.", code: "SAVE_FAILED" });
   }
 });
 
@@ -742,7 +742,7 @@ router.get("/submissions/:id", async (req, res) => {
     });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not load that submission. Please try again.", code: "LOAD_FAILED" });
   }
 });
 

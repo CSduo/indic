@@ -1,5 +1,5 @@
 ﻿import { Router } from "express";
-import { db } from "@workspace/db";
+import { db, withDbRetry } from "@workspace/db";
 import { articlesTable, categoriesTable, submissionsTable, usersTable } from "@workspace/db";
 import { eq, and, desc, ilike, inArray, or, sql, isNull } from "drizzle-orm";
 import { categorySlugCandidates, normalizeCategorySlug, syncSubmissionFromPublication } from "../lib/publication-sync";
@@ -55,19 +55,25 @@ router.get("/articles", async (req, res) => {
       category: categoriesTable,
     };
 
-    const [articles, [{ count }]] = await Promise.all([
-      db
+    /*
+      Retried, because this is the page everyone lands on. A dropped connection
+      here — the pool handing out a socket something in the middle closed while
+      it was idle — is a momentary fault that costs nothing to survive, and the
+      alternative is showing a visitor an empty journal.
+    */
+    const [articles, [{ count }]] = await withDbRetry(client => Promise.all([
+      client
         .select(selectFields)
         .from(articlesTable)
         .leftJoin(categoriesTable, eq(articlesTable.categorySlug, categoriesTable.slug))
         .where(and(...conditions))
         .orderBy(desc(articlesTable.publishedAt), desc(articlesTable.id))
         .limit(limit).offset(offset),
-      db
+      client
         .select({ count: sql<number>`count(*)` })
         .from(articlesTable)
         .where(and(...conditions)),
-    ]);
+    ]));
 
     const result = articles.map((r: any) => {
       const rawContent = (r.body || r.excerpt || "")
@@ -215,7 +221,7 @@ router.get("/articles/:slug", async (req, res) => {
   } catch (err) {
     console.error("GET /api/articles/:slug error:", err);
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not load that article. Please try again.", code: "LOAD_FAILED" });
   }
 });
 

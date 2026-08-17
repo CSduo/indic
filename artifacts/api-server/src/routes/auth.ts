@@ -152,7 +152,7 @@ router.get("/auth/me", async (req, res) => {
     return res.json({ user });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not load your account. Please try again.", code: "LOAD_FAILED" });
   }
 });
 

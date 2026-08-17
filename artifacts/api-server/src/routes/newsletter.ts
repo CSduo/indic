@@ -25,7 +25,7 @@ router.post("/newsletter", async (req, res) => {
     return res.json({ success: true, message: "Subscription active" });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not save your subscription. Please try again.", code: "SAVE_FAILED" });
   }
 });
 

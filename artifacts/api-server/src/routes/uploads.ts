@@ -26,7 +26,7 @@ router.get("/uploads/:filename", (req, res) => {
     return res.sendFile(filePath);
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not load that file. Please try again.", code: "LOAD_FAILED" });
   }
 });
 

@@ -1,5 +1,5 @@
 ﻿import { Router } from "express";
-import { db } from "@workspace/db";
+import { db, withDbRetry } from "@workspace/db";
 import { papersTable, categoriesTable, submissionsTable, usersTable } from "@workspace/db";
 import { eq, and, desc, ilike, inArray, or, sql, isNull } from "drizzle-orm";
 import { categorySlugCandidates, normalizeCategorySlug, syncSubmissionFromPublication } from "../lib/publication-sync";
@@ -35,7 +35,7 @@ router.get("/papers", async (req, res) => {
 
     const includeBody = req.query.includeBody === "true";
 
-    const papers = await db
+    const papers = await withDbRetry(client => client
       .select({
         id: papersTable.id,
         slug: papersTable.slug,
@@ -57,13 +57,13 @@ router.get("/papers", async (req, res) => {
       .leftJoin(categoriesTable, eq(papersTable.categorySlug, categoriesTable.slug))
       .where(and(...conditions))
       .orderBy(desc(papersTable.publishedAt), desc(papersTable.id))
-      .limit(limit).offset(offset);
+      .limit(limit).offset(offset));
 
 
-    const [{ count }] = await db
+    const [{ count }] = await withDbRetry(client => client
       .select({ count: sql<number>`count(*)` })
       .from(papersTable)
-      .where(and(...conditions));
+      .where(and(...conditions)));
 
     const result = papers.map((r: any) => {
       const rawContent = (r.body || r.abstract || "")
@@ -112,7 +112,7 @@ router.get("/papers", async (req, res) => {
     return res.json({ papers: result, total: Number(count), limit, offset });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not load papers. Please try again.", code: "LOAD_FAILED" });
   }
 });
 
@@ -160,7 +160,7 @@ router.get("/papers/:slug", async (req, res) => {
     });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not load that paper. Please try again.", code: "LOAD_FAILED" });
   }
 });
 

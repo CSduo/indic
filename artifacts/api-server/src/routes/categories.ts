@@ -51,7 +51,7 @@ router.get("/categories", async (req, res) => {
     return res.json({ categories: result });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not load the domains. Please try again.", code: "LOAD_FAILED" });
   }
 });
 
@@ -74,7 +74,7 @@ router.get("/categories/:slug", async (req, res) => {
     return res.json({ category, articles, papers });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not load that domain. Please try again.", code: "LOAD_FAILED" });
   }
 });
 

@@ -1,5 +1,5 @@
 ﻿import { Router } from "express";
-import { db, repairDatabaseSchema } from "@workspace/db";
+import { db, repairDatabaseSchema, withDbRetry } from "@workspace/db";
 import {
   adminsTable, articlesTable, papersTable, submissionsTable,
   newsletterSubscribersTable, categoriesTable, usersTable, siteSettingsTable,
@@ -142,7 +142,7 @@ router.get("/admin/me", requireAdmin, async (req: any, res) => {
     return res.json({ admin });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not load your admin session. Please try again.", code: "LOAD_FAILED" });
   }
 });
 
@@ -187,7 +187,7 @@ router.get("/admin/stats", requireAdmin, async (req, res) => {
     });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not load the dashboard figures. Please try again.", code: "LOAD_FAILED" });
   }
 });
 
@@ -215,7 +215,7 @@ router.get("/admin/articles", requireAdmin, async (req, res) => {
     });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not load articles. Please try again.", code: "LOAD_FAILED" });
   }
 });
 
@@ -253,7 +253,7 @@ router.post("/admin/articles", requireAdmin, requireAdminRole("ADMIN", "EDITOR")
     return res.status(201).json({ success: true, article });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not save that article. Please try again.", code: "SAVE_FAILED" });
   }
 });
 
@@ -276,7 +276,7 @@ router.patch("/admin/articles/:id", requireAdmin, requireAdminRole("ADMIN", "EDI
     return res.json({ article });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not save changes to that article. Please try again.", code: "UPDATE_FAILED" });
   }
 });
 
@@ -292,7 +292,7 @@ router.delete("/admin/articles/:id", requireAdmin, requireAdminRole("ADMIN", "ED
     return res.json({ success: true, article });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not remove that article. Please try again.", code: "DELETE_FAILED" });
   }
 });
 
@@ -306,7 +306,7 @@ router.post("/admin/articles/:id/restore", requireAdmin, requireAdminRole("ADMIN
     return res.json({ success: true, article });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not save that article. Please try again.", code: "SAVE_FAILED" });
   }
 });
 
@@ -322,7 +322,7 @@ router.delete("/admin/articles/:id/permanent", requireAdmin, requireAdminRole("A
     return res.json({ success: true });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not remove that article. Please try again.", code: "DELETE_FAILED" });
   }
 });
 
@@ -350,7 +350,7 @@ router.get("/admin/papers", requireAdmin, async (req, res) => {
     });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not load papers. Please try again.", code: "LOAD_FAILED" });
   }
 });
 
@@ -389,7 +389,7 @@ router.post("/admin/papers", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), 
     return res.status(201).json({ success: true, paper });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not save that paper. Please try again.", code: "SAVE_FAILED" });
   }
 });
 
@@ -412,7 +412,7 @@ router.patch("/admin/papers/:id", requireAdmin, requireAdminRole("ADMIN", "EDITO
     return res.json({ paper });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not save changes to that paper. Please try again.", code: "UPDATE_FAILED" });
   }
 });
 
@@ -428,7 +428,7 @@ router.delete("/admin/papers/:id", requireAdmin, requireAdminRole("ADMIN", "EDIT
     return res.json({ success: true, paper });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not remove that paper. Please try again.", code: "DELETE_FAILED" });
   }
 });
 
@@ -442,7 +442,7 @@ router.post("/admin/papers/:id/restore", requireAdmin, requireAdminRole("ADMIN",
     return res.json({ success: true, paper });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not save that paper. Please try again.", code: "SAVE_FAILED" });
   }
 });
 
@@ -458,7 +458,7 @@ router.delete("/admin/papers/:id/permanent", requireAdmin, requireAdminRole("ADM
     return res.json({ success: true });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not remove that paper. Please try again.", code: "DELETE_FAILED" });
   }
 });
 
@@ -488,7 +488,7 @@ router.get("/admin/submissions", requireAdmin, async (req, res) => {
     });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not load submissions. Please try again.", code: "LOAD_FAILED" });
   }
 });
 
@@ -589,11 +589,35 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
         && Boolean(publication.id);
 
       if (!publishedPublicly) {
-        await db.update(submissionsTable)
-          .set({ status: previous.status, publishedAt: previous.publishedAt, updatedAt: new Date() })
-          .where(eq(submissionsTable.id, req.params.id));
+        /*
+          This undo is the only thing standing between a failed publish and a
+          submission that claims to be live with nothing behind it. It was a
+          single unguarded write, so a transient blip while running it produced
+          exactly the state the code above exists to prevent — and left no
+          trace saying so. It retries now, and if it still cannot be undone
+          that fact is reported rather than swallowed.
+        */
+        let rolledBack = true;
+        try {
+          await withDbRetry(client => client.update(submissionsTable)
+            .set({ status: previous.status, publishedAt: previous.publishedAt, updatedAt: new Date() })
+            .where(eq(submissionsTable.id, req.params.id)));
+        } catch (rollbackErr: any) {
+          rolledBack = false;
+          req.log.error(
+            { err: rollbackErr, submissionId: req.params.id },
+            "Publish failed AND the status could not be rolled back — this submission is marked published with no public record",
+          );
+        }
 
         const reason = publication?.reason || publicationError?.message || "unknown";
+        if (!rolledBack) {
+          return res.status(500).json({
+            error: "This work could not be published, and its status could not be put back. Please reload the desk and check it.",
+            code: "PUBLICATION_ROLLBACK_FAILED",
+            reason,
+          });
+        }
         req.log.error(
           { submissionId: req.params.id, reason },
           "Publish aborted â€” no public record was created, submission status rolled back",
@@ -636,7 +660,7 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
     return res.json({ submission });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not save changes to that submission. Please try again.", code: "UPDATE_FAILED" });
   }
 });
 
@@ -680,7 +704,7 @@ router.delete("/admin/submissions/:id", requireAdmin, requireAdminRole("ADMIN", 
     });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not remove that submission. Please try again.", code: "DELETE_FAILED" });
   }
 });
 
@@ -714,7 +738,7 @@ router.post("/admin/submissions/:id/restore", requireAdmin, requireAdminRole("AD
     });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not save that submission. Please try again.", code: "SAVE_FAILED" });
   }
 });
 
@@ -755,7 +779,7 @@ router.delete("/admin/submissions/:id/permanent", requireAdmin, requireAdminRole
     return res.json({ success: true });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not remove that submission. Please try again.", code: "DELETE_FAILED" });
   }
 });
 
@@ -766,7 +790,7 @@ router.get("/admin/categories", requireAdmin, async (req, res) => {
     return res.json({ categories });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not load the domains. Please try again.", code: "LOAD_FAILED" });
   }
 });
 
@@ -788,7 +812,7 @@ router.post("/admin/categories", requireAdmin, requireAdminRole("ADMIN", "EDITOR
     return res.status(201).json({ success: true, category });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not save that domain. Please try again.", code: "SAVE_FAILED" });
   }
 });
 
@@ -801,7 +825,7 @@ router.get("/admin/newsletter", requireAdmin, requireAdminRole("ADMIN", "EDITOR"
     return res.json({ subscribers, total: subscribers.length });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not load the newsletter list. Please try again.", code: "LOAD_FAILED" });
   }
 });
 
@@ -818,7 +842,7 @@ router.get("/admin/users", requireAdmin, requireAdminRole("ADMIN"), async (req, 
     return res.json({ users, total: users.length });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not load the member list. Please try again.", code: "LOAD_FAILED" });
   }
 });
 
@@ -872,7 +896,7 @@ router.get("/admin/site-settings", requireAdmin, requireAdminRole("ADMIN"), asyn
     return res.json({ settings });
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not load the site settings. Please try again.", code: "LOAD_FAILED" });
   }
 });
 
@@ -899,7 +923,7 @@ router.put("/admin/site-settings/:key", requireAdmin, requireAdminRole("ADMIN"),
     }
   } catch (err) {
     req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Could not save that setting. Please try again.", code: "SAVE_FAILED" });
   }
 });
 
