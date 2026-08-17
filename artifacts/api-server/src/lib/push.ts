@@ -77,6 +77,12 @@ export type PushPayload = {
   url?: string;
   /** Collapses same-tag notifications so a burst does not stack up. */
   tag?: string;
+  /** Notification icon (defaults to site favicon) */
+  icon?: string;
+  /** Monochrome badge icon */
+  badge?: string;
+  /** Large preview image if relevant */
+  image?: string;
 };
 
 /**
@@ -111,6 +117,9 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
     body: payload.body,
     url: payload.url || "/account/notifications",
     tag: payload.tag,
+    icon: payload.icon || "https://anvikshikijournal.in/favicon.png",
+    badge: payload.badge || "https://anvikshikijournal.in/brand-emblem.png",
+    image: payload.image,
   });
 
   const dead: string[] = [];

@@ -23,10 +23,15 @@ self.addEventListener("push", (event) => {
   }
 
   const title = payload.title || "Ānvīkṣikī";
+  const origin = self.location.origin;
+  const iconUrl = payload.icon || (origin + "/favicon.png");
+  const badgeUrl = payload.badge || (origin + "/brand-emblem.png");
+
   const options = {
     body: payload.body || "",
-    icon: "/favicon.png",
-    badge: "/favicon.png",
+    icon: iconUrl,
+    badge: badgeUrl,
+    image: payload.image || undefined,
     // A tag collapses repeats, so ten replies to one thread do not become ten
     // separate notifications on the lock screen.
     tag: payload.tag || undefined,

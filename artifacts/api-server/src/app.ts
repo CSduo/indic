@@ -337,7 +337,7 @@ app.get(["/articles/:slug", "/essays/:slug", "/papers/:slug"], async (req, res, 
     const cleanTitle = escapeHtml(title);
     const cleanExcerpt = escapeHtml(excerpt.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 260));
     const cleanUrl = escapeHtml(canonicalUrl);
-    const cleanImage = imageUrl ? escapeHtml(imageUrl) : "https://anvikshikijournal.in/favicon.png";
+    const cleanImage = imageUrl ? escapeHtml(imageUrl) : "https://anvikshikijournal.in/opengraph.jpg";
 
     const ogTags = `
     <!-- Dynamic Open Graph & Twitter Card Meta Tags -->

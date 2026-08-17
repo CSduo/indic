@@ -1,5 +1,14 @@
 User-agent: *
 Allow: /
+Allow: /api/sitemap.xml
+Allow: /api/rss
+Allow: /favicon.ico
+Allow: /favicon.png
+Allow: /icon.png
+Allow: /apple-touch-icon.png
+Allow: /opengraph.jpg
+Allow: /logo.png
+Allow: /brand-emblem.png
 Disallow: /api/
 Disallow: /admin/
 Disallow: /account/
@@ -8,4 +17,5 @@ Disallow: /saved
 Disallow: /submit/write
 Disallow: /submit/upload
 
+Sitemap: https://anvikshikijournal.in/sitemap.xml
 Sitemap: https://anvikshikijournal.in/api/sitemap.xml

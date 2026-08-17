@@ -37,6 +37,18 @@
       "destination": "/api/index"
     },
     {
+      "source": "/articles/:slug*",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/essays/:slug*",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/papers/:slug*",
+      "destination": "/api/index"
+    },
+    {
       "source": "/:path*",
       "destination": "/index.html"
     }
