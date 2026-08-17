@@ -72,6 +72,57 @@ function reconcile(list: Message[], tempId: string, optimistic: Message, saved: 
   return list.map(m => (m.id === tempId ? merged : m));
 }
 
+/**
+ * Message text, folded once it gets long enough to bury the conversation.
+ *
+ * Someone pasting several paragraphs should not push every other message off
+ * the screen. Past a threshold the text is clamped to a readable opening and
+ * the rest is one tap away — and once opened it stays open, because collapsing
+ * something the reader deliberately expanded is infuriating.
+ *
+ * The threshold is generous on purpose. Ordinary long messages are meant to
+ * arrive whole; this exists for the essay, not the paragraph.
+ */
+const COLLAPSE_AFTER_LINES = 12;
+const COLLAPSE_AFTER_CHARS = 700;
+
+function MessageText({ body, mine }: { body: string; mine: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const longEnough =
+    body.length > COLLAPSE_AFTER_CHARS
+    || body.split("\n").length > COLLAPSE_AFTER_LINES;
+
+  if (!longEnough) {
+    return <p className="whitespace-pre-wrap break-words font-body text-[14px] leading-6">{body}</p>;
+  }
+
+  return (
+    <>
+      <p
+        className="whitespace-pre-wrap break-words font-body text-[14px] leading-6"
+        style={expanded ? undefined : {
+          display: "-webkit-box",
+          WebkitLineClamp: COLLAPSE_AFTER_LINES,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+        }}
+      >
+        {body}
+      </p>
+      <button
+        type="button"
+        onClick={() => setExpanded(v => !v)}
+        className="mt-1 font-ui text-[11px] font-semibold underline underline-offset-2"
+        style={{ color: mine ? "var(--bg)" : "var(--accent)", opacity: mine ? 0.85 : 1 }}
+        aria-expanded={expanded}
+      >
+        {expanded ? "Show less" : "Show more"}
+      </button>
+    </>
+  );
+}
+
 function Avatar({ name, url, size = 28 }: { name: string; url?: string | null; size?: number }) {
   if (url) return <img src={url} alt="" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />;
   return (
@@ -138,12 +189,15 @@ function MessageBubble({
       {/*
         `min-w-0` is what actually lets this column shrink. A flex child
         defaults to min-width:auto, so a long word or filename inside it forces
-        the column wider than its share and pushes the bubble off the screen —
-        which is why messages were being clipped at both edges on a phone.
-        The width also leaves room for the avatar and the actions button rather
-        than competing with them for the same space.
+        the column wider than its share and pushes the bubble off the screen.
+
+        The cap is deliberately well short of the full width. A paragraph that
+        runs to the edge of the screen reads as a wall: the eye has to travel
+        the whole width and then find its way back, and nothing distinguishes
+        one person's turn from the other's. Kept narrower, the same text simply
+        gets taller, which is what makes a conversation scannable.
       */}
-      <div className={`flex min-w-0 max-w-[calc(100%-2.5rem)] flex-col sm:max-w-[78%] ${mine ? "items-end" : "items-start"}`}>
+      <div className={`flex min-w-0 max-w-[78%] flex-col sm:max-w-[68%] ${mine ? "items-end" : "items-start"}`}>
         {!mine && isGroup && showTail ? (
           <span className="mb-0.5 px-1 font-ui text-[10px] font-semibold text-[var(--ink-meta)]">{message.senderName}</span>
         ) : null}
@@ -241,9 +295,7 @@ function MessageBubble({
             </div>
           ) : null}
 
-          {message.body ? (
-            <p className="whitespace-pre-wrap break-words font-body text-[14px] leading-6">{message.body}</p>
-          ) : null}
+          {message.body ? <MessageText body={message.body} mine={mine} /> : null}
 
           <span className="mt-1 flex items-center gap-1.5 opacity-60">
             <span className="font-ui text-[10px]">
