@@ -17,7 +17,18 @@ router.get("/sitemap.xml", async (req, res) => {
     ]);
 
     const baseUrl = 'https://anvikshikijournal.in';
-    const staticPages = ['', '/about', '/contact', '/privacy', '/terms', '/browse', '/domains', '/archive', '/papers'];
+    /*
+      Community and Submit were lost when the hand-written sitemap.xml was
+      replaced by this route: the static file listed them, the replacement did
+      not, so two real pages quietly stopped being offered to search engines.
+      Both are entry points — one is how people find the Assembly, the other is
+      how work arrives — so they matter more than most.
+    */
+    const staticPages = [
+      '', '/about', '/contact', '/privacy', '/terms',
+      '/browse', '/domains', '/archive', '/papers',
+      '/community', '/submit',
+    ];
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
 
