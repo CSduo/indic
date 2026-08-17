@@ -51,6 +51,7 @@ export function VoiceRecorder({
   const [seconds, setSeconds] = useState(0);
   const [level, setLevel] = useState(0);
   const [starting, setStarting] = useState(true);
+  const [liveTranscript, setLiveTranscript] = useState("");
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
@@ -111,7 +112,10 @@ export function VoiceRecorder({
               for (let i = 0; i < ev.results.length; i++) {
                 text += (ev.results[i][0]?.transcript || "") + " ";
               }
-              if (text.trim()) transcriptRef.current = text.trim();
+              if (text.trim()) {
+                transcriptRef.current = text.trim();
+                setLiveTranscript(text.trim());
+              }
             };
             rec.start();
             recognitionRef.current = rec;
@@ -213,67 +217,77 @@ export function VoiceRecorder({
 
   return (
     <div
-      className="flex items-center gap-2 rounded-[2px] border px-2 py-2"
+      className="flex flex-col gap-1.5 rounded-[4px] border px-3 py-2"
       style={{ borderColor: "var(--hairline)", background: "var(--surface)" }}
       role="group"
       aria-label="Recording a voice note"
     >
-      <button
-        type="button"
-        onClick={discard}
-        className="composer-tool shrink-0 rounded-[2px] border"
-        style={{ borderColor: "var(--hairline)", color: "var(--state-error)" }}
-        aria-label="Delete this recording"
-        disabled={busy}
-      >
-        <Trash2 size={15} />
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={discard}
+          className="composer-tool shrink-0 rounded-[2px] border"
+          style={{ borderColor: "var(--hairline)", color: "var(--state-error)" }}
+          aria-label="Delete this recording"
+          disabled={busy}
+        >
+          <Trash2 size={15} />
+        </button>
 
-      <div className="flex min-w-0 flex-1 items-center gap-2">
-        {/* A dot that stops blinking when held, so paused is unmistakable. */}
-        <span
-          aria-hidden="true"
-          className="h-2 w-2 shrink-0 rounded-full"
-          style={{
-            background: paused ? "var(--ink-faint)" : "var(--accent)",
-            animation: paused || starting ? undefined : "pulse 1.2s ease-in-out infinite",
-          }}
-        />
-        <span className="shrink-0 font-ui text-[12px] tabular-nums text-[var(--ink)]">
-          {clock(seconds)}
-        </span>
-
-        <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-[2px]" style={{ background: "var(--surface-2)" }}>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          {/* A dot that stops blinking when held, so paused is unmistakable. */}
           <span
-            className="block h-full transition-[width] duration-75"
+            aria-hidden="true"
+            className="h-2 w-2 shrink-0 rounded-full"
             style={{
-              width: paused ? "0%" : `${Math.max(level * 100, 4)}%`,
-              background: "var(--accent)",
+              background: paused ? "var(--ink-faint)" : "#ef4444",
+              animation: paused || starting ? undefined : "pulse 1.2s ease-in-out infinite",
             }}
           />
-        </span>
+          <span className="shrink-0 font-mono text-[12px] font-semibold tabular-nums text-[var(--ink)]">
+            {clock(seconds)}
+          </span>
+
+          <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full" style={{ background: "var(--surface-2)" }}>
+            <span
+              className="block h-full transition-[width] duration-75 rounded-full"
+              style={{
+                width: paused ? "0%" : `${Math.max(level * 100, 6)}%`,
+                background: "#f59e0b",
+              }}
+            />
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={togglePause}
+          className="composer-tool shrink-0 rounded-[2px] border"
+          style={{ borderColor: "var(--hairline)" }}
+          aria-label={paused ? "Resume recording" : "Pause recording"}
+          disabled={busy || starting}
+        >
+          {paused ? <Play size={15} /> : <Pause size={15} />}
+        </button>
+
+        <button
+          type="button"
+          onClick={send}
+          className="btn-terracotta shrink-0"
+          aria-label="Send this voice note"
+          disabled={busy || starting || seconds < 1}
+        >
+          {busy ? <span className="spinner-editorial" aria-hidden="true" /> : <Send size={14} />}
+        </button>
       </div>
 
-      <button
-        type="button"
-        onClick={togglePause}
-        className="composer-tool shrink-0 rounded-[2px] border"
-        style={{ borderColor: "var(--hairline)" }}
-        aria-label={paused ? "Resume recording" : "Pause recording"}
-        disabled={busy || starting}
-      >
-        {paused ? <Play size={15} /> : <Pause size={15} />}
-      </button>
-
-      <button
-        type="button"
-        onClick={send}
-        className="btn-terracotta shrink-0"
-        aria-label="Send this voice note"
-        disabled={busy || starting || seconds < 1}
-      >
-        {busy ? <span className="spinner-editorial" aria-hidden="true" /> : <Send size={14} />}
-      </button>
+      {/* Live speech feedback */}
+      <div className="flex items-center gap-1.5 px-1 font-mono text-[10px] text-[var(--muted)] truncate">
+        <span className="text-[#f59e0b]">●</span>
+        <span className="truncate italic">
+          {liveTranscript ? `"${liveTranscript}"` : "Transcribing speech live as you talk…"}
+        </span>
+      </div>
     </div>
   );
 }

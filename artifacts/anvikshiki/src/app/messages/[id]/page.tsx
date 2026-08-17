@@ -253,20 +253,32 @@ function MessageBubble({
           onTouchEnd={cancelPress}
           onTouchMove={cancelPress}
           onContextMenu={e => { e.preventDefault(); setMenuOpen(true); }}
-          className="relative px-3 py-2 transition-opacity"
+          className={`relative transition-opacity ${message.kind === "AUDIO" ? "p-2.5 sm:p-3" : "px-3 py-2"}`}
           style={{
-            ...(mine
-              ? { background: "var(--ink)", color: "var(--bg)" }
-              : { background: "var(--surface-2)", color: "var(--ink)", border: "1px solid var(--hairline)" }),
-            /*
-              Softly rounded, with the corner nearest the sender squared off on
-              the last message of a run. It is the cheapest way to show who is
-              speaking without repeating a name above every line, and it stops
-              the thread reading as a stack of identical grey boxes.
-            */
-            borderRadius: mine
-              ? `12px 12px ${showTail ? "2px" : "12px"} 12px`
-              : `12px 12px 12px ${showTail ? "2px" : "12px"}`,
+            ...(message.kind === "AUDIO"
+              ? {
+                  background: "#1e2022",
+                  color: "#f3f4f6",
+                  border: "1px solid #363a40",
+                  borderRadius: "14px",
+                  boxShadow: "0 4px 14px rgba(0,0,0,0.25)",
+                }
+              : mine
+              ? {
+                  background: "var(--ink)",
+                  color: "var(--bg)",
+                  borderRadius: mine
+                    ? `12px 12px ${showTail ? "2px" : "12px"} 12px`
+                    : `12px 12px 12px ${showTail ? "2px" : "12px"}`,
+                }
+              : {
+                  background: "var(--surface-2)",
+                  color: "var(--ink)",
+                  border: "1px solid var(--hairline)",
+                  borderRadius: mine
+                    ? `12px 12px ${showTail ? "2px" : "12px"} 12px`
+                    : `12px 12px 12px ${showTail ? "2px" : "12px"}`,
+                }),
             // A message that has not landed yet reads as slightly lighter, so
             // "sent" is visible without a status line under every bubble.
             opacity: message.pending ? 0.55 : 1,
@@ -554,6 +566,18 @@ export default function ConversationPage() {
     setBusy(true);
     void loadInitial();
   }, [user, loading, conversationId, loadInitial, navigate]);
+
+  // Synchronize browser address bar to aesthetic handle URL (/messages/@handle) for 1-on-1 chats
+  useEffect(() => {
+    if (!details || details.kind === "GROUP" || !user) return;
+    const other = details.members.find(m => m.userId !== user.id);
+    if (other?.handle && typeof window !== "undefined") {
+      const aestheticPath = `/messages/@${other.handle}`;
+      if (window.location.pathname !== aestheticPath) {
+        window.history.replaceState(null, "", aestheticPath);
+      }
+    }
+  }, [details, user]);
 
   // Poll for anything newer than the last message we hold, plus typing state.
   useEffect(() => {

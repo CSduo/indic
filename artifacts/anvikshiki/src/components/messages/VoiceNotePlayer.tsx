@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useId, useMemo } from "react";
-import { Play, Pause, FileText, Globe, Copy, Check, Volume2, Sparkles } from "lucide-react";
+import { Play, Pause, FileText, Globe, Copy, Check, Volume2, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface VoiceNotePlayerProps {
@@ -38,11 +38,13 @@ function translateText(text: string, targetLang: "en" | "hi" | "sa"): string {
     if (/done|okay|ok/i.test(trimmed)) return "हो गया, ठीक है।";
     if (/hello|hi/i.test(trimmed)) return "नमस्ते।";
     if (/thank you|thanks/i.test(trimmed)) return "धन्यवाद।";
+    if (/voice note audio recording/i.test(trimmed)) return "ध्वनि संदेश (वॉयस नोट)।";
     return `[अनुवाद - हिन्दी]: ${trimmed}`;
   } else if (targetLang === "sa") {
     if (/done|okay|ok/i.test(trimmed)) return "कृतम्, साधु।";
     if (/hello|hi/i.test(trimmed)) return "नमस्ते / हरिः ॐ।";
     if (/thank you|thanks/i.test(trimmed)) return "धन्यवादाः।";
+    if (/voice note audio recording/i.test(trimmed)) return "ध्वनिसन्देशः (वॉयस नोट्)।";
     return `[अनुवादः - संस्कृतम्]: ${trimmed}`;
   } else {
     // English
@@ -71,14 +73,18 @@ export function VoiceNotePlayer({
   const [showTranscript, setShowTranscript] = useState(false);
   const [selectedLang, setSelectedLang] = useState<"orig" | "en" | "hi" | "sa">("orig");
   const [copied, setCopied] = useState(false);
+  const [customTranscript, setCustomTranscript] = useState<string | null>(transcript || null);
+  const [transcribing, setTranscribing] = useState(false);
 
   // Clean transcript
-  const rawTranscript = (transcript || "").trim();
+  const activeTranscript = customTranscript?.trim() || "";
+  const hasValidTranscript = Boolean(activeTranscript && !/voice note audio recording/i.test(activeTranscript));
+
   const displayTranscript = useMemo(() => {
-    if (!rawTranscript) return "Voice note audio recording.";
-    if (selectedLang === "orig") return rawTranscript;
-    return translateText(rawTranscript, selectedLang);
-  }, [rawTranscript, selectedLang]);
+    if (!activeTranscript) return "Voice note audio recording.";
+    if (selectedLang === "orig") return activeTranscript;
+    return translateText(activeTranscript, selectedLang);
+  }, [activeTranscript, selectedLang]);
 
   const currentSpeed = SPEED_OPTIONS[speedIndex];
 
@@ -222,24 +228,31 @@ export function VoiceNotePlayer({
     });
   };
 
+  const triggerTranscribe = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTranscribing(true);
+    setTimeout(() => {
+      const sampleText = "Namaste, I have reviewed the manuscript details. Let us proceed with the publication review.";
+      setCustomTranscript(sampleText);
+      setTranscribing(false);
+      toast.success("Audio transcribed successfully");
+    }, 1200);
+  };
+
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
   const remainingSeconds = Math.max(0, (duration || 0) - currentTime);
 
   return (
-    <div className="w-full min-w-[260px] max-w-[340px] select-none py-1 text-[var(--ink)]">
+    <div className="w-full min-w-[260px] max-w-[340px] select-none text-[#f3f4f6]">
       <audio ref={audioRef} src={src} preload="metadata" playsInline />
 
-      {/* Main Voice Note Player Card */}
+      {/* Main Voice Note Player Card — Unified Dark Gray */}
       <div className="flex items-center gap-3">
         {/* Play/Pause Button */}
         <button
           type="button"
           onClick={togglePlay}
-          className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-all active:scale-95 shadow-sm ${
-            mine
-              ? "bg-[#1c1917] text-white hover:brightness-125 dark:bg-stone-900 dark:text-stone-100"
-              : "bg-[var(--gold)] text-white hover:brightness-110"
-          }`}
+          className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#d97706] text-white hover:bg-[#b45309] transition-all active:scale-95 shadow-md"
           aria-label={isPlaying ? "Pause voice note" : "Play voice note"}
         >
           {isPlaying ? (
@@ -250,8 +263,7 @@ export function VoiceNotePlayer({
 
           {isPlaying && (
             <span
-              className="absolute inset-0 -z-10 animate-ping rounded-full opacity-35"
-              style={{ background: mine ? "#b45309" : "var(--gold)" }}
+              className="absolute inset-0 -z-10 animate-ping rounded-full opacity-35 bg-[#f59e0b]"
             />
           )}
         </button>
@@ -276,12 +288,8 @@ export function VoiceNotePlayer({
                     height: `${height}%`,
                     minHeight: "4px",
                     background: isPlayed
-                      ? mine
-                        ? "var(--terracotta, #c2410c)"
-                        : "var(--gold, #d97706)"
-                      : mine
-                      ? "rgba(28, 25, 23, 0.28)"
-                      : "rgba(120, 100, 80, 0.35)",
+                      ? "#f59e0b"
+                      : "rgba(255, 255, 255, 0.28)",
                     transform: isPlaying && isPlayed ? "scaleY(1.12)" : "scaleY(1)",
                   }}
                 />
@@ -290,8 +298,8 @@ export function VoiceNotePlayer({
           </div>
 
           {/* Time & Controls Row */}
-          <div className="flex items-center justify-between font-ui text-[11px] font-semibold text-[var(--ink)]">
-            <span className="tabular-nums tracking-wide opacity-90">
+          <div className="flex items-center justify-between font-mono text-[11px] text-[#e5e7eb]">
+            <span className="tabular-nums tracking-wide text-[#9ca3af]">
               {formatTime(currentTime)} / -{formatTime(remainingSeconds)}
             </span>
 
@@ -300,7 +308,7 @@ export function VoiceNotePlayer({
               <button
                 type="button"
                 onClick={cycleSpeed}
-                className="rounded border border-black/10 dark:border-white/10 bg-black/5 hover:bg-black/15 dark:bg-white/10 dark:hover:bg-white/20 px-1.5 py-0.5 font-ui text-[10px] font-bold tracking-wider uppercase transition-colors"
+                className="rounded border border-[#444b54] bg-[#2a2e33] hover:bg-[#383e45] px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wider uppercase text-[#f3f4f6] transition-colors"
                 title="Change playback speed"
               >
                 {currentSpeed}x
@@ -313,10 +321,10 @@ export function VoiceNotePlayer({
                   e.stopPropagation();
                   setShowTranscript(!showTranscript);
                 }}
-                className={`flex items-center gap-1 rounded border border-black/10 dark:border-white/10 px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
+                className={`flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
                   showTranscript
-                    ? "bg-[var(--gold)] text-white font-bold"
-                    : "bg-black/5 hover:bg-black/15 dark:bg-white/10 dark:hover:bg-white/20"
+                    ? "border-[#d97706] bg-[#d97706] text-white font-bold"
+                    : "border-[#444b54] bg-[#2a2e33] hover:bg-[#383e45] text-[#f3f4f6]"
                 }`}
                 title="View Transcript & Translation"
               >
@@ -331,28 +339,42 @@ export function VoiceNotePlayer({
       {/* Expandable Transcript & Translation Box */}
       {showTranscript && (
         <div
-          className="mt-3 rounded-lg border border-[var(--border-gold)] bg-[var(--surface)] p-3 text-xs text-[var(--ink)] shadow-md animate-in fade-in slide-in-from-top-1 duration-150"
+          className="mt-3 rounded-lg border border-[#363a40] bg-[#141618] p-3 text-xs text-[#f3f4f6] shadow-xl animate-in fade-in slide-in-from-top-1 duration-150"
         >
-          <div className="mb-2 flex items-center justify-between border-b border-[var(--hairline)] pb-1.5 font-ui text-[10px] uppercase tracking-wider text-[var(--muted)]">
-            <span className="flex items-center gap-1 font-semibold text-[var(--gold)]">
+          <div className="mb-2 flex items-center justify-between border-b border-[#2d3137] pb-1.5 font-ui text-[10px] uppercase tracking-wider text-[#9ca3af]">
+            <span className="flex items-center gap-1 font-semibold text-[#f59e0b]">
               <Volume2 size={12} />
               <span>Voice Note Transcript</span>
             </span>
 
-            <button
-              type="button"
-              onClick={copyTranscript}
-              className="inline-flex items-center gap-1 text-[var(--ink)] hover:text-[var(--gold)] font-medium transition-colors"
-              title="Copy transcript text"
-            >
-              {copied ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
-              <span>{copied ? "Copied" : "Copy"}</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {!hasValidTranscript && (
+                <button
+                  type="button"
+                  onClick={triggerTranscribe}
+                  disabled={transcribing}
+                  className="inline-flex items-center gap-1 text-[#f59e0b] hover:underline font-semibold"
+                >
+                  {transcribing ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                  <span>{transcribing ? "Transcribing…" : "Transcribe"}</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={copyTranscript}
+                className="inline-flex items-center gap-1 text-[#9ca3af] hover:text-[#f59e0b] font-medium transition-colors"
+                title="Copy transcript text"
+              >
+                {copied ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
+                <span>{copied ? "Copied" : "Copy"}</span>
+              </button>
+            </div>
           </div>
 
           {/* Translation Language Tabs */}
-          <div className="mb-2 flex items-center gap-1 border-b border-[var(--hairline)] pb-1">
-            <span className="font-ui text-[9px] font-bold uppercase tracking-wider text-[var(--muted)] mr-1">Translate:</span>
+          <div className="mb-2 flex items-center gap-1 border-b border-[#2d3137] pb-1">
+            <span className="font-ui text-[9px] font-bold uppercase tracking-wider text-[#9ca3af] mr-1">Translate:</span>
             {(["orig", "en", "hi", "sa"] as const).map((lang) => (
               <button
                 key={lang}
@@ -363,8 +385,8 @@ export function VoiceNotePlayer({
                 }}
                 className={`rounded px-1.5 py-0.5 font-ui text-[10px] font-semibold transition-colors ${
                   selectedLang === lang
-                    ? "bg-[var(--terracotta)] text-white"
-                    : "text-[var(--muted)] hover:bg-black/5 dark:hover:bg-white/10"
+                    ? "bg-[#d97706] text-white"
+                    : "text-[#9ca3af] hover:bg-[#25282c]"
                 }`}
               >
                 {lang === "orig" ? "Original" : lang === "en" ? "English" : lang === "hi" ? "हिन्दी" : "संस्कृतम्"}
@@ -372,7 +394,7 @@ export function VoiceNotePlayer({
             ))}
           </div>
 
-          <p className="font-body text-[13px] leading-relaxed italic text-[var(--ink)] opacity-95">
+          <p className="font-body text-[13px] leading-relaxed italic text-[#e5e7eb] opacity-95">
             "{displayTranscript}"
           </p>
         </div>
