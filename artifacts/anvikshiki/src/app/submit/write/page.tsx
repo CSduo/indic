@@ -1753,11 +1753,11 @@ export default function SubmitWritePage() {
                 <div
                   className={`w-6 h-6 shrink-0 rounded-md border-2 flex items-center justify-center transition-all mt-0.5 ${
                     declared
-                      ? "border-[var(--gold)] bg-[var(--gold)] text-[var(--surface)] shadow-md scale-105"
+                      ? "border-[var(--gold)] bg-[var(--gold)] text-white shadow-md scale-105"
                       : "border-[var(--gold)] bg-[var(--surface-2)] text-transparent hover:border-[var(--gold-bright)]"
                   }`}
                 >
-                  <CheckCircle size={15} className={`transition-transform ${declared ? "scale-100 text-[var(--surface)]" : "scale-0"}`} />
+                  <CheckCircle size={15} className={`transition-transform ${declared ? "scale-100 text-white" : "scale-0"}`} />
                 </div>
                 <span className="font-body text-sm leading-relaxed text-[var(--ink-soft)] font-medium">
                   I confirm this work is my own (or I have permission to submit it) and has not been published elsewhere in this form.

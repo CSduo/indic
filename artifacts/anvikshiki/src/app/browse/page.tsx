@@ -88,7 +88,7 @@ export default function BrowsePage() {
         </ParchmentCard>
 
         <ParchmentCard className="mb-7 grid overflow-hidden md:grid-cols-[220px_1fr]">
-          <div className="grid min-h-52 place-items-center bg-[var(--aged-jade)]/16 p-6 text-[var(--aged-jade)]">
+          <div className="grid min-h-52 place-items-center bg-[var(--gold)]/10 p-6 text-[var(--gold)] border-b md:border-b-0 md:border-r border-[var(--border-gold)]">
             <AnimalGlyph domain="philosophy" size={116} />
           </div>
           <div className="grid gap-6 p-6 md:grid-cols-[1fr_.95fr] md:items-center">
@@ -133,15 +133,18 @@ export default function BrowsePage() {
       </section>
 
       <section className="container-anv pb-14">
-        <ParchmentCard className="grid gap-6 bg-[var(--aged-jade)] p-6 text-[var(--surface)] md:grid-cols-[1fr_1.2fr] md:items-center" corners={false}>
+        <ParchmentCard className="grid gap-6 p-6 md:p-8 md:grid-cols-[1fr_1.2fr] md:items-center border border-[var(--border-gold)] shadow-sm bg-[var(--surface-card)]" corners={false}>
           <div>
-            <p className="font-ui text-xs font-bold uppercase tracking-[0.2em] text-[var(--gold-pale)]">Knowledge is connected</p>
-            <h2 className="mt-2 font-display text-3xl text-[var(--surface)]">Discover relationships between ideas.</h2>
-            <Link href="/archive" className="btn-ink mt-5 border-[var(--gold-pale)] text-[var(--surface)]">
+            <p className="font-ui text-xs font-bold uppercase tracking-[0.2em] text-[var(--gold)]">Knowledge is Connected</p>
+            <h2 className="mt-2 font-display text-3xl text-[var(--ink)]">Discover relationships between ideas.</h2>
+            <p className="mt-3 text-sm text-[var(--ink-soft)] leading-relaxed">
+              Explore interconnected pathways of thought across philosophy, history, science, and the classical Sanskrit tradition.
+            </p>
+            <Link href="/archive" className="btn-ink mt-5 inline-flex items-center gap-2">
               Explore Knowledge Map <ArrowRight size={14} />
             </Link>
           </div>
-          <div className="relative min-h-32 overflow-hidden rounded-[8px] border border-[rgba(255,248,232,.25)]">
+          <div className="relative min-h-36 overflow-hidden rounded-xl border border-[var(--border-gold)] bg-[var(--surface-soft)] p-3">
             <svg viewBox="0 0 560 160" className="h-full w-full" aria-hidden="true">
               {[
                 [90, 60, 210, 90],
@@ -150,22 +153,37 @@ export default function BrowsePage() {
                 [210, 90, 430, 92],
                 [140, 120, 320, 50],
               ].map(([x1, y1, x2, y2], index) => (
-                <line key={index} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,248,232,.32)" strokeWidth="1" />
+                <line key={index} x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--gold)" strokeWidth="1.5" strokeOpacity="0.45" />
               ))}
               {["history", "philosophy", "science", "sociology", "archive"].map((domain, index) => {
                 const points = [[90, 60], [210, 90], [320, 50], [430, 92], [140, 120]][index];
-                return <circle key={domain} cx={points[0]} cy={points[1]} r="24" fill="rgba(255,248,232,.16)" stroke="rgba(255,248,232,.42)" />;
+                return (
+                  <circle
+                    key={domain}
+                    cx={points[0]}
+                    cy={points[1]}
+                    r="24"
+                    fill="var(--surface-elevated)"
+                    stroke="var(--gold)"
+                    strokeWidth="1.5"
+                    strokeOpacity="0.85"
+                  />
+                );
               })}
             </svg>
-            <div className="absolute inset-0 flex items-center justify-around px-8 text-[var(--gold-pale)]">
-              {["history", "philosophy", "science", "sociology", "archive"].map((domain) => <AnimalGlyph key={domain} domain={domain} size={30} />)}
+            <div className="absolute inset-0 flex items-center justify-around px-8 text-[var(--gold)]">
+              {["history", "philosophy", "science", "sociology", "archive"].map((domain) => (
+                <AnimalGlyph key={domain} domain={domain} size={28} />
+              ))}
             </div>
           </div>
         </ParchmentCard>
 
         <div className="mt-6 flex flex-wrap justify-center gap-2">
-          {["philosophy", "history", "science", "papers", "archive"].map((domain) => <GlyphTag key={domain} domain={domain} />)}
-          <span className="inline-flex items-center gap-2 rounded-full border border-[var(--border-gold)] bg-[var(--surface)] px-3 py-1 font-ui text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink-faint)]">
+          {["philosophy", "history", "science", "papers", "archive"].map((domain) => (
+            <GlyphTag key={domain} domain={domain} />
+          ))}
+          <span className="inline-flex items-center gap-2 rounded-full border border-[var(--border-gold)] bg-[var(--surface-card)] px-3 py-1 font-ui text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink-faint)]">
             <SlidersHorizontal size={14} /> More filters soon
           </span>
         </div>
