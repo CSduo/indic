@@ -176,6 +176,10 @@ export default function LoginPage() {
         setError("Please enter a valid age between 10 and 120");
         return false;
       }
+      if (location && /\d/.test(location)) {
+        setError("Location (city, country, state) must not contain numbers");
+        return false;
+      }
     }
 
     if (!email.trim() || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
@@ -367,9 +371,23 @@ export default function LoginPage() {
                       id="location"
                       type="text"
                       className="input-sacred"
-                      placeholder="City, Country"
+                      placeholder="City, State, Country"
                       value={location}
-                      onChange={(e) => setLocation(e.target.value)}
+                      onChange={(e) => {
+                        const sanitized = e.target.value.replace(/[0-9]/g, "");
+                        setLocation(sanitized);
+                      }}
+                      onKeyDown={(e) => {
+                        if (/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                          e.preventDefault();
+                        }
+                      }}
+                      onPaste={(e) => {
+                        e.preventDefault();
+                        const text = e.clipboardData.getData("text") || "";
+                        const sanitized = text.replace(/[0-9]/g, "");
+                        setLocation((prev) => (prev + sanitized).slice(0, 150));
+                      }}
                       maxLength={150}
                     />
                   </div>

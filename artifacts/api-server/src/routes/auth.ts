@@ -23,7 +23,15 @@ const signupSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters").max(128),
   handle: z.string().trim().min(3, "Handle must be at least 3 characters").max(30, "Handle must be at most 30 characters"),
   age: z.coerce.number().int().min(10, "Please enter a valid age (10+)").max(120, "Please enter a valid age").optional().nullable(),
-  location: z.string().trim().max(150).optional().nullable(),
+  location: z
+    .string()
+    .trim()
+    .max(150)
+    .refine((val) => !/\d/.test(val), {
+      message: "Location (city, country, state) must not contain numbers",
+    })
+    .optional()
+    .nullable(),
 });
 
 function parseAuthError(err: any): { error: string; code: string; hint?: string } {
@@ -291,13 +299,24 @@ router.put("/auth/profile", async (req, res) => {
       name: z.string().trim().min(1).max(100).optional(),
       bio: z.string().trim().max(500).optional().nullable(),
       institution: z.string().trim().max(200).optional().nullable(),
-      location: z.string().trim().max(150).optional().nullable(),
+      location: z
+        .string()
+        .trim()
+        .max(150)
+        .refine((val) => !/\d/.test(val), {
+          message: "Location (city, country, state) must not contain numbers",
+        })
+        .optional()
+        .nullable(),
       age: z.coerce.number().int().min(10).max(120).optional().nullable(),
       handle: z.string().trim().max(40).optional(),
       avatarUrl: z.string().max(2000).optional().or(z.literal("")).or(z.null()),
     });
     const parsed = schema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
+    if (!parsed.success) {
+      const firstIssue = parsed.error.issues[0]?.message || "Invalid input";
+      return res.status(400).json({ error: firstIssue, details: parsed.error.flatten() });
+    }
 
     const updates: Record<string, any> = { updatedAt: new Date() };
     if (parsed.data.name !== undefined) updates.name = parsed.data.name;

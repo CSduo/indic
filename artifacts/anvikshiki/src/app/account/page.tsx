@@ -152,6 +152,10 @@ export default function AccountPage() {
       toast.error("Name cannot be empty");
       return;
     }
+    if (editLocation && /\d/.test(editLocation)) {
+      toast.error("Location (city, country, state) must not contain numbers");
+      return;
+    }
     setSaving(true);
     try {
       const response = await fetch(`${base()}/api/auth/profile`, {
@@ -454,7 +458,27 @@ export default function AccountPage() {
                     </div>
                     <div>
                       <label className="text-[10px] font-ui uppercase tracking-wider text-[var(--muted)] block mb-0.5">Where from? 🔒</label>
-                      <input className="input-sacred py-1 text-xs" value={editLocation} onChange={(event) => setEditLocation(event.target.value)} placeholder="City, Country" maxLength={150} />
+                      <input
+                        className="input-sacred py-1 text-xs"
+                        value={editLocation}
+                        onChange={(event) => {
+                          const sanitized = event.target.value.replace(/[0-9]/g, "");
+                          setEditLocation(sanitized);
+                        }}
+                        onKeyDown={(event) => {
+                          if (/^[0-9]$/.test(event.key) && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                            event.preventDefault();
+                          }
+                        }}
+                        onPaste={(event) => {
+                          event.preventDefault();
+                          const text = event.clipboardData.getData("text") || "";
+                          const sanitized = text.replace(/[0-9]/g, "");
+                          setEditLocation((prev) => (prev + sanitized).slice(0, 150));
+                        }}
+                        placeholder="City, State, Country"
+                        maxLength={150}
+                      />
                     </div>
                   </div>
                   <div className="flex items-center justify-center gap-3 pt-1">
