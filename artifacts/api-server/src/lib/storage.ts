@@ -98,6 +98,15 @@ export async function persistUploadedFile(options: {
           {
             folder: `anvikshiki/${folder}`,
             resource_type: isAudio ? "video" : isPdf ? "raw" : "auto",
+            // Keep the sender's filename in the delivered URL, with a suffix
+            // for uniqueness. Without this the stored object gets a random id
+            // and no extension — which for a raw upload means the CDN serves
+            // it as application/octet-stream, so a PDF downloads as a nameless
+            // blob instead of opening in a tab. The extension is what makes
+            // the content type right, and the name is what makes the link
+            // recognisable to whoever receives it.
+            use_filename: true,
+            unique_filename: true,
           },
           (err, res) => (err ? reject(err) : resolve(res)),
         );

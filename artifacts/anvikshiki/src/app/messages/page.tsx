@@ -4,6 +4,7 @@ import { ArrowLeft, Check, PenSquare, Search, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { createPoller, messagesApi, type ConversationSummary } from "@/lib/messagesApi";
+import { goBack } from "@/lib/goBack";
 
 function relativeTime(iso: string): string {
   const then = new Date(iso).getTime();
@@ -251,20 +252,36 @@ export default function MessagesInboxPage() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-[var(--bg)]">
-      <div className="container-anv mx-auto max-w-2xl py-8">
-        <div className="mb-6 flex items-center justify-between gap-3">
+    <div className="flex h-full min-h-0 flex-col" style={{ background: "var(--bg)" }}>
+      <header className="shrink-0 border-b border-[var(--hairline)]" style={{ background: "var(--surface)" }}>
+        <div className="container-anv mx-auto flex max-w-2xl items-center justify-between gap-3 py-4">
           <div className="flex items-center gap-3">
-            <Link href="/account" className="btn-ink p-2" aria-label="Back to account"><ArrowLeft size={16} /></Link>
+            {/*
+              Back returns to wherever you actually came from. This used to be a
+              fixed link to the account page, which is why leaving messages
+              dropped you somewhere you had never been.
+            */}
+            <button
+              type="button"
+              onClick={() => goBack("/", navigate)}
+              className="btn-ink p-2"
+              aria-label="Back"
+            >
+              <ArrowLeft size={16} />
+            </button>
             <div>
-              <p className="mono-label">Account</p>
-              <h1 className="font-display text-3xl text-[var(--ink)]">Messages</h1>
+              <p className="mono-label">Private</p>
+              <h1 className="font-display text-2xl text-[var(--ink)]">Messages</h1>
             </div>
           </div>
           <button type="button" onClick={() => setComposing(true)} className="btn-terracotta">
             <PenSquare size={14} /> New
           </button>
         </div>
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="container-anv mx-auto max-w-2xl py-5">
 
         {/* Requests are a separate list on purpose. Someone you have not
             admitted should never be mixed in with people you actually talk to,
@@ -409,6 +426,7 @@ export default function MessagesInboxPage() {
         )}
         </>
         )}
+      </div>
       </div>
 
       {composing ? <ComposePanel onClose={() => setComposing(false)} /> : null}

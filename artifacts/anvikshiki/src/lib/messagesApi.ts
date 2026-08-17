@@ -48,6 +48,8 @@ export type Message = {
   mine: boolean;
   reactions: Array<{ emoji: string; count: number; mine: boolean }>;
   replyTo: { id: string; senderName: string; preview: string } | null;
+  /** Set only on a locally-shown bubble that the server has not confirmed yet. */
+  pending?: boolean;
 };
 
 export const messagesApi = {
@@ -93,7 +95,7 @@ export const messagesApi = {
       try { message = (await res.json()).error || message; } catch { /* keep default */ }
       throw new Error(message);
     }
-    return res.json();
+    return res.json() as Promise<{ message: Message }>;
   },
 
   start: (userIds: string[], kind: "DIRECT" | "GROUP" = "DIRECT", title?: string) =>

@@ -16,15 +16,45 @@ import { eq, inArray } from "drizzle-orm";
  * comment should not see an error because the author's old phone is gone.
  */
 
-const PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
-const PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
-const CONTACT = process.env.VAPID_SUBJECT || "mailto:hello@anvikshikijournal.in";
+/**
+ * Environment values arrive with whatever the tool that set them left behind.
+ *
+ * A byte-order mark is the dangerous one: it is invisible in every dashboard
+ * and log, it survives being copied, and it is outside the Latin-1 range — so
+ * the browser's `atob` rejects the key with "characters outside of the Latin1
+ * range" and notifications fail with an error that says nothing about a stray
+ * character. Trailing newlines and quotes come from the same class of mistake.
+ *
+ * Stripping here means the key is clean wherever it came from, rather than
+ * depending on every future person who sets it being careful.
+ */
+function cleanEnv(value: string | undefined): string {
+  return (value || "")
+    .replace(/^﻿/, "")     // byte-order mark
+    .replace(/^["']|["']$/g, "") // stray quoting
+    .trim();
+}
+
+const PUBLIC_KEY = cleanEnv(process.env.VAPID_PUBLIC_KEY);
+const PRIVATE_KEY = cleanEnv(process.env.VAPID_PRIVATE_KEY);
+const CONTACT = cleanEnv(process.env.VAPID_SUBJECT) || "mailto:hello@anvikshikijournal.in";
+
+/** A VAPID key is base64url. Anything else would fail later and less clearly. */
+const VALID_KEY = /^[A-Za-z0-9_-]+$/;
 
 let configured = false;
 
-/** True when the server holds a VAPID keypair and can actually send. */
+/** True when the server holds a usable VAPID keypair. */
 export function pushIsConfigured(): boolean {
-  return Boolean(PUBLIC_KEY && PRIVATE_KEY);
+  if (!PUBLIC_KEY || !PRIVATE_KEY) return false;
+  if (!VALID_KEY.test(PUBLIC_KEY) || !VALID_KEY.test(PRIVATE_KEY)) {
+    console.error(
+      "VAPID keys are set but are not valid base64url. Notifications are disabled. " +
+      "Check for a stray quote, newline, or byte-order mark in the environment value.",
+    );
+    return false;
+  }
+  return true;
 }
 
 export function getPushPublicKey(): string {

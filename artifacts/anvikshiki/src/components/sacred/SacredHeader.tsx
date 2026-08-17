@@ -92,28 +92,6 @@ export function SacredHeader() {
                 <Search size={20} strokeWidth={1.8} />
               </Link>
 
-              {/* Messages needs to be one tap away, with the unread count on
-                  it — a private inbox buried in a dropdown is one nobody
-                  checks, and the whole point of it is being reachable. */}
-              {user ? (
-                <Link
-                  href="/messages"
-                  className="sacred-icon-btn relative p-1.5 text-[var(--ink)] hover:text-[var(--gold)]"
-                  aria-label={unreadMessages > 0 ? `Messages, ${unreadMessages} unread` : "Messages"}
-                >
-                  <MessageSquare size={20} strokeWidth={1.8} />
-                  {unreadMessages > 0 ? (
-                    <span
-                      aria-hidden="true"
-                      className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full px-1 font-ui text-[9px] font-bold leading-none"
-                      style={{ background: "var(--accent)", color: "#fff" }}
-                    >
-                      {unreadMessages > 9 ? "9+" : unreadMessages}
-                    </span>
-                  ) : null}
-                </Link>
-              ) : null}
-
               {user ? (
                 <div className="relative">
                   <button
@@ -139,6 +117,20 @@ export function SacredHeader() {
                       <div className="sacred-dropdown">
                         <Link href="/account" className="sacred-dropdown-item" onClick={() => setAccountOpen(false)}>
                           <User size={13} /> Account
+                        </Link>
+                        {/* Messages belong with the account rather than in the
+                            masthead: they are personal, not part of the
+                            journal's navigation. */}
+                        <Link href="/messages" className="sacred-dropdown-item" onClick={() => setAccountOpen(false)}>
+                          <MessageSquare size={13} /> Messages
+                          {unreadMessages > 0 ? (
+                            <span
+                              className="ml-auto grid h-4 min-w-4 place-items-center rounded-full px-1 font-ui text-[9px] font-bold leading-none"
+                              style={{ background: "var(--accent)", color: "#fff" }}
+                            >
+                              {unreadMessages > 9 ? "9+" : unreadMessages}
+                            </span>
+                          ) : null}
                         </Link>
                         <Link href={`/profile/${user.id}`} className="sacred-dropdown-item" onClick={() => setAccountOpen(false)}>
                           <User size={13} /> Public Profile

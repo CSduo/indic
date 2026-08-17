@@ -49,10 +49,20 @@ export function currentPermission(): NotificationPermission | "unsupported" {
  * Backed by an explicit ArrayBuffer so the result is a plain BufferSource —
  * a bare Uint8Array can be typed over SharedArrayBuffer, which the subscribe
  * call does not accept.
+ *
+ * The key is scrubbed before decoding. A byte-order mark or trailing newline
+ * picked up wherever the value was configured is invisible everywhere it is
+ * displayed, but `atob` rejects it with "characters outside of the Latin1
+ * range" — an error that points at the browser rather than at the stray
+ * character actually responsible.
  */
 function urlBase64ToUint8Array(base64: string): ArrayBuffer {
-  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
-  const normalised = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const cleaned = base64.replace(/^﻿/, "").replace(/\s+/g, "").trim();
+  if (!/^[A-Za-z0-9_-]+$/.test(cleaned)) {
+    throw new Error("The notification key from the server is malformed.");
+  }
+  const padding = "=".repeat((4 - (cleaned.length % 4)) % 4);
+  const normalised = (cleaned + padding).replace(/-/g, "+").replace(/_/g, "/");
   const raw = window.atob(normalised);
   const buffer = new ArrayBuffer(raw.length);
   const view = new Uint8Array(buffer);

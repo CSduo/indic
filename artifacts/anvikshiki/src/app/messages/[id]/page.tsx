@@ -1,14 +1,43 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams, useLocation } from "wouter";
 import {
-  ArrowLeft, Bell, BellOff, CornerUpLeft, Image as ImageIcon, MoreHorizontal,
-  Paperclip, Send, Smile, Trash2, Users, X,
+  ArrowLeft, Bell, BellOff, CornerUpLeft, Download, ExternalLink, Image as ImageIcon,
+  Lock, MoreHorizontal, Paperclip, Send, Trash2, Users, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { createPoller, messagesApi, type ConversationMember, type Message } from "@/lib/messagesApi";
+import { goBack } from "@/lib/goBack";
 
 const QUICK_REACTIONS = ["❤️", "👍", "🎉", "🙏", "😮", "😢"];
+
+function formatBytes(bytes: number | null | undefined): string {
+  if (!bytes || bytes < 0) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function fileExtension(name: string | null | undefined): string {
+  const match = /\.([A-Za-z0-9]{1,8})$/.exec(name || "");
+  return match ? match[1].toUpperCase() : "";
+}
+
+/**
+ * Ask the storage CDN to send the file as a download under its real name.
+ *
+ * Cloudinary stores every upload under a generated identifier so two people
+ * sending "notes.pdf" do not collide, which means the delivery URL ends in
+ * something unreadable. `fl_attachment` restores the original name at the
+ * point of download without touching what is stored, so "Open" still shows
+ * the document in a tab and "Save" still writes the file the sender named.
+ */
+function downloadUrl(url: string, name: string | null | undefined): string {
+  if (!name || !/\/(image|video|raw)\/upload\//.test(url)) return url;
+  const stem = name.replace(/\.[^.]+$/, "").replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 80);
+  if (!stem) return url;
+  return url.replace(/\/upload\//, `/upload/fl_attachment:${encodeURIComponent(stem)}/`);
+}
 
 function dayLabel(iso: string): string {
   const d = new Date(iso);
@@ -22,6 +51,30 @@ function dayLabel(iso: string): string {
 
 function clockTime(iso: string): string {
   return new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
+
+/**
+ * Replace a locally-shown bubble with the stored one.
+ *
+ * The poll that watches for new messages can return our own message before the
+ * send call resolves. Swapping blindly would then leave the same message on
+ * screen twice, so a placeholder whose real counterpart has already arrived is
+ * simply dropped.
+ */
+function reconcile(list: Message[], tempId: string, optimistic: Message, saved: Message): Message[] {
+  if (list.some(m => m.id === saved.id)) return list.filter(m => m.id !== tempId);
+  const merged: Message = {
+    ...optimistic,
+    ...saved,
+    // The write endpoint answers with the row it stored, which does not carry
+    // the quoted message or the sender's picture. Keeping what was already on
+    // screen avoids a reply losing its quote the instant it is confirmed.
+    replyTo: saved.replyTo ?? optimistic.replyTo,
+    senderAvatarUrl: saved.senderAvatarUrl ?? optimistic.senderAvatarUrl,
+    mine: true,
+    pending: false,
+  };
+  return list.map(m => (m.id === tempId ? merged : m));
 }
 
 function Avatar({ name, url, size = 28 }: { name: string; url?: string | null; size?: number }) {
@@ -82,12 +135,15 @@ function MessageBubble({
         ) : null}
 
         <div
-          className="relative rounded-[2px] px-3 py-2"
-          style={
-            mine
+          className="relative rounded-[2px] px-3 py-2 transition-opacity"
+          style={{
+            ...(mine
               ? { background: "var(--ink)", color: "var(--bg)" }
-              : { background: "var(--surface-2)", color: "var(--ink)", border: "1px solid var(--hairline)" }
-          }
+              : { background: "var(--surface-2)", color: "var(--ink)", border: "1px solid var(--hairline)" }),
+            // A message that has not landed yet reads as slightly lighter, so
+            // "sent" is visible without a status line under every bubble.
+            opacity: message.pending ? 0.55 : 1,
+          }}
         >
           {message.kind === "IMAGE" && message.mediaUrl ? (
             <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="block">
@@ -100,15 +156,43 @@ function MessageBubble({
           ) : null}
 
           {message.kind === "FILE" && message.mediaUrl ? (
-            <a
-              href={message.mediaUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 underline"
-              style={{ color: "inherit" }}
-            >
-              <Paperclip size={13} /> {message.mediaName || "Attachment"}
-            </a>
+            /* The document keeps the name it was sent under, and offers both
+               ways of opening it. Storage rewrites the filename to keep it
+               unique, so the delivered URL is unreadable — showing that
+               instead of the real name made every attachment anonymous. */
+            <div className="min-w-[13rem]">
+              <div className="flex items-start gap-2">
+                <Paperclip size={14} className="mt-0.5 shrink-0" />
+                <div className="min-w-0">
+                  <p className="break-words font-body text-[13px] font-semibold leading-5">
+                    {message.mediaName || "Attachment"}
+                  </p>
+                  <p className="font-ui text-[10px] opacity-70">
+                    {formatBytes(message.mediaSizeBytes)}
+                    {fileExtension(message.mediaName) ? ` · ${fileExtension(message.mediaName)}` : ""}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <a
+                  href={message.mediaUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-[2px] border px-2 py-1 font-ui text-[10px] uppercase tracking-[0.1em]"
+                  style={{ borderColor: "currentColor", color: "inherit", opacity: 0.9 }}
+                >
+                  <ExternalLink size={11} /> Open
+                </a>
+                <a
+                  href={downloadUrl(message.mediaUrl, message.mediaName)}
+                  download={message.mediaName || undefined}
+                  className="inline-flex items-center gap-1 rounded-[2px] border px-2 py-1 font-ui text-[10px] uppercase tracking-[0.1em]"
+                  style={{ borderColor: "currentColor", color: "inherit", opacity: 0.9 }}
+                >
+                  <Download size={11} /> Save
+                </a>
+              </div>
+            </div>
           ) : null}
 
           {message.body ? (
@@ -116,7 +200,9 @@ function MessageBubble({
           ) : null}
 
           <span className="mt-1 flex items-center gap-1.5 opacity-60">
-            <span className="font-ui text-[10px]">{clockTime(message.createdAt)}</span>
+            <span className="font-ui text-[10px]">
+              {message.pending ? "Sending…" : clockTime(message.createdAt)}
+            </span>
             {message.edited ? <span className="font-ui text-[10px]">· edited</span> : null}
           </span>
         </div>
@@ -143,8 +229,14 @@ function MessageBubble({
         ) : null}
       </div>
 
-      {/* Actions stay out of the way until the message is hovered or focused. */}
-      <div className="relative self-center opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+      {/*
+        Actions fade on a pointer device but are always present on touch.
+        The previous version revealed them on hover alone, so on a phone —
+        where nothing hovers — reply, react and unsend were invisible. They
+        are dimmed rather than hidden so the row stays quiet without becoming
+        a secret.
+      */}
+      <div className="relative self-center opacity-40 transition-opacity focus-within:opacity-100 md:opacity-0 md:group-hover:opacity-100">
         <button type="button" className="editor-tool" onClick={() => setMenuOpen(v => !v)} aria-label="Message actions">
           <MoreHorizontal size={14} />
         </button>
@@ -296,27 +388,57 @@ export default function ConversationPage() {
     messagesApi.typing(conversationId).catch(() => {});
   };
 
+  /**
+   * Send, showing the message immediately.
+   *
+   * The round trip to this database is slow enough to feel broken — the
+   * previous version waited for the write *and then refetched the thread*
+   * before anything appeared, so a message took a couple of seconds to show
+   * up in your own conversation. The bubble now appears at once, marked as
+   * sending, and is reconciled with the server's copy when the write returns.
+   * If it fails the bubble is removed and the text is handed back rather than
+   * lost.
+   */
   const send = async () => {
     const body = draft.trim();
-    if (!body || sending) return;
-    setSending(true);
+    // Deliberately not gated on `sending`: each message is independent, so a
+    // fast typist should be able to fire off three in a row without the
+    // second one being swallowed while the first is in flight.
+    if (!body) return;
     const quoted = replyTo;
+    const tempId = `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
     setDraft("");
     setReplyTo(null);
+    setSending(true);
+
+    const optimistic: Message = {
+      id: tempId,
+      senderId: user?.id ?? null,
+      senderName: user?.name || "You",
+      senderAvatarUrl: user?.avatarUrl ?? null,
+      kind: "TEXT",
+      body,
+      mediaUrl: null, mediaMimeType: null, mediaName: null, mediaSizeBytes: null,
+      deleted: false, edited: false,
+      createdAt: new Date().toISOString(),
+      mine: true,
+      reactions: [],
+      replyTo: quoted ? { id: quoted.id, senderName: quoted.senderName, preview: quoted.body || "Attachment" } : null,
+      pending: true,
+    };
+    setMessages(prev => [...prev, optimistic]);
+    atBottomRef.current = true;
+    requestAnimationFrame(() => scrollToBottom(true));
+
     try {
-      await messagesApi.send(conversationId, body, quoted?.id);
-      const fresh = await messagesApi.messages(conversationId, { after: lastAtRef.current || new Date(0).toISOString() });
-      if (fresh.messages.length) {
-        setMessages(prev => {
-          const seen = new Set(prev.map(m => m.id));
-          return [...prev, ...fresh.messages.filter(m => !seen.has(m.id))];
-        });
-        lastAtRef.current = fresh.messages.at(-1)!.createdAt;
+      const { message } = await messagesApi.send(conversationId, body, quoted?.id);
+      setMessages(prev => reconcile(prev, tempId, optimistic, message));
+      if (message?.createdAt && message.createdAt > lastAtRef.current) {
+        lastAtRef.current = message.createdAt;
       }
-      atBottomRef.current = true;
-      requestAnimationFrame(() => scrollToBottom(true));
     } catch (err: any) {
-      // Put the text back rather than losing what they wrote.
+      setMessages(prev => prev.filter(m => m.id !== tempId));
       setDraft(body);
       setReplyTo(quoted);
       toast.error(err.message || "Could not send that message");
@@ -328,20 +450,48 @@ export default function ConversationPage() {
   const attach = async (file: File) => {
     if (!file) return;
     setSending(true);
+
+    // Photos preview from a local object URL while the upload runs, so the
+    // picture is on screen the moment it is chosen rather than after a round
+    // trip. The URL is revoked once the stored copy replaces it.
+    const isImage = file.type.startsWith("image/");
+    const localUrl = isImage ? URL.createObjectURL(file) : null;
+    const tempId = `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    const optimistic: Message = {
+      id: tempId,
+      senderId: user?.id ?? null,
+      senderName: user?.name || "You",
+      senderAvatarUrl: user?.avatarUrl ?? null,
+      kind: isImage ? "IMAGE" : file.type.startsWith("audio/") ? "AUDIO" : "FILE",
+      body: null,
+      mediaUrl: localUrl,
+      mediaMimeType: file.type || null,
+      mediaName: file.name,
+      mediaSizeBytes: file.size,
+      deleted: false, edited: false,
+      createdAt: new Date().toISOString(),
+      mine: true, reactions: [], replyTo: null, pending: true,
+    };
+    setMessages(prev => [...prev, optimistic]);
+    atBottomRef.current = true;
+    requestAnimationFrame(() => scrollToBottom(true));
+
     try {
-      await messagesApi.sendAttachment(conversationId, file);
-      const fresh = await messagesApi.messages(conversationId, { after: lastAtRef.current || new Date(0).toISOString() });
-      if (fresh.messages.length) {
-        setMessages(prev => {
-          const seen = new Set(prev.map(m => m.id));
-          return [...prev, ...fresh.messages.filter(m => !seen.has(m.id))];
-        });
-        lastAtRef.current = fresh.messages.at(-1)!.createdAt;
+      const result = await messagesApi.sendAttachment(conversationId, file);
+      const saved = result?.message;
+      if (saved) {
+        setMessages(prev => reconcile(prev, tempId, optimistic, saved));
+        if (saved.createdAt > lastAtRef.current) lastAtRef.current = saved.createdAt;
+      } else {
+        setMessages(prev => prev.filter(m => m.id !== tempId));
       }
       requestAnimationFrame(() => scrollToBottom(true));
     } catch (err: any) {
+      setMessages(prev => prev.filter(m => m.id !== tempId));
       toast.error(err.message || "Could not send that attachment");
     } finally {
+      if (localUrl) setTimeout(() => URL.revokeObjectURL(localUrl), 30000);
       setSending(false);
     }
   };
@@ -407,10 +557,17 @@ export default function ConversationPage() {
   const isGroup = details?.kind === "GROUP";
 
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--bg)]">
-      <header className="sticky top-0 z-20 border-b border-[var(--hairline)] bg-[var(--surface)]">
+    <div className="flex h-full min-h-0 flex-col" style={{ background: "var(--bg)" }}>
+      <header className="shrink-0 border-b border-[var(--hairline)]" style={{ background: "var(--surface)" }}>
         <div className="container-anv mx-auto flex max-w-3xl items-center gap-3 py-3">
-          <Link href="/messages" className="btn-ink p-2" aria-label="Back to messages"><ArrowLeft size={16} /></Link>
+          <button
+            type="button"
+            onClick={() => goBack("/messages", navigate)}
+            className="btn-ink p-2"
+            aria-label="Back"
+          >
+            <ArrowLeft size={16} />
+          </button>
           <Avatar name={details?.title || ""} url={details?.avatarUrl} size={36} />
           <div className="min-w-0 flex-1">
             <p className="truncate font-body text-sm font-semibold text-[var(--ink)]">{details?.title || "…"}</p>
@@ -447,7 +604,12 @@ export default function ConversationPage() {
         ) : null}
       </header>
 
-      <div ref={scrollRef} onScroll={onScroll} className="container-anv mx-auto w-full max-w-3xl flex-1 overflow-y-auto py-5" style={{ maxHeight: "calc(100vh - 190px)" }}>
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        className="min-h-0 flex-1 overflow-y-auto"
+      >
+       <div className="container-anv mx-auto w-full max-w-3xl py-5">
         {busy ? (
           <div className="space-y-3" aria-hidden="true">
             {[0, 1, 2, 3].map(i => (
@@ -457,9 +619,13 @@ export default function ConversationPage() {
             ))}
           </div>
         ) : messages.length === 0 ? (
-          <p className="py-12 text-center font-body text-sm text-[var(--muted)]">
-            No messages yet. Say something.
-          </p>
+          <div className="flex flex-col items-center py-16 text-center">
+            <Avatar name={details?.title || ""} url={details?.avatarUrl} size={64} />
+            <p className="mt-3 font-display text-lg text-[var(--ink)]">{details?.title || ""}</p>
+            <p className="mx-auto mt-1 max-w-xs font-body text-sm text-[var(--muted)]">
+              This is the beginning of your conversation.
+            </p>
+          </div>
         ) : (
           <div className="space-y-3">
             {messages.map((m, i) => {
@@ -480,9 +646,10 @@ export default function ConversationPage() {
             })}
           </div>
         )}
+       </div>
       </div>
 
-      <footer className="sticky bottom-0 border-t border-[var(--hairline)] bg-[var(--surface)]">
+      <footer className="shrink-0 border-t border-[var(--hairline)]" style={{ background: "var(--surface)" }}>
         <div className="container-anv mx-auto max-w-3xl py-3">
           {replyTo ? (
             <div className="mb-2 flex items-center gap-2 rounded-[2px] border-l-2 px-2.5 py-1.5" style={{ borderColor: "var(--accent)", background: "var(--surface-2)" }}>
@@ -518,10 +685,15 @@ export default function ConversationPage() {
               }}
             />
 
-            <button type="button" onClick={send} disabled={sending || !draft.trim()} className="btn-terracotta shrink-0" aria-label="Send">
-              {sending ? <span className="spinner-editorial" aria-hidden="true" /> : <Send size={14} />}
+            <button type="button" onClick={send} disabled={!draft.trim()} className="btn-terracotta shrink-0" aria-label="Send">
+              <Send size={14} />
             </button>
           </div>
+
+          <p className="mt-2 flex items-center gap-1.5 font-ui text-[10px] text-[var(--muted)]">
+            <Lock size={10} />
+            Only {isGroup ? "members of this group" : "the two of you"} can open this conversation.
+          </p>
         </div>
       </footer>
     </div>

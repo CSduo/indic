@@ -2,10 +2,11 @@ import { useEffect, useCallback, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Home, Compass, Grid3X3, FileText, Archive, Search, Send,
-  Users, Info, Mail, User, BookMarked, ShieldCheck, X, Sun, Moon,
+  Users, Info, Mail, User, BookMarked, MessageSquare, ShieldCheck, X, Sun, Moon,
 } from "lucide-react";
 import { PUBLIC_NAV_LINKS, ACCOUNT_NAV_LINKS, ADMIN_NAV_LINK } from "@/lib/navigation";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { messagesApi } from "@/lib/messagesApi";
 import { useTheme } from "@/components/providers/ThemeProvider";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
 import { DOMAIN_ORDER, DOMAIN_META } from "@/lib/domainMeta";
@@ -41,6 +42,18 @@ export function GlobalSidebar({ open, onClose }: GlobalSidebarProps) {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [latestPub, setLatestPub] = useState<{ title: string; slug: string } | null>(null);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+
+  // The unread count is only fetched while the menu is open — there is no
+  // reason to poll an inbox nobody is looking at.
+  useEffect(() => {
+    if (!open || !user) { setUnreadMessages(0); return; }
+    let cancelled = false;
+    messagesApi.cursor()
+      .then(({ totalUnread }) => { if (!cancelled) setUnreadMessages(totalUnread); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [open, user]);
 
   useEffect(() => {
     if (open && !latestPub) {
@@ -143,8 +156,33 @@ export function GlobalSidebar({ open, onClose }: GlobalSidebarProps) {
 
         {/* Navigation */}
         <nav className="global-sidebar-nav" aria-label="Main navigation">
+          {/* Messages sit above the journal's navigation, because they are
+              personal rather than editorial — the first thing you look for
+              when you open this menu is whether anyone has written to you. */}
+          {user ? (
+            <Link
+              href="/messages"
+              onClick={handleLinkClick}
+              className={`global-sidebar-link ${isActive("/messages") ? "active" : ""}`}
+            >
+              <MessageSquare size={18} strokeWidth={1.5} />
+              Messages
+              {unreadMessages > 0 ? (
+                <span
+                  className="ml-auto grid h-[18px] min-w-[18px] place-items-center rounded-full px-1 font-ui text-[10px] font-bold leading-none"
+                  style={{ background: "var(--accent)", color: "#fff" }}
+                >
+                  {unreadMessages > 9 ? "9+" : unreadMessages}
+                </span>
+              ) : null}
+            </Link>
+          ) : null}
+
           <div className="global-sidebar-section-label">Navigate</div>
-          {PUBLIC_NAV_LINKS.map((link) => {
+          {/* Search is deliberately not repeated here — the field at the top of
+              this menu already does it, and two ways to reach the same page in
+              one panel is just clutter. */}
+          {PUBLIC_NAV_LINKS.filter(link => link.href !== "/search").map((link) => {
             const active = isActive(link.href);
             const Icon = ICON_MAP[link.href] || Home;
             return (

@@ -134,6 +134,27 @@ function AppShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * Messages get their own shell.
+ *
+ * A conversation is not a page of the journal — it is a private room, and it
+ * should feel like one. Wrapping it in the site header and footer made it read
+ * as one more article page, and the masthead scrolling above a chat is wrong
+ * on a phone in particular. This shell fills the viewport exactly (100dvh, so
+ * the mobile browser's collapsing address bar is accounted for) and lets the
+ * screen own its own header, composer and scrolling region.
+ */
+function MessagesShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="flex h-[100dvh] flex-col overflow-hidden"
+      style={{ background: "var(--bg)" }}
+    >
+      <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
+    </div>
+  );
+}
+
 function AdminShell({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ background: "var(--bg-deep)", minHeight: "100vh" }}>
@@ -149,8 +170,8 @@ function AdminShell({ children }: { children: React.ReactNode }) {
 const RouteHome              = () => <AppShell><HomePage /></AppShell>;
 const RouteBrowse            = () => <AppShell><BrowsePage /></AppShell>;
 const RouteCommunityMembers  = () => <AppShell><CommunityMembersPage /></AppShell>;
-const RouteMessages          = () => <AppShell><MessagesInboxPage /></AppShell>;
-const RouteConversation      = () => <AppShell><ConversationPage /></AppShell>;
+const RouteMessages          = () => <MessagesShell><MessagesInboxPage /></MessagesShell>;
+const RouteConversation      = () => <MessagesShell><ConversationPage /></MessagesShell>;
 const RouteDomains           = () => <AppShell><DomainsPage /></AppShell>;
 const RouteDomain            = () => <AppShell><DomainPage /></AppShell>;
 const RouteArticle           = () => <AppShell><ArticlePage /></AppShell>;

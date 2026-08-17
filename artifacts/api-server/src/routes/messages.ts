@@ -601,42 +601,51 @@ router.post("/conversations/:id/messages", async (req, res) => {
       if (!target) return res.status(400).json({ error: "That message is not part of this conversation" });
     }
 
-    const [message] = await db.insert(messagesTable).values({
-      conversationId: req.params.id,
-      senderId: userId,
-      kind: "TEXT",
-      body: parsed.data.body,
-      replyToId: parsed.data.replyToId || null,
-    }).returning();
+    /*
+      Latency here is almost entirely round trips, not work: this database is
+      remote, so every sequential query adds its own delay to how long a
+      message takes to send. The write and the two lookups it does not depend
+      on are issued together, and the follow-up bookkeeping likewise — which
+      turns eight round trips in a row into three.
+    */
+    const [inserted, senderRows, conversationRows] = await Promise.all([
+      db.insert(messagesTable).values({
+        conversationId: req.params.id,
+        senderId: userId,
+        kind: "TEXT",
+        body: parsed.data.body,
+        replyToId: parsed.data.replyToId || null,
+      }).returning(),
+      db.select({ name: usersTable.name, email: usersTable.email })
+        .from(usersTable).where(eq(usersTable.id, userId)).limit(1),
+      db.select({ kind: conversationsTable.kind, title: conversationsTable.title })
+        .from(conversationsTable).where(eq(conversationsTable.id, req.params.id)).limit(1),
+    ]);
 
-    const [sender] = await db
-      .select({ name: usersTable.name, email: usersTable.email })
-      .from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    const message = inserted[0];
+    const sender = senderRows[0];
+    const conversation = conversationRows[0];
     const senderName = sender?.name || sender?.email?.split("@")[0] || "Someone";
 
-    const [conversation] = await db
-      .select({ kind: conversationsTable.kind, title: conversationsTable.title })
-      .from(conversationsTable).where(eq(conversationsTable.id, req.params.id)).limit(1);
+    await Promise.all([
+      deliverMessage({
+        conversationId: req.params.id,
+        senderId: userId,
+        senderName,
+        preview: previewOf(message),
+        conversationTitle: conversation?.title || senderName,
+      }),
+      // Sending is also reading — nobody has unread messages in a thread they
+      // are actively typing in.
+      markRead(req.params.id, userId),
+      // Typing has clearly stopped now that the message is sent.
+      db.delete(typingIndicatorsTable).where(and(
+        eq(typingIndicatorsTable.conversationId, req.params.id),
+        eq(typingIndicatorsTable.userId, userId),
+      )).catch(() => {}),
+    ]);
 
-    await deliverMessage({
-      conversationId: req.params.id,
-      senderId: userId,
-      senderName,
-      preview: previewOf(message),
-      conversationTitle: conversation?.title || senderName,
-    });
-
-    // Sending is also reading â€” nobody has unread messages in a thread they
-    // are actively typing in.
-    await markRead(req.params.id, userId);
-
-    // Typing has clearly stopped now that the message is sent.
-    await db.delete(typingIndicatorsTable).where(and(
-      eq(typingIndicatorsTable.conversationId, req.params.id),
-      eq(typingIndicatorsTable.userId, userId),
-    )).catch(() => {});
-
-    return res.status(201).json({ message: { ...message, mine: true, senderName } });
+    return res.status(201).json({ message: normaliseOwnMessage(message, senderName) });
   } catch (err) {
     req.log?.error({ err }, "Failed to send message");
     return res.status(500).json({ error: "Could not send that message" });
@@ -671,9 +680,21 @@ router.post(
       const mime = String(req.file.mimetype || "");
       const kind = mime.startsWith("image/") ? "IMAGE" : mime.startsWith("audio/") ? "AUDIO" : "FILE";
 
+      // The sender's filename is kept, with a short token for uniqueness and
+      // the extension left at the end. Prefixing a full UUID made every
+      // attachment arrive looking like machine output; the extension staying
+      // last is what lets the browser open a document rather than download it.
+      const originalName = String(req.file.originalname || "attachment");
+      const extension = /\.[A-Za-z0-9]{1,8}$/.exec(originalName)?.[0] || "";
+      const stem = originalName
+        .slice(0, originalName.length - extension.length)
+        .replace(/[^A-Za-z0-9._-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 80) || "attachment";
+
       const stored = await persistUploadedFile({
         buffer: req.file.buffer,
-        filename: `message-${crypto.randomUUID()}-${req.file.originalname}`.slice(0, 180),
+        filename: `${stem}-${crypto.randomUUID().slice(0, 8)}${extension}`,
         mimeType: mime,
         folder: "messages",
       });
@@ -705,13 +726,39 @@ router.post(
         conversationTitle: conversation?.title || senderName,
       });
 
-      return res.status(201).json({ message: { ...message, mine: true, senderName } });
+      return res.status(201).json({ message: normaliseOwnMessage(message, senderName) });
     } catch (err: any) {
       req.log?.error({ err }, "Failed to send attachment");
       return res.status(500).json({ error: err?.message || "Could not send that attachment" });
     }
   },
 );
+
+/**
+ * Shape a freshly-written row the way the thread endpoint shapes every other
+ * message, so the sender's screen can drop it straight in beside the rest
+ * instead of waiting for a refetch to learn what it looks like.
+ */
+function normaliseOwnMessage(message: any, senderName: string) {
+  return {
+    id: message.id,
+    senderId: message.senderId,
+    senderName,
+    senderAvatarUrl: null,
+    kind: message.kind,
+    body: message.body,
+    mediaUrl: message.mediaUrl ?? null,
+    mediaMimeType: message.mediaMimeType ?? null,
+    mediaName: message.mediaName ?? null,
+    mediaSizeBytes: message.mediaSizeBytes ?? null,
+    deleted: false,
+    edited: false,
+    createdAt: message.createdAt,
+    mine: true,
+    reactions: [] as Array<{ emoji: string; count: number; mine: boolean }>,
+    replyTo: null,
+  };
+}
 
 /* â”€â”€â”€ Message actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 

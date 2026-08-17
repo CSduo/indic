@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { ArchiveRestore, BookMarked, BookOpen, Check, Edit3, FileText, LogOut, Mail, Trash2, User, X } from "lucide-react";
+import { ArchiveRestore, BookMarked, BookOpen, Check, Edit3, FileText, LogOut, Mail, MessageSquare, Trash2, User, X } from "lucide-react";
 import { toast } from "sonner";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { EmptyState } from "@/components/sacred/EmptyState";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { messagesApi } from "@/lib/messagesApi";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -30,6 +31,7 @@ export default function AccountPage() {
   const { user, logout, refresh } = useAuthContext();
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [deletedSubmissions, setDeletedSubmissions] = useState<any[]>([]);
+  const [unreadMessages, setUnreadMessages] = useState(0);
   const [loadingPage, setLoadingPage] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
@@ -49,6 +51,16 @@ export default function AccountPage() {
       // ignore
     }
   }, []);
+
+  // Unread count for the Messages link. One cheap query, once per visit.
+  useEffect(() => {
+    if (!user) { setUnreadMessages(0); return; }
+    let cancelled = false;
+    messagesApi.cursor()
+      .then(({ totalUnread }) => { if (!cancelled) setUnreadMessages(totalUnread); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [user]);
 
   // A failed request must never look like an empty desk — an author whose work
   // simply could not be loaded needs to see that, not "No submissions yet".
@@ -395,6 +407,18 @@ export default function AccountPage() {
             <ParchmentCard className="p-5">
               <p className="type-section-label mb-4">Desk Links</p>
               <div className="grid gap-2">
+                {/* Messages live with the account, where personal things belong. */}
+                <Link href="/messages" className="btn-ink justify-start">
+                  <MessageSquare size={15} /> Messages
+                  {unreadMessages > 0 ? (
+                    <span
+                      className="ml-auto grid h-[18px] min-w-[18px] place-items-center rounded-full px-1 font-ui text-[10px] font-bold leading-none"
+                      style={{ background: "var(--accent)", color: "#fff" }}
+                    >
+                      {unreadMessages > 9 ? "9+" : unreadMessages}
+                    </span>
+                  ) : null}
+                </Link>
                 <Link href="/saved" className="btn-ink justify-start"><BookMarked size={15} /> Saved Items</Link>
                 <Link href="/account/collections" className="btn-ink justify-start"><FileText size={15} /> Collections</Link>
                 <Link href="/submit" className="btn-ink justify-start"><FileText size={15} /> Submit Work</Link>

@@ -7,6 +7,7 @@ import { HeroPanel } from "@/components/manuscript/HeroPanel";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { EmptyState } from "@/components/sacred/EmptyState";
+import { RecentMessages } from "@/components/community/RecentMessages";
 import { useAuthContext } from "@/contexts/AuthContext";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -98,6 +99,8 @@ export default function CommunityPage() {
             </div>
           </div>
         </ParchmentCard>
+
+        <RecentMessages />
 
         <div className="grid gap-4 md:grid-cols-3">
           {[
