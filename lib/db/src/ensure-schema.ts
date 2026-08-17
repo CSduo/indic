@@ -229,6 +229,8 @@ const TABLE_STATEMENTS = [
      "media_mime_type" text,
      "media_size_bytes" integer,
      "media_name" text,
+     "media_storage_key" text,
+     "media_resource_type" text,
      "reply_to_id" text,
      "created_at" timestamp DEFAULT now() NOT NULL,
      "edited_at" timestamp,
@@ -309,6 +311,12 @@ const COLUMN_STATEMENTS: Record<string, string[]> = {
   conversations: [
     `"requested_by" text REFERENCES "users"("id") ON DELETE SET NULL`,
     `"accepted_at" timestamp`,
+  ],
+  // Attachments became private after messaging shipped; these hold what is
+  // needed to sign a delivery URL for a member entitled to open the file.
+  messages: [
+    `"media_storage_key" text`,
+    `"media_resource_type" text`,
   ],
   users: [
     `"avatar_url" text`,

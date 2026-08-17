@@ -24,19 +24,14 @@ function fileExtension(name: string | null | undefined): string {
 }
 
 /**
- * Ask the storage CDN to send the file as a download under its real name.
+ * The address that saves the file under the name it was sent with.
  *
- * Cloudinary stores every upload under a generated identifier so two people
- * sending "notes.pdf" do not collide, which means the delivery URL ends in
- * something unreadable. `fl_attachment` restores the original name at the
- * point of download without touching what is stored, so "Open" still shows
- * the document in a tab and "Save" still writes the file the sender named.
+ * Both URLs are signed by the server, so neither can be edited here — asking
+ * for the download variant means using the one the server minted for it, and
+ * falling back to the viewing URL when there is none.
  */
-function downloadUrl(url: string, name: string | null | undefined): string {
-  if (!name || !/\/(image|video|raw)\/upload\//.test(url)) return url;
-  const stem = name.replace(/\.[^.]+$/, "").replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 80);
-  if (!stem) return url;
-  return url.replace(/\/upload\//, `/upload/fl_attachment:${encodeURIComponent(stem)}/`);
+function downloadUrl(message: Message): string {
+  return message.mediaDownloadUrl || message.mediaUrl || "";
 }
 
 function dayLabel(iso: string): string {
@@ -184,7 +179,7 @@ function MessageBubble({
                   <ExternalLink size={11} /> Open
                 </a>
                 <a
-                  href={downloadUrl(message.mediaUrl, message.mediaName)}
+                  href={downloadUrl(message)}
                   download={message.mediaName || undefined}
                   className="inline-flex items-center gap-1 rounded-[2px] border px-2 py-1 font-ui text-[10px] uppercase tracking-[0.1em]"
                   style={{ borderColor: "currentColor", color: "inherit", opacity: 0.9 }}

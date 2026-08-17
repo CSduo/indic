@@ -11,6 +11,10 @@ export type StoredFile = {
   url: string;
   storageKey: string;
   provider: StorageProvider;
+  /** Cloudinary's resource class, needed to build a delivery URL later. */
+  resourceType?: string;
+  /** True when the stored object has no working public address. */
+  private?: boolean;
 };
 
 /**
@@ -70,8 +74,16 @@ export async function persistUploadedFile(options: {
   filename: string;
   mimeType: string;
   folder: string;
+  /**
+   * "private" stores the file so that it has no public address at all: the CDN
+   * refuses any request that this server has not signed. Used for things sent
+   * inside a conversation, where the only people entitled to open the file are
+   * the people in that conversation.
+   */
+  visibility?: "public" | "private";
 }): Promise<StoredFile> {
   const { buffer, filename, mimeType, folder } = options;
+  const wantsPrivate = options.visibility === "private";
   const extension = path.extname(filename).toLowerCase();
   const isAudio =
     mimeType.startsWith("audio/") ||
@@ -79,7 +91,9 @@ export async function persistUploadedFile(options: {
   const isPdf = mimeType === "application/pdf";
   const isImage = mimeType.startsWith("image/");
 
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
+  // Vercel Blob only serves public objects, so a file that must not have a
+  // public address skips this tier rather than quietly losing its privacy.
+  if (process.env.BLOB_READ_WRITE_TOKEN && !wantsPrivate) {
     try {
       const blob = await put(`anvikshiki/${folder}/${filename}`, buffer, {
         access: "public",
@@ -98,6 +112,11 @@ export async function persistUploadedFile(options: {
           {
             folder: `anvikshiki/${folder}`,
             resource_type: isAudio ? "video" : isPdf ? "raw" : "auto",
+            // "authenticated" means the object is not reachable without a
+            // signature this server computes. The delivery URL cannot be
+            // derived from the id, guessed, or built by anyone who does not
+            // hold the API secret.
+            ...(wantsPrivate ? { type: "authenticated" as const } : {}),
             // Keep the sender's filename in the delivered URL, with a suffix
             // for uniqueness. Without this the stored object gets a random id
             // and no extension — which for a raw upload means the CDN serves
@@ -117,6 +136,8 @@ export async function persistUploadedFile(options: {
           url: result.secure_url,
           storageKey: result.public_id || result.secure_url,
           provider: "cloudinary",
+          resourceType: result.resource_type || "image",
+          private: wantsPrivate,
         };
       }
     } catch (err) {
@@ -154,4 +175,44 @@ export async function persistUploadedFile(options: {
   throw new Error(
     "No file storage is available. Configure BLOB_READ_WRITE_TOKEN or CLOUDINARY_URL to accept uploads of this type.",
   );
+}
+
+/**
+ * Build a delivery URL for a privately-stored file.
+ *
+ * Only ever called after the caller has established that this person is
+ * entitled to the file — the signature is the second half of that decision,
+ * not a substitute for it. Returns null when the object was not stored
+ * privately or Cloudinary is not configured, so callers fall back to whatever
+ * URL was recorded at the time.
+ *
+ * `downloadAs` adds the attachment flag, which makes the browser save the file
+ * under the name it was sent with instead of the id it is stored under. The
+ * flag is part of what gets signed, so the two URLs are minted separately
+ * rather than one being edited into the other.
+ */
+export function signedMediaUrl(options: {
+  storageKey: string | null | undefined;
+  resourceType?: string | null;
+  downloadAs?: string | null;
+}): string | null {
+  const { storageKey } = options;
+  if (!storageKey || !process.env.CLOUDINARY_URL) return null;
+
+  try {
+    const flags = options.downloadAs
+      ? `attachment:${options.downloadAs.replace(/\.[^.]+$/, "").replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 80)}`
+      : undefined;
+
+    return cloudinary.url(storageKey, {
+      resource_type: options.resourceType || "image",
+      type: "authenticated",
+      sign_url: true,
+      secure: true,
+      ...(flags ? { flags } : {}),
+    });
+  } catch (err) {
+    console.warn("Could not sign a media URL:", err);
+    return null;
+  }
 }

@@ -13,7 +13,7 @@ import {
 } from "@workspace/db";
 import { and, asc, desc, eq, gt, ilike, inArray, isNotNull, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { getUserAuth } from "../lib/auth";
-import { persistUploadedFile } from "../lib/storage";
+import { persistUploadedFile, signedMediaUrl } from "../lib/storage";
 import { sendPushToUser } from "../lib/push";
 import { notifyUser } from "../lib/notify";
 import {
@@ -430,6 +430,8 @@ router.get("/conversations/:id/messages", async (req, res) => {
         mediaMimeType: messagesTable.mediaMimeType,
         mediaName: messagesTable.mediaName,
         mediaSizeBytes: messagesTable.mediaSizeBytes,
+        mediaStorageKey: messagesTable.mediaStorageKey,
+        mediaResourceType: messagesTable.mediaResourceType,
         replyToId: messagesTable.replyToId,
         createdAt: messagesTable.createdAt,
         editedAt: messagesTable.editedAt,
@@ -478,6 +480,24 @@ router.get("/conversations/:id/messages", async (req, res) => {
       }
       const quotedRow = m.replyToId ? quotedById.get(m.replyToId) : null;
 
+      /*
+        Attachments are stored privately, so the address that opens one is
+        computed here, for someone whose membership of this conversation has
+        already been established above. Messages sent before attachments became
+        private have no storage key and keep the URL they were stored with.
+      */
+      const viewUrl = m.deletedAt
+        ? null
+        : signedMediaUrl({ storageKey: m.mediaStorageKey, resourceType: m.mediaResourceType })
+          || m.mediaUrl;
+      const saveUrl = m.deletedAt
+        ? null
+        : signedMediaUrl({
+            storageKey: m.mediaStorageKey,
+            resourceType: m.mediaResourceType,
+            downloadAs: m.mediaName,
+          }) || viewUrl;
+
       return {
         id: m.id,
         senderId: m.senderId,
@@ -486,7 +506,8 @@ router.get("/conversations/:id/messages", async (req, res) => {
         kind: m.kind,
         // An unsent message keeps its place in the thread but not its content.
         body: m.deletedAt ? null : m.body,
-        mediaUrl: m.deletedAt ? null : m.mediaUrl,
+        mediaUrl: viewUrl,
+        mediaDownloadUrl: saveUrl,
         mediaMimeType: m.deletedAt ? null : m.mediaMimeType,
         mediaName: m.deletedAt ? null : m.mediaName,
         mediaSizeBytes: m.deletedAt ? null : m.mediaSizeBytes,
@@ -697,6 +718,10 @@ router.post(
         filename: `${stem}-${crypto.randomUUID().slice(0, 8)}${extension}`,
         mimeType: mime,
         folder: "messages",
+        // What is sent in a conversation belongs to that conversation. Stored
+        // privately, the file has no address that works for anyone this server
+        // has not signed a URL for.
+        visibility: "private",
       });
 
       const [message] = await db.insert(messagesTable).values({
@@ -706,8 +731,10 @@ router.post(
         body: (req.body?.body || "").trim().slice(0, MAX_MESSAGE_CHARS) || null,
         mediaUrl: stored.url,
         mediaMimeType: mime,
-        mediaName: req.file.originalname,
+        mediaName: originalName,
         mediaSizeBytes: req.file.size,
+        mediaStorageKey: stored.private ? stored.storageKey : null,
+        mediaResourceType: stored.private ? (stored.resourceType || "image") : null,
       }).returning();
 
       const [sender] = await db
@@ -740,6 +767,11 @@ router.post(
  * instead of waiting for a refetch to learn what it looks like.
  */
 function normaliseOwnMessage(message: any, senderName: string) {
+  const viewUrl = signedMediaUrl({
+    storageKey: message.mediaStorageKey,
+    resourceType: message.mediaResourceType,
+  }) || message.mediaUrl || null;
+
   return {
     id: message.id,
     senderId: message.senderId,
@@ -747,7 +779,12 @@ function normaliseOwnMessage(message: any, senderName: string) {
     senderAvatarUrl: null,
     kind: message.kind,
     body: message.body,
-    mediaUrl: message.mediaUrl ?? null,
+    mediaUrl: viewUrl,
+    mediaDownloadUrl: signedMediaUrl({
+      storageKey: message.mediaStorageKey,
+      resourceType: message.mediaResourceType,
+      downloadAs: message.mediaName,
+    }) || viewUrl,
     mediaMimeType: message.mediaMimeType ?? null,
     mediaName: message.mediaName ?? null,
     mediaSizeBytes: message.mediaSizeBytes ?? null,
@@ -1086,12 +1123,16 @@ router.get("/messages/people", async (req, res) => {
       .from(usersTable)
       .where(and(
         ne(usersTable.id, userId),
-        or(ilike(usersTable.name, term), ilike(usersTable.email, term)),
+        // Names only. Matching against email never showed an address, but it
+        // still answered questions about them: whether a particular person has
+        // an account here, and — searching for a provider's domain — who all
+        // of them are. Someone's address is theirs, and it is not a handle
+        // other members get to look people up by.
+        ilike(usersTable.name, term),
       ))
       .limit(15);
 
-    // Only the display name is returned. Email is what was searched on, but
-    // echoing it back would turn this into an address-harvesting endpoint.
+    // The display name is all that leaves this endpoint.
     return res.json({
       people: people.map(p => ({
         id: p.id,

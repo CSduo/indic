@@ -39,6 +39,8 @@ export type Message = {
   kind: "TEXT" | "IMAGE" | "AUDIO" | "FILE" | "SYSTEM";
   body: string | null;
   mediaUrl: string | null;
+  /** Same file, signed so the browser saves it under its original name. */
+  mediaDownloadUrl?: string | null;
   mediaMimeType: string | null;
   mediaName: string | null;
   mediaSizeBytes: number | null;

@@ -329,6 +329,12 @@ export const messagesTable = pgTable("messages", {
   mediaMimeType: text("media_mime_type"),
   mediaSizeBytes: integer("media_size_bytes"),
   mediaName: text("media_name"),
+  // Attachments sent in a conversation are stored privately, which means the
+  // stored object has no working public address. These two columns are what
+  // the server needs to mint a signed one for a member who is entitled to see
+  // it; older messages have neither and fall back to the URL in media_url.
+  mediaStorageKey: text("media_storage_key"),
+  mediaResourceType: text("media_resource_type"),
   replyToId: text("reply_to_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   editedAt: timestamp("edited_at"),
