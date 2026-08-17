@@ -8,7 +8,7 @@ import {
 } from "../lib/auth";
 import { z } from "zod";
 import { sendNewMemberNotification } from "../lib/notifier";
-import { ensureHandle, validateHandle, handleIsAvailable } from "../lib/handles";
+import { ensureHandle, validateHandle, handleIsAvailable, generateHandle } from "../lib/handles";
 
 const router = Router();
 
@@ -21,6 +21,7 @@ const signupSchema = z.object({
   name: z.string().trim().min(1).max(100),
   email: z.string().trim().toLowerCase().email(),
   password: z.string().min(12).max(128),
+  handle: z.string().trim().max(30).optional(),
 });
 
 function parseAuthError(err: any): { error: string; code: string; hint?: string } {
@@ -65,7 +66,8 @@ router.post("/auth/login", async (req, res) => {
     }
     const token = await createUserToken(user.id, user.email);
     setUserCookie(res, token);
-    return res.json({ success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+    const handle = user.handle || (await ensureHandle(user.id, user.name, user.email));
+    return res.json({ success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role, handle } });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Login failed" });
@@ -79,13 +81,31 @@ router.post("/auth/signup", async (req, res) => {
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
     }
-    const { name, email, password } = parsed.data;
+    const { name, email, password, handle: requestedHandle } = parsed.data;
     const [existing] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
     if (existing) {
       return res.status(409).json({ error: "Email already registered", code: "EMAIL_EXISTS" });
     }
+
+    let chosenHandle: string | null = null;
+    if (requestedHandle) {
+      const check = validateHandle(requestedHandle);
+      if (!check.ok) return res.status(400).json({ error: check.reason, code: "INVALID_HANDLE" });
+      if (!(await handleIsAvailable(check.handle))) {
+        return res.status(409).json({ error: "That handle is already taken.", code: "HANDLE_TAKEN" });
+      }
+      chosenHandle = check.handle;
+    } else {
+      chosenHandle = await generateHandle(name, email);
+    }
+
     const hashedPassword = await hashPassword(password);
-    const [user] = await db.insert(usersTable).values({ name, email, password: hashedPassword }).returning();
+    const [user] = await db.insert(usersTable).values({
+      name,
+      email,
+      password: hashedPassword,
+      handle: chosenHandle,
+    }).returning();
     
     // Automatically collect registered user email into newsletter subscriber database
     await db.insert(newsletterSubscribersTable)
@@ -100,7 +120,7 @@ router.post("/auth/signup", async (req, res) => {
     setUserCookie(res, token);
     sendNewMemberNotification(user.name || name, user.email)
       .catch(err => req.log.warn({ err }, "Failed to send member notification"));
-    return res.json({ success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+    return res.json({ success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role, handle: user.handle } });
   } catch (err: any) {
     req.log.error(err);
     const parsedErr = parseAuthError(err);
@@ -174,18 +194,46 @@ router.post("/auth/register", async (req, res) => {
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
     }
-    const { name, email, password } = parsed.data;
+    const { name, email, password, handle: requestedHandle } = parsed.data;
     const [existing] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
     if (existing) {
       return res.status(409).json({ error: "Email already registered", code: "EMAIL_EXISTS" });
     }
+
+    let chosenHandle: string | null = null;
+    if (requestedHandle) {
+      const check = validateHandle(requestedHandle);
+      if (!check.ok) return res.status(400).json({ error: check.reason, code: "INVALID_HANDLE" });
+      if (!(await handleIsAvailable(check.handle))) {
+        return res.status(409).json({ error: "That handle is already taken.", code: "HANDLE_TAKEN" });
+      }
+      chosenHandle = check.handle;
+    } else {
+      chosenHandle = await generateHandle(name, email);
+    }
+
     const hashedPassword = await hashPassword(password);
-    const [user] = await db.insert(usersTable).values({ name, email, password: hashedPassword }).returning();
+    const [user] = await db.insert(usersTable).values({
+      name,
+      email,
+      password: hashedPassword,
+      handle: chosenHandle,
+    }).returning();
+
+    // Automatically collect registered user email into newsletter subscriber database
+    await db.insert(newsletterSubscribersTable)
+      .values({ email, name })
+      .onConflictDoUpdate({
+        target: newsletterSubscribersTable.email,
+        set: { isActive: true, ...(name ? { name } : {}) },
+      })
+      .catch(() => {});
+
     const token = await createUserToken(user.id, user.email);
     setUserCookie(res, token);
     sendNewMemberNotification(user.name || name, user.email)
       .catch(err => req.log.warn({ err }, "Failed to send member notification"));
-    return res.json({ success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+    return res.json({ success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role, handle: user.handle } });
   } catch (err: any) {
     req.log.error(err);
     const parsedErr = parseAuthError(err);

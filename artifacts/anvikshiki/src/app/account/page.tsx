@@ -37,6 +37,9 @@ export default function AccountPage() {
   const [loadingPage, setLoadingPage] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
+  const [editHandle, setEditHandle] = useState("");
+  const [promptHandle, setPromptHandle] = useState("");
+  const [savingHandle, setSavingHandle] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showLightbox, setShowLightbox] = useState(false);
@@ -44,6 +47,16 @@ export default function AccountPage() {
   const [permDeletingId, setPermDeletingId] = useState<string | null>(null);
   const [readingHistory, setReadingHistory] = useState<any[]>([]);
   const [loadError, setLoadError] = useState("");
+
+  useEffect(() => {
+    if (user) {
+      setEditName(user.name || "");
+      setEditHandle(user.handle || "");
+      if (!user.handle) {
+        setPromptHandle((user.name || user.email.split("@")[0] || "scholar").toLowerCase().replace(/[^a-z0-9._-]/g, "").slice(0, 24));
+      }
+    }
+  }, [user]);
 
   useEffect(() => {
     try {
@@ -141,16 +154,44 @@ export default function AccountPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ name: editName.trim() }),
+        body: JSON.stringify({
+          name: editName.trim(),
+          handle: editHandle.trim().replace(/^@/, ""),
+        }),
       });
-      if (!response.ok) throw new Error("Failed to update profile");
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Failed to update profile");
       await refresh();
       setEditing(false);
       toast.success("Profile updated");
-    } catch {
-      toast.error("Failed to update profile");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update profile");
     }
     setSaving(false);
+  };
+
+  const claimHandle = async () => {
+    const h = promptHandle.trim().replace(/^@/, "");
+    if (!h) {
+      toast.error("Please enter a handle");
+      return;
+    }
+    setSavingHandle(true);
+    try {
+      const res = await fetch(`${base()}/api/auth/profile`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ handle: h }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to set handle");
+      await refresh();
+      toast.success(`Handle @${h} claimed successfully!`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to set handle");
+    }
+    setSavingHandle(false);
   };
 
   const deleteSubmission = async (id: string) => {
@@ -386,17 +427,38 @@ export default function AccountPage() {
                 )}
               </div>
               {editing ? (
-                <div className="flex items-center gap-2">
-                  <input autoFocus className="input-sacred py-1 text-center" value={editName} onChange={(event) => setEditName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && saveProfile()} />
-                  <button type="button" onClick={saveProfile} disabled={saving} className="text-[var(--sage)]"><Check size={18} /></button>
-                  <button type="button" onClick={() => { setEditing(false); setEditName(user.name || ""); }} className="text-[var(--terracotta)]"><X size={18} /></button>
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-[10px] font-ui uppercase tracking-wider text-[var(--muted)] block text-left mb-0.5">Name</label>
+                    <input autoFocus className="input-sacred py-1 text-center text-sm" value={editName} onChange={(event) => setEditName(event.target.value)} placeholder="Display name" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-ui uppercase tracking-wider text-[var(--muted)] block text-left mb-0.5">Handle (@handle)</label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-[var(--muted)]">@</span>
+                      <input className="input-sacred pl-6 py-1 text-xs font-mono" value={editHandle.replace(/^@/, "")} onChange={(event) => setEditHandle(event.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""))} placeholder="handle" maxLength={30} />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-center gap-3 pt-1">
+                    <button type="button" onClick={saveProfile} disabled={saving} className="btn-terracotta text-xs py-1 px-3 flex items-center gap-1"><Check size={14} /> {saving ? "Saving…" : "Save"}</button>
+                    <button type="button" onClick={() => { setEditing(false); setEditName(user.name || ""); setEditHandle(user.handle || ""); }} className="btn-ink text-xs py-1 px-3 flex items-center gap-1"><X size={14} /> Cancel</button>
+                  </div>
                 </div>
               ) : (
-                <div className="flex min-w-0 items-center justify-center gap-2">
-                  <h1 className="min-w-0 break-words text-center font-display text-3xl text-[var(--ink)]">{user.name || "My Account"}</h1>
-                  <button type="button" onClick={() => setEditing(true)} className="text-[var(--gold)]" aria-label="Edit profile name">
-                    <Edit3 size={15} />
-                  </button>
+                <div className="flex flex-col items-center justify-center">
+                  <div className="flex min-w-0 items-center justify-center gap-2">
+                    <h1 className="min-w-0 break-words text-center font-display text-3xl text-[var(--ink)]">{user.name || "My Account"}</h1>
+                    <button type="button" onClick={() => setEditing(true)} className="text-[var(--gold)] hover:opacity-80 transition-opacity" aria-label="Edit profile name & handle">
+                      <Edit3 size={15} />
+                    </button>
+                  </div>
+                  {user.handle ? (
+                    <p className="font-ui text-sm font-semibold text-[var(--gold)] mt-0.5">@{user.handle}</p>
+                  ) : (
+                    <button type="button" onClick={() => setEditing(true)} className="mt-1 inline-flex items-center gap-1 rounded-full border border-dashed border-[var(--gold)] px-2.5 py-0.5 font-ui text-[11px] font-medium text-[var(--gold)] hover:bg-[var(--gold)]/10 transition-colors">
+                      + Set your @handle
+                    </button>
+                  )}
                 </div>
               )}
               <div className="mt-2 flex min-w-0 items-center justify-center gap-2 break-all text-center font-ui text-sm text-[var(--muted)]">
@@ -443,6 +505,44 @@ export default function AccountPage() {
           </aside>
 
           <main className="space-y-6 min-w-0">
+            {!user.handle && (
+              <div className="rounded-xl border-2 border-[var(--border-gold)] bg-[var(--surface-gold,#fbf7ee)] dark:bg-[var(--surface)] p-4 sm:p-5 shadow-md">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="badge badge-draft font-mono">@handle required</span>
+                      <h3 className="font-display text-lg font-semibold text-[var(--ink)]">Claim your unique scholar handle</h3>
+                    </div>
+                    <p className="font-body text-xs text-[var(--muted)] max-w-lg">
+                      Your unique @handle is your identity across Ānvīkṣikī for direct messages, author recognition, and scholarly discussions.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-ui text-xs font-bold text-[var(--muted)]">@</span>
+                      <input
+                        type="text"
+                        placeholder="your-handle"
+                        value={promptHandle}
+                        onChange={e => setPromptHandle(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""))}
+                        onKeyDown={e => e.key === "Enter" && claimHandle()}
+                        className="input-sacred pl-7 py-1.5 text-xs font-mono w-36 sm:w-44"
+                        maxLength={30}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={claimHandle}
+                      disabled={savingHandle || !promptHandle.trim()}
+                      className="btn-terracotta text-xs py-1.5 px-3.5 whitespace-nowrap"
+                    >
+                      {savingHandle ? "Claiming…" : "Claim Handle"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <Link href="/submit" className="flex flex-col items-center justify-center gap-2 rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-5 hover:border-[var(--border-gold)] transition-colors group text-center">
                 <Edit3 size={24} className="text-[var(--gold)] group-hover:scale-110 transition-transform" />

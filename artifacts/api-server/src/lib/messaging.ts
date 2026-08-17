@@ -69,6 +69,7 @@ export async function listMembers(conversationId: string) {
       name: usersTable.name,
       email: usersTable.email,
       avatarUrl: usersTable.avatarUrl,
+      handle: usersTable.handle,
     })
     .from(conversationMembersTable)
     .innerJoin(usersTable, eq(conversationMembersTable.userId, usersTable.id))
@@ -87,9 +88,9 @@ export async function listMembers(conversationId: string) {
  */
 export function describeConversation(
   conversation: { kind: string; title: string | null; avatarUrl: string | null },
-  members: Array<{ userId: string; name: string | null; email: string; avatarUrl: string | null }>,
+  members: Array<{ userId: string; name: string | null; email: string; avatarUrl: string | null; handle?: string | null }>,
   viewerId: string,
-): { title: string; avatarUrl: string | null; otherUserId: string | null } {
+): { title: string; avatarUrl: string | null; otherUserId: string | null; handle?: string | null } {
   if (conversation.kind === "GROUP") {
     const names = members
       .filter(m => m.userId !== viewerId)
@@ -105,6 +106,7 @@ export function describeConversation(
     title: other?.name || other?.email.split("@")[0] || "Conversation",
     avatarUrl: other?.avatarUrl || null,
     otherUserId: other?.userId || null,
+    handle: other?.handle || null,
   };
 }
 

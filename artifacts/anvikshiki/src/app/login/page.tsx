@@ -24,6 +24,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [handle, setHandle] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -125,7 +126,9 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const endpoint = tab === "login" ? "/api/auth/login" : "/api/auth/register";
-      const body = tab === "login" ? { email, password } : { email, password, name };
+      const body = tab === "login"
+        ? { email, password }
+        : { email, password, name, handle: handle.trim() || undefined };
       const response = await fetch(`${base()}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -206,10 +209,29 @@ export default function LoginPage() {
 
           <form onSubmit={submit} className="space-y-4" noValidate>
             {tab === "signup" ? (
-              <div>
-                <label className="form-label" htmlFor="name">Full Name *</label>
-                <input id="name" type="text" className="input-sacred" placeholder="Your full name" value={name} onChange={(event) => setName(event.target.value)} required />
-              </div>
+              <>
+                <div>
+                  <label className="form-label" htmlFor="name">Full Name *</label>
+                  <input id="name" type="text" className="input-sacred" placeholder="Your full name" value={name} onChange={(event) => setName(event.target.value)} required />
+                </div>
+                <div>
+                  <label className="form-label" htmlFor="handle">
+                    Scholar Handle <span className="font-normal normal-case tracking-normal text-[var(--ink-faint)]">(optional, unique @handle)</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-sm text-[var(--muted)]">@</span>
+                    <input
+                      id="handle"
+                      type="text"
+                      className="input-sacred pl-8 font-mono text-sm"
+                      placeholder="username"
+                      value={handle}
+                      onChange={(event) => setHandle(event.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, ""))}
+                      maxLength={30}
+                    />
+                  </div>
+                </div>
+              </>
             ) : null}
             <div>
               <label className="form-label" htmlFor="email">Email *</label>

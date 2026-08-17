@@ -9,6 +9,7 @@ interface User {
   avatarUrl?: string | null;
   bio?: string | null;
   institution?: string | null;
+  handle?: string | null;
 }
 
 interface AuthContextValue {

@@ -9,6 +9,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { createPoller, messagesApi, type ConversationMember, type Message } from "@/lib/messagesApi";
 import { goBack } from "@/lib/goBack";
 import { VoiceRecorder, VoiceNoteButton } from "@/components/messages/VoiceRecorder";
+import { VoiceNotePlayer } from "@/components/messages/VoiceNotePlayer";
 
 const QUICK_REACTIONS = ["❤️", "👍", "🎉", "🙏", "😮", "😢"];
 
@@ -284,7 +285,11 @@ function MessageBubble({
           ) : null}
 
           {message.kind === "AUDIO" && message.mediaUrl ? (
-            <audio src={mediaUrl(message)} controls preload="metadata" className="w-full max-w-[240px]" />
+            <VoiceNotePlayer
+              src={mediaUrl(message)}
+              mine={mine}
+              transcript={message.body}
+            />
           ) : null}
 
           {message.kind === "FILE" && message.mediaUrl ? (

@@ -15,6 +15,7 @@ export default function ProfilePage() {
   const { user, refresh } = useAuthContext();
 
   const [name, setName] = useState(user?.name || "");
+  const [handle, setHandle] = useState(user?.handle || "");
   const [bio, setBio] = useState(user?.bio || "");
   const [institution, setInstitution] = useState(user?.institution || "");
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || "");
@@ -26,6 +27,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (user) {
       setName(user.name || "");
+      setHandle(user.handle || "");
       setBio(user.bio || "");
       setInstitution(user.institution || "");
       setAvatarUrl(user.avatarUrl || "");
@@ -80,7 +82,12 @@ export default function ProfilePage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ name: name.trim(), bio, institution }),
+        body: JSON.stringify({
+          name: name.trim(),
+          handle: handle.trim().replace(/^@/, ""),
+          bio,
+          institution,
+        }),
       });
       // Surface what the server said. "Failed to update profile" with no
       // reason is impossible to act on and impossible to report.
@@ -154,6 +161,9 @@ export default function ProfilePage() {
                         <img src={avatarUrl} alt="Your avatar" className="h-full w-full object-cover" />
                       </div>
                       <h3 className="font-display text-2xl text-[var(--ink)] font-semibold">{name || user.name}</h3>
+                      {handle && (
+                        <p className="font-ui text-sm text-[var(--gold)] mt-0.5">@{handle.replace(/^@/, "")}</p>
+                      )}
                       {institution && (
                         <p className="font-ui text-sm text-[var(--muted)] mt-1">{institution}</p>
                       )}
@@ -180,6 +190,9 @@ export default function ProfilePage() {
             </div>
             <div>
               <p className="font-ui text-sm font-semibold text-[var(--ink)]">{user.name || "Anonymous Scholar"}</p>
+              {user.handle && (
+                <p className="font-ui text-xs font-medium text-[var(--gold)]">@{user.handle}</p>
+              )}
               <div className="flex items-center gap-1.5 mt-1 font-ui text-xs text-[var(--muted)]">
                 <Mail size={12} /> {user.email}
               </div>
@@ -187,10 +200,10 @@ export default function ProfilePage() {
             </div>
           </ParchmentCard>
 
-          {/* Name */}
+          {/* Name and Handle */}
           <ParchmentCard className="p-6 space-y-4">
             <div>
-              <label className="form-label mb-1" htmlFor="profile-name">Display Name</label>
+              <label className="form-label mb-1" htmlFor="profile-name">Display Name *</label>
               <input
                 id="profile-name"
                 className="input-sacred"
@@ -201,6 +214,31 @@ export default function ProfilePage() {
                 required
               />
             </div>
+
+            <div>
+              <label className="form-label mb-1" htmlFor="profile-handle">
+                Unique Handle (@handle) *
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-ui text-sm font-semibold text-[var(--muted)]">
+                  @
+                </span>
+                <input
+                  id="profile-handle"
+                  className="input-sacred pl-8 font-ui"
+                  type="text"
+                  value={handle.replace(/^@/, "")}
+                  onChange={(e) => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""))}
+                  placeholder="your-unique-handle"
+                  maxLength={30}
+                  required
+                />
+              </div>
+              <p className="font-ui text-[11px] text-[var(--muted)] mt-1">
+                Letters, numbers, hyphens, and underscores. Used for direct messages, mentions, and your unique member identity.
+              </p>
+            </div>
+
             <div>
               <label className="form-label mb-1" htmlFor="profile-institution">Institution or Affiliation</label>
               <input
