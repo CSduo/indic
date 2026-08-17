@@ -230,7 +230,7 @@ describe("imported document metadata", () => {
   it("correctly decodes accented HTML entities and typographic punctuation without raw entity leakage", async () => {
     const rawHtml = `<html><body><p>Santer&iacute;a (known as Lukum&iacute; in Cuba), along with its cousins Candombl&eacute; in Brazil and Vodou in Haiti... Barbara&rsquo;s legend survives; that&rsquo;s just theological &mdash; &ldquo;faith wins&rdquo;.</p></body></html>`;
     const result = await extractSemanticHtml(rawHtml, "https://docs.google.com/document/d/example/export?format=html");
-    expect(result.html).toContain("Santería (known as Lukumí in Cuba), along with its cousins Candomblé in Brazil and Vodou in Haiti... Barbara’s legend survives; that’s just theological — “faith wins-.");
+    expect(result.html).toContain("Santería (known as Lukumí in Cuba), along with its cousins Candomblé in Brazil and Vodou in Haiti... Barbara’s legend survives; that’s just theological — “faith wins”.");
     expect(result.html).not.toContain("&iacute;");
     expect(result.html).not.toContain("&rsquo;");
     expect(result.html).not.toContain("&eacute;");
