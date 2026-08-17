@@ -942,6 +942,61 @@ router.put("/admin/site-settings/:key", requireAdmin, requireAdminRole("ADMIN"),
   }
 });
 
+/**
+ * GET /api/admin/database-info — what is this database, and is it pooled?
+ *
+ * Exists because the connection string is marked Sensitive in the host's
+ * settings and cannot be read back by anybody, which makes an otherwise
+ * trivial question — "which provider are we on?" — impossible to answer
+ * without either guessing or handing the credential around. The database can
+ * simply be asked.
+ *
+ * Nothing here can expose a credential. It reports the server's own version,
+ * which roles and extensions exist, and whether the current connection arrived
+ * through a pooler. No password, no host, no connection string.
+ */
+router.get("/admin/database-info", requireAdmin, requireAdminRole("ADMIN"), async (req, res) => {
+  try {
+    const result: any = await db.execute(sql`
+      SELECT
+        version()                                                       AS "version",
+        current_setting('server_version')                               AS "serverVersion",
+        current_database()                                              AS "database",
+        (SELECT count(*)::int FROM pg_roles
+          WHERE rolname LIKE 'supabase%')                               AS "supabaseRoles",
+        (SELECT count(*)::int FROM pg_available_extensions
+          WHERE name = 'neon')                                          AS "neonExtension",
+        (SELECT count(*)::int FROM information_schema.schemata
+          WHERE schema_name IN ('auth', 'storage', 'realtime'))         AS "supabaseSchemas",
+        -- A pooler terminates the client connection itself, so the backend
+        -- sees no client address. A direct connection always has one.
+        (inet_client_addr() IS NULL)                                    AS "looksPooled",
+        current_setting('max_connections')                              AS "maxConnections"
+    `);
+    const row = (result?.rows ?? result ?? [])[0] || {};
+
+    const provider =
+      row.supabaseRoles > 0 || row.supabaseSchemas > 0 ? "Supabase"
+      : row.neonExtension > 0 ? "Neon"
+      : "Unrecognised — check the provider dashboard directly";
+
+    return res.json({
+      provider,
+      serverVersion: row.serverVersion,
+      versionString: row.version,
+      database: row.database,
+      alreadyPooled: row.looksPooled === true,
+      maxConnections: row.maxConnections,
+      note: row.looksPooled === true
+        ? "This connection already appears to run through a pooler."
+        : "This looks like a direct connection — the pooled endpoint should be faster.",
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to inspect the database");
+    return res.status(500).json({ error: "Could not inspect the database.", code: "LOAD_FAILED" });
+  }
+});
+
 // POST /api/admin/submissions/sync-public-archives â€” rebuild missing public
 // records for submissions already marked PUBLISHED. This is the repair path for
 // a work that shows as published on the desk but is absent from the journal.
