@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { Router } from "express";
 import { getAdminAuth } from "../lib/auth";
+import { purgeDueAccounts, DELETION_GRACE_DAYS } from "../lib/account-deletion";
 
 const router = Router();
 
@@ -88,6 +89,36 @@ router.get("/admin/trigger-backup", async (req: any, res: any) => {
 
 // Administrators may also trigger a snapshot manually.
 router.post("/admin/trigger-backup", requireAdmin, createBackup);
+
+/**
+ * GET /api/admin/purge-deleted-accounts — carry out deletions whose grace
+ * period has run out.
+ *
+ * Runs on a schedule, guarded by the same secret as the backup job. Nothing
+ * here is reachable by a browser: an endpoint that erases accounts must be
+ * callable only by the scheduler and by an administrator.
+ */
+router.get("/admin/purge-deleted-accounts", async (req: any, res: any) => {
+  if (!isCronAuthorized(req.get("authorization"))) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  return runAccountPurge(req, res);
+});
+
+router.post("/admin/purge-deleted-accounts", requireAdmin, (req: any, res: any) => runAccountPurge(req, res));
+
+async function runAccountPurge(req: any, res: any) {
+  try {
+    const result = await purgeDueAccounts();
+    if (result.purged > 0 || result.failed > 0) {
+      req.log.info(result, "Account purge run complete");
+    }
+    return res.json({ success: true, ...result, graceDays: DELETION_GRACE_DAYS });
+  } catch (err) {
+    req.log.error({ err }, "Account purge failed");
+    return res.status(500).json({ error: "The purge could not be completed.", code: "PURGE_FAILED" });
+  }
+}
 
 router.get("/admin/backups", requireAdmin, async (req: any, res) => {
   try {

@@ -216,3 +216,53 @@ export function signedMediaUrl(options: {
     return null;
   }
 }
+
+/**
+ * Remove stored files, best effort.
+ *
+ * Used when an account is deleted: "delete everything" has to mean the
+ * uploads too, not just the rows that point at them. Failures are collected
+ * rather than thrown, because a file that cannot be removed must not stop the
+ * account itself from being deleted — the person asked to be gone, and leaving
+ * them half-deleted because a CDN call timed out is the worse outcome.
+ *
+ * Returns what could not be removed so the caller can log it. Anything left
+ * behind is unreachable in any case: nothing points at it once the rows are
+ * gone.
+ */
+export async function deleteStoredFiles(
+  keys: Array<{ storageKey: string; resourceType?: string | null }>,
+): Promise<{ deleted: number; failed: string[] }> {
+  if (!process.env.CLOUDINARY_URL || keys.length === 0) {
+    return { deleted: 0, failed: [] };
+  }
+
+  let deleted = 0;
+  const failed: string[] = [];
+
+  await Promise.all(keys.map(async ({ storageKey, resourceType }) => {
+    if (!storageKey || storageKey.startsWith("http") || storageKey.startsWith("inline-")) return;
+    try {
+      // Attachments are stored as authenticated objects, so the delivery type
+      // has to be named for the destroy call to find them.
+      await cloudinary.uploader.destroy(storageKey, {
+        resource_type: resourceType || "image",
+        type: "authenticated",
+        invalidate: true,
+      });
+      deleted += 1;
+    } catch {
+      try {
+        await cloudinary.uploader.destroy(storageKey, {
+          resource_type: resourceType || "image",
+          invalidate: true,
+        });
+        deleted += 1;
+      } catch (err: any) {
+        failed.push(`${storageKey}: ${err?.message || "unknown"}`);
+      }
+    }
+  }));
+
+  return { deleted, failed };
+}

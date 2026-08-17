@@ -9,6 +9,10 @@
     {
       "path": "/api/admin/trigger-backup",
       "schedule": "0 0 * * 0"
+    },
+    {
+      "path": "/api/admin/purge-deleted-accounts",
+      "schedule": "0 3 * * *"
     }
   ],
   "headers": [

@@ -37,6 +37,15 @@ export const usersTable = pgTable("users", {
    * until one is generated for them.
    */
   handle: varchar("handle", { length: 30 }).unique(),
+  /**
+   * When this person asked to be deleted.
+   *
+   * Deletion is scheduled rather than immediate: the account stops being
+   * usable at once, but the data survives for a grace period so a change of
+   * mind — or an account someone else got into — is recoverable. Null means
+   * no deletion is pending.
+   */
+  deletionRequestedAt: timestamp("deletion_requested_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

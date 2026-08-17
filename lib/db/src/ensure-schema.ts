@@ -339,6 +339,7 @@ const COLUMN_STATEMENTS: Record<string, string[]> = {
     `"location" text`,
     `"age" integer`,
     `"handle" varchar(30)`,
+    `"deletion_requested_at" timestamp`,
   ],
   articles: [
     `"subtitle" text`,

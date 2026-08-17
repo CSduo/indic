@@ -12,6 +12,8 @@ interface User {
   location?: string | null;
   age?: number | null;
   handle?: string | null;
+  /** Set while a deletion is pending; null once cancelled or carried out. */
+  deletionRequestedAt?: string | null;
 }
 
 interface AuthContextValue {

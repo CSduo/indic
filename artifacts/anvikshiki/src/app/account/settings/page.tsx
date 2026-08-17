@@ -11,13 +11,77 @@ const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export default function SettingsPage() {
   const [, navigate] = useLocation();
-  const { user, logout } = useAuthContext();
+  const { user, logout, refresh } = useAuthContext();
 
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
   const [pwSaving, setPwSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  /**
+   * Delete this account for good.
+   *
+   * Two confirmations: the typed email address, which the server checks again
+   * for itself, and a final prompt. Nothing about this is recoverable, so it
+   * should be difficult to reach by accident and impossible to reach by a
+   * single misplaced tap.
+   */
+  const pendingDeletion = user?.deletionRequestedAt ? new Date(user.deletionRequestedAt) : null;
+  const deletesOn = pendingDeletion
+    ? new Date(pendingDeletion.getTime() + 30 * 24 * 60 * 60 * 1000)
+    : null;
+
+  /** Call off a scheduled deletion. */
+  const cancelDeletion = async () => {
+    setDeleting(true);
+    try {
+      const res = await fetch(`${base()}/api/auth/account/restore`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Could not cancel.");
+      await refresh();
+      toast.success("Your account will not be deleted.");
+    } catch (err: any) {
+      toast.error(err?.message || "Could not cancel the deletion.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const deleteAccount = async () => {
+    if (!user) return;
+    if (!window.confirm(
+      "This deletes your account, your published work, your submissions and your messages. It cannot be undone. Continue?"
+    )) return;
+
+    setDeleting(true);
+    try {
+      const res = await fetch(`${base()}/api/auth/account`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ confirm: deleteConfirm.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `The server returned ${res.status}.`);
+
+      const on = data.deletesOn ? new Date(data.deletesOn) : null;
+      toast.success(
+        on
+          ? `Scheduled. Your account is deleted on ${on.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })}.`
+          : "Your account is scheduled for deletion.",
+      );
+      await logout().catch(() => {});
+      navigate("/");
+    } catch (err: any) {
+      toast.error(err?.message || "Your account could not be deleted.");
+    } finally {
+      setDeleting(false);
+    }
+  };
   
   const [emailNotifs, setEmailNotifs] = useState(() => localStorage.getItem("anv-email-notifs") !== "false");
   const [fontSize, setFontSize] = useState(() => Number(localStorage.getItem("anv-font-size")) || 16);
@@ -202,8 +266,33 @@ export default function SettingsPage() {
             <Trash2 size={16} className="text-[var(--lotus)]" />
             <h2 className="font-display text-xl text-[var(--ink)]">Danger Zone</h2>
           </div>
+          {deletesOn ? (
+            <>
+              <p className="font-body text-sm leading-6 text-[var(--ink-soft)] mb-2">
+                This account is scheduled for deletion on{" "}
+                <strong>{deletesOn.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</strong>.
+              </p>
+              <p className="font-body text-sm leading-6 text-[var(--ink-faint)] mb-4">
+                Until then nothing has been removed, and you can call it off.
+                After that date your published work, submissions, messages,
+                follows and uploaded files are erased and cannot be recovered.
+              </p>
+              <button
+                type="button"
+                onClick={cancelDeletion}
+                disabled={deleting}
+                className="btn-terracotta w-full justify-center text-sm"
+              >
+                {deleting ? "Working…" : "Keep my account"}
+              </button>
+            </>
+          ) : (
+          <>
           <p className="font-body text-sm leading-6 text-[var(--ink-soft)] mb-4">
-            Deleting your account is permanent. All your submissions and data will be removed.
+            Deleting your account removes your published work, submissions,
+            messages, follows and uploaded files. You have 30 days to change
+            your mind — sign back in before then and it is called off. After
+            that it cannot be undone.
           </p>
           <div className="space-y-2">
             <label className="form-label" htmlFor="delete-confirm">Type your email to confirm</label>
@@ -217,14 +306,16 @@ export default function SettingsPage() {
             />
             <button
               type="button"
-              disabled={deleteConfirm !== user.email}
-              onClick={() => toast.error("Account deletion is not yet available. Contact support.")}
+              disabled={deleting || deleteConfirm !== user.email}
+              onClick={deleteAccount}
               className="btn-sacred w-full justify-center text-sm"
               style={{ background: "rgba(139,26,74,0.15)", border: "1px solid var(--border-rose)", color: "var(--lotus)", opacity: deleteConfirm !== user.email ? 0.4 : 1 }}
             >
-              <Trash2 size={14} /> Delete My Account
+              <Trash2 size={14} /> {deleting ? "Working…" : "Delete My Account"}
             </button>
           </div>
+          </>
+          )}
         </ParchmentCard>
       </div>
     </div>

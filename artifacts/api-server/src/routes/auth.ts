@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { adminsTable, articlesTable, newsletterSubscribersTable, papersTable, submissionsTable, usersTable } from "@workspace/db";
-import { and, desc, eq, ilike, isNull, or } from "drizzle-orm";
+import { and, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import {
   hashPassword, comparePassword, createUserToken,
   getUserAuth, setUserCookie, clearUserCookie,
@@ -9,6 +9,7 @@ import {
 import { z } from "zod";
 import { sendNewMemberNotification } from "../lib/notifier";
 import { ensureHandle, validateHandle, handleIsAvailable, generateHandle } from "../lib/handles";
+import { DELETION_GRACE_DAYS, deletionDueDate } from "../lib/account-deletion";
 
 const router = Router();
 
@@ -353,6 +354,84 @@ router.put("/auth/profile", async (req, res) => {
 });
 
 // GET /api/users/:userId/profile — public profile page data
+/**
+ * DELETE /api/auth/account — schedule this account for deletion.
+ *
+ * The account stops being usable immediately, but nothing is erased for
+ * thirty days. People change their minds, and accounts get into the wrong
+ * hands: an intruder who can wipe everything irrecoverably in one click is a
+ * far worse problem than one who can schedule it and be undone. Signing back
+ * in during the grace period cancels it.
+ */
+router.delete("/auth/account", async (req, res) => {
+  try {
+    const auth = await getUserAuth(req);
+    if (!auth) return res.status(401).json({ error: "Not authenticated" });
+
+    const [user] = await db
+      .select({ id: usersTable.id, email: usersTable.email, deletionRequestedAt: usersTable.deletionRequestedAt })
+      .from(usersTable)
+      .where(eq(usersTable.id, auth.userId))
+      .limit(1);
+    if (!user) return res.status(404).json({ error: "Account not found" });
+
+    // Typed confirmation, checked here as well as in the browser. A
+    // destructive endpoint must not rely on a client having asked nicely.
+    const confirm = String(req.body?.confirm || "").trim().toLowerCase();
+    if (confirm !== user.email.toLowerCase()) {
+      return res.status(400).json({
+        error: "Type your email address exactly to confirm.",
+        code: "CONFIRMATION_MISMATCH",
+      });
+    }
+
+    const requestedAt = user.deletionRequestedAt || new Date();
+    if (!user.deletionRequestedAt) {
+      await db.update(usersTable)
+        .set({ deletionRequestedAt: requestedAt })
+        .where(eq(usersTable.id, user.id));
+    }
+
+    clearUserCookie(res);
+    return res.json({
+      success: true,
+      scheduled: true,
+      requestedAt: requestedAt.toISOString(),
+      deletesOn: deletionDueDate(requestedAt).toISOString(),
+      graceDays: DELETION_GRACE_DAYS,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to schedule an account deletion");
+    return res.status(500).json({
+      error: "Your account could not be scheduled for deletion. Nothing has changed — please try again.",
+      code: "DELETE_FAILED",
+    });
+  }
+});
+
+/**
+ * POST /api/auth/account/restore — call off a scheduled deletion.
+ *
+ * The grace period is worth nothing if it cannot be used, and it has to be
+ * reachable by whoever can sign in — which is the point: the person who still
+ * has the password is the person entitled to change their mind.
+ */
+router.post("/auth/account/restore", async (req, res) => {
+  try {
+    const auth = await getUserAuth(req);
+    if (!auth) return res.status(401).json({ error: "Not authenticated" });
+
+    await db.update(usersTable)
+      .set({ deletionRequestedAt: null })
+      .where(eq(usersTable.id, auth.userId));
+
+    return res.json({ success: true });
+  } catch (err) {
+    req.log.error({ err }, "Failed to cancel an account deletion");
+    return res.status(500).json({ error: "Could not cancel the deletion.", code: "RESTORE_FAILED" });
+  }
+});
+
 router.get("/users/:userId/profile", async (req, res) => {
   try {
     const rawId = req.params.userId?.trim();
