@@ -61,13 +61,18 @@ async function markRead(conversationId: string, userId: string) {
 }
 
 /**
- * A pending request lets the sender write exactly once.
+ * How many messages of a pending request are announced to the recipient.
  *
- * Without this cap, "request to message" would be decoration: anyone could
- * fill a stranger's request list with an unlimited stream before it was ever
- * accepted. One message is enough to say who you are and why.
+ * Not a cap on writing — a cap on interrupting. The sender may write as much
+ * as they like while a request is pending, because being cut off mid-thought
+ * until a stranger responds is a strange way to introduce yourself. But only
+ * the first message raises a notification: the rest sit in the request thread,
+ * read whenever the recipient chooses to look.
+ *
+ * That is the part worth protecting. An unaccepted stranger should never be
+ * able to make somebody's phone buzz repeatedly.
  */
-const REQUEST_MESSAGE_ALLOWANCE = 1;
+const REQUEST_NOTIFICATION_ALLOWANCE = 1;
 
 type RequestState = {
   pending: boolean;
@@ -556,9 +561,14 @@ async function deliverMessage(options: {
   senderName: string;
   preview: string;
   conversationTitle: string;
+  /** False for the later messages of a request nobody has accepted yet. */
+  announce?: boolean;
 }) {
   const { conversationId, senderId, senderName, preview, conversationTitle } = options;
+  // The thread is always brought up to date, whether or not anyone is told:
+  // the inbox must still show the newest message.
   await touchConversation(conversationId, preview);
+  if (options.announce === false) return;
 
   // Sending a message must not fail because a push did.
   try {
@@ -595,27 +605,34 @@ router.post("/conversations/:id/messages", async (req, res) => {
       return res.status(400).json({ error: "Write a message first", details: parsed.error.flatten() });
     }
 
-    // While a request is pending the sender gets one message, and the
-    // recipient cannot reply at all without accepting -€- replying *is*
-    // accepting, so an implicit one would defeat the point.
+    /*
+      A pending request restricts the recipient, not the sender.
+
+      The sender may keep writing: they were stopped after a single message
+      before, which meant introducing yourself and then being locked out until
+      a stranger happened to respond. Everything they write lands in the same
+      request thread and is there when it is opened.
+
+      The recipient still cannot reply without accepting, because replying *is*
+      accepting — an implicit one would make the request step meaningless.
+    */
     const request = await requestStateFor(req.params.id, userId);
-    if (request.pending) {
-      if (!request.iRequested) {
-        return res.status(403).json({
-          error: "Accept this message request before replying.",
-          code: "REQUEST_NOT_ACCEPTED",
-        });
-      }
+    if (request.pending && !request.iRequested) {
+      return res.status(403).json({
+        error: "Accept this message request before replying.",
+        code: "REQUEST_NOT_ACCEPTED",
+      });
+    }
+
+    // Only the opening message of a pending request is announced; the rest
+    // wait quietly, so nobody can use a request to make a phone buzz.
+    let announce = true;
+    if (request.pending && request.iRequested) {
       const [{ sent }] = await db
         .select({ sent: sql<number>`count(*)` })
         .from(messagesTable)
         .where(and(eq(messagesTable.conversationId, req.params.id), eq(messagesTable.senderId, userId)));
-      if (Number(sent) >= REQUEST_MESSAGE_ALLOWANCE) {
-        return res.status(403).json({
-          error: "You have sent your message request. You can write again once they accept it.",
-          code: "REQUEST_LIMIT_REACHED",
-        });
-      }
+      announce = Number(sent) < REQUEST_NOTIFICATION_ALLOWANCE;
     }
 
     // A quote must point at a message in this same thread, or it would leak a
@@ -665,6 +682,7 @@ router.post("/conversations/:id/messages", async (req, res) => {
         senderName,
         preview: previewOf(message),
         conversationTitle: conversation?.title || senderName,
+        announce,
       }),
       // Sending is also reading — nobody has unread messages in a thread they
       // are actively typing in.

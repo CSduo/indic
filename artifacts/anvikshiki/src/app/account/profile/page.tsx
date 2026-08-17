@@ -18,6 +18,8 @@ export default function ProfilePage() {
   const [handle, setHandle] = useState(user?.handle || "");
   const [bio, setBio] = useState(user?.bio || "");
   const [institution, setInstitution] = useState(user?.institution || "");
+  const [location, setLocation] = useState(user?.location || "");
+  const [age, setAge] = useState(user?.age != null ? String(user.age) : "");
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || "");
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -30,6 +32,8 @@ export default function ProfilePage() {
       setHandle(user.handle || "");
       setBio(user.bio || "");
       setInstitution(user.institution || "");
+      setLocation(user.location || "");
+      setAge(user.age != null ? String(user.age) : "");
       setAvatarUrl(user.avatarUrl || "");
     }
   }, [user]);
@@ -87,6 +91,9 @@ export default function ProfilePage() {
           handle: handle.trim().replace(/^@/, ""),
           bio,
           institution,
+          location,
+          // Blank means "not saying", which is null rather than zero.
+          age: age.trim() === "" ? null : Number(age),
         }),
       });
       // Surface what the server said. "Failed to update profile" with no
@@ -238,6 +245,39 @@ export default function ProfilePage() {
               <p className="font-ui text-[11px] text-[var(--muted)] mt-1">
                 Letters, numbers, hyphens, and underscores. Used for direct messages, mentions, and your unique member identity.
               </p>
+            </div>
+
+            {/* Optional throughout. These are offered so somebody can say more
+                about themselves if they want to, not asked for as a condition
+                of having an account. */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="form-label mb-1" htmlFor="profile-location">Where you are <span className="text-[var(--muted)]">(optional)</span></label>
+                <input
+                  id="profile-location"
+                  className="input-sacred"
+                  type="text"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="City, or country"
+                  maxLength={150}
+                />
+              </div>
+              <div>
+                <label className="form-label mb-1" htmlFor="profile-age">Age <span className="text-[var(--muted)]">(optional)</span></label>
+                <input
+                  id="profile-age"
+                  className="input-sacred"
+                  type="number"
+                  inputMode="numeric"
+                  value={age}
+                  onChange={(e) => setAge(e.target.value)}
+                  placeholder="—"
+                  min={10}
+                  max={120}
+                />
+                <p className="font-ui text-[10px] text-[var(--muted)] mt-1">Never shown publicly.</p>
+              </div>
             </div>
 
             <div>
