@@ -18,7 +18,7 @@ import {
   unpublishPublicPublicationForSubmission,
 } from "../lib/publication-sync";
 import { z } from "zod";
-import { notifyUser } from "../lib/notify";
+import { notifyUser, notifyFollowersOfNewWork } from "../lib/notify";
 import { sanitizeArticleBody, MAX_BODY_CHARS } from "../lib/content";
 
 const router = Router();
@@ -638,6 +638,21 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
           pushTitle: "Your work is published",
           tag: `submission-${req.params.id}`,
         });
+
+        /*
+          And everyone following this author hears about it — only on the
+          genuine first publish, so a repair pass over an already-published
+          submission never notifies the same people twice.
+        */
+        const readingHref = publication?.slug
+          ? `/${publication.kind === "paper" ? "papers" : "articles"}/${publication.slug}`
+          : "/browse";
+        await notifyFollowersOfNewWork({
+          authorId: previous.userId,
+          title: previous.title || "a new piece",
+          href: readingHref,
+          kind: publication?.kind === "paper" ? "paper" : "essay",
+        }).catch(err => req.log.warn({ err }, "Could not notify followers"));
       }
       return res.json({ submission, publication });
     }

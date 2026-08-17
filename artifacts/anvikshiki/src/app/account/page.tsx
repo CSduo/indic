@@ -8,6 +8,7 @@ import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { EmptyState } from "@/components/sacred/EmptyState";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { messagesApi } from "@/lib/messagesApi";
+import { ProfileStats } from "@/components/account/ProfileStats";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -461,24 +462,18 @@ export default function AccountPage() {
               <p className="type-section-label mb-2">Scholar's Desk</p>
               <h2 className="font-display text-4xl text-[var(--ink)]">Your Profile</h2>
               {/*
-                "Profile Views" was the literal number 0 — nothing counted
-                views, so the tile could never say anything else. A figure that
-                is always zero is worse than no figure at all: it reads as
-                nobody having looked. Followers and following are counted for
-                real, and they are what this page can honestly report.
+                Four figures and two small charts, all derived from what this
+                page already loaded. Replaces a grid that included "Profile
+                Views" as the literal number 0 — nothing counted views, so it
+                could never say anything else, and a permanently zero figure
+                reads as nobody having looked.
               */}
-              <div className="mt-6 grid grid-cols-2 gap-3">
-                {[
-                  ["Submissions", submissions.length],
-                  ["Published", submissions.filter((s) => s.status === "PUBLISHED").length],
-                  ["Drafts", drafts.length],
-                  ["Followers", social?.followers ?? "—"],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-4 text-center">
-                    <div className="font-display text-2xl text-[var(--gold)]">{value}</div>
-                    <div className="font-ui text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--ink-faint)] mt-1">{label}</div>
-                  </div>
-                ))}
+              <div className="mt-6">
+                <ProfileStats
+                  submissions={submissions}
+                  followers={social?.followers ?? null}
+                  following={social?.following ?? null}
+                />
               </div>
             </ParchmentCard>
 

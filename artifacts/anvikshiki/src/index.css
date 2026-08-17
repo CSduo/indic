@@ -5695,6 +5695,17 @@ input[type="search"]::-webkit-search-decoration {
   --accent-wash: #FDF3F3;
   --accent-ring: rgba(129, 1, 0, 0.18);
 
+  /* Charts get a hue of their own.
+
+     The crimson above means something — actions, alerts, the things that want
+     a decision — so a bar chart painted in it would read as a page full of
+     warnings. This blue is used for data and nothing else, which is what lets
+     a filled bar read as a quantity rather than a state. Checked against the
+     real light surface for lightness, chroma and 3:1 contrast rather than
+     chosen by eye. */
+  --data-blue: #2563EB;
+  --data-blue-soft: rgba(37, 99, 235, 0.12);
+
   /* Semantic state. Distinct from the accent so "done" never reads as "urgent". */
   --state-success: #15643A;
   --state-success-bg: #F0FDF4;
@@ -5720,6 +5731,11 @@ input[type="search"]::-webkit-search-decoration {
   --accent-hover: #F26A60;
   --accent-wash: rgba(228, 72, 63, 0.10);
   --accent-ring: rgba(228, 72, 63, 0.28);
+
+  /* Lifted for black ground — same hue, re-checked against the dark surface,
+     where the light-mode step sits too dark to read. */
+  --data-blue: #3B82F6;
+  --data-blue-soft: rgba(59, 130, 246, 0.16);
 
   --state-success: #4ADE80;
   --state-success-bg: rgba(74, 222, 128, 0.10);
