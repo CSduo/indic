@@ -666,7 +666,7 @@ export default function ConversationPage() {
     }
   };
 
-  const attach = async (file: File) => {
+  const attach = async (file: File, transcript?: string) => {
     if (!file) return;
     setSending(true);
 
@@ -683,7 +683,7 @@ export default function ConversationPage() {
       senderName: user?.name || "You",
       senderAvatarUrl: user?.avatarUrl ?? null,
       kind: isImage ? "IMAGE" : file.type.startsWith("audio/") ? "AUDIO" : "FILE",
-      body: null,
+      body: transcript || null,
       mediaUrl: localUrl,
       mediaMimeType: file.type || null,
       mediaName: file.name,
@@ -697,7 +697,7 @@ export default function ConversationPage() {
     requestAnimationFrame(() => scrollToBottom(true));
 
     try {
-      const result = await messagesApi.sendAttachment(conversationId, file);
+      const result = await messagesApi.sendAttachment(conversationId, file, transcript);
       const saved = result?.message;
       if (saved) {
         setMessages(prev => reconcile(prev, tempId, optimistic, saved));
@@ -811,6 +811,7 @@ export default function ConversationPage() {
   if (!user) return null;
 
   const isGroup = details?.kind === "GROUP";
+  const otherMember = !isGroup ? details?.members.find(m => m.userId !== user.id) : null;
 
   return (
     <div className="flex h-full min-h-0 flex-col" style={{ background: "var(--bg)" }}>
@@ -826,7 +827,12 @@ export default function ConversationPage() {
           </button>
           <Avatar name={details?.title || ""} url={details?.avatarUrl} size={36} />
           <div className="min-w-0 flex-1">
-            <p className="truncate font-body text-sm font-semibold text-[var(--ink)]">{details?.title || "…"}</p>
+            <div className="flex items-center gap-2">
+              <p className="truncate font-body text-sm font-semibold text-[var(--ink)]">{details?.title || "…"}</p>
+              {otherMember?.handle ? (
+                <span className="font-ui text-xs font-semibold text-[var(--gold)]">@{otherMember.handle}</span>
+              ) : null}
+            </div>
             <p className="mono-label truncate">
               {typing.length > 0
                 ? `${typing.slice(0, 2).join(", ")} ${typing.length === 1 ? "is" : "are"} typing…`
@@ -851,6 +857,7 @@ export default function ConversationPage() {
                 <li key={m.userId} className="flex items-center gap-2">
                   <Avatar name={m.name} url={m.avatarUrl} size={24} />
                   <span className="font-body text-sm text-[var(--ink)]">{m.name}</span>
+                  {m.handle ? <span className="font-mono text-xs text-[var(--gold)]">@{m.handle}</span> : null}
                   {m.role === "ADMIN" ? <span className="mono-label">Admin</span> : null}
                 </li>
               ))}
@@ -958,7 +965,7 @@ export default function ConversationPage() {
           {recording ? (
             <VoiceRecorder
               busy={sending}
-              onSend={file => attach(file)}
+              onSend={(file, transcript) => attach(file, transcript)}
               onCancel={() => setRecording(false)}
             />
           ) : (

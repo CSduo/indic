@@ -15,6 +15,7 @@ const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 interface PublicUser {
   id: string;
   name: string;
+  handle?: string;
   bio?: string;
   institution?: string;
   avatarUrl?: string;
@@ -78,9 +79,14 @@ export default function PublicProfilePage() {
     if (!viewer) { navigateTo("/login"); return; }
     setSocialBusy(true);
     try {
-      const { conversation, pendingRequest } = await messagesApi.start([userId], "DIRECT");
+      const targetId = profile?.id || userId;
+      const { conversation, pendingRequest } = await messagesApi.start([targetId], "DIRECT");
       if (pendingRequest) toast.success("Send one message — they'll see it as a request.");
-      navigateTo(`/messages/${conversation.id}`);
+      if (profile?.handle) {
+        navigateTo(`/messages/@${profile.handle}`);
+      } else {
+        navigateTo(`/messages/${conversation.id}`);
+      }
     } catch (err: any) {
       toast.error(err.message || "Could not open that conversation");
     } finally {
@@ -207,6 +213,9 @@ export default function PublicProfilePage() {
             {/* Info */}
             <div className="flex-1 min-w-0 pt-2 sm:pt-14">
               <h1 className="font-display text-3xl md:text-4xl text-[var(--ink)] leading-tight font-bold">{profile.name}</h1>
+              {profile.handle && (
+                <p className="font-ui text-sm font-semibold text-[var(--gold)] mt-0.5">@{profile.handle}</p>
+              )}
 
               {profile.institution && (
                 <p className="mt-2 flex items-center gap-1.5 font-ui text-sm text-[var(--muted)]">

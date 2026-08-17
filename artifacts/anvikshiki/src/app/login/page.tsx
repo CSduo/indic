@@ -219,11 +219,11 @@ export default function LoginPage() {
                     Scholar Handle <span className="font-normal normal-case tracking-normal text-[var(--ink-faint)]">(optional, unique @handle)</span>
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-sm text-[var(--muted)]">@</span>
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-mono text-sm font-bold text-[var(--muted)]">@</span>
                     <input
                       id="handle"
                       type="text"
-                      className="input-sacred pl-8 font-mono text-sm"
+                      className="input-sacred input-with-handle-at font-mono text-sm"
                       placeholder="username"
                       value={handle}
                       onChange={(event) => setHandle(event.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, ""))}

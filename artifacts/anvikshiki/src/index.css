@@ -1,4 +1,4 @@
-﻿/* Minimal Aesthetic Design Kit â€” Google Fonts (must be first @import) */
+/* Minimal Aesthetic Design Kit â€” Google Fonts (must be first @import) */
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,600&family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
@@ -893,6 +893,14 @@ button {
   font-family: var(--font-ui);
   font-size: .93rem;
   transition: border-color var(--motion-fast) var(--ease-archive), box-shadow var(--motion-fast) var(--ease-archive), background var(--motion-fast) var(--ease-archive);
+}
+
+.input-with-icon-left {
+  padding-left: 2.75rem !important;
+}
+
+.input-with-handle-at {
+  padding-left: 2.25rem !important;
 }
 
 .textarea-sacred {

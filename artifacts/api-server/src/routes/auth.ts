@@ -329,14 +329,22 @@ router.put("/auth/profile", async (req, res) => {
 // GET /api/users/:userId/profile — public profile page data
 router.get("/users/:userId/profile", async (req, res) => {
   try {
-    const { userId } = req.params;
+    const rawId = req.params.userId?.trim();
+    const cleanHandle = rawId.replace(/^@/, "").toLowerCase();
     const [user] = await db.select({
       id: usersTable.id,
       name: usersTable.name,
       bio: usersTable.bio,
       institution: usersTable.institution,
       avatarUrl: usersTable.avatarUrl,
-    }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+      handle: usersTable.handle,
+    }).from(usersTable).where(
+      or(
+        eq(usersTable.id, rawId),
+        eq(usersTable.handle, cleanHandle),
+        eq(usersTable.handle, rawId)
+      )
+    ).limit(1);
 
     if (!user) return res.status(404).json({ error: "User not found" });
 
@@ -446,21 +454,27 @@ router.post("/auth/google", async (req, res) => {
     let [user] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
 
     if (!user) {
+      const generatedHandle = await generateHandle(name, email);
       // Auto-signup the user
       [user] = await db.insert(usersTable).values({
         name,
         email,
         avatarUrl,
+        handle: generatedHandle,
       }).returning();
       sendNewMemberNotification(user.name || name, user.email)
         .catch(err => req.log.warn({ err }, "Failed to send member notification"));
-    } else if (!user.avatarUrl && avatarUrl) {
-      // Update avatar if not already set
-      const [updatedUser] = await db.update(usersTable)
-        .set({ avatarUrl, updatedAt: new Date() })
-        .where(eq(usersTable.id, user.id))
-        .returning();
-      user = updatedUser;
+    } else {
+      const handle = user.handle || (await ensureHandle(user.id, user.name, user.email));
+      if (!user.avatarUrl && avatarUrl) {
+        const [updatedUser] = await db.update(usersTable)
+          .set({ avatarUrl, handle, updatedAt: new Date() })
+          .where(eq(usersTable.id, user.id))
+          .returning();
+        user = updatedUser;
+      } else if (!user.handle && handle) {
+        user.handle = handle;
+      }
     }
 
     // Log the user in
@@ -474,7 +488,8 @@ router.post("/auth/google", async (req, res) => {
         email: user.email,
         name: user.name,
         role: user.role,
-        avatarUrl: user.avatarUrl
+        avatarUrl: user.avatarUrl,
+        handle: user.handle,
       }
     });
   } catch (err) {

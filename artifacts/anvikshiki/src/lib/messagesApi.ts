@@ -1,4 +1,4 @@
-﻿const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
+const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
 async function json<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${base()}/api${path}`, { credentials: "include", ...init });
@@ -27,6 +27,7 @@ export type ConversationMember = {
   userId: string;
   name: string;
   avatarUrl: string | null;
+  handle?: string | null;
   role: "MEMBER" | "ADMIN";
   lastReadAt: string | null;
 };

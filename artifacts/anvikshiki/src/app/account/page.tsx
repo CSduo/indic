@@ -29,7 +29,7 @@ const USER_DELETABLE_STATUSES = new Set(["DRAFT", "RECEIVED", "UNDER_REVIEW", "R
 
 export default function AccountPage() {
   const [, navigate] = useLocation();
-  const { user, logout, refresh } = useAuthContext();
+  const { user, logout, refresh, login } = useAuthContext();
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [deletedSubmissions, setDeletedSubmissions] = useState<any[]>([]);
   const [unreadMessages, setUnreadMessages] = useState(0);
@@ -161,6 +161,7 @@ export default function AccountPage() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Failed to update profile");
+      if (data.user) login(data.user);
       await refresh();
       setEditing(false);
       toast.success("Profile updated");
@@ -186,6 +187,7 @@ export default function AccountPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Failed to set handle");
+      if (data.user) login(data.user);
       await refresh();
       toast.success(`Handle @${h} claimed successfully!`);
     } catch (err: any) {
@@ -435,8 +437,8 @@ export default function AccountPage() {
                   <div>
                     <label className="text-[10px] font-ui uppercase tracking-wider text-[var(--muted)] block text-left mb-0.5">Handle (@handle)</label>
                     <div className="relative">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-[var(--muted)]">@</span>
-                      <input className="input-sacred pl-6 py-1 text-xs font-mono" value={editHandle.replace(/^@/, "")} onChange={(event) => setEditHandle(event.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""))} placeholder="handle" maxLength={30} />
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-mono text-xs font-bold text-[var(--muted)]">@</span>
+                      <input className="input-sacred input-with-handle-at py-1 text-xs font-mono" value={editHandle.replace(/^@/, "")} onChange={(event) => setEditHandle(event.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""))} placeholder="handle" maxLength={30} />
                     </div>
                   </div>
                   <div className="flex items-center justify-center gap-3 pt-1">
@@ -519,14 +521,14 @@ export default function AccountPage() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <div className="relative">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-ui text-xs font-bold text-[var(--muted)]">@</span>
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-mono text-xs font-bold text-[var(--muted)]">@</span>
                       <input
                         type="text"
                         placeholder="your-handle"
                         value={promptHandle}
                         onChange={e => setPromptHandle(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""))}
                         onKeyDown={e => e.key === "Enter" && claimHandle()}
-                        className="input-sacred pl-7 py-1.5 text-xs font-mono w-36 sm:w-44"
+                        className="input-sacred input-with-handle-at py-1.5 text-xs font-mono w-36 sm:w-44"
                         maxLength={30}
                       />
                     </div>

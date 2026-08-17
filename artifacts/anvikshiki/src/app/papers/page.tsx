@@ -70,7 +70,7 @@ export default function PapersPage() {
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" aria-hidden="true" />
             <input
               type="search"
-              className="input-sacred pl-10"
+              className="input-sacred input-with-icon-left"
               placeholder="Search papers and authors..."
               value={query}
               onChange={(event) => setQuery(event.target.value)}

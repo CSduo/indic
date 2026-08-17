@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { ArrowLeft, Check, PenSquare, RefreshCw, Search, Users, X } from "lucide-react";
 import { toast } from "sonner";
@@ -159,8 +159,8 @@ function ComposePanel({ onClose }: { onClose: () => void }) {
           <div className="relative">
             <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--ink-meta)" }} />
             <input
-              className="input-sacred w-full pl-9 text-sm"
-              placeholder="Search people by nameâ€¦"
+              className="input-sacred input-with-icon-left w-full text-sm"
+              placeholder="Search people by name or handle…"
               value={query}
               onChange={e => setQuery(e.target.value)}
               autoFocus
@@ -395,8 +395,8 @@ export default function MessagesInboxPage() {
           <div className="relative mb-4">
             <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--ink-meta)" }} />
             <input
-              className="input-sacred w-full pl-9 text-sm"
-              placeholder="Search your conversationsâ€¦"
+              className="input-sacred input-with-icon-left w-full text-sm"
+              placeholder="Search your conversations…"
               value={filter}
               onChange={e => setFilter(e.target.value)}
             />

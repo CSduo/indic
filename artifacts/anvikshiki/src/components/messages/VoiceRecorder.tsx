@@ -43,7 +43,7 @@ export function VoiceRecorder({
   onCancel,
   busy,
 }: {
-  onSend: (file: File) => Promise<void> | void;
+  onSend: (file: File, transcript?: string) => Promise<void> | void;
   onCancel: () => void;
   busy?: boolean;
 }) {
@@ -58,12 +58,16 @@ export function VoiceRecorder({
   const tickRef = useRef<number | undefined>(undefined);
   const rafRef = useRef<number | undefined>(undefined);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const recognitionRef = useRef<any>(null);
+  const transcriptRef = useRef<string>("");
   /** Set when the recording is being sent, so onstop knows what to do. */
   const sendOnStopRef = useRef(false);
 
   const releaseEverything = () => {
     window.clearInterval(tickRef.current);
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    try { recognitionRef.current?.stop(); } catch {}
+    recognitionRef.current = null;
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
     audioCtxRef.current?.close().catch(() => {});
@@ -93,14 +97,35 @@ export function VoiceRecorder({
         const recorder = new MediaRecorder(stream, { mimeType });
         recorderRef.current = recorder;
         chunksRef.current = [];
+        transcriptRef.current = "";
+
+        // Attempt live speech recognition in browsers that support it
+        const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (SpeechRec) {
+          try {
+            const rec = new SpeechRec();
+            rec.continuous = true;
+            rec.interimResults = true;
+            rec.onresult = (ev: any) => {
+              let text = "";
+              for (let i = 0; i < ev.results.length; i++) {
+                text += (ev.results[i][0]?.transcript || "") + " ";
+              }
+              if (text.trim()) transcriptRef.current = text.trim();
+            };
+            rec.start();
+            recognitionRef.current = rec;
+          } catch {}
+        }
 
         recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
         recorder.onstop = async () => {
           const blob = new Blob(chunksRef.current, { type: mimeType });
+          const transcript = transcriptRef.current.trim() || undefined;
           releaseEverything();
           if (!sendOnStopRef.current || blob.size === 0) return;
           const file = new File([blob], `voice-note.${extensionFor(mimeType)}`, { type: mimeType });
-          await onSend(file);
+          await onSend(file, transcript);
           onCancel();
         };
 

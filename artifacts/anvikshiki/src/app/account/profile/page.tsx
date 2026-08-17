@@ -12,7 +12,7 @@ const IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "imag
 
 export default function ProfilePage() {
   const [, navigate] = useLocation();
-  const { user, refresh } = useAuthContext();
+  const { user, refresh, login } = useAuthContext();
 
   const [name, setName] = useState(user?.name || "");
   const [handle, setHandle] = useState(user?.handle || "");
@@ -91,13 +91,14 @@ export default function ProfilePage() {
       });
       // Surface what the server said. "Failed to update profile" with no
       // reason is impossible to act on and impossible to report.
+      const data = await r.json().catch(() => ({}));
       if (!r.ok) {
-        const data = await r.json().catch(() => ({}));
         throw new Error(
           data.error
             || (r.status === 401 ? "Your session has expired — sign in again." : `The server returned ${r.status}.`),
         );
       }
+      if (data.user) login(data.user);
       await refresh();
       toast.success("Profile updated");
     } catch (err: any) {
@@ -220,12 +221,12 @@ export default function ProfilePage() {
                 Unique Handle (@handle) *
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-ui text-sm font-semibold text-[var(--muted)]">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-mono text-sm font-bold text-[var(--muted)]">
                   @
                 </span>
                 <input
                   id="profile-handle"
-                  className="input-sacred pl-8 font-ui"
+                  className="input-sacred input-with-handle-at font-mono text-sm"
                   type="text"
                   value={handle.replace(/^@/, "")}
                   onChange={(e) => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""))}
