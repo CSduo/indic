@@ -210,12 +210,19 @@ export default function CommunityMembersPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => message(m)}
-                      disabled={acting === m.id}
-                      className="btn-ink text-[11px]"
-                      aria-label={`Message ${m.name}`}
+                      onClick={() => {
+                        if (!m.handle) {
+                          toast.info("This scholar must claim a @handle in their profile before receiving direct messages.");
+                          return;
+                        }
+                        message(m);
+                      }}
+                      disabled={acting === m.id || !m.handle}
+                      className={`btn-ink text-[11px] ${!m.handle ? "opacity-40 cursor-not-allowed" : ""}`}
+                      aria-label={m.handle ? `Message ${m.name}` : `${m.name} has no handle claimed`}
+                      title={!m.handle ? "Member must set @handle in profile before receiving messages" : undefined}
                     >
-                      <MessageSquare size={13} /> Message
+                      <MessageSquare size={13} /> {m.handle ? "Message" : "No Handle"}
                     </button>
                   </div>
                 ) : null}

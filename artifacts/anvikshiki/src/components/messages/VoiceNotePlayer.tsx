@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState, useId, useMemo } from "react";
 import { Play, Pause, FileText, Globe, Copy, Check, Volume2, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { messagesApi } from "@/lib/messagesApi";
 
 interface VoiceNotePlayerProps {
   src: string;
   mine?: boolean;
   transcript?: string | null;
   durationSeconds?: number;
+  messageId?: string;
+  onTranscriptUpdate?: (transcript: string) => void;
 }
 
 const SPEED_OPTIONS = [1, 1.25, 1.5, 1.75, 2] as const;
@@ -60,6 +63,8 @@ export function VoiceNotePlayer({
   mine = false,
   transcript = null,
   durationSeconds,
+  messageId,
+  onTranscriptUpdate,
 }: VoiceNotePlayerProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const waveformRef = useRef<HTMLDivElement | null>(null);
@@ -74,6 +79,7 @@ export function VoiceNotePlayer({
   const [selectedLang, setSelectedLang] = useState<"orig" | "en" | "hi" | "sa">("orig");
   const [copied, setCopied] = useState(false);
   const [customTranscript, setCustomTranscript] = useState<string | null>(transcript || null);
+  const [serverTranslations, setServerTranslations] = useState<{ english?: string; hindi?: string; sanskrit?: string } | null>(null);
   const [transcribing, setTranscribing] = useState(false);
 
   // Clean transcript
@@ -83,8 +89,13 @@ export function VoiceNotePlayer({
   const displayTranscript = useMemo(() => {
     if (!activeTranscript) return "Voice note audio recording.";
     if (selectedLang === "orig") return activeTranscript;
+    if (serverTranslations) {
+      if (selectedLang === "en" && serverTranslations.english) return serverTranslations.english;
+      if (selectedLang === "hi" && serverTranslations.hindi) return serverTranslations.hindi;
+      if (selectedLang === "sa" && serverTranslations.sanskrit) return serverTranslations.sanskrit;
+    }
     return translateText(activeTranscript, selectedLang);
-  }, [activeTranscript, selectedLang]);
+  }, [activeTranscript, selectedLang, serverTranslations]);
 
   const currentSpeed = SPEED_OPTIONS[speedIndex];
 
@@ -228,9 +239,26 @@ export function VoiceNotePlayer({
     });
   };
 
-  const triggerTranscribe = (e: React.MouseEvent) => {
+  const triggerTranscribe = async (e: React.MouseEvent) => {
     e.stopPropagation();
     setTranscribing(true);
+
+    if (messageId) {
+      try {
+        const data = await messagesApi.transcribe(messageId);
+        if (data?.transcript) {
+          setCustomTranscript(data.transcript);
+          setServerTranslations(data.translations);
+          onTranscriptUpdate?.(data.transcript);
+          toast.success("Voice note transcribed with AI!");
+          setTranscribing(false);
+          setShowTranscript(true);
+          return;
+        }
+      } catch (err: any) {
+        console.warn("Backend AI transcription fallback:", err);
+      }
+    }
 
     const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRec) {
@@ -244,6 +272,7 @@ export function VoiceNotePlayer({
           const text = ev.results[0]?.[0]?.transcript;
           if (text) {
             setCustomTranscript(text);
+            onTranscriptUpdate?.(text);
             toast.success("Transcript captured!");
           }
           setTranscribing(false);
@@ -253,6 +282,7 @@ export function VoiceNotePlayer({
           const manual = window.prompt("Speech recognition unavailable. Enter transcript for this voice note:");
           if (manual && manual.trim()) {
             setCustomTranscript(manual.trim());
+            onTranscriptUpdate?.(manual.trim());
             toast.success("Transcript saved!");
           }
         };
@@ -269,6 +299,7 @@ export function VoiceNotePlayer({
     const manual = window.prompt("Enter or paste transcript for this voice note:");
     if (manual && manual.trim()) {
       setCustomTranscript(manual.trim());
+      onTranscriptUpdate?.(manual.trim());
       toast.success("Transcript saved!");
     }
   };

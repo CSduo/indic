@@ -131,6 +131,11 @@ export const messagesApi = {
       body: JSON.stringify({ body }),
     }),
   unsend: (messageId: string) => json(`/messages/${messageId}`, { method: "DELETE" }),
+  transcribe: (messageId: string) =>
+    json<{ transcript: string; translations: { english: string; hindi: string; sanskrit: string } }>(
+      `/messages/${messageId}/transcribe`,
+      { method: "POST" },
+    ),
   update: (id: string, patch: { title?: string; muted?: boolean }) =>
     json(`/conversations/${id}`, {
       method: "PATCH",

@@ -68,9 +68,12 @@ function ComposePanel({ onClose }: { onClose: () => void }) {
   // A group is a group because that is what was asked for, not because two
   // people happened to get picked.
   const isGroup = mode === "GROUP";
-
   const start = async () => {
     if (chosen.length === 0) return;
+    if (!isGroup && !chosen[0]?.handle) {
+      toast.error("This scholar has not claimed a @handle yet. Direct messaging requires members to set a handle first.");
+      return;
+    }
     setBusy(true);
     try {
       const { conversation, pendingRequest } = await messagesApi.start(
@@ -135,7 +138,6 @@ function ComposePanel({ onClose }: { onClose: () => void }) {
                   <button
                     type="button"
                     onClick={() => setChosen(list => list.filter(x => x.id !== c.id))}
-                    aria-label={`Remove ${c.name}`}
                     className="ml-1"
                   >
                     <X size={11} />
@@ -171,12 +173,19 @@ function ComposePanel({ onClose }: { onClose: () => void }) {
               <p className="px-1 py-4 font-ui text-xs text-[var(--muted)]">No one found by that name.</p>
             ) : null}
             {results.map(person => {
+              const hasHandle = Boolean(person.handle && person.handle.trim());
               const already = chosen.some(c => c.id === person.id);
+              const disabled = !isGroup && !hasHandle;
               return (
                 <button
                   key={person.id}
                   type="button"
+                  disabled={disabled}
                   onClick={() => {
+                    if (disabled) {
+                      toast.info("This scholar must claim a @handle in their profile before receiving direct messages.");
+                      return;
+                    }
                     setChosen(list => {
                       if (already) return list.filter(c => c.id !== person.id);
                       // A direct message is to exactly one person, so picking
@@ -185,7 +194,7 @@ function ComposePanel({ onClose }: { onClose: () => void }) {
                     });
                     setQuery("");
                   }}
-                  className="flex w-full items-center gap-3 rounded-[2px] px-2 py-2 text-left hover:bg-[var(--surface-2)]"
+                  className={`flex w-full items-center gap-3 rounded-[2px] px-2 py-2 text-left transition-opacity ${disabled ? "opacity-40 cursor-not-allowed" : "hover:bg-[var(--surface-2)]"}`}
                 >
                   <Avatar name={person.name} url={person.avatarUrl} size={32} />
                   <div className="min-w-0 flex-1">
@@ -193,10 +202,14 @@ function ComposePanel({ onClose }: { onClose: () => void }) {
                     {person.handle ? (
                       <p className="font-mono text-xs font-semibold text-[var(--gold)]">@{person.handle}</p>
                     ) : (
-                      <p className="font-ui text-[10px] text-[var(--muted)]">Scholar</p>
+                      <p className="font-ui text-[10px] text-red-500 font-semibold">No @handle claimed</p>
                     )}
                   </div>
-                  {already ? <span className="ml-auto mono-label">Added</span> : null}
+                  {disabled ? (
+                    <span className="ml-auto font-mono text-[9px] text-[var(--muted)] border border-[var(--hairline)] px-1.5 py-0.5 rounded">Unreachable</span>
+                  ) : already ? (
+                    <span className="ml-auto mono-label">Added</span>
+                  ) : null}
                 </button>
               );
             })}

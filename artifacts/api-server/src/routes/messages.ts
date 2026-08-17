@@ -17,6 +17,7 @@ import { persistUploadedFile, signedMediaUrl } from "../lib/storage";
 import { sendPushToUser } from "../lib/push";
 import { notifyUser } from "../lib/notify";
 import { validateHandle, handleIsAvailable } from "../lib/handles";
+import { transcribeAudioBuffer, generateIndicTranslations } from "../lib/transcription";
 import {
   describeConversation,
   directKeyFor,
@@ -248,10 +249,10 @@ router.post("/conversations", async (req, res) => {
     const others = [...new Set(parsed.data.userIds.filter(id => id !== userId))];
     if (others.length === 0) return res.status(400).json({ error: "Choose someone to message" });
 
-    // Only real accounts may be added â€” a stale id would otherwise create a
+    // Only real accounts may be added — a stale id would otherwise create a
     // conversation with a member who can never read it.
     const found = await db
-      .select({ id: usersTable.id })
+      .select({ id: usersTable.id, handle: usersTable.handle })
       .from(usersTable)
       .where(inArray(usersTable.id, others));
     if (found.length !== others.length) {
@@ -261,6 +262,12 @@ router.post("/conversations", async (req, res) => {
     if (kind === "DIRECT") {
       if (others.length !== 1) {
         return res.status(400).json({ error: "A direct conversation is between exactly two people" });
+      }
+      const recipient = found[0];
+      if (!recipient?.handle || !recipient.handle.trim()) {
+        return res.status(400).json({
+          error: "This scholar has not claimed a @handle yet. Direct messaging requires members to set a handle in their profile first.",
+        });
       }
       const key = directKeyFor(userId, others[0]);
 
@@ -821,6 +828,84 @@ router.patch("/messages/:id", async (req, res) => {
   } catch (err) {
     req.log?.error({ err }, "Failed to edit message");
     return res.status(500).json({ error: "Could not edit that message" });
+  }
+});
+
+/** POST /api/messages/:id/transcribe — transcribe and translate any recorded voice note */
+router.post("/messages/:id/transcribe", async (req, res) => {
+  try {
+    const userId = await requireUser(req, res);
+    if (!userId) return;
+
+    const [message] = await db
+      .select()
+      .from(messagesTable)
+      .where(eq(messagesTable.id, req.params.id))
+      .limit(1);
+
+    if (!message || message.deletedAt) {
+      return res.status(404).json({ error: "Message not found" });
+    }
+
+    const membership = await requireMembership(message.conversationId, userId);
+    if (!membership) {
+      return res.status(403).json({ error: "Not authorized" });
+    }
+
+    if (message.kind !== "AUDIO") {
+      return res.status(400).json({ error: "Only voice notes can be transcribed" });
+    }
+
+    // If message already has a valid transcript, generate/return translations directly
+    if (message.body && message.body.trim() && !/voice note audio recording/i.test(message.body)) {
+      const translations = generateIndicTranslations(message.body);
+      return res.json({
+        transcript: message.body,
+        translations,
+      });
+    }
+
+    // Fetch the audio buffer
+    const source = signedMediaUrl({
+      storageKey: message.mediaStorageKey,
+      resourceType: message.mediaResourceType,
+    }) || message.mediaUrl;
+
+    if (!source) {
+      return res.status(400).json({ error: "Audio source is missing" });
+    }
+
+    let buffer: Buffer;
+    if (source.startsWith("data:")) {
+      const base64Data = source.split(",")[1];
+      buffer = Buffer.from(base64Data, "base64");
+    } else {
+      const resp = await fetch(source);
+      if (!resp.ok) {
+        return res.status(502).json({ error: "Could not fetch audio file for transcription" });
+      }
+      const arr = await resp.arrayBuffer();
+      buffer = Buffer.from(arr);
+    }
+
+    const mime = message.mediaMimeType || "audio/webm";
+    const result = await transcribeAudioBuffer(buffer, mime);
+
+    // Save transcript to database so all participants see it permanently
+    if (result.transcript) {
+      await db
+        .update(messagesTable)
+        .set({ body: result.transcript })
+        .where(eq(messagesTable.id, message.id));
+    }
+
+    return res.json({
+      transcript: result.transcript,
+      translations: result.translations,
+    });
+  } catch (err) {
+    req.log?.error({ err }, "Failed to transcribe voice note");
+    return res.status(500).json({ error: "Could not transcribe audio" });
   }
 });
 

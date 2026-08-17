@@ -301,6 +301,10 @@ function MessageBubble({
               src={mediaUrl(message)}
               mine={mine}
               transcript={message.body}
+              messageId={message.id}
+              onTranscriptUpdate={(t) => {
+                message.body = t;
+              }}
             />
           ) : null}
 
@@ -388,37 +392,43 @@ function MessageBubble({
         ) : null}
       </div>
 
-      {/*
-        Actions fade on a pointer device but are always present on touch.
-        The previous version revealed them on hover alone, so on a phone —
-        where nothing hovers — reply, react and unsend were invisible. They
-        are dimmed rather than hidden so the row stays quiet without becoming
-        a secret.
-      */}
+      {/* Action button trigger */}
       <div className="relative self-center opacity-40 transition-opacity focus-within:opacity-100 md:opacity-0 md:group-hover:opacity-100">
-        <button type="button" className="editor-tool" onClick={() => setMenuOpen(v => !v)} aria-label="Message actions">
-          <MoreHorizontal size={14} />
+        <button
+          type="button"
+          className="editor-tool"
+          onClick={() => setMenuOpen(true)}
+          aria-label="Message actions"
+        >
+          <MoreHorizontal size={15} />
         </button>
+
         {menuOpen ? (
-          <>
-            <button type="button" className="fixed inset-0 z-[90] cursor-default" aria-hidden="true" onClick={() => setMenuOpen(false)} />
-            {/*
-              The menu opens towards the middle of the screen, not away from
-              it. On your own messages the row is reversed, so the button sits
-              against the left edge — anchoring the menu's right edge to it
-              sent the whole panel off the side of the phone, which is where
-              the reactions and Unsend were disappearing to.
-            */}
+          <div
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Message options"
+          >
+            {/* Backdrop */}
             <div
-              className="absolute z-[95] mt-1 w-44 max-w-[min(11rem,calc(100vw-2rem))] overflow-hidden rounded-[2px] border border-[var(--hairline)] bg-[var(--surface)] shadow-lg"
-              style={{ [mine ? "left" : "right"]: 0 } as any}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+              onClick={() => setMenuOpen(false)}
+            />
+
+            {/* Floating Pop-up Card */}
+            <div
+              className="relative z-10 w-full max-w-xs overflow-hidden rounded-[8px] border border-[var(--hairline-strong)] bg-[var(--surface)] p-3.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+              style={{ background: "var(--surface)", borderColor: "var(--hairline-strong)" }}
+              onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex gap-1 border-b border-[var(--hairline)] p-2">
+              {/* Quick Reactions Bar */}
+              <div className="flex items-center justify-around gap-1 rounded-[6px] bg-[var(--surface-2)] p-2 mb-2">
                 {QUICK_REACTIONS.map(emoji => (
                   <button
                     key={emoji}
                     type="button"
-                    className="editor-tool"
+                    className="text-xl hover:scale-125 active:scale-95 transition-transform p-1 rounded"
                     onClick={() => { onReact(message, emoji); setMenuOpen(false); }}
                     aria-label={`React ${emoji}`}
                   >
@@ -426,45 +436,69 @@ function MessageBubble({
                   </button>
                 ))}
               </div>
+
+              {/* Action list */}
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-[4px] px-3 py-2.5 text-left font-ui text-sm font-medium text-[var(--ink)] hover:bg-[var(--surface-2)] transition-colors"
+                  onClick={() => { onReply(message); setMenuOpen(false); }}
+                >
+                  <CornerUpLeft size={16} className="text-[var(--accent)]" />
+                  <span>Reply</span>
+                </button>
+
+                {message.body ? (
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-3 rounded-[4px] px-3 py-2.5 text-left font-ui text-sm font-medium text-[var(--ink)] hover:bg-[var(--surface-2)] transition-colors"
+                    onClick={() => {
+                      void navigator.clipboard?.writeText(message.body || "");
+                      setMenuOpen(false);
+                      toast.success("Text copied to clipboard");
+                    }}
+                  >
+                    <Copy size={16} className="text-[var(--ink-meta)]" />
+                    <span>Copy Text</span>
+                  </button>
+                ) : null}
+
+                {mine && message.kind === "TEXT" && !message.pending ? (
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-3 rounded-[4px] px-3 py-2.5 text-left font-ui text-sm font-medium text-[var(--ink)] hover:bg-[var(--surface-2)] transition-colors"
+                    onClick={() => { onEdit(message); setMenuOpen(false); }}
+                  >
+                    <Pencil size={16} className="text-[var(--gold)]" />
+                    <span>Edit Message</span>
+                  </button>
+                ) : null}
+
+                {mine && !message.pending ? (
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-3 rounded-[4px] px-3 py-2.5 text-left font-ui text-sm font-medium text-red-500 hover:bg-red-500/10 transition-colors"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onUnsend(message);
+                    }}
+                  >
+                    <Trash2 size={16} className="text-red-500" />
+                    <span className="font-semibold">Unsend Message</span>
+                  </button>
+                ) : null}
+              </div>
+
+              {/* Cancel Button */}
               <button
                 type="button"
-                className="flex w-full items-center gap-2 px-3 py-2 text-left font-ui text-xs hover:bg-[var(--surface-2)]"
-                onClick={() => { onReply(message); setMenuOpen(false); }}
+                className="mt-2.5 w-full rounded-[4px] border border-[var(--hairline)] py-2 text-center font-ui text-xs font-semibold text-[var(--ink-meta)] hover:bg-[var(--surface-2)] transition-colors"
+                onClick={() => setMenuOpen(false)}
               >
-                <CornerUpLeft size={13} /> Reply
+                Cancel
               </button>
-              {message.body ? (
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left font-ui text-xs hover:bg-[var(--surface-2)]"
-                  onClick={() => { void navigator.clipboard?.writeText(message.body || ""); setMenuOpen(false); toast.success("Copied"); }}
-                >
-                  <Copy size={13} /> Copy text
-                </button>
-              ) : null}
-              {/* Editing is for your own words only, and only words — there is
-                  nothing to edit about a file someone already received. */}
-              {mine && message.kind === "TEXT" && !message.pending ? (
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left font-ui text-xs hover:bg-[var(--surface-2)]"
-                  onClick={() => { onEdit(message); setMenuOpen(false); }}
-                >
-                  <Pencil size={13} /> Edit
-                </button>
-              ) : null}
-              {mine && !message.pending ? (
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left font-ui text-xs hover:bg-[var(--surface-2)]"
-                  style={{ color: "var(--state-error)" }}
-                  onClick={() => { onUnsend(message); setMenuOpen(false); }}
-                >
-                  <Trash2 size={13} /> Unsend
-                </button>
-              ) : null}
             </div>
-          </>
+          </div>
         ) : null}
       </div>
     </div>
@@ -909,7 +943,19 @@ export default function ConversationPage() {
         onScroll={onScroll}
         className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden [overscroll-behavior:contain]"
       >
-       <div className="container-anv mx-auto w-full max-w-3xl overflow-x-hidden py-5">
+       <div className="container-anv mx-auto flex min-h-full flex-col justify-end w-full max-w-3xl overflow-x-hidden py-5">
+        {/* Header intro / Conversation start sits at top */}
+        <div className="mb-auto flex flex-col items-center py-10 text-center">
+          <Avatar name={details?.title || ""} url={details?.avatarUrl} size={64} />
+          <p className="mt-3 font-display text-lg text-[var(--ink)]">{details?.title || ""}</p>
+          {otherMember?.handle ? (
+            <p className="font-mono text-xs font-semibold text-[var(--gold)] mt-0.5">@{otherMember.handle}</p>
+          ) : null}
+          <p className="mx-auto mt-1 max-w-xs font-body text-xs text-[var(--muted)]">
+            This is the beginning of your direct conversation with {details?.title || "this member"}.
+          </p>
+        </div>
+
         {busy ? (
           <div className="space-y-3" aria-hidden="true">
             {[0, 1, 2, 3].map(i => (
@@ -918,16 +964,8 @@ export default function ConversationPage() {
               </div>
             ))}
           </div>
-        ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center py-16 text-center">
-            <Avatar name={details?.title || ""} url={details?.avatarUrl} size={64} />
-            <p className="mt-3 font-display text-lg text-[var(--ink)]">{details?.title || ""}</p>
-            <p className="mx-auto mt-1 max-w-xs font-body text-sm text-[var(--muted)]">
-              This is the beginning of your conversation.
-            </p>
-          </div>
-        ) : (
-          <div>
+        ) : messages.length === 0 ? null : (
+          <div className="space-y-1">
             {messages.map((m, i) => {
               const prev = messages[i - 1];
               const next = messages[i + 1];

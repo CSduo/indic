@@ -77,16 +77,16 @@ export default function PublicProfilePage() {
 
   const startConversation = async () => {
     if (!viewer) { navigateTo("/login"); return; }
+    if (!profile?.handle) {
+      toast.info("This scholar has not claimed a @handle in their profile yet. Direct messaging requires members to set a handle first.");
+      return;
+    }
     setSocialBusy(true);
     try {
       const targetId = profile?.id || userId;
       const { conversation, pendingRequest } = await messagesApi.start([targetId], "DIRECT");
       if (pendingRequest) toast.success("Send one message — they'll see it as a request.");
-      if (profile?.handle) {
-        navigateTo(`/messages/@${profile.handle}`);
-      } else {
-        navigateTo(`/messages/${conversation.id}`);
-      }
+      navigateTo(`/messages/@${profile.handle}`);
     } catch (err: any) {
       toast.error(err.message || "Could not open that conversation");
     } finally {
@@ -292,8 +292,14 @@ export default function PublicProfilePage() {
                   >
                     {social?.youFollow ? <><UserCheck size={14} /> Following</> : <><UserPlus size={14} /> Follow</>}
                   </button>
-                  <button type="button" onClick={startConversation} disabled={socialBusy} className="btn-ink">
-                    <MessageSquare size={14} /> Message
+                  <button
+                    type="button"
+                    onClick={startConversation}
+                    disabled={socialBusy || !profile?.handle}
+                    className={`btn-ink ${!profile?.handle ? "opacity-40 cursor-not-allowed" : ""}`}
+                    title={!profile?.handle ? "Scholar must claim a @handle before receiving direct messages" : undefined}
+                  >
+                    <MessageSquare size={14} /> {profile?.handle ? "Message" : "No Handle"}
                   </button>
                   {social?.followsYou ? <span className="status-chip">Follows you</span> : null}
                 </div>
