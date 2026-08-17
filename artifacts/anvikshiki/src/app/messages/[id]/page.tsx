@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams, useLocation } from "wouter";
 import {
   ArrowLeft, Bell, BellOff, Check, Copy, CornerUpLeft, Download, ExternalLink,
-  Image as ImageIcon, Lock, MoreHorizontal, Paperclip, Pencil, Send, Trash2, Users, X,
+  Image as ImageIcon, MoreHorizontal, Paperclip, Pencil, Send, Trash2, Users, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -135,7 +135,15 @@ function MessageBubble({
           : <span className="w-7 shrink-0" aria-hidden="true" />
       ) : null}
 
-      <div className={`flex max-w-[78%] flex-col ${mine ? "items-end" : "items-start"}`}>
+      {/*
+        `min-w-0` is what actually lets this column shrink. A flex child
+        defaults to min-width:auto, so a long word or filename inside it forces
+        the column wider than its share and pushes the bubble off the screen —
+        which is why messages were being clipped at both edges on a phone.
+        The width also leaves room for the avatar and the actions button rather
+        than competing with them for the same space.
+      */}
+      <div className={`flex min-w-0 max-w-[calc(100%-2.5rem)] flex-col sm:max-w-[78%] ${mine ? "items-end" : "items-start"}`}>
         {!mine && isGroup && showTail ? (
           <span className="mb-0.5 px-1 font-ui text-[10px] font-semibold text-[var(--ink-meta)]">{message.senderName}</span>
         ) : null}
@@ -176,7 +184,13 @@ function MessageBubble({
         >
           {message.kind === "IMAGE" && message.mediaUrl ? (
             <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="block">
-              <img src={message.mediaUrl} alt={message.mediaName || "Shared image"} className="max-h-72 rounded-[2px] object-cover" />
+              {/* max-w-full keeps a wide photo inside the bubble instead of
+                  stretching the row past the edge of the screen. */}
+              <img
+                src={message.mediaUrl}
+                alt={message.mediaName || "Shared image"}
+                className="max-h-72 max-w-full rounded-[2px] object-contain"
+              />
             </a>
           ) : null}
 
@@ -188,12 +202,15 @@ function MessageBubble({
             /* The document keeps the name it was sent under, and offers both
                ways of opening it. Storage rewrites the filename to keep it
                unique, so the delivered URL is unreadable — showing that
-               instead of the real name made every attachment anonymous. */
-            <div className="min-w-[13rem]">
+               instead of the real name made every attachment anonymous.
+
+               No minimum width: a document name is often longer than a phone
+               is wide, and forcing one pushed the whole bubble off-screen. */
+            <div className="min-w-0 max-w-full">
               <div className="flex items-start gap-2">
                 <Paperclip size={14} className="mt-0.5 shrink-0" />
                 <div className="min-w-0">
-                  <p className="break-words font-body text-[13px] font-semibold leading-5">
+                  <p className="break-all font-body text-[13px] font-semibold leading-5">
                     {message.mediaName || "Attachment"}
                   </p>
                   <p className="font-ui text-[10px] opacity-70">
@@ -272,9 +289,16 @@ function MessageBubble({
         {menuOpen ? (
           <>
             <button type="button" className="fixed inset-0 z-[90] cursor-default" aria-hidden="true" onClick={() => setMenuOpen(false)} />
+            {/*
+              The menu opens towards the middle of the screen, not away from
+              it. On your own messages the row is reversed, so the button sits
+              against the left edge — anchoring the menu's right edge to it
+              sent the whole panel off the side of the phone, which is where
+              the reactions and Unsend were disappearing to.
+            */}
             <div
-              className="absolute z-[95] mt-1 w-44 overflow-hidden rounded-[2px] border border-[var(--hairline)] bg-[var(--surface)] shadow-lg"
-              style={{ [mine ? "right" : "left"]: 0 } as any}
+              className="absolute z-[95] mt-1 w-44 max-w-[min(11rem,calc(100vw-2rem))] overflow-hidden rounded-[2px] border border-[var(--hairline)] bg-[var(--surface)] shadow-lg"
+              style={{ [mine ? "left" : "right"]: 0 } as any}
             >
               <div className="flex gap-1 border-b border-[var(--hairline)] p-2">
                 {QUICK_REACTIONS.map(emoji => (
@@ -695,9 +719,9 @@ export default function ConversationPage() {
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="min-h-0 flex-1 overflow-y-auto"
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
       >
-       <div className="container-anv mx-auto w-full max-w-3xl py-5">
+       <div className="container-anv mx-auto w-full max-w-3xl overflow-x-hidden py-5">
         {busy ? (
           <div className="space-y-3" aria-hidden="true">
             {[0, 1, 2, 3].map(i => (
@@ -821,10 +845,6 @@ export default function ConversationPage() {
             </button>
           </div>
 
-          <p className="mt-2 flex items-center gap-1.5 font-ui text-[10px] text-[var(--muted)]">
-            <Lock size={10} />
-            Only {isGroup ? "members of this group" : "the two of you"} can open this conversation.
-          </p>
         </div>
       </footer>
     </div>
