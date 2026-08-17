@@ -1,15 +1,15 @@
-/* Minimal Aesthetic Design Kit -€- Google Fonts (must be first @import) */
+/* Minimal Aesthetic Design Kit — Google Fonts (must be first @import) */
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,600&family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 @theme {
-  /* Display / Editorial headings -€- Cormorant Garamond (unchanged, already great) */
+  /* Display / Editorial headings — Cormorant Garamond (unchanged, already great) */
   --font-display: "Cormorant Garamond", "Noto Serif Devanagari", "Noto Serif Sharada", "Noto Serif Tamil", "Noto Serif Telugu", "Noto Serif Grantha", "Noto Serif Kannada", "Noto Serif Malayalam", "Noto Serif Bengali", "Noto Serif Gurmukhi", Georgia, serif;
-  /* Body text -€- Inter (clean, neutral, maximally readable on-screen) */
+  /* Body text — Inter (clean, neutral, maximally readable on-screen) */
   --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  /* UI labels -€- Montserrat (uppercase, wide tracking, professional) */
+  /* UI labels — Montserrat (uppercase, wide tracking, professional) */
   --font-ui: "Montserrat", "Inter", system-ui, sans-serif;
-  /* Eyebrows, metadata, reference codes -€- monospace carries the editorial voice */
+  /* Eyebrows, metadata, reference codes — monospace carries the editorial voice */
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
@@ -32,7 +32,7 @@
   --ink-faint: #525252;   /* Neutral Grey */
   --muted: #737373;
   
-  /* ZERO Yellow & ZERO Red -€- High contrast monochrome */
+  /* ZERO Yellow & ZERO Red — High contrast monochrome */
   --gold: #000000;        /* Pitch Black */
   --gold-bright: #171717;
   --gold-soft: #404040;
@@ -109,7 +109,7 @@
   --ink-faint: #A3A3A3;   /* Light Neutral Grey */
   --muted: #888888;
   
-  /* ZERO Yellow & ZERO Red -€- High contrast monochrome */
+  /* ZERO Yellow & ZERO Red — High contrast monochrome */
   --gold: #FFFFFF;        /* Pure Piercing White */
   --gold-bright: #FFFFFF;
   --gold-soft: #D4D4D4;
@@ -745,7 +745,7 @@ button {
 .parchment-card:hover,
 .domain-card:hover {
   transform: translateY(-3px);
-  /* On hover: border brightens toward deep ink -€- editorial premium feel */
+  /* On hover: border brightens toward deep ink — editorial premium feel */
   border-color: rgba(20, 20, 20, 0.22);
   box-shadow: 0 2px 8px rgba(42,31,14,0.08), 0 8px 32px rgba(42,31,14,0.10);
 }
@@ -1060,7 +1060,7 @@ button {
 .type-gold-label {
   display: block;
   font-family: var(--font-ui);
-  /* Minimal Aesthetic: 10px, uppercase, wide tracking 0.28em -€- Montserrat */
+  /* Minimal Aesthetic: 10px, uppercase, wide tracking 0.28em — Montserrat */
   font-size: .625rem;
   font-weight: 700;
   letter-spacing: .28em;
@@ -1726,7 +1726,7 @@ button {
 }
 
 /* -----------------------------------------------------------
-   Sacred Header -€- Editorial redesign
+   Sacred Header — Editorial redesign
    ----------------------------------------------------------- */
 
 .sacred-header-row {
@@ -1751,7 +1751,7 @@ button {
   padding-right: 0.5rem;
 }
 
-/* Emblem box -€- fits cleanly inside the header row */
+/* Emblem box — fits cleanly inside the header row */
 .sacred-emblem-box {
   display: flex;
   align-items: center;
@@ -1910,7 +1910,7 @@ button {
   background: rgba(139, 96, 32, 0.08);
 }
 
-/* ------ Hero emblem -€- absolutely anchored to far-left of header --------- */
+/* ------ Hero emblem — absolutely anchored to far-left of header --------- */
 .sacred-header-outer {
   position: relative;
   overflow: visible;
@@ -2194,7 +2194,7 @@ button {
 }
 
 /* -----------------------------------------------------------
-   Homepage v2 -€- Full-width desktop layout
+   Homepage v2 — Full-width desktop layout
    ----------------------------------------------------------- */
 
 .home-v2 {
@@ -2565,16 +2565,16 @@ button {
 }
 
 /* -------------------------------------------------------------------
-   RESPONSIVE DESIGN SYSTEM -€- Mobile-first, Android-safe
+   RESPONSIVE DESIGN SYSTEM — Mobile-first, Android-safe
    Breakpoints used:
-     xs  : 320px  (very small Androids -€- Galaxy A01, old Xiaomis)
-     sm  : 480px  (mid Android -€- Galaxy A series)
-     md  : 640px  (large phones -€- Galaxy S/Ultra, Pixel 6+)
+     xs  : 320px  (very small Androids — Galaxy A01, old Xiaomis)
+     sm  : 480px  (mid Android — Galaxy A series)
+     md  : 640px  (large phones — Galaxy S/Ultra, Pixel 6+)
      lg  : 1024px (laptops, Chromebooks, large tablets)
      xl  : 1280px (desktops)
 
    Rules in this block come AFTER all component rules so they win
-   at equal specificity -€- no !important needed.
+   at equal specificity — no !important needed.
    ------------------------------------------------------------------- */
 
 /* ------ 1. Global overflow & scroll safety --------------------------------------------------------------------------- */
@@ -2591,9 +2591,9 @@ body {
   max-width: 100vw;
 }
 
-/* ------ 2. Header -€- mobile-first, no overflow --------------------------------------------------------------------- */
+/* ------ 2. Header — mobile-first, no overflow --------------------------------------------------------------------- */
 
-/* BASE (< 480px -€- small Androids: 320-€“479px) */
+/* BASE (< 480px — small Androids: 320-€“479px) */
 .sacred-header-row {
   min-height: 70px;
   height: auto;
@@ -2618,7 +2618,7 @@ body {
   letter-spacing: 0.15em;
 }
 
-/* Touch targets -€- Android minimum 44 Ã— 44 px */
+/* Touch targets — Android minimum 44 × 44 px */
 .sacred-icon-btn {
   width: 44px;
   height: 44px;
@@ -2639,7 +2639,7 @@ body {
   .sacred-brand-sub   { font-size: 0.6rem; letter-spacing: 0.22em; }
 }
 
-/* MD (640px -€“ 1023px -€- large phones & small tablets) */
+/* MD (640px -€“ 1023px — large phones & small tablets) */
 @media (min-width: 640px) {
   .sacred-header-row  { height: 76px; overflow: visible; }
   .sacred-emblem-box  { width: 54px; height: 54px; }
@@ -2649,7 +2649,7 @@ body {
   .sacred-actions     { gap: 0.35rem; }
 }
 
-/* LG (1024px+ -€- desktop) */
+/* LG (1024px+ — desktop) */
 @media (min-width: 1024px) {
   .sacred-header-row  { height: 88px; overflow: visible; }
   .sacred-emblem-box  { width: 64px; height: 64px; }
@@ -2693,7 +2693,7 @@ body {
   padding-block: 0.9rem;
 }
 
-/* ------ 4. Hero section -€- hide right column on small screens --------------------- */
+/* ------ 4. Hero section — hide right column on small screens --------------------- */
 
 /* Mobile (< 640px): single-column, no image */
 @media (max-width: 639px) {
@@ -2757,7 +2757,7 @@ body {
   }
 }
 
-/* ------ 5. Homepage sections -€- tighter on mobile --------------------------------------------------------- */
+/* ------ 5. Homepage sections — tighter on mobile --------------------------------------------------------- */
 @media (max-width: 639px) {
   .home-v2-section {
     padding: 1.75rem 0;
@@ -2814,11 +2814,11 @@ body {
   }
 }
 
-/* ------ 6. Domain grid -€- Android safe ------------------------------------------------------------------------------------------ */
+/* ------ 6. Domain grid — Android safe ------------------------------------------------------------------------------------------ */
 
-/* Default (< 640px) is 3-col from original CSS -€- override to 2-col */
+/* Default (< 640px) is 3-col from original CSS — override to 2-col */
 @media (max-width: 639px) {
-  /* already handled above -€- 2 cols */
+  /* already handled above — 2 cols */
 }
 
 /* ------ 7. Safe-area insets for notched/edge-to-edge Androids --------------------- */
@@ -2834,14 +2834,14 @@ body {
   }
 }
 
-/* ------ 8. Container padding -€- tighter on very small screens ------------------------ */
+/* ------ 8. Container padding — tighter on very small screens ------------------------ */
 @media (max-width: 359px) {
   .container-anv {
     padding-inline: 0.75rem;
   }
 }
 
-/* ------ 9. Reduced motion -€- respect Android accessibility setting ------------ */
+/* ------ 9. Reduced motion — respect Android accessibility setting ------------ */
 @media (prefers-reduced-motion: reduce) {
   .home-v2-essay-card,
   .home-v2-domain-card,
@@ -2863,7 +2863,7 @@ body:has(.sacred-drawer) {
   overflow: hidden;
 }
 
-/* ------ 11. Tablet-specific nav -€- show full nav at 768px+ --------------------------------- */
+/* ------ 11. Tablet-specific nav — show full nav at 768px+ --------------------------------- */
 /* Rationale: Android tablets (768px) have enough room for the nav */
 @media (min-width: 768px) and (max-width: 1023px) {
   .sacred-nav {
@@ -2895,7 +2895,7 @@ body:has(.sacred-drawer) {
   }
 }
 
-/* ------ 12. Essay card -€- better mobile layout ------------------------------------------------------------------------ */
+/* ------ 12. Essay card — better mobile layout ------------------------------------------------------------------------ */
 @media (max-width: 639px) {
   .home-v2-essay-card {
     min-height: 160px;
@@ -2914,7 +2914,7 @@ body:has(.sacred-drawer) {
 }
 
 /* -------------------------------------------------------------------
-   HOME V3 -€- Cinematic video-hero redesign
+   HOME V3 — Cinematic video-hero redesign
    ------------------------------------------------------------------- */
 
 /* ------ Hero ------ */
@@ -3124,7 +3124,7 @@ body:has(.sacred-drawer) {
 }
 .home-v3-chip:hover { opacity: 0.78; }
 
-/* Animal-glyph frieze -€- bottom of hero */
+/* Animal-glyph frieze — bottom of hero */
 .home-v3-frieze {
   position: relative;
   z-index: 1;
@@ -3747,7 +3747,7 @@ body:has(.sacred-drawer) {
     display: block !important;
   }
 
-  /* Lighter overlay on mobile -€- don't hide the image */
+  /* Lighter overlay on mobile — don't hide the image */
   .home-v3-video-wrap::after {
     background:
       linear-gradient(to bottom, transparent 50%, rgba(22, 14, 6, 0.35) 100%);
@@ -3969,7 +3969,7 @@ body:has(.sacred-drawer) {
 }
 
 /* -----------------------------------------------------------------------
-   ORANGE SAKURA THEME  +  20Ã— AESTHETICISM ENHANCEMENT
+   ORANGE SAKURA THEME  +  20× AESTHETICISM ENHANCEMENT
    Saffron / amber palette; richly ornamented domain cards & sections
 ----------------------------------------------------------------------- */
 
@@ -3992,7 +3992,7 @@ body:has(.sacred-drawer) {
   animation: rotateSlow 30s linear infinite;
 }
 
-/* ------ Section backgrounds -€- sacred geometry atmospheric layers --------------------------------- */
+/* ------ Section backgrounds — sacred geometry atmospheric layers --------------------------------- */
 .home-v3-section {
   position: relative;
   overflow: hidden;
@@ -4024,7 +4024,7 @@ body:has(.sacred-drawer) {
   pointer-events: none;
 }
 
-/* ------ Domain grid -€- 14-domain layout (7Ã—2 so every row is fully symmetric) ------ */
+/* ------ Domain grid — 14-domain layout (7×2 so every row is fully symmetric) ------ */
 .home-v3-domains-expanded {
   grid-template-columns: repeat(7, 1fr);
 }
@@ -4033,12 +4033,12 @@ body:has(.sacred-drawer) {
   .home-v3-domains-expanded { grid-template-columns: repeat(2, 1fr); }
 }
 
-/* ------ Domain card -€- radial bloom background --------------------------------------------------------------------------------------- */
+/* ------ Domain card — radial bloom background --------------------------------------------------------------------------------------- */
 .home-v3-domain-card {
   padding: 2rem 1.25rem 1.5rem;
 }
 
-/* Override ::before -€- radial glow from top instead of text corner mark */
+/* Override ::before — radial glow from top instead of text corner mark */
 .home-v3-domain-card::before {
   content: '';
   position: absolute;
@@ -4056,7 +4056,7 @@ body:has(.sacred-drawer) {
 
 .home-v3-domain-card:hover::before { opacity: 1; }
 
-/* Override ::after -€- shimmer sweep on hover */
+/* Override ::after — shimmer sweep on hover */
 .home-v3-domain-card::after {
   content: '';
   position: absolute;
@@ -4078,7 +4078,7 @@ body:has(.sacred-drawer) {
   background-position: 300% center;
 }
 
-/* ------ Domain icon wrapper -€- outer dashed ring --------------------------------------------------------------------------------- */
+/* ------ Domain icon wrapper — outer dashed ring --------------------------------------------------------------------------------- */
 .home-v3-domain-icon-wrap {
   position: relative;
   display: flex;
@@ -4134,7 +4134,7 @@ body:has(.sacred-drawer) {
   font-size: 1rem;
 }
 
-/* Domain ornament -€- spaced diamonds */
+/* Domain ornament — spaced diamonds */
 .home-v3-domain-ornament {
   display: flex;
   align-items: center;
@@ -4160,7 +4160,7 @@ body:has(.sacred-drawer) {
   padding-top: 0.25rem;
 }
 
-/* ------ Theme toggle -€- enhanced visibility ------------------------------------------------------------------------------------------------ */
+/* ------ Theme toggle — enhanced visibility ------------------------------------------------------------------------------------------------ */
 .anv-theme-toggle {
   background: var(--surface-elevated);
   border: 1.5px solid color-mix(in srgb, var(--gold) 52%, transparent);
@@ -4176,14 +4176,14 @@ body:has(.sacred-drawer) {
     0 1px 4px rgba(0,0,0,0.11);
 }
 
-/* ------ Sacred header -€- subtle gold gradient underline on scroll ------------------------------ */
+/* ------ Sacred header — subtle gold gradient underline on scroll ------------------------------ */
 .sacred-header-scrolled {
   box-shadow:
     0 1px 0 var(--border-gold),
     0 4px 20px rgba(42,31,14,0.10);
 }
 
-/* ------ Essay card -€- richer hover ------------------------------------------------------------------------------------------------------------------------------ */
+/* ------ Essay card — richer hover ------------------------------------------------------------------------------------------------------------------------------ */
 .home-v3-essay-card:hover {
   box-shadow:
     var(--shadow-lg),
@@ -4206,7 +4206,7 @@ body:has(.sacred-drawer) {
   transform: translateX(3px);
 }
 
-/* ------ Frieze -€- richer bar with lotus accent --------------------------------------------------------------------------------------- */
+/* ------ Frieze — richer bar with lotus accent --------------------------------------------------------------------------------------- */
 .home-v3-frieze-line {
   display: inline-block;
   width: 48px;
@@ -4230,7 +4230,7 @@ footer .font-display:first-child {
 }
 
 /* ------------------------------------------------------------------------
-   FLORAL DECOR -€- enhanced lotus / petal decorative system
+   FLORAL DECOR — enhanced lotus / petal decorative system
    ------------------------------------------------------------------------ */
 
 /* ------ Animate-spin-slow utility (used by LotusRing) --------------------------------------------------------------------- */
@@ -4310,7 +4310,7 @@ footer .font-display:first-child {
 .corner-bl { position: absolute; bottom: 0; left: 0; }
 .corner-br { position: absolute; bottom: 0; right: 0; }
 
-/* ------ Input sacred -€- remove browser search cancel button --------------------------------------------------------- */
+/* ------ Input sacred — remove browser search cancel button --------------------------------------------------------- */
 input[type="search"]::-webkit-search-cancel-button {
   -webkit-appearance: none;
   appearance: none;
@@ -4319,7 +4319,7 @@ input[type="search"]::-webkit-search-decoration {
   -webkit-appearance: none;
 }
 
-/* ------ Sacred header -€- subtle lotus shimmer on brand name --------------------------------------------------------- */
+/* ------ Sacred header — subtle lotus shimmer on brand name --------------------------------------------------------- */
 .sacred-brand-name {
   background: linear-gradient(
     135deg,
@@ -4339,7 +4339,7 @@ input[type="search"]::-webkit-search-decoration {
   100% { background-position: 200% center; }
 }
 
-/* ------ Lotus ring -€- slow counter-rotation variant ------------------------------------------------------------------------------------ */
+/* ------ Lotus ring — slow counter-rotation variant ------------------------------------------------------------------------------------ */
 .lotus-ring-counter {
   animation: spinSlow 36s linear infinite reverse;
 }
@@ -4348,7 +4348,7 @@ input[type="search"]::-webkit-search-decoration {
 .z-content { position: relative; z-index: 1; }
 
 /* ------------------------------------------------------------------------
-   COLORFUL DECOR SYSTEM -€- vivid spectrum aesthetics
+   COLORFUL DECOR SYSTEM — vivid spectrum aesthetics
    ------------------------------------------------------------------------ */
 
 /* ------ Stats Bar --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
@@ -5216,11 +5216,11 @@ input[type="search"]::-webkit-search-decoration {
 }
 
 /* ==========================================================================
-   MINIMAL AESTHETIC DESIGN KIT -€- Utility Classes
+   MINIMAL AESTHETIC DESIGN KIT — Utility Classes
    From: Desktop/Minimal_Aesthetic_Design_Kit/theme.css
    ========================================================================== */
 
-/* Frosted Glass Floating Pill -€- for overlays, floating controls, nav badges */
+/* Frosted Glass Floating Pill — for overlays, floating controls, nav badges */
 .glass-pill {
   background-color: rgba(0, 0, 0, 0.42);
   backdrop-filter: blur(12px);
@@ -5241,7 +5241,7 @@ input[type="search"]::-webkit-search-decoration {
   box-shadow: 0 2px 12px rgba(42, 31, 14, 0.06);
 }
 
-/* Editorial card with generous rounding -€- kit's aesthetic-card */
+/* Editorial card with generous rounding — kit's aesthetic-card */
 .aesthetic-card {
   background-color: var(--surface-card);
   border: 1px solid rgba(42, 31, 14, 0.09);
@@ -5255,7 +5255,7 @@ input[type="search"]::-webkit-search-decoration {
   box-shadow: 0 8px 32px rgba(42, 31, 14, 0.10);
 }
 
-/* Tracking label -€- Montserrat, 10px, uppercase, 0.28em spacing */
+/* Tracking label — Montserrat, 10px, uppercase, 0.28em spacing */
 .label-tracking {
   font-family: var(--font-ui);
   font-size: 0.625rem;
@@ -5809,7 +5809,7 @@ input[type="search"]::-webkit-search-decoration {
    Three things change, deliberately and no more:
 
      1. A signature crimson. The palette was entirely black and white, which
-        reads as unfinished rather than restrained -€- nothing could be marked as
+        reads as unfinished rather than restrained — nothing could be marked as
         important. One accent, used sparingly, carries emphasis and state.
      2. Architectural geometry. Pill and 22px radii read consumer-app; a 2px
         radius reads as a printed page, which is what a journal should be.
@@ -5821,7 +5821,7 @@ input[type="search"]::-webkit-search-decoration {
    --------------------------------------------------------------------------- */
 
 :root {
-  /* Signature accent -€- used for emphasis, never for large fields of colour. */
+  /* Signature accent — used for emphasis, never for large fields of colour. */
   --accent: #810100;
   --accent-hover: #5E0100;
   --accent-wash: #FDF3F3;
@@ -5901,7 +5901,7 @@ h3, h4 { line-height: 1.15; }
   line-height: 1.7;
 }
 
-/* Eyebrow / metadata voice -€- monospace, wide, quiet. */
+/* Eyebrow / metadata voice — monospace, wide, quiet. */
 .eyebrow,
 .section-label,
 .form-label,
@@ -5950,7 +5950,7 @@ h3, h4 { line-height: 1.15; }
   transform: scale(0.98) translateY(1px);
 }
 
-/* Primary -€- ink ground, crimson on hover. */
+/* Primary — ink ground, crimson on hover. */
 .btn-terracotta,
 .btn-primary,
 .btn-gold {
@@ -5985,7 +5985,7 @@ h3, h4 { line-height: 1.15; }
   color: var(--ink);
 }
 
-/* Accent -€- reserved for the single most consequential action on a screen. */
+/* Accent — reserved for the single most consequential action on a screen. */
 .btn-accent {
   display: inline-flex;
   align-items: center;
