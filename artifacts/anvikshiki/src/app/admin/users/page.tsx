@@ -4,6 +4,7 @@ import { User, Mail, ShieldAlert, ShieldCheck } from "lucide-react";
 import { AdminSidebar } from "@/components/sacred/AdminSidebar";
 import { LotusIcon } from "@/components/sacred/LotusIcon";
 import { toast } from "sonner";
+import { QuietEmpty } from "@/components/sacred/QuietEmpty";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -61,8 +62,11 @@ export default function AdminUsersPage() {
             </div>
           ) : users.length === 0 ? (
             <div className="flex flex-col items-center py-14 gap-3">
-              <LotusIcon size={36} style={{ color: "var(--gold)", opacity: 0.25 }} />
-              <p className="font-ui text-sm" style={{ color: "var(--muted)" }}>No users have signed up yet</p>
+              <QuietEmpty
+                compact
+                title="No members yet"
+                description="Everyone who signs up will be listed here."
+              />
             </div>
           ) : (
             <div className="overflow-x-auto">

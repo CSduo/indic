@@ -4,6 +4,7 @@ import { ArchiveRestore, Plus, Trash2, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { AdminSidebar } from "@/components/sacred/AdminSidebar";
 import { LotusIcon } from "@/components/sacred/LotusIcon";
+import { QuietEmpty } from "@/components/sacred/QuietEmpty";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -75,11 +76,12 @@ export default function AdminPapersPage() {
               <div style={{ width: 32, height: 32, border: "2px solid var(--border-gold)", borderTop: "2px solid var(--gold)", borderRadius: "50%", animation: "rotateSlow 0.8s linear infinite" }} role="status" aria-label="Loading" />
             </div>
           ) : papers.length === 0 ? (
-            <div className="flex flex-col items-center py-12 gap-3">
-              <LotusIcon size={36} style={{ color: "var(--gold)", opacity: 0.3 }} />
-              <p className="font-ui text-sm" style={{ color: "var(--muted)" }}>No papers yet</p>
-              <Link href="/admin/papers/new" className="btn-sacred btn-gold text-xs"><Plus size={14} /> Add First Paper</Link>
-            </div>
+            <QuietEmpty
+              compact
+              title="No papers yet"
+              description="Published research will be listed here."
+              action={<Link href="/admin/papers/new" className="btn-sacred btn-gold text-xs"><Plus size={14} /> Add First Paper</Link>}
+            />
           ) : (
             <table className="sacred-table" role="table">
               <thead>

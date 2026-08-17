@@ -4,6 +4,7 @@ import { Mail, Download } from "lucide-react";
 import { toast } from "sonner";
 import { AdminSidebar } from "@/components/sacred/AdminSidebar";
 import { LotusIcon } from "@/components/sacred/LotusIcon";
+import { QuietEmpty } from "@/components/sacred/QuietEmpty";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -60,8 +61,11 @@ export default function AdminNewsletterPage() {
             <div className="flex justify-center py-10"><div style={{ width: 32, height: 32, border: "2px solid var(--border-gold)", borderTop: "2px solid var(--gold)", borderRadius: "50%", animation: "rotateSlow 0.8s linear infinite" }} role="status" /></div>
           ) : subscribers.length === 0 ? (
             <div className="flex flex-col items-center py-12 gap-3">
-              <LotusIcon size={36} style={{ color: "var(--gold)", opacity: 0.3 }} />
-              <p className="font-ui text-sm" style={{ color: "var(--muted)" }}>No subscribers yet</p>
+              <QuietEmpty
+                compact
+                title="No subscribers yet"
+                description="People who join the list will appear here."
+              />
             </div>
           ) : (
             <div className="overflow-x-auto">

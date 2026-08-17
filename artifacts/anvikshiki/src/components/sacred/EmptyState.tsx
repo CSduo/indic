@@ -1,4 +1,3 @@
-import { LotusIcon } from "./LotusIcon";
 
 interface EmptyStateProps {
   icon?: React.ReactNode;
@@ -15,31 +14,23 @@ export function EmptyState({ icon, title, description, action, compact = false }
       role="status"
       aria-label={title}
     >
-      {/* Ornamental rings */}
-      <div className="relative mb-6" aria-hidden="true">
-        <div style={{
-          width: compact ? 72 : 96,
-          height: compact ? 72 : 96,
-          borderRadius: "50%",
-          border: "1px solid var(--border-gold)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "radial-gradient(circle, rgba(201,152,58,0.06) 0%, transparent 70%)",
-        }}>
-          <div style={{
-            width: compact ? 54 : 72,
-            height: compact ? 54 : 72,
-            borderRadius: "50%",
-            border: "1px solid var(--border)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}>
-            {icon ?? <LotusIcon size={compact ? 24 : 32} className="text-gold" style={{ color: "var(--gold)", opacity: 0.5 }} />}
-          </div>
+      {/*
+        No default glyph.
+
+        This used to draw a lotus at half opacity inside two rings. At that
+        size and faintness the shape stopped reading as a lotus and became a
+        grey smudge — something the eye takes for a broken image before it
+        reaches the sentence below it. An empty list is not an error and does
+        not need an illustration.
+
+        A caller with a genuinely meaningful mark can still pass one; nothing
+        is invented when they do not.
+      */}
+      {icon ? (
+        <div className="mb-5 flex items-center justify-center" aria-hidden="true">
+          {icon}
         </div>
-      </div>
+      ) : null}
 
       {/* Ornamental line */}
       <div className="flex items-center gap-2 mb-4" aria-hidden="true" style={{ width: compact ? 120 : 180 }}>
