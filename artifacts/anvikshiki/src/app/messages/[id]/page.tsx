@@ -2,12 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams, useLocation } from "wouter";
 import {
   ArrowLeft, Bell, BellOff, Check, Copy, CornerUpLeft, Download, ExternalLink,
-  Image as ImageIcon, MoreHorizontal, Paperclip, Pencil, Send, Smile, Trash2, Users, X,
+  Image as ImageIcon, Mic, MoreHorizontal, Paperclip, Pencil, Send, Trash2, Users, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { createPoller, messagesApi, type ConversationMember, type Message } from "@/lib/messagesApi";
 import { goBack } from "@/lib/goBack";
+import { VoiceRecorder } from "@/components/messages/VoiceRecorder";
 
 const QUICK_REACTIONS = ["❤️", "👍", "🎉", "🙏", "😮", "😢"];
 
@@ -30,8 +31,22 @@ function fileExtension(name: string | null | undefined): string {
  * for the download variant means using the one the server minted for it, and
  * falling back to the viewing URL when there is none.
  */
+const apiBase = () => import.meta.env.BASE_URL.replace(/\/$/, "");
+
+/**
+ * Attachment addresses now point at this site rather than at storage, so they
+ * are resolved against the app's base path. Being same-origin is the point:
+ * the browser sends the session cookie, and the server checks the conversation
+ * before it sends a byte.
+ */
+function mediaUrl(message: Message): string {
+  const url = message.mediaUrl || "";
+  return url.startsWith("/") ? `${apiBase()}${url}` : url;
+}
+
 function downloadUrl(message: Message): string {
-  return message.mediaDownloadUrl || message.mediaUrl || "";
+  const url = message.mediaDownloadUrl || message.mediaUrl || "";
+  return url.startsWith("/") ? `${apiBase()}${url}` : url;
 }
 
 /**
@@ -139,63 +154,6 @@ function MessageText({ body, mine }: { body: string; mine: boolean }) {
       >
         {expanded ? "Show less" : "Show more"}
       </button>
-    </>
-  );
-}
-
-/**
- * Emoji, grouped, with no dependency and no network call.
- *
- * Deliberately not a GIF or sticker library. Every one of those is somebody
- * else's hosted service behind an API key, which would mean an account to
- * maintain, a quota to watch, and every search a member types being sent to a
- * third party. Emoji are already on the device.
- */
-const EMOJI_GROUPS: Array<{ label: string; emoji: string[] }> = [
-  { label: "Feeling", emoji: ["😀", "😄", "🙂", "😊", "😌", "😍", "🥰", "😘", "😉", "🤗", "🤔", "😐", "😑", "🙄", "😴", "😢", "😭", "😤", "😡", "🥺", "😳", "🤯", "😬", "🫡"] },
-  { label: "Gesture", emoji: ["👍", "👎", "👏", "🙏", "🤝", "✌️", "🤞", "👌", "🫶", "💪", "👋", "🙌"] },
-  { label: "Warmth", emoji: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "💫", "✨", "🔥", "🎉", "🎊", "🥳"] },
-  { label: "Study", emoji: ["📖", "📚", "📝", "🖋️", "📜", "🗒️", "🔍", "💡", "🧠", "🎓", "🏛️", "🪔"] },
-  { label: "Things", emoji: ["☕", "🍵", "🌿", "🌸", "🌙", "⭐", "🌍", "⏳", "📌", "✅", "❌", "⚠️"] },
-];
-
-function EmojiPicker({ onPick, onClose }: { onPick: (emoji: string) => void; onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  return (
-    <>
-      <button type="button" className="fixed inset-0 z-[90] cursor-default" aria-label="Close" onClick={onClose} />
-      {/* Anchored to the right, because that is the edge it opens from — the
-          same panel anchored left would hang off the side of a phone. */}
-      <div
-        className="absolute bottom-full right-0 z-[95] mb-2 max-h-64 w-[min(19rem,calc(100vw-2rem))] overflow-y-auto rounded-[4px] border p-2 shadow-lg"
-        style={{ background: "var(--surface)", borderColor: "var(--hairline)" }}
-        role="dialog"
-        aria-label="Choose an emoji"
-      >
-        {EMOJI_GROUPS.map(group => (
-          <div key={group.label} className="mb-2 last:mb-0">
-            <p className="mono-label mb-1 px-1">{group.label}</p>
-            <div className="grid grid-cols-8 gap-0.5">
-              {group.emoji.map(emoji => (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => onPick(emoji)}
-                  className="rounded-[2px] p-1 text-lg leading-none transition-colors hover:bg-[var(--surface-2)]"
-                  aria-label={emoji}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
     </>
   );
 }
@@ -314,11 +272,11 @@ function MessageBubble({
           }}
         >
           {message.kind === "IMAGE" && message.mediaUrl ? (
-            <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="block">
+            <a href={mediaUrl(message)} target="_blank" rel="noopener noreferrer" className="block">
               {/* max-w-full keeps a wide photo inside the bubble instead of
                   stretching the row past the edge of the screen. */}
               <img
-                src={message.mediaUrl}
+                src={mediaUrl(message)}
                 alt={message.mediaName || "Shared image"}
                 className="max-h-72 max-w-full rounded-[2px] object-contain"
               />
@@ -326,7 +284,7 @@ function MessageBubble({
           ) : null}
 
           {message.kind === "AUDIO" && message.mediaUrl ? (
-            <audio src={message.mediaUrl} controls preload="metadata" className="max-w-[240px]" />
+            <audio src={mediaUrl(message)} controls preload="metadata" className="w-full max-w-[240px]" />
           ) : null}
 
           {message.kind === "FILE" && message.mediaUrl ? (
@@ -352,7 +310,7 @@ function MessageBubble({
               </div>
               <div className="mt-2 flex items-center gap-2">
                 <a
-                  href={message.mediaUrl}
+                  href={mediaUrl(message)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 rounded-[2px] border px-2 py-1 font-ui text-[10px] uppercase tracking-[0.1em]"
@@ -990,10 +948,10 @@ export default function ConversationPage() {
                     type="button"
                     className="composer-tool"
                     onClick={() => setPickerOpen(v => !v)}
-                    aria-label="Emoji"
+                    aria-label="Record a voice note"
                     aria-expanded={pickerOpen}
                   >
-                    <Smile size={15} />
+                    <Mic size={15} />
                   </button>
                   <button type="button" className="composer-tool" onClick={() => imageRef.current?.click()} aria-label="Send a photo" disabled={sending}>
                     <ImageIcon size={15} />
@@ -1015,11 +973,9 @@ export default function ConversationPage() {
               </button>
 
               {pickerOpen ? (
-                <EmojiPicker
-                  onPick={emoji => {
-                    setDraft(d => (d + emoji).slice(0, 4000));
-                    composerRef.current?.focus();
-                  }}
+                <VoiceRecorder
+                  busy={sending}
+                  onSend={file => attach(file)}
                   onClose={() => setPickerOpen(false)}
                 />
               ) : null}

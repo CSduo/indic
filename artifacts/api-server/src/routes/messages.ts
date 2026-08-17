@@ -486,17 +486,15 @@ router.get("/conversations/:id/messages", async (req, res) => {
         already been established above. Messages sent before attachments became
         private have no storage key and keep the URL they were stored with.
       */
-      const viewUrl = m.deletedAt
-        ? null
-        : signedMediaUrl({ storageKey: m.mediaStorageKey, resourceType: m.mediaResourceType })
-          || m.mediaUrl;
-      const saveUrl = m.deletedAt
-        ? null
-        : signedMediaUrl({
-            storageKey: m.mediaStorageKey,
-            resourceType: m.mediaResourceType,
-            downloadAs: m.mediaName,
-          }) || viewUrl;
+      /*
+        The address handed out is this server's, not storage's. A storage URL
+        is a bearer token — whoever holds it can open the file forever, from
+        anywhere, signed in as nobody. Routing through here means every request
+        for an attachment is checked against the conversation it belongs to.
+      */
+      const hasMedia = Boolean(m.mediaUrl || m.mediaStorageKey);
+      const viewUrl = m.deletedAt || !hasMedia ? null : `/api/messages/${m.id}/media`;
+      const saveUrl = m.deletedAt || !hasMedia ? null : `/api/messages/${m.id}/media?download=1`;
 
       return {
         id: m.id,
@@ -767,10 +765,8 @@ router.post(
  * instead of waiting for a refetch to learn what it looks like.
  */
 function normaliseOwnMessage(message: any, senderName: string) {
-  const viewUrl = signedMediaUrl({
-    storageKey: message.mediaStorageKey,
-    resourceType: message.mediaResourceType,
-  }) || message.mediaUrl || null;
+  const hasMedia = Boolean(message.mediaUrl || message.mediaStorageKey);
+  const viewUrl = hasMedia ? `/api/messages/${message.id}/media` : null;
 
   return {
     id: message.id,
@@ -780,11 +776,7 @@ function normaliseOwnMessage(message: any, senderName: string) {
     kind: message.kind,
     body: message.body,
     mediaUrl: viewUrl,
-    mediaDownloadUrl: signedMediaUrl({
-      storageKey: message.mediaStorageKey,
-      resourceType: message.mediaResourceType,
-      downloadAs: message.mediaName,
-    }) || viewUrl,
+    mediaDownloadUrl: hasMedia ? `/api/messages/${message.id}/media?download=1` : null,
     mediaMimeType: message.mediaMimeType ?? null,
     mediaName: message.mediaName ?? null,
     mediaSizeBytes: message.mediaSizeBytes ?? null,
@@ -824,6 +816,93 @@ router.patch("/messages/:id", async (req, res) => {
   } catch (err) {
     req.log?.error({ err }, "Failed to edit message");
     return res.status(500).json({ error: "Could not edit that message" });
+  }
+});
+
+/**
+ * GET /api/messages/:id/media — serve an attachment, to members only.
+ *
+ * Storing attachments privately stopped them being reachable by guessing, but
+ * the signed address the server minted was still a bearer token: anyone holding
+ * that link could open the file, indefinitely, without being in the
+ * conversation or signed in as anyone at all. A link pasted into the wrong
+ * place, or lifted from a browser's history, was enough.
+ *
+ * So the link handed to the browser now points here instead, and every request
+ * for it is checked the same way the message itself is: are you signed in, and
+ * are you in this conversation? The address is worthless to anybody else. The
+ * file is fetched from storage on the server side and passed through, so the
+ * real storage URL is never given out.
+ *
+ * Range requests are forwarded, because a voice note that cannot be scrubbed is
+ * a voice note you have to listen to from the beginning every time.
+ */
+router.get("/messages/:id/media", async (req, res) => {
+  try {
+    const userId = await requireUser(req, res);
+    if (!userId) return;
+
+    const [message] = await db
+      .select({
+        conversationId: messagesTable.conversationId,
+        mediaUrl: messagesTable.mediaUrl,
+        mediaName: messagesTable.mediaName,
+        mediaMimeType: messagesTable.mediaMimeType,
+        mediaStorageKey: messagesTable.mediaStorageKey,
+        mediaResourceType: messagesTable.mediaResourceType,
+        deletedAt: messagesTable.deletedAt,
+      })
+      .from(messagesTable)
+      .where(eq(messagesTable.id, req.params.id))
+      .limit(1);
+
+    if (!message || message.deletedAt) return res.status(404).json({ error: "Not found" });
+
+    const membership = await requireMembership(message.conversationId, userId);
+    if (!membership) return res.status(404).json({ error: "Not found" });
+
+    const source = signedMediaUrl({
+      storageKey: message.mediaStorageKey,
+      resourceType: message.mediaResourceType,
+    }) || message.mediaUrl;
+    if (!source) return res.status(404).json({ error: "Not found" });
+
+    // A data URI is already the file; there is nothing to fetch.
+    if (source.startsWith("data:")) return res.redirect(source);
+
+    const upstream = await fetch(source, {
+      headers: req.headers.range ? { Range: String(req.headers.range) } : undefined,
+    });
+    if (!upstream.ok && upstream.status !== 206) {
+      req.log?.warn({ status: upstream.status }, "Attachment fetch failed");
+      return res.status(502).json({ error: "That file could not be loaded." });
+    }
+
+    const name = (message.mediaName || "attachment").replace(/["\\\r\n]/g, "");
+    const wantsDownload = req.query.download === "1";
+
+    res.status(upstream.status);
+    res.setHeader("Content-Type", message.mediaMimeType || upstream.headers.get("content-type") || "application/octet-stream");
+    res.setHeader("Content-Disposition", `${wantsDownload ? "attachment" : "inline"}; filename="${name}"`);
+    // Private: a shared cache must never hold one member's attachment.
+    res.setHeader("Cache-Control", "private, max-age=300");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    for (const header of ["content-length", "content-range", "accept-ranges"]) {
+      const value = upstream.headers.get(header);
+      if (value) res.setHeader(header, value);
+    }
+
+    if (!upstream.body) return res.end();
+    const reader = upstream.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      res.write(Buffer.from(value));
+    }
+    return res.end();
+  } catch (err) {
+    req.log?.error({ err }, "Failed to serve an attachment");
+    return res.status(500).json({ error: "That file could not be loaded.", code: "LOAD_FAILED" });
   }
 });
 
