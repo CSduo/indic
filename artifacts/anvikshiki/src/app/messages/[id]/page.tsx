@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams, useLocation } from "wouter";
 import {
   ArrowLeft, Bell, BellOff, Check, Copy, CornerUpLeft, Download, ExternalLink,
-  Image as ImageIcon, MoreHorizontal, Paperclip, Pencil, Send, Trash2, Users, X,
+  Image as ImageIcon, MoreHorizontal, Paperclip, Pencil, Send, Smile, Trash2, Users, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -119,6 +119,63 @@ function MessageText({ body, mine }: { body: string; mine: boolean }) {
       >
         {expanded ? "Show less" : "Show more"}
       </button>
+    </>
+  );
+}
+
+/**
+ * Emoji, grouped, with no dependency and no network call.
+ *
+ * Deliberately not a GIF or sticker library. Every one of those is somebody
+ * else's hosted service behind an API key, which would mean an account to
+ * maintain, a quota to watch, and every search a member types being sent to a
+ * third party. Emoji are already on the device.
+ */
+const EMOJI_GROUPS: Array<{ label: string; emoji: string[] }> = [
+  { label: "Feeling", emoji: ["😀", "😄", "🙂", "😊", "😌", "😍", "🥰", "😘", "😉", "🤗", "🤔", "😐", "😑", "🙄", "😴", "😢", "😭", "😤", "😡", "🥺", "😳", "🤯", "😬", "🫡"] },
+  { label: "Gesture", emoji: ["👍", "👎", "👏", "🙏", "🤝", "✌️", "🤞", "👌", "🫶", "💪", "👋", "🙌"] },
+  { label: "Warmth", emoji: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "💫", "✨", "🔥", "🎉", "🎊", "🥳"] },
+  { label: "Study", emoji: ["📖", "📚", "📝", "🖋️", "📜", "🗒️", "🔍", "💡", "🧠", "🎓", "🏛️", "🪔"] },
+  { label: "Things", emoji: ["☕", "🍵", "🌿", "🌸", "🌙", "⭐", "🌍", "⏳", "📌", "✅", "❌", "⚠️"] },
+];
+
+function EmojiPicker({ onPick, onClose }: { onPick: (emoji: string) => void; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <>
+      <button type="button" className="fixed inset-0 z-[90] cursor-default" aria-label="Close" onClick={onClose} />
+      {/* Anchored to the right, because that is the edge it opens from — the
+          same panel anchored left would hang off the side of a phone. */}
+      <div
+        className="absolute bottom-full right-0 z-[95] mb-2 max-h-64 w-[min(19rem,calc(100vw-2rem))] overflow-y-auto rounded-[4px] border p-2 shadow-lg"
+        style={{ background: "var(--surface)", borderColor: "var(--hairline)" }}
+        role="dialog"
+        aria-label="Choose an emoji"
+      >
+        {EMOJI_GROUPS.map(group => (
+          <div key={group.label} className="mb-2 last:mb-0">
+            <p className="mono-label mb-1 px-1">{group.label}</p>
+            <div className="grid grid-cols-8 gap-0.5">
+              {group.emoji.map(emoji => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => onPick(emoji)}
+                  className="rounded-[2px] p-1 text-lg leading-none transition-colors hover:bg-[var(--surface-2)]"
+                  aria-label={emoji}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
     </>
   );
 }
@@ -426,6 +483,7 @@ export default function ConversationPage() {
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [editing, setEditing] = useState<Message | null>(null);
   const [sending, setSending] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [busy, setBusy] = useState(true);
   const [showMembers, setShowMembers] = useState(false);
 
@@ -505,6 +563,13 @@ export default function ConversationPage() {
     if (!el) return;
     atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
   };
+
+  /*
+    No JavaScript sizing. The field is stretched by the row to the height of
+    the tool column beside it, which is about five lines, and scrolls inside
+    that. Setting an explicit height here would fight the stretch and make the
+    two halves of the block disagree about how tall they are.
+  */
 
   const signalTyping = () => {
     // At most one signal every three seconds; the server treats it as stale
@@ -851,26 +916,25 @@ export default function ConversationPage() {
             </div>
           ) : null}
 
-          <div className="flex items-end gap-2">
+          {/*
+            The field takes the whole width and grows downward as you write;
+            everything you can press sits together on the right.
+
+            It previously used the site's shared textarea style, which carries
+            a 8rem minimum height meant for essay forms. In a chat that drew a
+            tall empty box with the caret stranded at the top of it, and pushed
+            the two attachment buttons into the left margin, away from Send.
+          */}
+          {/* `items-stretch`: the field matches the height of the column
+              beside it, so the two read as one block rather than a small box
+              floating next to a tall one. */}
+          <div className="flex items-stretch gap-2">
             <input ref={imageRef} type="file" accept="image/*" className="sr-only" onChange={e => { const f = e.target.files?.[0]; if (f) void attach(f); e.target.value = ""; }} />
             <input ref={fileRef} type="file" className="sr-only" onChange={e => { const f = e.target.files?.[0]; if (f) void attach(f); e.target.value = ""; }} />
 
-            {/* Attachment controls are hidden while editing: an edit changes
-                words, it cannot turn a message into a file. */}
-            {!editing ? (
-              <>
-                <button type="button" className="editor-tool" onClick={() => imageRef.current?.click()} aria-label="Send a photo" disabled={sending}>
-                  <ImageIcon size={15} />
-                </button>
-                <button type="button" className="editor-tool" onClick={() => fileRef.current?.click()} aria-label="Attach a file" disabled={sending}>
-                  <Paperclip size={15} />
-                </button>
-              </>
-            ) : null}
-
             <textarea
               ref={composerRef}
-              className="textarea-sacred min-h-[42px] flex-1 resize-none text-sm"
+              className="composer-input min-w-0 flex-1"
               rows={1}
               placeholder={editing ? "Edit your message…" : "Write a message…"}
               value={draft}
@@ -886,15 +950,51 @@ export default function ConversationPage() {
               }}
             />
 
-            <button
-              type="button"
-              onClick={editing ? saveEdit : send}
-              disabled={!draft.trim()}
-              className="btn-terracotta shrink-0"
-              aria-label={editing ? "Save edit" : "Send"}
-            >
-              {editing ? <Check size={14} /> : <Send size={14} />}
-            </button>
+            {/* One lane, one enclosing hairline, each control divided from
+                the next. Send closes it and is the only coloured thing. */}
+            <div className="composer-tools relative">
+              {/* Attachment controls are hidden while editing: an edit changes
+                  words, it cannot turn a message into a file. */}
+              {!editing ? (
+                <>
+                  <button
+                    type="button"
+                    className="composer-tool"
+                    onClick={() => setPickerOpen(v => !v)}
+                    aria-label="Emoji"
+                    aria-expanded={pickerOpen}
+                  >
+                    <Smile size={15} />
+                  </button>
+                  <button type="button" className="composer-tool" onClick={() => imageRef.current?.click()} aria-label="Send a photo" disabled={sending}>
+                    <ImageIcon size={15} />
+                  </button>
+                  <button type="button" className="composer-tool" onClick={() => fileRef.current?.click()} aria-label="Attach a file" disabled={sending}>
+                    <Paperclip size={15} />
+                  </button>
+                </>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={editing ? saveEdit : send}
+                disabled={!draft.trim()}
+                className="composer-send"
+                aria-label={editing ? "Save edit" : "Send"}
+              >
+                {editing ? <Check size={15} /> : <Send size={15} />}
+              </button>
+
+              {pickerOpen ? (
+                <EmojiPicker
+                  onPick={emoji => {
+                    setDraft(d => (d + emoji).slice(0, 4000));
+                    composerRef.current?.focus();
+                  }}
+                  onClose={() => setPickerOpen(false)}
+                />
+              ) : null}
+            </div>
           </div>
 
         </div>

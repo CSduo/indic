@@ -901,6 +901,128 @@ button {
   line-height: 1.55;
 }
 
+/*
+  The message composer.
+
+  Not `.textarea-sacred`: that carries an 8rem minimum height intended for
+  essay and abstract fields, which in a conversation drew a tall empty box with
+  the caret stranded at the top of it. This starts at one line, grows with what
+  is being written, and stops before it swallows the conversation.
+*/
+.composer-input {
+  width: 100%;
+  min-height: 2.5rem;
+  max-height: 8.75rem;
+  padding: .6rem .85rem;
+  border: 1.5px solid var(--border-ink);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: .93rem;
+  line-height: 1.45;
+  resize: none;
+  overflow-y: auto;
+  transition: border-color var(--motion-fast) var(--ease-archive),
+              box-shadow var(--motion-fast) var(--ease-archive);
+}
+
+.composer-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.composer-input::placeholder {
+  color: var(--ink-faint);
+}
+
+/*
+  The composer's tools stand in a column at the right edge, not a row beneath
+  the field.
+
+  Side by side, four controls took nearly half the width of a phone and left
+  the field — the thing being looked at while typing — squeezed into what was
+  left. Stacked, they occupy one narrow lane, the field takes everything else,
+  and the whole block reads as one instrument rather than a scatter of buttons.
+
+  They are set as a single unit: one hairline enclosing the lane, each control
+  divided from the next by another hairline, square corners. The same
+  vocabulary as the rest of the journal — achromatic, 2px, nothing rounded,
+  nothing coloured until it means something.
+*/
+.composer-tools {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-edge, 2px);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.composer-tool {
+  width: 2.125rem;
+  height: 2.125rem;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-bottom: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--ink-meta);
+  cursor: pointer;
+  transition: color var(--motion-fast) var(--ease-archive),
+              background var(--motion-fast) var(--ease-archive);
+}
+
+.composer-tool:last-child { border-bottom: 0; }
+
+.composer-tool:hover:not(:disabled) {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+/* Tactile: the control moves under the finger rather than only recolouring. */
+.composer-tool:active:not(:disabled) {
+  transform: translateY(0.5px);
+  background: var(--surface-2);
+}
+
+.composer-tool:disabled { opacity: .4; cursor: default; }
+
+.composer-tool[aria-expanded="true"] {
+  color: var(--accent);
+  background: var(--accent-wash);
+}
+
+/*
+  Send closes the column. It is the only coloured thing in the block, which is
+  the whole of how it is distinguished — no larger, no rounder, just the one
+  control that carries the accent.
+*/
+.composer-send {
+  width: 2.125rem;
+  height: 2.125rem;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-top: 1px solid var(--hairline);
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-archive), opacity var(--motion-fast) var(--ease-archive);
+}
+
+.composer-send:hover:not(:disabled) { background: var(--accent-hover); }
+.composer-send:active:not(:disabled) { transform: translateY(0.5px); }
+
+/* Nothing to send yet: recedes to the same weight as the tools above it. */
+.composer-send:disabled {
+  background: transparent;
+  color: var(--ink-faint);
+  cursor: default;
+}
+
 .select-sacred {
   appearance: auto;
 }
