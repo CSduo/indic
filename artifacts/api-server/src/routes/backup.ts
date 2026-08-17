@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { Router } from "express";
 import { getAdminAuth } from "../lib/auth";
 import { purgeDueAccounts, DELETION_GRACE_DAYS } from "../lib/account-deletion";
+import { backfillHandles } from "../lib/handles";
 
 const router = Router();
 
@@ -109,11 +110,24 @@ router.post("/admin/purge-deleted-accounts", requireAdmin, (req: any, res: any) 
 
 async function runAccountPurge(req: any, res: any) {
   try {
+    /*
+      The same daily pass fills in missing handles. Handles arrived after most
+      accounts existed and were only assigned on the owner's next sign-in,
+      which left people present in the Assembly but unmessageable — messaging
+      goes through the handle. Waiting for everyone to come back was never
+      going to finish.
+    */
+    const handles = await backfillHandles().catch(err => {
+      req.log.warn({ err }, "Handle backfill failed");
+      return { assigned: 0, skipped: 0 };
+    });
+    if (handles.assigned > 0) req.log.info(handles, "Assigned handles to accounts that had none");
+
     const result = await purgeDueAccounts();
     if (result.purged > 0 || result.failed > 0) {
       req.log.info(result, "Account purge run complete");
     }
-    return res.json({ success: true, ...result, graceDays: DELETION_GRACE_DAYS });
+    return res.json({ success: true, ...result, handles, graceDays: DELETION_GRACE_DAYS });
   } catch (err) {
     req.log.error({ err }, "Account purge failed");
     return res.status(500).json({ error: "The purge could not be completed.", code: "PURGE_FAILED" });

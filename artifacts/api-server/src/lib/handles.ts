@@ -85,9 +85,13 @@ function baseFrom(name: string | null, email: string | null): string {
     .replace(/^-+|-+$/g, "")
     .slice(0, HANDLE_MAX - 4);
 
-  // Must begin with a letter, and must be long enough to be a handle at all.
-  const withLetter = /^[a-z]/.test(slug) ? slug : `m-${slug}`;
-  return withLetter.length >= HANDLE_MIN ? withLetter : `member-${withLetter}`.slice(0, HANDLE_MAX);
+  /*
+    Must begin with a letter. A name too short to be a handle on its own — "Vu"
+    — is left as it is rather than padded into "member-vu": the caller's
+    collision loop will offer "vu-2", which is still recognisably the person's
+    name, and a prefix nobody chose reads like an error.
+  */
+  return /^[a-z]/.test(slug) ? slug : `m-${slug}`;
 }
 
 /**
@@ -139,4 +143,45 @@ export async function ensureHandle(userId: string, name: string | null, email: s
     console.warn("Could not assign a handle:", err?.message || err);
     return null;
   }
+}
+
+/**
+ * Give a handle to every account that has none.
+ *
+ * Handles were introduced after most of these accounts existed, and each one
+ * was only assigned on the owner's next sign-in. That left people who had not
+ * been back looking half-registered — present in the Assembly but unable to be
+ * messaged, because messaging goes through the handle. Waiting for everyone to
+ * sign in was never going to finish.
+ *
+ * Done one at a time rather than in a single statement: each candidate has to
+ * be checked against the ones already taken, including those generated a
+ * moment earlier in this same run.
+ */
+export async function backfillHandles(limit = 500): Promise<{
+  assigned: number;
+  skipped: number;
+}> {
+  const pending = await db
+    .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email })
+    .from(usersTable)
+    .where(sql`${usersTable.handle} IS NULL OR ${usersTable.handle} = ''`)
+    .limit(limit);
+
+  let assigned = 0;
+  let skipped = 0;
+
+  for (const person of pending) {
+    try {
+      const handle = await generateHandle(person.name, person.email);
+      if (!handle) { skipped += 1; continue; }
+      await db.update(usersTable).set({ handle }).where(eq(usersTable.id, person.id));
+      assigned += 1;
+    } catch (err: any) {
+      skipped += 1;
+      console.warn(`Could not assign a handle to ${person.id}:`, err?.message || err);
+    }
+  }
+
+  return { assigned, skipped };
 }

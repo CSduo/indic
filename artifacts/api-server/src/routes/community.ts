@@ -49,10 +49,16 @@ router.get("/community/members", async (req, res) => {
     const conditions: any[] = [];
     if (q.length >= 1) {
       const term = `%${q.replace(/[%_\\]/g, m => `\\${m}`)}%`;
-      // Deliberately searches name, bio and institution — never email, so an
-      // address cannot be confirmed by probing this endpoint.
+      /*
+        Name, handle, bio and institution — never email, so an address cannot
+        be confirmed by probing this endpoint. The handle is included because
+        it is how people refer to each other once they have one; a member you
+        know only as @arya-ambadi was unfindable without it.
+      */
+      const bare = term.replace("@", "");
       conditions.push(or(
         ilike(usersTable.name, term),
+        ilike(usersTable.handle, bare),
         ilike(usersTable.bio, term),
         ilike(usersTable.institution, term),
       )!);
