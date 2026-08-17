@@ -48,12 +48,13 @@ export default function ContactPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!r.ok) throw new Error("Failed");
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || "Failed to send enquiry");
       setStatus("ok");
-      toast.success("Message sent. We'll respond within 3–5 days.");
-    } catch {
+      toast.success(data.message || "Message delivered to the editor's desk.");
+    } catch (err: any) {
       setStatus("err");
-      toast.error("Failed to send. Please try emailing us directly.");
+      toast.error(err?.message || "Failed to send. Please try emailing us directly.");
     }
   };
 
@@ -65,7 +66,7 @@ export default function ContactPage() {
           <p className="type-section-label mb-3">Get in Touch</p>
           <h1 className="font-display text-5xl text-[var(--ink)]">Contact the Journal</h1>
           <p className="mt-4 font-body text-base leading-7 text-[var(--ink-soft)]">
-            We read every message carefully. Responses may take a few days — the editorial process benefits from patience.
+            We read every message carefully. Inquiries are routed directly to the editor's desk and direct messages.
           </p>
         </div>
       </section>
@@ -81,7 +82,7 @@ export default function ContactPage() {
                 <AnimalGlyph domain="community" size={56} className="mx-auto mb-4 text-[var(--gold)]" />
                 <h2 className="font-display text-3xl text-[var(--ink)] mb-3">Message Received</h2>
                 <p className="font-body text-base leading-7 text-[var(--ink-soft)]">
-                  We'll respond to <strong>{form.email}</strong> within 3–5 working days.
+                  Your enquiry has been delivered directly to the editorial desk. We'll also respond to <strong>{form.email}</strong> within 3–5 working days.
                 </p>
                 <button
                   type="button"
