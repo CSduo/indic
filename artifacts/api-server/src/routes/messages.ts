@@ -95,10 +95,10 @@ async function requireUser(req: any, res: any): Promise<string | null> {
   return auth.userId;
 }
 
-/* â”€â”€â”€ Inbox â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* --------- Inbox ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 
 /**
- * GET /api/conversations â€” the inbox.
+ * GET /api/conversations -€- the inbox.
  *
  * Reads only the conversations table plus one aggregate for unread counts, so
  * the cost does not grow with message volume. This is the most-polled endpoint
@@ -202,7 +202,7 @@ router.get("/conversations", async (req, res) => {
 });
 
 /**
- * GET /api/conversations/cursor â€” a tiny endpoint the client polls.
+ * GET /api/conversations/cursor -€- a tiny endpoint the client polls.
  *
  * Returns only the newest activity timestamp and the total unread count. The
  * client compares it against what it already has and only fetches the full
@@ -224,10 +224,10 @@ router.get("/conversations/cursor", async (req, res) => {
   }
 });
 
-/* â”€â”€â”€ Starting a conversation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* --------- Starting a conversation ------------------------------------------------------------------------------------------------------------------------------------ */
 
 /**
- * POST /api/conversations â€” open a direct thread, or create a group.
+ * POST /api/conversations -€- open a direct thread, or create a group.
  *
  * Opening a direct thread is idempotent: the sorted-pair key means asking
  * twice returns the same conversation rather than splitting the history in
@@ -290,7 +290,7 @@ router.post("/conversations", async (req, res) => {
       }
 
       // Someone the recipient already follows is not a stranger, so their
-      // thread opens immediately. Anyone else has to be accepted first â€” that
+      // thread opens immediately. Anyone else has to be accepted first -€- that
       // is what stops the directory turning into an open channel to every
       // member of the site.
       const [theyFollowMe] = await db
@@ -320,7 +320,7 @@ router.post("/conversations", async (req, res) => {
     }
 
     // A group may only be assembled from people who have actually agreed to
-    // hear from you â€” otherwise a group becomes a way around the request step.
+    // hear from you -€- otherwise a group becomes a way around the request step.
     const reachable = await db
       .select({ other: conversationsTable.directKey })
       .from(conversationsTable)
@@ -359,9 +359,9 @@ router.post("/conversations", async (req, res) => {
   }
 });
 
-/* â”€â”€â”€ A single thread â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* --------- A single thread ------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 
-/** GET /api/conversations/:id â€” details, members, and who is typing. */
+/** GET /api/conversations/:id -€- details, members, and who is typing. */
 router.get("/conversations/:id", async (req, res) => {
   try {
     const userId = await requireUser(req, res);
@@ -411,7 +411,7 @@ router.get("/conversations/:id", async (req, res) => {
 });
 
 /**
- * GET /api/conversations/:id/messages â€” a page of the thread.
+ * GET /api/conversations/:id/messages -€- a page of the thread.
  *
  * `before` pages backwards through history; `after` fetches only what is new,
  * which is what the open thread polls with.
@@ -548,7 +548,7 @@ router.get("/conversations/:id/messages", async (req, res) => {
   }
 });
 
-/* â”€â”€â”€ Sending â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* --------- Sending ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 
 async function deliverMessage(options: {
   conversationId: string;
@@ -569,7 +569,7 @@ async function deliverMessage(options: {
         title: conversationTitle === senderName ? senderName : `${senderName} Â· ${conversationTitle}`,
         body: preview,
         url: `/messages/${conversationId}`,
-        // One notification per conversation, replaced as it goes â€” a burst of
+        // One notification per conversation, replaced as it goes -€- a burst of
         // messages should not become a wall of separate alerts.
         tag: `conversation-${conversationId}`,
       })));
@@ -578,7 +578,7 @@ async function deliverMessage(options: {
   }
 }
 
-/** POST /api/conversations/:id/messages â€” send text, optionally quoting. */
+/** POST /api/conversations/:id/messages -€- send text, optionally quoting. */
 router.post("/conversations/:id/messages", async (req, res) => {
   try {
     const userId = await requireUser(req, res);
@@ -596,7 +596,7 @@ router.post("/conversations/:id/messages", async (req, res) => {
     }
 
     // While a request is pending the sender gets one message, and the
-    // recipient cannot reply at all without accepting â€” replying *is*
+    // recipient cannot reply at all without accepting -€- replying *is*
     // accepting, so an implicit one would defeat the point.
     const request = await requestStateFor(req.params.id, userId);
     if (request.pending) {
@@ -683,7 +683,7 @@ router.post("/conversations/:id/messages", async (req, res) => {
   }
 });
 
-/** POST /api/conversations/:id/attachments â€” send a photo, voice note, or file. */
+/** POST /api/conversations/:id/attachments -€- send a photo, voice note, or file. */
 router.post(
   "/conversations/:id/attachments",
   (req: any, res: any, next: any) => {
@@ -801,9 +801,9 @@ function normaliseOwnMessage(message: any, senderName: string) {
   };
 }
 
-/* â”€â”€â”€ Message actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* --------- Message actions ------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 
-/** PATCH /api/messages/:id â€” edit your own message. */
+/** PATCH /api/messages/:id -€- edit your own message. */
 router.patch("/messages/:id", async (req, res) => {
   try {
     const userId = await requireUser(req, res);
@@ -1074,7 +1074,7 @@ router.get("/messages/:id/media", async (req, res) => {
   }
 });
 
-/** DELETE /api/messages/:id â€” unsend your own message. */
+/** DELETE /api/messages/:id -€- unsend your own message. */
 router.delete("/messages/:id", async (req, res) => {
   try {
     const userId = await requireUser(req, res);
@@ -1096,7 +1096,7 @@ router.delete("/messages/:id", async (req, res) => {
   }
 });
 
-/** PUT /api/messages/:id/reactions â€” add or remove one of your reactions. */
+/** PUT /api/messages/:id/reactions -€- add or remove one of your reactions. */
 router.put("/messages/:id/reactions", async (req, res) => {
   try {
     const userId = await requireUser(req, res);
@@ -1139,9 +1139,9 @@ router.put("/messages/:id/reactions", async (req, res) => {
   }
 });
 
-/* â”€â”€â”€ Read state, typing, membership â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* --------- Read state, typing, membership --------------------------------------------------------------------------------------------------------------- */
 
-/** POST /api/conversations/:id/read â€” mark everything up to now as seen. */
+/** POST /api/conversations/:id/read -€- mark everything up to now as seen. */
 router.post("/conversations/:id/read", async (req, res) => {
   try {
     const userId = await requireUser(req, res);
@@ -1158,7 +1158,7 @@ router.post("/conversations/:id/read", async (req, res) => {
   }
 });
 
-/** POST /api/conversations/:id/typing â€” refresh the typing signal. */
+/** POST /api/conversations/:id/typing -€- refresh the typing signal. */
 router.post("/conversations/:id/typing", async (req, res) => {
   try {
     const userId = await requireUser(req, res);
@@ -1180,7 +1180,7 @@ router.post("/conversations/:id/typing", async (req, res) => {
   }
 });
 
-/** PATCH /api/conversations/:id â€” rename a group, or mute it for yourself. */
+/** PATCH /api/conversations/:id -€- rename a group, or mute it for yourself. */
 router.patch("/conversations/:id", async (req, res) => {
   try {
     const userId = await requireUser(req, res);
@@ -1221,7 +1221,7 @@ router.patch("/conversations/:id", async (req, res) => {
   }
 });
 
-/** POST /api/conversations/:id/members â€” add people to a group. */
+/** POST /api/conversations/:id/members -€- add people to a group. */
 router.post("/conversations/:id/members", async (req, res) => {
   try {
     const userId = await requireUser(req, res);
@@ -1256,7 +1256,7 @@ router.post("/conversations/:id/members", async (req, res) => {
   }
 });
 
-/** DELETE /api/conversations/:id/members/:userId â€” leave, or remove someone. */
+/** DELETE /api/conversations/:id/members/:userId -€- leave, or remove someone. */
 router.delete("/conversations/:id/members/:userId", async (req, res) => {
   try {
     const userId = await requireUser(req, res);
@@ -1284,7 +1284,7 @@ router.delete("/conversations/:id/members/:userId", async (req, res) => {
   }
 });
 
-/** POST /api/conversations/:id/accept â€” accept a message request. */
+/** POST /api/conversations/:id/accept -€- accept a message request. */
 router.post("/conversations/:id/accept", async (req, res) => {
   try {
     const userId = await requireUser(req, res);
@@ -1322,7 +1322,7 @@ router.post("/conversations/:id/accept", async (req, res) => {
 });
 
 /**
- * DELETE /api/conversations/:id/request â€” decline.
+ * DELETE /api/conversations/:id/request -€- decline.
  *
  * The whole conversation goes, not just the membership: a declined request
  * should leave nothing behind, and keeping the row would let the sender see
@@ -1348,9 +1348,9 @@ router.delete("/conversations/:id/request", async (req, res) => {
   }
 });
 
-/* â”€â”€â”€ Finding people â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* --------- Finding people --------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 
-/** GET /api/messages/people?q= â€” search accounts to start a conversation with. */
+/** GET /api/messages/people?q= -€- search accounts to start a conversation with. */
 router.get("/messages/people", async (req, res) => {
   try {
     const userId = await requireUser(req, res);

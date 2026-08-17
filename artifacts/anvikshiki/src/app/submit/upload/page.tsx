@@ -37,7 +37,7 @@ function escapeHtml(value: string): string {
   })[character] || character);
 }
 
-/* â”€â”€ Text/HTML extraction helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Text/HTML extraction helpers ------------------------------------------------------------------------------------------------------ */
 
 /** Convert plain text (newlines) to HTML paragraphs */
 function plainTextToHtml(text: string): string {
@@ -80,7 +80,7 @@ async function extractPdfAsHtml(file: File): Promise<string> {
     // A scanned PDF has no text layer at all. Saying so is far more useful than
     // returning an empty import that looks like a silent failure.
     throw new Error(
-      "This PDF has no selectable text â€” it looks like a scan of a printed page. Import a .docx, or paste the text into the editor.",
+      "This PDF has no selectable text -€- it looks like a scan of a printed page. Import a .docx, or paste the text into the editor.",
     );
   }
   return plainTextToHtml(text);
@@ -246,7 +246,7 @@ export default function SubmitUploadPage() {
     }
   };
 
-  /* â”€â”€ File validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ------ File validation --------------------------------------------------------------------------------------------------------------------------------------------- */
   const pickMain = (file: File) => {
     if (file.size > 50 * 1024 * 1024) { setError("File must be under 50 MB"); return; }
     const lowerName = file.name.toLowerCase();
@@ -272,7 +272,7 @@ export default function SubmitUploadPage() {
     setError("");
   };
 
-  /* â”€â”€ Extract HTML from file and navigate to write editor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ------ Extract HTML from file and navigate to write editor ------------------------------ */
   const extractAndWrite = async (file: File) => {
     setExtracting(true);
     setError("");
@@ -292,14 +292,14 @@ export default function SubmitUploadPage() {
       }
 
       if (isTxt) {
-        // Browser-side: plain text â†’ HTML paragraphs
+        // Browser-side: plain text -†’ HTML paragraphs
         const text = await file.text();
         htmlContent = plainTextToHtml(text);
       } else if (isPdf) {
-        // Browser-side PDF â†’ HTML paragraphs (text layer only)
+        // Browser-side PDF -†’ HTML paragraphs (text layer only)
         htmlContent = await extractPdfAsHtml(file);
       } else if (isDocx) {
-        // Server-side mammoth â†’ full HTML with embedded images uploaded to Cloudinary
+        // Server-side mammoth -†’ full HTML with embedded images uploaded to Cloudinary
         const formData = new FormData();
         formData.append("file", file);
         const res = await fetch(`${base()}/api/media/extract-doc`, {
@@ -329,7 +329,7 @@ export default function SubmitUploadPage() {
     }
   };
 
-  /* â”€â”€ Fetch text from URL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ------ Fetch text from URL --------------------------------------------------------------------------------------------------------------------------------- */
   const fetchUrl = async () => {
     if (!urlValue.trim()) { setUrlImportError("Please enter a URL"); return; }
     let url: string;
@@ -551,7 +551,7 @@ export default function SubmitUploadPage() {
       if (inlineImgInputRef.current) inlineImgInputRef.current.value = "";
     }
   };
-  /* â”€â”€ Traditional file upload (sends to API) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ------ Traditional file upload (sends to API) ------------------------------------------------------------------------ */
   const submit = async () => {
     if (!mainFile) { setError("Please upload your manuscript file"); return; }
     if (!declared) { setError("Please confirm the declaration"); return; }
@@ -872,7 +872,7 @@ export default function SubmitUploadPage() {
           imageAlt="Illustrated manuscript submission"
           eyebrow="Upload Manuscript"
           title="Send the manuscript."
-          description="Attach your file or paste a URL â€” your content flows directly into the editor."
+          description="Attach your file or paste a URL -€- your content flows directly into the editor."
           glyph="submit"
           focal="center"
         />
@@ -934,7 +934,7 @@ export default function SubmitUploadPage() {
                     className="btn-ink min-h-11 shrink-0 self-start text-[11px] uppercase tracking-wider px-3 py-1.5 sm:self-auto"
                     style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-gold)", cursor: "pointer" }}
                   >
-                    âœ• Discard & Re-Upload
+                    -œ- Discard & Re-Upload
                   </button>
                 </div>
 
@@ -1069,7 +1069,7 @@ export default function SubmitUploadPage() {
                       title="Insert Inline Image"
                     >
                       <ImageIcon size={13} />
-                      <span>{insertingInlineImage ? "Uploadingâ€¦" : "Add Image"}</span>
+                      <span>{insertingInlineImage ? "Uploading-€¦" : "Add Image"}</span>
                     </button>
 
                     <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
@@ -1091,7 +1091,7 @@ export default function SubmitUploadPage() {
                       title="Insert Voice Note"
                     >
                       <Mic size={13} />
-                      <span>{uploadingInlineAudio ? "Uploadingâ€¦" : "Add VN"}</span>
+                      <span>{uploadingInlineAudio ? "Uploading-€¦" : "Add VN"}</span>
                     </button>
                   </div>
 
@@ -1104,7 +1104,7 @@ export default function SubmitUploadPage() {
                           {inlineRecording 
                             ? `Recording: ${Math.floor(inlineRecordTime / 60)}:${(inlineRecordTime % 60).toString().padStart(2, '0')} / 5:00` 
                             : uploadingInlineAudio 
-                            ? 'Uploading voice noteâ€¦' 
+                            ? 'Uploading voice note-€¦' 
                             : 'Record or upload a voice note to insert at cursor'}
                         </span>
                       </div>
@@ -1192,7 +1192,7 @@ export default function SubmitUploadPage() {
               </div>
             ) : (
               <div>
-                {/* â”€â”€ Source tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                {/* ------ Source tabs --------------------------------------------------------------------------------------------------------------------------- */}
                 <div className="mb-6 flex rounded-[8px] border border-[var(--border-gold)] bg-[var(--surface)] p-1">
                   {(["file", "url"] as const).map((t) => (
                     <button
@@ -1240,7 +1240,7 @@ export default function SubmitUploadPage() {
                           className="mt-3 inline-flex items-center gap-2 rounded-[8px] border border-[var(--border-gold)] bg-[var(--surface-elevated)] px-4 py-2 font-ui text-xs font-bold uppercase tracking-[0.1em] text-[var(--gold)] transition hover:bg-[var(--surface)] cursor-pointer"
                         >
                           <FileText size={13} />
-                          {extracting ? "Extracting textâ€¦" : "Extract text into Editor â†’"}
+                          {extracting ? "Extracting text-€¦" : "Extract text into Editor -†’"}
                         </button>
                       )}
                     </div>
@@ -1268,7 +1268,7 @@ export default function SubmitUploadPage() {
                     </div>
                   </div>
                 ) : (
-                /* â”€â”€ URL tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+                /* ------ URL tab --------------------------------------------------------------------------------------------------------------------------------- */
                 <div className="space-y-4">
                   <p className="font-body text-sm leading-6 text-[var(--ink-soft)]">
                     Paste the URL of a web article, blog post, or publicly accessible document. Its text and
@@ -1276,7 +1276,7 @@ export default function SubmitUploadPage() {
                   </p>
                   <div className="rounded-lg border border-[var(--border-gold)] bg-[var(--surface-3)] p-3 font-body text-xs leading-5 text-[var(--ink-soft)]">
                     <strong className="font-ui text-[11px] uppercase tracking-[0.08em] text-[var(--ink)]">Google Docs</strong>
-                    <span className="block mt-1">Set sharing to <em>Anyone with link â€” Viewer</em>, then paste its full Google Docs link. The importer keeps readable text and available images; nothing is published automatically.</span>
+                    <span className="block mt-1">Set sharing to <em>Anyone with link -€- Viewer</em>, then paste its full Google Docs link. The importer keeps readable text and available images; nothing is published automatically.</span>
                   </div>
                   <div>
                     <label className="form-label" htmlFor="url-input">Article / Document URL *</label>
@@ -1377,7 +1377,7 @@ export default function SubmitUploadPage() {
                 className="btn-terracotta w-full justify-center py-4 mt-6"
               >
                 {submitting
-                  ? `Uploading ${progress}%â€¦`
+                  ? `Uploading ${progress}%-€¦`
                   : <>Submit Edited Article <ArrowRight size={14} /></>}
               </button>
             ) : (
@@ -1389,7 +1389,7 @@ export default function SubmitUploadPage() {
                   className="btn-terracotta w-full justify-center py-4"
                 >
                   {submitting
-                    ? `Uploading ${progress}%â€¦`
+                    ? `Uploading ${progress}%-€¦`
                     : <>Submit for Review <ArrowRight size={14} /></>}
                 </button>
               )
@@ -1421,7 +1421,7 @@ export default function SubmitUploadPage() {
   );
 }
 
-/* â”€â”€ UploadZone â€” uses overlay input for reliable mobile taps â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ UploadZone -€- uses overlay input for reliable mobile taps --------------------- */
 function UploadZone({
   file, dragging, onDragOver, onDragLeave, onDrop,
   icon, accept, formatHint, browseLabel, onRemove, inputRef, onFileChange,
@@ -1446,7 +1446,7 @@ function UploadZone({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      {/* Invisible full-zone file input â€” catches taps on mobile */}
+      {/* Invisible full-zone file input -€- catches taps on mobile */}
       {!file && (
         <input
           ref={inputRef}

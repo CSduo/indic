@@ -536,7 +536,7 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
       updatedAt: now,
     };
     // Publishing is idempotent on purpose. A submission can already be marked
-    // PUBLISHED while its public article or paper is missing or trashed â€” that
+    // PUBLISHED while its public article or paper is missing or trashed -€- that
     // is exactly the state an earlier silent failure leaves behind. Running the
     // publication step again on a submission that is already PUBLISHED is what
     // repairs it, so this must not be gated on the status changing.
@@ -620,7 +620,7 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
         }
         req.log.error(
           { submissionId: req.params.id, reason },
-          "Publish aborted â€” no public record was created, submission status rolled back",
+          "Publish aborted -€- no public record was created, submission status rolled back",
         );
         return res.status(502).json({
           error: "This work could not be published to the public journal, so its status was left unchanged.",
@@ -679,7 +679,7 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
   }
 });
 
-// DELETE /api/admin/submissions/:id â€” admin soft-deletes a submission
+// DELETE /api/admin/submissions/:id -€- admin soft-deletes a submission
 router.delete("/admin/submissions/:id", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
   try {
     const [existing] = await db.select().from(submissionsTable)
@@ -1049,7 +1049,7 @@ router.get("/admin/database-timing", requireAdmin, requireAdminRole("ADMIN"), as
   }
 });
 
-// POST /api/admin/submissions/sync-public-archives â€” rebuild missing public
+// POST /api/admin/submissions/sync-public-archives -€- rebuild missing public
 // records for submissions already marked PUBLISHED. This is the repair path for
 // a work that shows as published on the desk but is absent from the journal.
 router.post("/admin/submissions/sync-public-archives", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
@@ -1069,7 +1069,7 @@ router.post("/admin/submissions/sync-public-archives", requireAdmin, requireAdmi
   }
 });
 
-// POST /api/admin/repair-schema â€” bring the live database in line with the
+// POST /api/admin/repair-schema -€- bring the live database in line with the
 // application schema. Every statement is `IF NOT EXISTS`; nothing is dropped.
 // A drifted database is the usual cause of publishing and editing 500s.
 router.post("/admin/repair-schema", requireAdmin, requireAdminRole("ADMIN"), async (req, res) => {

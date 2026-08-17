@@ -54,7 +54,7 @@ export default function AdminLoginPage() {
             </div>
             <div>
               <label className="form-label" htmlFor="adm-pass">Password</label>
-              <input id="adm-pass" type="password" className="input-sacred" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required aria-required="true" />
+              <input id="adm-pass" type="password" className="input-sacred" placeholder="-" value={password} onChange={e => setPassword(e.target.value)} required aria-required="true" />
             </div>
             {error && <p className="font-ui text-xs" style={{ color: "var(--lotus)" }} role="alert">{error}</p>}
             <button type="submit" className="btn-sacred btn-gold w-full justify-center" disabled={loading}>

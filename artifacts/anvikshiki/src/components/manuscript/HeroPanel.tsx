@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { ArrowRight } from "lucide-react";
 import { AnimalGlyph } from "./AnimalGlyph";
 import { OrnamentDivider } from "./OrnamentDivider";
-import { FloralCorner, LotusBlossom } from "@/components/sacred/FloralDecor";
+import { FloralCorner } from "@/components/sacred/FloralDecor";
 import type { DomainKey } from "@/lib/domainMeta";
 import { cn } from "@/lib/utils";
 
@@ -63,10 +63,6 @@ export function HeroPanel({
           {/* Floral corner overlays on image */}
           <FloralCorner position="tl" size={60} className="absolute top-2 left-2 text-[var(--gold)] opacity-60" />
           <FloralCorner position="br" size={60} className="absolute bottom-2 right-2 text-[var(--gold)] opacity-50" />
-          {/* Subtle lotus watermark on image */}
-          <div className="absolute bottom-4 right-4 pointer-events-none" aria-hidden="true">
-            <LotusBlossom size={110} className="text-[var(--gold)] opacity-[0.08]" />
-          </div>
         </div>
       ) : null}
 

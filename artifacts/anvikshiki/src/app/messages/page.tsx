@@ -225,7 +225,7 @@ function ComposePanel({ onClose }: { onClose: () => void }) {
                 : "Direct message"}
           </p>
           <button type="button" onClick={start} disabled={busy || chosen.length === 0} className="btn-terracotta">
-            {busy ? <><span className="spinner-editorial" aria-hidden="true" /> Startingâ€¦</> : "Start"}
+            {busy ? <><span className="spinner-editorial" aria-hidden="true" /> Starting-€¦</> : "Start"}
           </button>
         </div>
       </div>
@@ -271,7 +271,7 @@ export default function MessagesInboxPage() {
     try {
       if (accept) {
         await messagesApi.acceptRequest(id);
-        toast.success("Request accepted â€” you can reply now.");
+        toast.success("Request accepted -€- you can reply now.");
         await load();
         navigate(`/messages/${id}`);
       } else {

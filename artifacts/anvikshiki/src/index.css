@@ -1,21 +1,21 @@
-/* Minimal Aesthetic Design Kit â€” Google Fonts (must be first @import) */
+/* Minimal Aesthetic Design Kit -€- Google Fonts (must be first @import) */
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,600&family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 @theme {
-  /* Display / Editorial headings â€” Cormorant Garamond (unchanged, already great) */
+  /* Display / Editorial headings -€- Cormorant Garamond (unchanged, already great) */
   --font-display: "Cormorant Garamond", "Noto Serif Devanagari", "Noto Serif Sharada", "Noto Serif Tamil", "Noto Serif Telugu", "Noto Serif Grantha", "Noto Serif Kannada", "Noto Serif Malayalam", "Noto Serif Bengali", "Noto Serif Gurmukhi", Georgia, serif;
-  /* Body text â€” Inter (clean, neutral, maximally readable on-screen) */
+  /* Body text -€- Inter (clean, neutral, maximally readable on-screen) */
   --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  /* UI labels â€” Montserrat (uppercase, wide tracking, professional) */
+  /* UI labels -€- Montserrat (uppercase, wide tracking, professional) */
   --font-ui: "Montserrat", "Inter", system-ui, sans-serif;
-  /* Eyebrows, metadata, reference codes â€” monospace carries the editorial voice */
+  /* Eyebrows, metadata, reference codes -€- monospace carries the editorial voice */
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 :root {
   color-scheme: light;
-  /* â”€â”€ Substack-Style High-Contrast Light Theme (Pure White & Pitch Black) â”€â”€ */
+  /* ------ Substack-Style High-Contrast Light Theme (Pure White & Pitch Black) ------ */
   --bg: #FFFFFF;          /* Pure, bright, clean white */
   --bg-deep: #FAFAFA;
   --bg-alt: #F5F5F5;
@@ -32,7 +32,7 @@
   --ink-faint: #525252;   /* Neutral Grey */
   --muted: #737373;
   
-  /* ZERO Yellow & ZERO Red â€” High contrast monochrome */
+  /* ZERO Yellow & ZERO Red -€- High contrast monochrome */
   --gold: #000000;        /* Pitch Black */
   --gold-bright: #171717;
   --gold-soft: #404040;
@@ -92,7 +92,7 @@
 
 [data-theme="dark"] {
   color-scheme: dark;
-  /* â”€â”€ Substack-Style High-Contrast Dark Theme (Pitch Black & Piercing White) â”€â”€ */
+  /* ------ Substack-Style High-Contrast Dark Theme (Pitch Black & Piercing White) ------ */
   --bg: #000000;          /* Pitch dark black */
   --bg-deep: #050505;
   --bg-alt: #0A0A0A;
@@ -109,7 +109,7 @@
   --ink-faint: #A3A3A3;   /* Light Neutral Grey */
   --muted: #888888;
   
-  /* ZERO Yellow & ZERO Red â€” High contrast monochrome */
+  /* ZERO Yellow & ZERO Red -€- High contrast monochrome */
   --gold: #FFFFFF;        /* Pure Piercing White */
   --gold-bright: #FFFFFF;
   --gold-soft: #D4D4D4;
@@ -179,7 +179,7 @@ body::before {
   display: none !important;
 }
 
-/* â”€â”€ Dark mode: pure black background, no warm gradients â”€â”€ */
+/* ------ Dark mode: pure black background, no warm gradients ------ */
 [data-theme="dark"] body,
 [data-theme="dark"] html {
   background: var(--bg) !important;
@@ -745,7 +745,7 @@ button {
 .parchment-card:hover,
 .domain-card:hover {
   transform: translateY(-3px);
-  /* On hover: border brightens toward deep ink â€” editorial premium feel */
+  /* On hover: border brightens toward deep ink -€- editorial premium feel */
   border-color: rgba(20, 20, 20, 0.22);
   box-shadow: 0 2px 8px rgba(42,31,14,0.08), 0 8px 32px rgba(42,31,14,0.10);
 }
@@ -1060,7 +1060,7 @@ button {
 .type-gold-label {
   display: block;
   font-family: var(--font-ui);
-  /* Minimal Aesthetic: 10px, uppercase, wide tracking 0.28em â€” Montserrat */
+  /* Minimal Aesthetic: 10px, uppercase, wide tracking 0.28em -€- Montserrat */
   font-size: .625rem;
   font-weight: 700;
   letter-spacing: .28em;
@@ -1184,7 +1184,7 @@ button {
 .prose-anv blockquote::before,
 .article-body blockquote::before,
 .prose-sacred blockquote::before {
-  content: "â€œ";
+  content: none;
   position: absolute;
   top: -0.2rem;
   left: 1rem;
@@ -1349,7 +1349,7 @@ button {
   color: var(--ink);
 }
 
-/* â”€â”€ Admin horizontal top nav â”€â”€ */
+/* ------ Admin horizontal top nav ------ */
 .admin-topnav {
   position: sticky;
   top: 0;
@@ -1432,7 +1432,7 @@ button {
   border-color: var(--border-terracotta, rgba(180,80,60,0.25));
 }
 
-/* â”€â”€ Admin page layout â”€â”€ */
+/* ------ Admin page layout ------ */
 .admin-layout {
   display: flex;
   flex-direction: column;
@@ -1576,7 +1576,7 @@ button {
   50% { opacity: .7; transform: scale(1.25); }
 }
 
-/* â”€â”€ Page skeleton loading animation â”€â”€ */
+/* ------ Page skeleton loading animation ------ */
 @keyframes skeletonShimmer {
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
@@ -1616,7 +1616,7 @@ button {
   100% { opacity: 0;    transform: translateY(-140px) translateX(var(--ember-drift2, -4px)) scale(0.12); }
 }
 
-/* â”€â”€ Loading screen background layers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Loading screen background layers --------------------------------------------------------------------------------------------------------- */
 .anv-ls-hero-img  { display: block; }
 .anv-ls-base      { background: linear-gradient(168deg, #f7ede0 0%, var(--bg) 45%, #fdf0f5 100%); }
 .anv-ls-bloom-top { background: radial-gradient(circle, rgba(249,115,22,0.10) 0%, transparent 60%); }
@@ -1725,9 +1725,9 @@ button {
   }
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   Sacred Header â€” Editorial redesign
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* -----------------------------------------------------------
+   Sacred Header -€- Editorial redesign
+   ----------------------------------------------------------- */
 
 .sacred-header-row {
   position: relative;
@@ -1751,7 +1751,7 @@ button {
   padding-right: 0.5rem;
 }
 
-/* Emblem box â€” fits cleanly inside the header row */
+/* Emblem box -€- fits cleanly inside the header row */
 .sacred-emblem-box {
   display: flex;
   align-items: center;
@@ -1910,7 +1910,7 @@ button {
   background: rgba(139, 96, 32, 0.08);
 }
 
-/* â”€â”€ Hero emblem â€” absolutely anchored to far-left of header â”€â”€â”€ */
+/* ------ Hero emblem -€- absolutely anchored to far-left of header --------- */
 .sacred-header-outer {
   position: relative;
   overflow: visible;
@@ -1986,7 +1986,7 @@ button {
 }
 
 
-/* â”€â”€ Celestial theme toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Celestial theme toggle ------------------------------------------------------------------------------------------------------------ */
 .anv-theme-toggle {
   position: relative;
   display: flex;
@@ -2193,9 +2193,9 @@ button {
   border-top: 1px solid var(--border-gold);
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   Homepage v2 â€” Full-width desktop layout
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* -----------------------------------------------------------
+   Homepage v2 -€- Full-width desktop layout
+   ----------------------------------------------------------- */
 
 .home-v2 {
   background: var(--bg-deep);
@@ -2203,7 +2203,7 @@ button {
   min-height: 100dvh;
 }
 
-/* â”€â”€ Hero â”€â”€ */
+/* ------ Hero ------ */
 .home-v2-hero {
   border-bottom: 1px solid var(--border-gold);
 }
@@ -2357,7 +2357,7 @@ button {
   box-shadow: 0 8px 40px rgba(0,0,0,0.15);
 }
 
-/* â”€â”€ Shared section styles â”€â”€ */
+/* ------ Shared section styles ------ */
 .home-v2-section {
   padding: 2.75rem 0;
 }
@@ -2400,7 +2400,7 @@ button {
 
 .home-v2-view-all:hover { opacity: 0.75; }
 
-/* â”€â”€ Essay grid â”€â”€ */
+/* ------ Essay grid ------ */
 .home-v2-essay-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -2481,7 +2481,7 @@ button {
   flex-shrink: 0;
 }
 
-/* â”€â”€ Domain grid â”€â”€ */
+/* ------ Domain grid ------ */
 .home-v2-domain-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -2515,7 +2515,7 @@ button {
   line-height: 1.2;
 }
 
-/* â”€â”€ Action rows â”€â”€ */
+/* ------ Action rows ------ */
 .home-v2-action {
   display: grid;
   grid-template-columns: 48px 1fr 32px;
@@ -2537,7 +2537,7 @@ button {
   text-align: center;
 }
 
-/* â”€â”€ Bottom ornament â”€â”€ */
+/* ------ Bottom ornament ------ */
 .home-v2-ornament {
   display: flex;
   align-items: center;
@@ -2564,20 +2564,20 @@ button {
   line-height: 1;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   RESPONSIVE DESIGN SYSTEM â€” Mobile-first, Android-safe
+/* -------------------------------------------------------------------
+   RESPONSIVE DESIGN SYSTEM -€- Mobile-first, Android-safe
    Breakpoints used:
-     xs  : 320px  (very small Androids â€” Galaxy A01, old Xiaomis)
-     sm  : 480px  (mid Android â€” Galaxy A series)
-     md  : 640px  (large phones â€” Galaxy S/Ultra, Pixel 6+)
+     xs  : 320px  (very small Androids -€- Galaxy A01, old Xiaomis)
+     sm  : 480px  (mid Android -€- Galaxy A series)
+     md  : 640px  (large phones -€- Galaxy S/Ultra, Pixel 6+)
      lg  : 1024px (laptops, Chromebooks, large tablets)
      xl  : 1280px (desktops)
 
    Rules in this block come AFTER all component rules so they win
-   at equal specificity â€” no !important needed.
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+   at equal specificity -€- no !important needed.
+   ------------------------------------------------------------------- */
 
-/* â”€â”€ 1. Global overflow & scroll safety â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ 1. Global overflow & scroll safety --------------------------------------------------------------------------- */
 html {
   overflow-x: hidden;
   scroll-behavior: smooth;
@@ -2591,9 +2591,9 @@ body {
   max-width: 100vw;
 }
 
-/* â”€â”€ 2. Header â€” mobile-first, no overflow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ 2. Header -€- mobile-first, no overflow --------------------------------------------------------------------- */
 
-/* BASE (< 480px â€” small Androids: 320â€“479px) */
+/* BASE (< 480px -€- small Androids: 320-€“479px) */
 .sacred-header-row {
   min-height: 70px;
   height: auto;
@@ -2618,7 +2618,7 @@ body {
   letter-spacing: 0.15em;
 }
 
-/* Touch targets â€” Android minimum 44 Ã— 44 px */
+/* Touch targets -€- Android minimum 44 Ã— 44 px */
 .sacred-icon-btn {
   width: 44px;
   height: 44px;
@@ -2630,7 +2630,7 @@ body {
   flex-shrink: 0;
 }
 
-/* SM (480px â€“ 639px) */
+/* SM (480px -€“ 639px) */
 @media (min-width: 480px) {
   .sacred-header-row { min-height: 76px; height: auto; }
   .sacred-emblem-box  { width: 48px; height: 48px; }
@@ -2639,7 +2639,7 @@ body {
   .sacred-brand-sub   { font-size: 0.6rem; letter-spacing: 0.22em; }
 }
 
-/* MD (640px â€“ 1023px â€” large phones & small tablets) */
+/* MD (640px -€“ 1023px -€- large phones & small tablets) */
 @media (min-width: 640px) {
   .sacred-header-row  { height: 76px; overflow: visible; }
   .sacred-emblem-box  { width: 54px; height: 54px; }
@@ -2649,7 +2649,7 @@ body {
   .sacred-actions     { gap: 0.35rem; }
 }
 
-/* LG (1024px+ â€” desktop) */
+/* LG (1024px+ -€- desktop) */
 @media (min-width: 1024px) {
   .sacred-header-row  { height: 88px; overflow: visible; }
   .sacred-emblem-box  { width: 64px; height: 64px; }
@@ -2665,7 +2665,7 @@ body {
   .sacred-actions     { gap: 0.5rem; }
 }
 
-/* â”€â”€ 3. Touch targets & interaction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ 3. Touch targets & interaction ------------------------------------------------------------------------------------------ */
 .home-v2-btn-primary,
 .home-v2-btn-outline,
 .home-v2-action,
@@ -2693,7 +2693,7 @@ body {
   padding-block: 0.9rem;
 }
 
-/* â”€â”€ 4. Hero section â€” hide right column on small screens â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ 4. Hero section -€- hide right column on small screens --------------------- */
 
 /* Mobile (< 640px): single-column, no image */
 @media (max-width: 639px) {
@@ -2726,7 +2726,7 @@ body {
   }
 }
 
-/* Tablet (640px â€“ 1023px): two-column hero, compact */
+/* Tablet (640px -€“ 1023px): two-column hero, compact */
 @media (min-width: 640px) and (max-width: 1023px) {
   .home-v2-hero-inner {
     grid-template-columns: 1fr 220px;
@@ -2757,7 +2757,7 @@ body {
   }
 }
 
-/* â”€â”€ 5. Homepage sections â€” tighter on mobile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ 5. Homepage sections -€- tighter on mobile --------------------------------------------------------- */
 @media (max-width: 639px) {
   .home-v2-section {
     padding: 1.75rem 0;
@@ -2814,14 +2814,14 @@ body {
   }
 }
 
-/* â”€â”€ 6. Domain grid â€” Android safe â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ 6. Domain grid -€- Android safe ------------------------------------------------------------------------------------------ */
 
-/* Default (< 640px) is 3-col from original CSS â€” override to 2-col */
+/* Default (< 640px) is 3-col from original CSS -€- override to 2-col */
 @media (max-width: 639px) {
-  /* already handled above â€” 2 cols */
+  /* already handled above -€- 2 cols */
 }
 
-/* â”€â”€ 7. Safe-area insets for notched/edge-to-edge Androids â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ 7. Safe-area insets for notched/edge-to-edge Androids --------------------- */
 @supports (padding: env(safe-area-inset-top)) {
   header.sticky {
     padding-top: env(safe-area-inset-top);
@@ -2834,14 +2834,14 @@ body {
   }
 }
 
-/* â”€â”€ 8. Container padding â€” tighter on very small screens â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ 8. Container padding -€- tighter on very small screens ------------------------ */
 @media (max-width: 359px) {
   .container-anv {
     padding-inline: 0.75rem;
   }
 }
 
-/* â”€â”€ 9. Reduced motion â€” respect Android accessibility setting â”€â”€â”€â”€ */
+/* ------ 9. Reduced motion -€- respect Android accessibility setting ------------ */
 @media (prefers-reduced-motion: reduce) {
   .home-v2-essay-card,
   .home-v2-domain-card,
@@ -2858,12 +2858,12 @@ body {
   }
 }
 
-/* â”€â”€ 10. Prevent horizontal body scroll from drawer overlay â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ 10. Prevent horizontal body scroll from drawer overlay ------------------------ */
 body:has(.sacred-drawer) {
   overflow: hidden;
 }
 
-/* â”€â”€ 11. Tablet-specific nav â€” show full nav at 768px+ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ 11. Tablet-specific nav -€- show full nav at 768px+ --------------------------------- */
 /* Rationale: Android tablets (768px) have enough room for the nav */
 @media (min-width: 768px) and (max-width: 1023px) {
   .sacred-nav {
@@ -2895,7 +2895,7 @@ body:has(.sacred-drawer) {
   }
 }
 
-/* â”€â”€ 12. Essay card â€” better mobile layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ 12. Essay card -€- better mobile layout ------------------------------------------------------------------------ */
 @media (max-width: 639px) {
   .home-v2-essay-card {
     min-height: 160px;
@@ -2907,17 +2907,17 @@ body:has(.sacred-drawer) {
   }
 }
 
-/* â”€â”€ 13. Smooth scroll container fix for Android â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ 13. Smooth scroll container fix for Android ------------------------------------------------------ */
 * {
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   HOME V3 â€” Cinematic video-hero redesign
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* -------------------------------------------------------------------
+   HOME V3 -€- Cinematic video-hero redesign
+   ------------------------------------------------------------------- */
 
-/* â”€â”€ Hero â”€â”€ */
+/* ------ Hero ------ */
 .home-v3-hero {
   position: relative;
   min-height: auto;
@@ -3124,7 +3124,7 @@ body:has(.sacred-drawer) {
 }
 .home-v3-chip:hover { opacity: 0.78; }
 
-/* Animal-glyph frieze â€” bottom of hero */
+/* Animal-glyph frieze -€- bottom of hero */
 .home-v3-frieze {
   position: relative;
   z-index: 1;
@@ -3150,7 +3150,7 @@ body:has(.sacred-drawer) {
   filter: sepia(0.6) brightness(0.75);
 }
 
-/* â”€â”€ Shared section styles â”€â”€ */
+/* ------ Shared section styles ------ */
 .home-v3-section {
   padding: 5rem 0;
   border-top: 1px solid var(--border-subtle);
@@ -3230,7 +3230,7 @@ body:has(.sacred-drawer) {
 }
 .home-v3-view-all:hover { gap: 0.55rem; color: var(--ink); }
 
-/* â”€â”€ Featured Essays â”€â”€ */
+/* ------ Featured Essays ------ */
 .home-recent-actions,
 .home-recent-nav {
   display: flex;
@@ -3525,7 +3525,7 @@ body:has(.sacred-drawer) {
 
 /* Corner flourish */
 .home-v3-domain-card::before {
-  content: 'âœ¦';
+  content: none;
   position: absolute;
   top: 8px;
   right: 10px;
@@ -3602,7 +3602,7 @@ body:has(.sacred-drawer) {
   letter-spacing: 0.5em;
 }
 
-/* â”€â”€ Action Rows â”€â”€ */
+/* ------ Action Rows ------ */
 .home-v3-actions-section {
   border-top: 1px solid var(--border-subtle);
   background: repeating-linear-gradient(
@@ -3696,7 +3696,7 @@ body:has(.sacred-drawer) {
 }
 .home-v3-action:hover .home-v3-action-arrow { transform: translateX(4px); opacity: 1; }
 
-/* â”€â”€ Closing ornament â”€â”€ */
+/* ------ Closing ornament ------ */
 .home-v3-ornament {
   display: flex;
   align-items: center;
@@ -3713,7 +3713,7 @@ body:has(.sacred-drawer) {
 .home-v3-ornament i { font-style: normal; color: var(--gold-soft); }
 .home-v3-ornament b { font-weight: 400; color: var(--gold); }
 
-/* â”€â”€ Responsive adjustments â”€â”€ */
+/* ------ Responsive adjustments ------ */
 @media (max-width: 768px) {
   .home-v3-hero {
     min-height: auto;
@@ -3747,7 +3747,7 @@ body:has(.sacred-drawer) {
     display: block !important;
   }
 
-  /* Lighter overlay on mobile â€” don't hide the image */
+  /* Lighter overlay on mobile -€- don't hide the image */
   .home-v3-video-wrap::after {
     background:
       linear-gradient(to bottom, transparent 50%, rgba(22, 14, 6, 0.35) 100%);
@@ -3802,7 +3802,7 @@ body:has(.sacred-drawer) {
   }
 }
 
-/* â”€â”€â”€ Global Sidebar Styles â”€â”€â”€ */
+/* --------- Global Sidebar Styles --------- */
 .global-sidebar-overlay {
   position: fixed;
   inset: 0;
@@ -3968,12 +3968,12 @@ body:has(.sacred-drawer) {
   to { transform: translateX(0); }
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* -----------------------------------------------------------------------
    ORANGE SAKURA THEME  +  20Ã— AESTHETICISM ENHANCEMENT
    Saffron / amber palette; richly ornamented domain cards & sections
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+----------------------------------------------------------------------- */
 
-/* â”€â”€ Sakura palette tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Sakura palette tokens --------------------------------------------------------------------------------------------------------------------------------- */
 :root {
   --sakura-1: #ffaa52;
   --sakura-2: #ff9f43;
@@ -3983,7 +3983,7 @@ body:has(.sacred-drawer) {
   --sakura-6: #f97316;
 }
 
-/* â”€â”€ Section mandala ornament â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Section mandala ornament ------------------------------------------------------------------------------------------------------------------------------ */
 .home-v3-section-mandala {
   display: block;
   margin: 0 auto 0.4rem;
@@ -3992,7 +3992,7 @@ body:has(.sacred-drawer) {
   animation: rotateSlow 30s linear infinite;
 }
 
-/* â”€â”€ Section backgrounds â€” sacred geometry atmospheric layers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Section backgrounds -€- sacred geometry atmospheric layers --------------------------------- */
 .home-v3-section {
   position: relative;
   overflow: hidden;
@@ -4024,7 +4024,7 @@ body:has(.sacred-drawer) {
   pointer-events: none;
 }
 
-/* â”€â”€ Domain grid â€” 14-domain layout (7Ã—2 so every row is fully symmetric) â”€â”€ */
+/* ------ Domain grid -€- 14-domain layout (7Ã—2 so every row is fully symmetric) ------ */
 .home-v3-domains-expanded {
   grid-template-columns: repeat(7, 1fr);
 }
@@ -4033,12 +4033,12 @@ body:has(.sacred-drawer) {
   .home-v3-domains-expanded { grid-template-columns: repeat(2, 1fr); }
 }
 
-/* â”€â”€ Domain card â€” radial bloom background â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Domain card -€- radial bloom background --------------------------------------------------------------------------------------- */
 .home-v3-domain-card {
   padding: 2rem 1.25rem 1.5rem;
 }
 
-/* Override ::before â€” radial glow from top instead of text corner mark */
+/* Override ::before -€- radial glow from top instead of text corner mark */
 .home-v3-domain-card::before {
   content: '';
   position: absolute;
@@ -4056,7 +4056,7 @@ body:has(.sacred-drawer) {
 
 .home-v3-domain-card:hover::before { opacity: 1; }
 
-/* Override ::after â€” shimmer sweep on hover */
+/* Override ::after -€- shimmer sweep on hover */
 .home-v3-domain-card::after {
   content: '';
   position: absolute;
@@ -4078,7 +4078,7 @@ body:has(.sacred-drawer) {
   background-position: 300% center;
 }
 
-/* â”€â”€ Domain icon wrapper â€” outer dashed ring â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Domain icon wrapper -€- outer dashed ring --------------------------------------------------------------------------------- */
 .home-v3-domain-icon-wrap {
   position: relative;
   display: flex;
@@ -4134,7 +4134,7 @@ body:has(.sacred-drawer) {
   font-size: 1rem;
 }
 
-/* Domain ornament â€” spaced diamonds */
+/* Domain ornament -€- spaced diamonds */
 .home-v3-domain-ornament {
   display: flex;
   align-items: center;
@@ -4144,7 +4144,7 @@ body:has(.sacred-drawer) {
   margin-top: 0.25rem;
 }
 
-/* â”€â”€ Chip hover refinement â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Chip hover refinement ------------------------------------------------------------------------------------------------------------------------------------------ */
 .home-v3-chip {
   transition: opacity var(--motion-fast), transform var(--motion-fast), box-shadow var(--motion-fast);
 }
@@ -4155,12 +4155,12 @@ body:has(.sacred-drawer) {
   box-shadow: 0 3px 10px rgba(0,0,0,0.09);
 }
 
-/* â”€â”€ Section head ornament row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Section head ornament row ------------------------------------------------------------------------------------------------------------------------------ */
 .home-v3-section-head.centered {
   padding-top: 0.25rem;
 }
 
-/* â”€â”€ Theme toggle â€” enhanced visibility â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Theme toggle -€- enhanced visibility ------------------------------------------------------------------------------------------------ */
 .anv-theme-toggle {
   background: var(--surface-elevated);
   border: 1.5px solid color-mix(in srgb, var(--gold) 52%, transparent);
@@ -4176,21 +4176,21 @@ body:has(.sacred-drawer) {
     0 1px 4px rgba(0,0,0,0.11);
 }
 
-/* â”€â”€ Sacred header â€” subtle gold gradient underline on scroll â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Sacred header -€- subtle gold gradient underline on scroll ------------------------------ */
 .sacred-header-scrolled {
   box-shadow:
     0 1px 0 var(--border-gold),
     0 4px 20px rgba(42,31,14,0.10);
 }
 
-/* â”€â”€ Essay card â€” richer hover â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Essay card -€- richer hover ------------------------------------------------------------------------------------------------------------------------------ */
 .home-v3-essay-card:hover {
   box-shadow:
     var(--shadow-lg),
     0 0 0 1px var(--border-gold);
 }
 
-/* â”€â”€ Action strip richness â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Action strip richness ------------------------------------------------------------------------------------------------------------------------------------------ */
 .home-v3-action {
   border: 1px solid color-mix(in srgb, var(--action-bg, var(--gold)) 28%, transparent);
   transition:
@@ -4206,7 +4206,7 @@ body:has(.sacred-drawer) {
   transform: translateX(3px);
 }
 
-/* â”€â”€ Frieze â€” richer bar with lotus accent â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Frieze -€- richer bar with lotus accent --------------------------------------------------------------------------------------- */
 .home-v3-frieze-line {
   display: inline-block;
   width: 48px;
@@ -4219,21 +4219,21 @@ body:has(.sacred-drawer) {
   animation: lampBreath 3.6s ease-in-out infinite;
 }
 
-/* â”€â”€ Footer logo container hover â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Footer logo container hover --------------------------------------------------------------------------------------------------------------------- */
 footer .font-display:first-child {
   transition: color var(--motion-fast) ease;
 }
 
-/* â”€â”€ 404 page animate-float â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ 404 page animate-float ------------------------------------------------------------------------------------------------------------------------------------ */
 .animate-float {
   animation: marginaliaDrift 7s ease-in-out infinite;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   FLORAL DECOR â€” enhanced lotus / petal decorative system
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* ------------------------------------------------------------------------
+   FLORAL DECOR -€- enhanced lotus / petal decorative system
+   ------------------------------------------------------------------------ */
 
-/* â”€â”€ Animate-spin-slow utility (used by LotusRing) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Animate-spin-slow utility (used by LotusRing) --------------------------------------------------------------------- */
 @keyframes spinSlow {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
@@ -4242,7 +4242,7 @@ footer .font-display:first-child {
   animation: spinSlow 24s linear infinite;
 }
 
-/* â”€â”€ Lotus bloom entrance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Lotus bloom entrance ------------------------------------------------------------------------------------------------------------------------------------------------------ */
 @keyframes lotusBloom {
   0%   { opacity: 0; transform: scale(0.6) rotate(-15deg); }
   60%  { opacity: 1; transform: scale(1.04) rotate(2deg); }
@@ -4252,7 +4252,7 @@ footer .font-display:first-child {
   animation: lotusBloom 1.1s cubic-bezier(.16,1,.3,1) both;
 }
 
-/* â”€â”€ Soft pulse for centre glow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Soft pulse for centre glow ------------------------------------------------------------------------------------------------------------------------------------ */
 @keyframes lotusPulse {
   0%, 100% { opacity: 0.35; transform: scale(1); }
   50%       { opacity: 0.55; transform: scale(1.08); }
@@ -4261,7 +4261,7 @@ footer .font-display:first-child {
   animation: lotusPulse 4s ease-in-out infinite;
 }
 
-/* â”€â”€ Floral page background watermark â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Floral page background watermark --------------------------------------------------------------------------------------------------------------- */
 .floral-page-bg {
   position: relative;
   overflow: hidden;
@@ -4280,7 +4280,7 @@ footer .font-display:first-child {
   z-index: 0;
 }
 
-/* â”€â”€ Parchment card inner glow on hover â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Parchment card inner glow on hover --------------------------------------------------------------------------------------------------------- */
 .card-parchment.hoverable:hover {
   box-shadow:
     var(--shadow-lg),
@@ -4288,7 +4288,7 @@ footer .font-display:first-child {
     0 0 0 1px rgba(139,96,32,0.16);
 }
 
-/* â”€â”€ Floral border row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Floral border row --------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 .floral-border-row {
   display: flex;
   align-items: center;
@@ -4297,20 +4297,20 @@ footer .font-display:first-child {
   color: var(--gold);
 }
 
-/* â”€â”€ Section divider with gradient lines â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Section divider with gradient lines ------------------------------------------------------------------------------------------------------ */
 .section-divider-gradient {
   height: 1px;
   background: linear-gradient(to right, transparent 0%, var(--border-gold) 20%, var(--gold-soft) 50%, var(--border-gold) 80%, transparent 100%);
   opacity: 0.6;
 }
 
-/* â”€â”€ Corner ornament absolute positioning helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Corner ornament absolute positioning helpers --------------------------------------------------------------------------- */
 .corner-tl { position: absolute; top: 0; left: 0; }
 .corner-tr { position: absolute; top: 0; right: 0; }
 .corner-bl { position: absolute; bottom: 0; left: 0; }
 .corner-br { position: absolute; bottom: 0; right: 0; }
 
-/* â”€â”€ Input sacred â€” remove browser search cancel button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Input sacred -€- remove browser search cancel button --------------------------------------------------------- */
 input[type="search"]::-webkit-search-cancel-button {
   -webkit-appearance: none;
   appearance: none;
@@ -4319,7 +4319,7 @@ input[type="search"]::-webkit-search-decoration {
   -webkit-appearance: none;
 }
 
-/* â”€â”€ Sacred header â€” subtle lotus shimmer on brand name â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Sacred header -€- subtle lotus shimmer on brand name --------------------------------------------------------- */
 .sacred-brand-name {
   background: linear-gradient(
     135deg,
@@ -4339,19 +4339,19 @@ input[type="search"]::-webkit-search-decoration {
   100% { background-position: 200% center; }
 }
 
-/* â”€â”€ Lotus ring â€” slow counter-rotation variant â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Lotus ring -€- slow counter-rotation variant ------------------------------------------------------------------------------------ */
 .lotus-ring-counter {
   animation: spinSlow 36s linear infinite reverse;
 }
 
-/* â”€â”€ Page rise for inner content behind petals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Page rise for inner content behind petals ------------------------------------------------------------------------------------ */
 .z-content { position: relative; z-index: 1; }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   COLORFUL DECOR SYSTEM â€” vivid spectrum aesthetics
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* ------------------------------------------------------------------------
+   COLORFUL DECOR SYSTEM -€- vivid spectrum aesthetics
+   ------------------------------------------------------------------------ */
 
-/* â”€â”€ Stats Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Stats Bar --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 .home-stats-bar {
   background: var(--bg-alt);
   border-top: 1px solid var(--border-gold);
@@ -4416,7 +4416,7 @@ input[type="search"]::-webkit-search-decoration {
   opacity: 0.6;
 }
 
-/* â”€â”€ Wisdom Strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Wisdom Strip ------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 .home-wisdom-strip {
   position: relative;
   background: linear-gradient(135deg,
@@ -4511,7 +4511,7 @@ input[type="search"]::-webkit-search-decoration {
 }
 .home-wisdom-dot:hover { transform: scale(1.4); }
 
-/* â”€â”€ Pillars Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Pillars Section --------------------------------------------------------------------------------------------------------------------------------------------------------- */
 .home-pillars-section {
   padding: 4rem 0;
   background: var(--bg);
@@ -4579,7 +4579,7 @@ input[type="search"]::-webkit-search-decoration {
   color: var(--ink-soft);
 }
 
-/* â”€â”€ Domain icon vivid ring â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Domain icon vivid ring ------------------------------------------------------------------------------------------------------------------------------------ */
 .home-v3-domain-icon-vivid {
   background: color-mix(in srgb, var(--icon-color, var(--gold)) 16%, var(--surface)) !important;
   border: 2px solid color-mix(in srgb, var(--icon-color, var(--gold)) 42%, transparent) !important;
@@ -4600,7 +4600,7 @@ input[type="search"]::-webkit-search-decoration {
   opacity: 0.85;
 }
 
-/* â”€â”€ Background yantra watermark in domains section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Background yantra watermark in domains section --------------------------------------------------------- */
 .home-domains-yantra {
   position: absolute;
   top: 50%; left: 50%;
@@ -4609,7 +4609,7 @@ input[type="search"]::-webkit-search-decoration {
   z-index: 0;
 }
 
-/* â”€â”€ Featured quote section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Featured quote section --------------------------------------------------------------------------------------------------------------------------------- */
 .home-quote-section {
   background: linear-gradient(135deg, var(--bg-deep) 0%, var(--bg-alt) 100%);
   border-top: 1px solid var(--border-gold);
@@ -4649,7 +4649,7 @@ input[type="search"]::-webkit-search-decoration {
 }
 .home-quote-dash { margin-right: 0.4em; }
 
-/* â”€â”€ Gradient section title â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Gradient section title ------------------------------------------------------------------------------------------------------------------------------------ */
 .home-v3-section-title {
   background: linear-gradient(135deg, var(--ink) 0%, var(--gold-bright) 55%, var(--terracotta) 100%);
   -webkit-background-clip: text;
@@ -4663,7 +4663,7 @@ input[type="search"]::-webkit-search-decoration {
   to   { background-position: 100% center; }
 }
 
-/* â”€â”€ Domain chip vivid hover â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Domain chip vivid hover --------------------------------------------------------------------------------------------------------------------------------- */
 .home-v3-chip {
   display: inline-flex;
   align-items: center;
@@ -4675,7 +4675,7 @@ input[type="search"]::-webkit-search-decoration {
   box-shadow: 0 4px 12px rgba(0,0,0,0.12);
 }
 
-/* â”€â”€ Premium Sacred Table Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Premium Sacred Table Styles --------------------------------------------------------------------------------------------------------------------- */
 .sacred-table {
   width: 100%;
   border-collapse: separate;
@@ -4763,7 +4763,7 @@ input[type="search"]::-webkit-search-decoration {
 
 .prose-editor-content blockquote::before,
 .prose-editor blockquote::before {
-  content: "â€œ";
+  content: none;
   position: absolute;
   top: -0.2rem;
   left: 1rem;
@@ -4903,7 +4903,7 @@ input[type="search"]::-webkit-search-decoration {
   }
 }
 
-/* â”€â”€ Premium skeleton loading animations â”€â”€ */
+/* ------ Premium skeleton loading animations ------ */
 @keyframes anv-pulse {
   0%, 100% { opacity: 0.55; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.08); }
@@ -5216,11 +5216,11 @@ input[type="search"]::-webkit-search-decoration {
 }
 
 /* ==========================================================================
-   MINIMAL AESTHETIC DESIGN KIT â€” Utility Classes
+   MINIMAL AESTHETIC DESIGN KIT -€- Utility Classes
    From: Desktop/Minimal_Aesthetic_Design_Kit/theme.css
    ========================================================================== */
 
-/* Frosted Glass Floating Pill â€” for overlays, floating controls, nav badges */
+/* Frosted Glass Floating Pill -€- for overlays, floating controls, nav badges */
 .glass-pill {
   background-color: rgba(0, 0, 0, 0.42);
   backdrop-filter: blur(12px);
@@ -5241,7 +5241,7 @@ input[type="search"]::-webkit-search-decoration {
   box-shadow: 0 2px 12px rgba(42, 31, 14, 0.06);
 }
 
-/* Editorial card with generous rounding â€” kit's aesthetic-card */
+/* Editorial card with generous rounding -€- kit's aesthetic-card */
 .aesthetic-card {
   background-color: var(--surface-card);
   border: 1px solid rgba(42, 31, 14, 0.09);
@@ -5255,7 +5255,7 @@ input[type="search"]::-webkit-search-decoration {
   box-shadow: 0 8px 32px rgba(42, 31, 14, 0.10);
 }
 
-/* Tracking label â€” Montserrat, 10px, uppercase, 0.28em spacing */
+/* Tracking label -€- Montserrat, 10px, uppercase, 0.28em spacing */
 .label-tracking {
   font-family: var(--font-ui);
   font-size: 0.625rem;
@@ -5802,14 +5802,14 @@ input[type="search"]::-webkit-search-decoration {
 }
 
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ---------------------------------------------------------------------------
    EDITORIAL DESIGN SYSTEM
-   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
    A high-contrast, architectural layer over the existing achromatic theme.
    Three things change, deliberately and no more:
 
      1. A signature crimson. The palette was entirely black and white, which
-        reads as unfinished rather than restrained â€” nothing could be marked as
+        reads as unfinished rather than restrained -€- nothing could be marked as
         important. One accent, used sparingly, carries emphasis and state.
      2. Architectural geometry. Pill and 22px radii read consumer-app; a 2px
         radius reads as a printed page, which is what a journal should be.
@@ -5818,10 +5818,10 @@ input[type="search"]::-webkit-search-decoration {
 
    Loaded last so it settles the cascade without editing five thousand lines
    above it.
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+   --------------------------------------------------------------------------- */
 
 :root {
-  /* Signature accent â€” used for emphasis, never for large fields of colour. */
+  /* Signature accent -€- used for emphasis, never for large fields of colour. */
   --accent: #810100;
   --accent-hover: #5E0100;
   --accent-wash: #FDF3F3;
@@ -5881,7 +5881,7 @@ input[type="search"]::-webkit-search-decoration {
   --ink-meta: #A3A3A3;
 }
 
-/* â”€â”€ Typography â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Typography ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 
 h1, h2, h3, h4,
 .font-display {
@@ -5901,7 +5901,7 @@ h3, h4 { line-height: 1.15; }
   line-height: 1.7;
 }
 
-/* Eyebrow / metadata voice â€” monospace, wide, quiet. */
+/* Eyebrow / metadata voice -€- monospace, wide, quiet. */
 .eyebrow,
 .section-label,
 .form-label,
@@ -5914,7 +5914,7 @@ h3, h4 { line-height: 1.15; }
   font-weight: 500;
 }
 
-/* â”€â”€ Buttons: architectural geometry + tactile press â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Buttons: architectural geometry + tactile press --------------------------------------------------------------- */
 
 .btn-sacred,
 .btn-primary,
@@ -5950,7 +5950,7 @@ h3, h4 { line-height: 1.15; }
   transform: scale(0.98) translateY(1px);
 }
 
-/* Primary â€” ink ground, crimson on hover. */
+/* Primary -€- ink ground, crimson on hover. */
 .btn-terracotta,
 .btn-primary,
 .btn-gold {
@@ -5985,7 +5985,7 @@ h3, h4 { line-height: 1.15; }
   color: var(--ink);
 }
 
-/* Accent â€” reserved for the single most consequential action on a screen. */
+/* Accent -€- reserved for the single most consequential action on a screen. */
 .btn-accent {
   display: inline-flex;
   align-items: center;
@@ -6062,7 +6062,7 @@ h3, h4 { line-height: 1.15; }
   outline-offset: 2px;
 }
 
-/* â”€â”€ Inline spinner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Inline spinner ------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 
 .spinner-editorial {
   width: 0.85em;
@@ -6087,7 +6087,7 @@ h3, h4 { line-height: 1.15; }
   .btn-accent:active:not(:disabled) { transform: none; }
 }
 
-/* â”€â”€ Cards & media frames â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Cards & media frames ------------------------------------------------------------------------------------------------------------------------------------------------ */
 
 .card-parchment,
 .card-anv,
@@ -6136,7 +6136,7 @@ h3, h4 { line-height: 1.15; }
   transform: scale(1.03);
 }
 
-/* â”€â”€ Fields â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Fields ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 
 .input-sacred,
 .select-sacred,
@@ -6152,7 +6152,7 @@ h3, h4 { line-height: 1.15; }
   box-shadow: 0 0 0 3px var(--accent-ring);
 }
 
-/* â”€â”€ Status pills: upload, import, save â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Status pills: upload, import, save ------------------------------------------------------------------------------------------------------ */
 
 .status-chip {
   display: inline-flex;
@@ -6197,7 +6197,7 @@ h3, h4 { line-height: 1.15; }
   50%      { opacity: 0.25; }
 }
 
-/* â”€â”€ Confirmation card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Confirmation card --------------------------------------------------------------------------------------------------------------------------------------------------------- */
 
 .confirm-card {
   border: 1px solid var(--hairline);
@@ -6249,7 +6249,7 @@ h3, h4 { line-height: 1.15; }
   line-height: 1.65;
 }
 
-/* â”€â”€ Toasts (sonner) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Toasts (sonner) --------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 
 [data-sonner-toast] {
   border-radius: var(--radius-edge) !important;
@@ -6286,7 +6286,7 @@ h3, h4 { line-height: 1.15; }
 [data-sonner-toast][data-type="success"]::before { background: var(--state-success); }
 [data-sonner-toast][data-type="error"]::before   { background: var(--state-error); }
 
-/* â”€â”€ Comments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Comments ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 
 .comment-item {
   border: 1px solid var(--hairline);
@@ -6328,7 +6328,7 @@ h3, h4 { line-height: 1.15; }
   border-left: 1px solid var(--hairline);
 }
 
-/* â”€â”€ Writing surface â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Writing surface --------------------------------------------------------------------------------------------------------------------------------------------------------------- */
 
 .prose-editor,
 .prose-editor-content {
@@ -6464,7 +6464,7 @@ button.editor-tool.is-active {
   color: var(--bg);
 }
 
-/* â”€â”€ Upload wells â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Upload wells ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 
 .upload-zone {
   border-radius: var(--radius-edge);
@@ -6478,7 +6478,7 @@ button.editor-tool.is-active {
   background: var(--accent-wash);
 }
 
-/* â”€â”€ Badges â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ------ Badges ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 
 .badge {
   border-radius: var(--radius-edge);

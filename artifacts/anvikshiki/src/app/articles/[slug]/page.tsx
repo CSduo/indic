@@ -782,7 +782,7 @@ export default function ArticlePage() {
                               {/* Edit/Delete actions for Owner or Admin */}
                               {user && (user.id === comment.userId || user.role === "ADMIN") && (
                                 <>
-                                  <span className="text-[var(--border)] text-[10px]">•</span>
+                                  <span className="text-[var(--border)] text-[10px]">-</span>
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -793,7 +793,7 @@ export default function ArticlePage() {
                                   >
                                     Edit
                                   </button>
-                                  <span className="text-[var(--border)] text-[10px]">•</span>
+                                  <span className="text-[var(--border)] text-[10px]">-</span>
                                   <button
                                     type="button"
                                     onClick={() => handleCommentDelete(comment.id)}
@@ -899,7 +899,7 @@ export default function ArticlePage() {
                                       >
                                         Edit
                                       </button>
-                                      <span className="text-[var(--border)] text-[9px]">•</span>
+                                      <span className="text-[var(--border)] text-[9px]">-</span>
                                       <button
                                         type="button"
                                         onClick={() => handleCommentDelete(reply.id, comment.id)}

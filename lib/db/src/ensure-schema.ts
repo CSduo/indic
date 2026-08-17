@@ -4,7 +4,7 @@
  * The production database predates several migrations and `drizzle-kit push` is
  * a manual step that is not part of the Vercel build. When a column that the
  * Drizzle schema knows about is missing from the live table, every query that
- * names it fails with `column ... does not exist` â€” which is why publishing a
+ * names it fails with `column ... does not exist` -€- which is why publishing a
  * submission, loading an article, or saving an edit returned a 500 while the
  * code itself was correct.
  *

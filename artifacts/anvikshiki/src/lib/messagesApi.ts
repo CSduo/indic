@@ -59,7 +59,7 @@ export type Message = {
 export const messagesApi = {
   inbox: () => json<{ conversations: ConversationSummary[]; requests: ConversationSummary[]; totalUnread: number; requestCount: number }>("/conversations"),
 
-  /** Deliberately tiny â€” this is what gets polled. */
+  /** Deliberately tiny -€- this is what gets polled. */
   cursor: () => json<{ cursor: string; totalUnread: number }>("/conversations/cursor"),
 
   conversation: (id: string) => json<{
@@ -158,7 +158,7 @@ export const messagesApi = {
  * Serverless cannot hold a websocket open, so new messages are discovered by
  * asking. The cost of asking is managed rather than ignored: a visible tab with
  * a thread open checks often, a backgrounded tab barely checks at all, and a
- * hidden tab stops entirely â€” the browser push notification covers that case.
+ * hidden tab stops entirely -€- the browser push notification covers that case.
  * Every check hits the cursor endpoint, which returns two values, so a poll
  * that finds nothing is close to free.
  */

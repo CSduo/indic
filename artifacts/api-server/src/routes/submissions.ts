@@ -161,7 +161,7 @@ router.post("/submissions", async (req, res) => {
   }
 });
 
-// POST /api/uploads/cloudinary-signature â€” request upload signature for direct browser uploads
+// POST /api/uploads/cloudinary-signature -€- request upload signature for direct browser uploads
 router.post("/uploads/cloudinary-signature", async (req, res) => {
   try {
     const auth = await getUserAuth(req);
@@ -212,7 +212,7 @@ router.post("/uploads/cloudinary-signature", async (req, res) => {
   }
 });
 
-// POST /api/submissions/upload â€” handles metadata and Cloudinary URLs (JSON) or local file upload fallback (multipart)
+// POST /api/submissions/upload -€- handles metadata and Cloudinary URLs (JSON) or local file upload fallback (multipart)
 router.post(
   "/submissions/upload",
   (req, res, next) => {
@@ -434,7 +434,7 @@ const PAPER_LIST_COLUMNS = {
   sourceSubmissionId: papersTable.sourceSubmissionId,
 };
 
-// POST /api/submissions/write â€” full essay written in browser
+// POST /api/submissions/write -€- full essay written in browser
 router.post("/submissions/write", async (req, res) => {
   try {
     const auth = await getUserAuth(req);
@@ -468,7 +468,7 @@ router.post("/submissions/write", async (req, res) => {
       });
     }
 
-    // Only signed-in users may save drafts â€” drafts must be resumable/owned.
+    // Only signed-in users may save drafts -€- drafts must be resumable/owned.
     if (isDraft && !auth) return res.status(401).json({ error: "Sign in to save a draft" });
 
     // Full submissions still require the declaration + minimum content.
@@ -509,7 +509,7 @@ router.post("/submissions/write", async (req, res) => {
   }
 });
 
-// GET /api/submissions (user's own â€” includes drafts and published essays/papers)
+// GET /api/submissions (user's own -€- includes drafts and published essays/papers)
 // ?deleted=true returns only soft-deleted submissions; otherwise excludes them
 router.get("/submissions", async (req, res) => {
   try {
@@ -742,8 +742,8 @@ router.get("/submissions/:id", async (req, res) => {
 /**
  * Update a published article or paper that the account desk surfaced under a
  * synthetic `art-` / `paper-` id. Without this the id was passed straight to a
- * `submissions.id` lookup, which matched nothing and â€” once the column type
- * rejected the prefixed value â€” failed the whole request with a bare 500. This
+ * `submissions.id` lookup, which matched nothing and -€- once the column type
+ * rejected the prefixed value -€- failed the whole request with a bare 500. This
  * is why "Edit" on a published work never saved.
  */
 async function updateSyntheticPublication(req: any, res: any, viewer: Viewer, id: string) {
@@ -828,7 +828,7 @@ async function updateSyntheticPublication(req: any, res: any, viewer: Viewer, id
   });
 }
 
-// PUT /api/submissions/:id â€” owner updates a draft, or submits a saved draft for review
+// PUT /api/submissions/:id -€- owner updates a draft, or submits a saved draft for review
 router.put("/submissions/:id", async (req, res) => {
   try {
     const viewer = await resolveViewer(req);
@@ -957,7 +957,7 @@ router.put("/submissions/:id", async (req, res) => {
   }
 });
 
-// DELETE /api/submissions/:id â€” move an active submission or article/paper to Trash
+// DELETE /api/submissions/:id -€- move an active submission or article/paper to Trash
 router.delete("/submissions/:id", async (req, res) => {
   try {
     const viewer = await resolveViewer(req);
@@ -1034,7 +1034,7 @@ router.delete("/submissions/:id", async (req, res) => {
   }
 });
 
-// POST /api/submissions/:id/restore â€” restore an item from Trash
+// POST /api/submissions/:id/restore -€- restore an item from Trash
 router.post("/submissions/:id/restore", async (req, res) => {
   try {
     const viewer = await resolveViewer(req);
@@ -1108,7 +1108,7 @@ router.post("/submissions/:id/restore", async (req, res) => {
   }
 });
 
-// DELETE /api/submissions/:id/permanent â€” permanently erase item from DB
+// DELETE /api/submissions/:id/permanent -€- permanently erase item from DB
 router.delete("/submissions/:id/permanent", async (req, res) => {
   try {
     const viewer = await resolveViewer(req);
@@ -1118,7 +1118,7 @@ router.delete("/submissions/:id/permanent", async (req, res) => {
     const id = req.params.id;
 
     // Permanent erasure is only ever allowed on an item the caller owns and
-    // has already moved to Trash â€” never on live published work.
+    // has already moved to Trash -€- never on live published work.
     if (id.startsWith("art-")) {
       const realId = id.replace("art-", "");
       const [art] = await db.select().from(articlesTable).where(eq(articlesTable.id, realId)).limit(1);
