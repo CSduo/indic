@@ -9,6 +9,8 @@ interface User {
   avatarUrl?: string | null;
   bio?: string | null;
   institution?: string | null;
+  location?: string | null;
+  age?: number | null;
   handle?: string | null;
 }
 

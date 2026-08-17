@@ -18,10 +18,12 @@ const loginSchema = z.object({
 });
 
 const signupSchema = z.object({
-  name: z.string().trim().min(1).max(100),
-  email: z.string().trim().toLowerCase().email(),
-  password: z.string().min(12).max(128),
-  handle: z.string().trim().max(30).optional(),
+  name: z.string().trim().min(1, "Account name is required").max(100),
+  email: z.string().trim().toLowerCase().email("Please enter a valid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters").max(128),
+  handle: z.string().trim().min(3, "Handle must be at least 3 characters").max(30, "Handle must be at most 30 characters"),
+  age: z.coerce.number().int().min(10, "Please enter a valid age (10+)").max(120, "Please enter a valid age").optional().nullable(),
+  location: z.string().trim().max(150).optional().nullable(),
 });
 
 function parseAuthError(err: any): { error: string; code: string; hint?: string } {
@@ -43,12 +45,34 @@ function parseAuthError(err: any): { error: string; code: string; hint?: string 
     hint = "SSL connection is required by the database host. Check your SSL configuration.";
     code = "DB_SSL_REQUIRED";
   } else if (errMsg.includes("unique constraint") || errMsg.includes("duplicate key")) {
-    hint = "A user with this email already exists.";
-    code = "DB_UNIQUE_VIOLATION";
+    if (errMsg.includes("handle")) {
+      hint = "That scholar handle is already taken.";
+      code = "HANDLE_TAKEN";
+      error = "That handle is already taken by another scholar.";
+    } else {
+      hint = "A user with this email already exists.";
+      code = "DB_UNIQUE_VIOLATION";
+      error = "A user with this email already exists.";
+    }
   }
 
   return { error, code, hint };
 }
+
+// GET /api/auth/handle-check?handle=... — live handle availability check
+router.get("/auth/handle-check", async (req, res) => {
+  try {
+    const raw = String(req.query.handle || "").trim().replace(/^@/, "");
+    if (!raw) return res.json({ available: false, reason: "Handle cannot be empty" });
+    const check = validateHandle(raw);
+    if (!check.ok) return res.json({ available: false, reason: check.reason });
+    const available = await handleIsAvailable(check.handle);
+    if (!available) return res.json({ available: false, reason: `Handle @${check.handle} is already taken.` });
+    return res.json({ available: true, handle: check.handle });
+  } catch {
+    return res.json({ available: false, reason: "Failed to check handle" });
+  }
+});
 
 // POST /api/auth/login
 router.post("/auth/login", async (req, res) => {
@@ -67,36 +91,61 @@ router.post("/auth/login", async (req, res) => {
     const token = await createUserToken(user.id, user.email);
     setUserCookie(res, token);
     const handle = user.handle || (await ensureHandle(user.id, user.name, user.email));
-    return res.json({ success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role, handle } });
+    return res.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        handle,
+        age: user.age,
+        location: user.location,
+      },
+    });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Login failed" });
   }
 });
 
-// POST /api/auth/signup
-router.post("/auth/signup", async (req, res) => {
+const PROFILE_FIELDS = {
+  id: usersTable.id,
+  email: usersTable.email,
+  name: usersTable.name,
+  role: usersTable.role,
+  avatarUrl: usersTable.avatarUrl,
+  bio: usersTable.bio,
+  institution: usersTable.institution,
+  location: usersTable.location,
+  age: usersTable.age,
+  handle: usersTable.handle,
+};
+
+async function handleSignup(req: any, res: any) {
   try {
     const parsed = signupSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
+      const firstIssue = parsed.error.issues[0]?.message || "Invalid input";
+      return res.status(400).json({ error: firstIssue, details: parsed.error.flatten() });
     }
-    const { name, email, password, handle: requestedHandle } = parsed.data;
-    const [existing] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
+    const { name, email, password, handle: requestedHandle, age, location } = parsed.data;
+
+    const [existing] = await db.select({ id: usersTable.id }).from(usersTable).where(ilike(usersTable.email, email)).limit(1);
     if (existing) {
       return res.status(409).json({ error: "Email already registered", code: "EMAIL_EXISTS" });
     }
 
-    let chosenHandle: string | null = null;
-    if (requestedHandle) {
-      const check = validateHandle(requestedHandle);
-      if (!check.ok) return res.status(400).json({ error: check.reason, code: "INVALID_HANDLE" });
-      if (!(await handleIsAvailable(check.handle))) {
-        return res.status(409).json({ error: "That handle is already taken.", code: "HANDLE_TAKEN" });
-      }
-      chosenHandle = check.handle;
-    } else {
-      chosenHandle = await generateHandle(name, email);
+    const cleanHandleStr = requestedHandle.replace(/^@/, "").toLowerCase();
+    const check = validateHandle(cleanHandleStr);
+    if (!check.ok) return res.status(400).json({ error: check.reason, code: "INVALID_HANDLE" });
+
+    const available = await handleIsAvailable(check.handle);
+    if (!available) {
+      return res.status(409).json({
+        error: `Handle @${check.handle} is already taken by another scholar. Please choose another handle.`,
+        code: "HANDLE_TAKEN",
+      });
     }
 
     const hashedPassword = await hashPassword(password);
@@ -104,9 +153,11 @@ router.post("/auth/signup", async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      handle: chosenHandle,
-    }).returning();
-    
+      handle: check.handle,
+      age: age ?? null,
+      location: location ?? null,
+    }).returning(PROFILE_FIELDS);
+
     // Automatically collect registered user email into newsletter subscriber database
     await db.insert(newsletterSubscribersTable)
       .values({ email, name })
@@ -120,24 +171,31 @@ router.post("/auth/signup", async (req, res) => {
     setUserCookie(res, token);
     sendNewMemberNotification(user.name || name, user.email)
       .catch(err => req.log.warn({ err }, "Failed to send member notification"));
-    return res.json({ success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role, handle: user.handle } });
+
+    return res.status(201).json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        handle: user.handle,
+        age: user.age,
+        location: user.location,
+      },
+    });
   } catch (err: any) {
     req.log.error(err);
     const parsedErr = parseAuthError(err);
     return res.status(500).json(parsedErr);
   }
-});
+}
 
-const PROFILE_FIELDS = {
-  id: usersTable.id,
-  email: usersTable.email,
-  name: usersTable.name,
-  role: usersTable.role,
-  avatarUrl: usersTable.avatarUrl,
-  bio: usersTable.bio,
-  institution: usersTable.institution,
-  handle: usersTable.handle,
-};
+// POST /api/auth/signup
+router.post("/auth/signup", handleSignup);
+
+// POST /api/auth/register — alias for /auth/signup
+router.post("/auth/register", handleSignup);
 
 // GET /api/auth/me
 router.get("/auth/me", async (req, res) => {
@@ -166,6 +224,8 @@ router.get("/auth/me", async (req, res) => {
           avatarUrl: null,
           bio: null,
           institution: "Ānvīkṣikī Editorial Desk",
+          location: null,
+          age: null,
           handle: null,
         };
       }
@@ -184,60 +244,6 @@ router.get("/auth/me", async (req, res) => {
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Could not load your account. Please try again.", code: "LOAD_FAILED" });
-  }
-});
-
-// POST /api/auth/register — alias for /auth/signup (frontend compatibility)
-router.post("/auth/register", async (req, res) => {
-  try {
-    const parsed = signupSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
-    }
-    const { name, email, password, handle: requestedHandle } = parsed.data;
-    const [existing] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
-    if (existing) {
-      return res.status(409).json({ error: "Email already registered", code: "EMAIL_EXISTS" });
-    }
-
-    let chosenHandle: string | null = null;
-    if (requestedHandle) {
-      const check = validateHandle(requestedHandle);
-      if (!check.ok) return res.status(400).json({ error: check.reason, code: "INVALID_HANDLE" });
-      if (!(await handleIsAvailable(check.handle))) {
-        return res.status(409).json({ error: "That handle is already taken.", code: "HANDLE_TAKEN" });
-      }
-      chosenHandle = check.handle;
-    } else {
-      chosenHandle = await generateHandle(name, email);
-    }
-
-    const hashedPassword = await hashPassword(password);
-    const [user] = await db.insert(usersTable).values({
-      name,
-      email,
-      password: hashedPassword,
-      handle: chosenHandle,
-    }).returning();
-
-    // Automatically collect registered user email into newsletter subscriber database
-    await db.insert(newsletterSubscribersTable)
-      .values({ email, name })
-      .onConflictDoUpdate({
-        target: newsletterSubscribersTable.email,
-        set: { isActive: true, ...(name ? { name } : {}) },
-      })
-      .catch(() => {});
-
-    const token = await createUserToken(user.id, user.email);
-    setUserCookie(res, token);
-    sendNewMemberNotification(user.name || name, user.email)
-      .catch(err => req.log.warn({ err }, "Failed to send member notification"));
-    return res.json({ success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role, handle: user.handle } });
-  } catch (err: any) {
-    req.log.error(err);
-    const parsedErr = parseAuthError(err);
-    return res.status(500).json(parsedErr);
   }
 });
 
@@ -283,8 +289,10 @@ router.put("/auth/profile", async (req, res) => {
 
     const schema = z.object({
       name: z.string().trim().min(1).max(100).optional(),
-      bio: z.string().trim().max(500).optional(),
-      institution: z.string().trim().max(200).optional(),
+      bio: z.string().trim().max(500).optional().nullable(),
+      institution: z.string().trim().max(200).optional().nullable(),
+      location: z.string().trim().max(150).optional().nullable(),
+      age: z.coerce.number().int().min(10).max(120).optional().nullable(),
       handle: z.string().trim().max(40).optional(),
       avatarUrl: z.string().max(2000).optional().or(z.literal("")).or(z.null()),
     });
@@ -295,6 +303,8 @@ router.put("/auth/profile", async (req, res) => {
     if (parsed.data.name !== undefined) updates.name = parsed.data.name;
     if (parsed.data.bio !== undefined) updates.bio = parsed.data.bio;
     if (parsed.data.institution !== undefined) updates.institution = parsed.data.institution;
+    if (parsed.data.location !== undefined) updates.location = parsed.data.location;
+    if (parsed.data.age !== undefined) updates.age = parsed.data.age;
 
     if (parsed.data.handle !== undefined) {
       const check = validateHandle(parsed.data.handle);
@@ -315,12 +325,9 @@ router.put("/auth/profile", async (req, res) => {
     return res.json({ success: true, user });
   } catch (err: any) {
     req.log.error({ err }, "Failed to update profile");
-    // "Failed" told nobody anything. The message is short and non-technical,
-    // but it distinguishes the cases that need different actions from whoever
-    // is reading it.
     return res.status(500).json({
       error: err?.code === "23505"
-        ? "That name is already taken."
+        ? "That handle is already taken."
         : "Your profile could not be saved. Please try again in a moment.",
     });
   }

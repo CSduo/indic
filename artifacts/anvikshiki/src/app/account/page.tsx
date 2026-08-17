@@ -38,6 +38,8 @@ export default function AccountPage() {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
   const [editHandle, setEditHandle] = useState("");
+  const [editAge, setEditAge] = useState("");
+  const [editLocation, setEditLocation] = useState("");
   const [promptHandle, setPromptHandle] = useState("");
   const [savingHandle, setSavingHandle] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -52,6 +54,8 @@ export default function AccountPage() {
     if (user) {
       setEditName(user.name || "");
       setEditHandle(user.handle || "");
+      setEditAge(user.age ? String(user.age) : "");
+      setEditLocation(user.location || "");
       if (!user.handle) {
         setPromptHandle((user.name || user.email.split("@")[0] || "scholar").toLowerCase().replace(/[^a-z0-9._-]/g, "").slice(0, 24));
       }
@@ -157,6 +161,8 @@ export default function AccountPage() {
         body: JSON.stringify({
           name: editName.trim(),
           handle: editHandle.trim().replace(/^@/, ""),
+          age: editAge ? parseInt(editAge, 10) : null,
+          location: editLocation.trim() || null,
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -429,28 +435,38 @@ export default function AccountPage() {
                 )}
               </div>
               {editing ? (
-                <div className="space-y-2">
+                <div className="space-y-2.5 text-left">
                   <div>
-                    <label className="text-[10px] font-ui uppercase tracking-wider text-[var(--muted)] block text-left mb-0.5">Name</label>
-                    <input autoFocus className="input-sacred py-1 text-center text-sm" value={editName} onChange={(event) => setEditName(event.target.value)} placeholder="Display name" />
+                    <label className="text-[10px] font-ui uppercase tracking-wider text-[var(--muted)] block mb-0.5">Account Name</label>
+                    <input autoFocus className="input-sacred py-1 text-sm" value={editName} onChange={(event) => setEditName(event.target.value)} placeholder="Display name" />
                   </div>
                   <div>
-                    <label className="text-[10px] font-ui uppercase tracking-wider text-[var(--muted)] block text-left mb-0.5">Handle (@handle)</label>
+                    <label className="text-[10px] font-ui uppercase tracking-wider text-[var(--muted)] block mb-0.5">Scholar Handle (@handle)</label>
                     <div className="relative">
                       <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-mono text-xs font-bold text-[var(--muted)]">@</span>
                       <input className="input-sacred input-with-handle-at py-1 text-xs font-mono" value={editHandle.replace(/^@/, "")} onChange={(event) => setEditHandle(event.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""))} placeholder="handle" maxLength={30} />
                     </div>
                   </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-ui uppercase tracking-wider text-[var(--muted)] block mb-0.5">Age 🔒</label>
+                      <input type="number" min="10" max="120" className="input-sacred py-1 text-xs" value={editAge} onChange={(event) => setEditAge(event.target.value)} placeholder="Age" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-ui uppercase tracking-wider text-[var(--muted)] block mb-0.5">Where from? 🔒</label>
+                      <input className="input-sacred py-1 text-xs" value={editLocation} onChange={(event) => setEditLocation(event.target.value)} placeholder="City, Country" maxLength={150} />
+                    </div>
+                  </div>
                   <div className="flex items-center justify-center gap-3 pt-1">
                     <button type="button" onClick={saveProfile} disabled={saving} className="btn-terracotta text-xs py-1 px-3 flex items-center gap-1"><Check size={14} /> {saving ? "Saving…" : "Save"}</button>
-                    <button type="button" onClick={() => { setEditing(false); setEditName(user.name || ""); setEditHandle(user.handle || ""); }} className="btn-ink text-xs py-1 px-3 flex items-center gap-1"><X size={14} /> Cancel</button>
+                    <button type="button" onClick={() => { setEditing(false); setEditName(user.name || ""); setEditHandle(user.handle || ""); setEditAge(user.age ? String(user.age) : ""); setEditLocation(user.location || ""); }} className="btn-ink text-xs py-1 px-3 flex items-center gap-1"><X size={14} /> Cancel</button>
                   </div>
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center">
                   <div className="flex min-w-0 items-center justify-center gap-2">
                     <h1 className="min-w-0 break-words text-center font-display text-3xl text-[var(--ink)]">{user.name || "My Account"}</h1>
-                    <button type="button" onClick={() => setEditing(true)} className="text-[var(--gold)] hover:opacity-80 transition-opacity" aria-label="Edit profile name & handle">
+                    <button type="button" onClick={() => setEditing(true)} className="text-[var(--gold)] hover:opacity-80 transition-opacity" aria-label="Edit profile details">
                       <Edit3 size={15} />
                     </button>
                   </div>
@@ -460,6 +476,14 @@ export default function AccountPage() {
                     <button type="button" onClick={() => setEditing(true)} className="mt-1 inline-flex items-center gap-1 rounded-full border border-dashed border-[var(--gold)] px-2.5 py-0.5 font-ui text-[11px] font-medium text-[var(--gold)] hover:bg-[var(--gold)]/10 transition-colors">
                       + Set your @handle
                     </button>
+                  )}
+                  {(user.age || user.location) && (
+                    <div className="mt-2 flex flex-wrap items-center justify-center gap-2 text-[11px] font-ui text-[var(--muted)]">
+                      {user.age && <span>{user.age} yrs</span>}
+                      {user.age && user.location && <span>·</span>}
+                      {user.location && <span>{user.location}</span>}
+                      <span className="text-[10px] text-[var(--ink-faint)]" title="Private to you and administration">🔒 Private</span>
+                    </div>
                   )}
                 </div>
               )}

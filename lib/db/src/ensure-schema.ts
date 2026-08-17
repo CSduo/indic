@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Idempotent schema repair.
  *
  * The production database predates several migrations and `drizzle-kit push` is
@@ -336,6 +336,8 @@ const COLUMN_STATEMENTS: Record<string, string[]> = {
     `"avatar_url" text`,
     `"bio" text`,
     `"institution" text`,
+    `"location" text`,
+    `"age" integer`,
     `"handle" varchar(30)`,
   ],
   articles: [

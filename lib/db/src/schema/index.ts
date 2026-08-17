@@ -26,6 +26,8 @@ export const usersTable = pgTable("users", {
   avatarUrl: text("avatar_url"),
   bio: text("bio"),
   institution: text("institution"),
+  location: text("location"),
+  age: integer("age"),
   /**
    * The short, unique name a person is reachable by: `arya-ambadi`.
    *
