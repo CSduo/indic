@@ -7,6 +7,7 @@ import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { EmptyState } from "@/components/sacred/EmptyState";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { messagesApi } from "@/lib/messagesApi";
+import { PeopleListPanel } from "@/components/community/PeopleListPanel";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -41,6 +42,7 @@ export default function PublicProfilePage() {
   const { user: viewer } = useAuthContext();
   const [social, setSocial] = useState<Social | null>(null);
   const [socialBusy, setSocialBusy] = useState(false);
+  const [peopleList, setPeopleList] = useState<"followers" | "following" | null>(null);
 
   useEffect(() => {
     if (!userId) return;
@@ -221,7 +223,17 @@ export default function PublicProfilePage() {
                 <p className="mt-4 font-body text-[15px] leading-relaxed text-[var(--ink-soft)] max-w-2xl">{profile.bio}</p>
               )}
 
-              <div className="mt-6 flex flex-wrap gap-6 border-t border-[var(--border)] pt-4">
+              {/*
+                A grid rather than a wrapping row. Four figures of different
+                label lengths flowed into three-then-one on a phone, which left
+                the last one stranded on its own line and made the group read
+                as three stats plus an afterthought.
+
+                Followers and following are buttons: a count nobody can open is
+                a number without a purpose, and the lists behind them already
+                existed with nothing linking to them.
+              */}
+              <div className="mt-6 grid grid-cols-2 gap-4 border-t border-[var(--border)] pt-4 sm:grid-cols-4">
                 <div>
                   <div className="font-display text-2xl text-[var(--gold)]">{works.length}</div>
                   <div className="mono-label mt-1">Published Works</div>
@@ -230,14 +242,24 @@ export default function PublicProfilePage() {
                   <div className="font-display text-2xl text-[var(--gold)]">{new Set(works.map(w => w.categorySlug).filter(Boolean)).size}</div>
                   <div className="mono-label mt-1">Domains</div>
                 </div>
-                <div>
+                <button
+                  type="button"
+                  onClick={() => social?.followers ? setPeopleList("followers") : undefined}
+                  disabled={!social?.followers}
+                  className="text-left transition-opacity disabled:cursor-default enabled:hover:opacity-70"
+                >
                   <div className="font-display text-2xl text-[var(--gold)]">{social?.followers ?? "—"}</div>
                   <div className="mono-label mt-1">Followers</div>
-                </div>
-                <div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => social?.following ? setPeopleList("following") : undefined}
+                  disabled={!social?.following}
+                  className="text-left transition-opacity disabled:cursor-default enabled:hover:opacity-70"
+                >
                   <div className="font-display text-2xl text-[var(--gold)]">{social?.following ?? "—"}</div>
                   <div className="mono-label mt-1">Following</div>
-                </div>
+                </button>
               </div>
 
               {/* Follow and message live on the profile itself — finding
@@ -349,6 +371,10 @@ export default function PublicProfilePage() {
           </div>
         </div>
       )}
+
+      {peopleList ? (
+        <PeopleListPanel userId={userId} kind={peopleList} onClose={() => setPeopleList(null)} />
+      ) : null}
     </div>
   );
 }

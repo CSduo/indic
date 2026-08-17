@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams, useLocation } from "wouter";
 import {
-  ArrowLeft, Bell, BellOff, CornerUpLeft, Download, ExternalLink, Image as ImageIcon,
-  Lock, MoreHorizontal, Paperclip, Send, Trash2, Users, X,
+  ArrowLeft, Bell, BellOff, Check, Copy, CornerUpLeft, Download, ExternalLink,
+  Image as ImageIcon, Lock, MoreHorizontal, Paperclip, Pencil, Send, Trash2, Users, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -89,16 +89,31 @@ function Avatar({ name, url, size = 28 }: { name: string; url?: string | null; s
 }
 
 function MessageBubble({
-  message, isGroup, onReply, onReact, onUnsend,
+  message, isGroup, showTail, onReply, onReact, onUnsend, onEdit,
 }: {
   message: Message;
   isGroup: boolean;
+  /** False when the message above is from the same person in the same minute. */
+  showTail: boolean;
   onReply: (m: Message) => void;
   onReact: (m: Message, emoji: string) => void;
   onUnsend: (m: Message) => void;
+  onEdit: (m: Message) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const pressTimer = useRef<number | undefined>(undefined);
   const mine = message.mine;
+
+  /*
+    Touch has no hover, so the actions open on a long press of the bubble
+    itself — the gesture people already expect from every other messaging app.
+    The visible button remains for pointer users and for anyone who does not
+    know the gesture.
+  */
+  const startPress = () => {
+    pressTimer.current = window.setTimeout(() => setMenuOpen(true), 450);
+  };
+  const cancelPress = () => window.clearTimeout(pressTimer.current);
 
   if (message.deleted) {
     return (
@@ -112,10 +127,16 @@ function MessageBubble({
 
   return (
     <div className={`group flex items-end gap-2 ${mine ? "flex-row-reverse" : "flex-row"}`}>
-      {!mine && isGroup ? <Avatar name={message.senderName} url={message.senderAvatarUrl} /> : null}
+      {/* The avatar column keeps its width on every row so consecutive
+          messages stay aligned instead of stepping in and out. */}
+      {!mine && isGroup ? (
+        showTail
+          ? <Avatar name={message.senderName} url={message.senderAvatarUrl} />
+          : <span className="w-7 shrink-0" aria-hidden="true" />
+      ) : null}
 
       <div className={`flex max-w-[78%] flex-col ${mine ? "items-end" : "items-start"}`}>
-        {!mine && isGroup ? (
+        {!mine && isGroup && showTail ? (
           <span className="mb-0.5 px-1 font-ui text-[10px] font-semibold text-[var(--ink-meta)]">{message.senderName}</span>
         ) : null}
 
@@ -130,11 +151,24 @@ function MessageBubble({
         ) : null}
 
         <div
-          className="relative rounded-[2px] px-3 py-2 transition-opacity"
+          onTouchStart={startPress}
+          onTouchEnd={cancelPress}
+          onTouchMove={cancelPress}
+          onContextMenu={e => { e.preventDefault(); setMenuOpen(true); }}
+          className="relative px-3 py-2 transition-opacity"
           style={{
             ...(mine
               ? { background: "var(--ink)", color: "var(--bg)" }
               : { background: "var(--surface-2)", color: "var(--ink)", border: "1px solid var(--hairline)" }),
+            /*
+              Softly rounded, with the corner nearest the sender squared off on
+              the last message of a run. It is the cheapest way to show who is
+              speaking without repeating a name above every line, and it stops
+              the thread reading as a stack of identical grey boxes.
+            */
+            borderRadius: mine
+              ? `12px 12px ${showTail ? "2px" : "12px"} 12px`
+              : `12px 12px 12px ${showTail ? "2px" : "12px"}`,
             // A message that has not landed yet reads as slightly lighter, so
             // "sent" is visible without a status line under every bubble.
             opacity: message.pending ? 0.55 : 1,
@@ -262,7 +296,27 @@ function MessageBubble({
               >
                 <CornerUpLeft size={13} /> Reply
               </button>
-              {mine ? (
+              {message.body ? (
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left font-ui text-xs hover:bg-[var(--surface-2)]"
+                  onClick={() => { void navigator.clipboard?.writeText(message.body || ""); setMenuOpen(false); toast.success("Copied"); }}
+                >
+                  <Copy size={13} /> Copy text
+                </button>
+              ) : null}
+              {/* Editing is for your own words only, and only words — there is
+                  nothing to edit about a file someone already received. */}
+              {mine && message.kind === "TEXT" && !message.pending ? (
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left font-ui text-xs hover:bg-[var(--surface-2)]"
+                  onClick={() => { onEdit(message); setMenuOpen(false); }}
+                >
+                  <Pencil size={13} /> Edit
+                </button>
+              ) : null}
+              {mine && !message.pending ? (
                 <button
                   type="button"
                   className="flex w-full items-center gap-2 px-3 py-2 text-left font-ui text-xs hover:bg-[var(--surface-2)]"
@@ -294,11 +348,13 @@ export default function ConversationPage() {
   const [typing, setTyping] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
   const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const [editing, setEditing] = useState<Message | null>(null);
   const [sending, setSending] = useState(false);
   const [busy, setBusy] = useState(true);
   const [showMembers, setShowMembers] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const imageRef = useRef<HTMLInputElement>(null);
   const lastAtRef = useRef<string>("");
@@ -517,11 +573,48 @@ export default function ConversationPage() {
   };
 
   const unsend = async (message: Message) => {
+    if (!window.confirm("Unsend this message? It will disappear for everyone in this conversation.")) return;
+    // Removed on screen straight away, and restored if the server disagrees —
+    // an undo that hesitates does not feel like an undo.
+    const previous = message;
+    setMessages(prev => prev.map(m => m.id === message.id ? { ...m, deleted: true, body: null, mediaUrl: null } : m));
     try {
       await messagesApi.unsend(message.id);
-      setMessages(prev => prev.map(m => m.id === message.id ? { ...m, deleted: true, body: null, mediaUrl: null } : m));
     } catch (err: any) {
+      setMessages(prev => prev.map(m => m.id === message.id ? previous : m));
       toast.error(err.message || "Could not unsend that message");
+    }
+  };
+
+  /** Put a sent message back into the composer to be rewritten. */
+  const startEdit = (message: Message) => {
+    setEditing(message);
+    setReplyTo(null);
+    setDraft(message.body || "");
+    composerRef.current?.focus();
+  };
+
+  const cancelEdit = () => {
+    setEditing(null);
+    setDraft("");
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    const body = draft.trim();
+    if (!body) return;
+    const original = editing.body;
+    const id = editing.id;
+
+    setMessages(prev => prev.map(m => m.id === id ? { ...m, body, edited: true } : m));
+    setEditing(null);
+    setDraft("");
+
+    try {
+      await messagesApi.edit(id, body);
+    } catch (err: any) {
+      setMessages(prev => prev.map(m => m.id === id ? { ...m, body: original } : m));
+      toast.error(err.message || "Could not save that edit");
     }
   };
 
@@ -622,20 +715,38 @@ export default function ConversationPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div>
             {messages.map((m, i) => {
               const prev = messages[i - 1];
+              const next = messages[i + 1];
               const newDay = !prev || dayLabel(prev.createdAt) !== dayLabel(m.createdAt);
+              // Consecutive messages from one person within a couple of minutes
+              // read as one turn in the conversation, so they are drawn tight
+              // together with a single tail at the end.
+              const sameRun = (a?: Message, b?: Message) =>
+                Boolean(a && b && a.senderId === b.senderId && !a.deleted && !b.deleted
+                  && Math.abs(new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) < 120000);
+              const continues = !newDay && sameRun(prev, m);
+              const showTail = !sameRun(m, next);
+
               return (
-                <div key={m.id} className="space-y-3">
+                <div key={m.id} className={continues ? "mt-0.5" : "mt-3"}>
                   {newDay ? (
-                    <div className="flex items-center gap-3 py-2">
+                    <div className="flex items-center gap-3 py-3">
                       <span className="h-px flex-1" style={{ background: "var(--hairline)" }} />
                       <span className="mono-label">{dayLabel(m.createdAt)}</span>
                       <span className="h-px flex-1" style={{ background: "var(--hairline)" }} />
                     </div>
                   ) : null}
-                  <MessageBubble message={m} isGroup={Boolean(isGroup)} onReply={setReplyTo} onReact={react} onUnsend={unsend} />
+                  <MessageBubble
+                    message={m}
+                    isGroup={Boolean(isGroup)}
+                    showTail={showTail}
+                    onReply={setReplyTo}
+                    onReact={react}
+                    onUnsend={unsend}
+                    onEdit={startEdit}
+                  />
                 </div>
               );
             })}
@@ -656,32 +767,57 @@ export default function ConversationPage() {
             </div>
           ) : null}
 
+          {editing ? (
+            <div className="mb-2 flex items-center gap-2 rounded-[2px] border-l-2 px-2.5 py-1.5" style={{ borderColor: "var(--accent)", background: "var(--surface-2)" }}>
+              <Pencil size={13} style={{ color: "var(--accent)" }} />
+              <p className="mono-label flex-1">Editing your message</p>
+              <button type="button" onClick={cancelEdit} className="editor-tool" aria-label="Cancel edit"><X size={13} /></button>
+            </div>
+          ) : null}
+
           <div className="flex items-end gap-2">
             <input ref={imageRef} type="file" accept="image/*" className="sr-only" onChange={e => { const f = e.target.files?.[0]; if (f) void attach(f); e.target.value = ""; }} />
             <input ref={fileRef} type="file" className="sr-only" onChange={e => { const f = e.target.files?.[0]; if (f) void attach(f); e.target.value = ""; }} />
 
-            <button type="button" className="editor-tool" onClick={() => imageRef.current?.click()} aria-label="Send a photo" disabled={sending}>
-              <ImageIcon size={15} />
-            </button>
-            <button type="button" className="editor-tool" onClick={() => fileRef.current?.click()} aria-label="Attach a file" disabled={sending}>
-              <Paperclip size={15} />
-            </button>
+            {/* Attachment controls are hidden while editing: an edit changes
+                words, it cannot turn a message into a file. */}
+            {!editing ? (
+              <>
+                <button type="button" className="editor-tool" onClick={() => imageRef.current?.click()} aria-label="Send a photo" disabled={sending}>
+                  <ImageIcon size={15} />
+                </button>
+                <button type="button" className="editor-tool" onClick={() => fileRef.current?.click()} aria-label="Attach a file" disabled={sending}>
+                  <Paperclip size={15} />
+                </button>
+              </>
+            ) : null}
 
             <textarea
+              ref={composerRef}
               className="textarea-sacred min-h-[42px] flex-1 resize-none text-sm"
               rows={1}
-              placeholder="Write a message…"
+              placeholder={editing ? "Edit your message…" : "Write a message…"}
               value={draft}
               maxLength={4000}
-              onChange={e => { setDraft(e.target.value); signalTyping(); }}
+              onChange={e => { setDraft(e.target.value); if (!editing) signalTyping(); }}
               onKeyDown={e => {
                 // Enter sends; Shift+Enter is a new line, as everywhere else.
-                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); }
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void (editing ? saveEdit() : send());
+                }
+                if (e.key === "Escape" && editing) cancelEdit();
               }}
             />
 
-            <button type="button" onClick={send} disabled={!draft.trim()} className="btn-terracotta shrink-0" aria-label="Send">
-              <Send size={14} />
+            <button
+              type="button"
+              onClick={editing ? saveEdit : send}
+              disabled={!draft.trim()}
+              className="btn-terracotta shrink-0"
+              aria-label={editing ? "Save edit" : "Send"}
+            >
+              {editing ? <Check size={14} /> : <Send size={14} />}
             </button>
           </div>
 

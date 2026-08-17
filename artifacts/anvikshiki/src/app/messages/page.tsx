@@ -53,6 +53,7 @@ function ComposePanel({ onClose }: { onClose: () => void }) {
   const [chosen, setChosen] = useState<Array<{ id: string; name: string }>>([]);
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<"DIRECT" | "GROUP">("DIRECT");
 
   useEffect(() => {
     const term = query.trim();
@@ -64,7 +65,9 @@ function ComposePanel({ onClose }: { onClose: () => void }) {
     return () => window.clearTimeout(t);
   }, [query]);
 
-  const isGroup = chosen.length > 1;
+  // A group is a group because that is what was asked for, not because two
+  // people happened to get picked.
+  const isGroup = mode === "GROUP";
 
   const start = async () => {
     if (chosen.length === 0) return;
@@ -98,6 +101,33 @@ function ComposePanel({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="p-4">
+          {/*
+            Making a group already worked — selecting a second person did it —
+            but nothing on screen said so, so nobody found it. Saying which
+            kind of conversation is being started, before anyone is picked,
+            is the whole fix.
+          */}
+          <div className="mb-4 flex gap-1 rounded-[2px] border border-[var(--hairline)] p-1">
+            {([["DIRECT", "Direct message"], ["GROUP", "Group"]] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => {
+                  setMode(value);
+                  // Going back to a direct message keeps only the first pick.
+                  if (value === "DIRECT") setChosen(list => list.slice(0, 1));
+                }}
+                className="flex-1 rounded-[2px] px-3 py-1.5 font-ui text-[11px] uppercase tracking-[0.12em] transition-colors"
+                style={mode === value
+                  ? { background: "var(--accent)", color: "#fff" }
+                  : { color: "var(--ink-meta)" }}
+                aria-pressed={mode === value}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
           {chosen.length > 0 ? (
             <div className="mb-3 flex flex-wrap gap-1.5">
               {chosen.map(c => (
@@ -148,7 +178,12 @@ function ComposePanel({ onClose }: { onClose: () => void }) {
                   key={person.id}
                   type="button"
                   onClick={() => {
-                    setChosen(list => already ? list.filter(c => c.id !== person.id) : [...list, { id: person.id, name: person.name }]);
+                    setChosen(list => {
+                      if (already) return list.filter(c => c.id !== person.id);
+                      // A direct message is to exactly one person, so picking
+                      // someone else replaces the choice rather than adding.
+                      return isGroup ? [...list, { id: person.id, name: person.name }] : [{ id: person.id, name: person.name }];
+                    });
                     setQuery("");
                   }}
                   className="flex w-full items-center gap-3 rounded-[2px] px-2 py-2 text-left hover:bg-[var(--surface-2)]"
@@ -165,7 +200,7 @@ function ComposePanel({ onClose }: { onClose: () => void }) {
         <div className="flex items-center justify-between gap-3 border-t border-[var(--hairline)] px-4 py-3">
           <p className="font-ui text-[11px] text-[var(--muted)]">
             {chosen.length === 0
-              ? "Pick one person, or several for a group."
+              ? (isGroup ? "Choose the people to include." : "Choose one person.")
               : isGroup
                 ? `Group of ${chosen.length + 1} — everyone must already have accepted a message from you.`
                 : "Direct message"}

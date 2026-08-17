@@ -32,6 +32,7 @@ export default function AccountPage() {
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [deletedSubmissions, setDeletedSubmissions] = useState<any[]>([]);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [social, setSocial] = useState<{ followers: number; following: number } | null>(null);
   const [loadingPage, setLoadingPage] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
@@ -52,12 +53,16 @@ export default function AccountPage() {
     }
   }, []);
 
-  // Unread count for the Messages link. One cheap query, once per visit.
+  // Unread count for the Messages link, and the follower figure beside it.
   useEffect(() => {
-    if (!user) { setUnreadMessages(0); return; }
+    if (!user) { setUnreadMessages(0); setSocial(null); return; }
     let cancelled = false;
     messagesApi.cursor()
       .then(({ totalUnread }) => { if (!cancelled) setUnreadMessages(totalUnread); })
+      .catch(() => {});
+    fetch(`${base()}/api/users/${user.id}/social`, { credentials: "include" })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (!cancelled && d) setSocial(d); })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [user]);
@@ -455,12 +460,19 @@ export default function AccountPage() {
             <ParchmentCard className="p-6">
               <p className="type-section-label mb-2">Scholar's Desk</p>
               <h2 className="font-display text-4xl text-[var(--ink)]">Your Profile</h2>
+              {/*
+                "Profile Views" was the literal number 0 — nothing counted
+                views, so the tile could never say anything else. A figure that
+                is always zero is worse than no figure at all: it reads as
+                nobody having looked. Followers and following are counted for
+                real, and they are what this page can honestly report.
+              */}
               <div className="mt-6 grid grid-cols-2 gap-3">
                 {[
-                  ["Submissions", published.length],
+                  ["Submissions", submissions.length],
                   ["Published", submissions.filter((s) => s.status === "PUBLISHED").length],
                   ["Drafts", drafts.length],
-                  ["Profile Views", 0],
+                  ["Followers", social?.followers ?? "—"],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-4 text-center">
                     <div className="font-display text-2xl text-[var(--gold)]">{value}</div>
