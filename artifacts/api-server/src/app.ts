@@ -9,7 +9,7 @@ import { logger } from "./lib/logger";
 import { ensureDefaultCategories } from "./lib/publication-sync";
 import { UPLOADS_DIR } from "./lib/storage";
 import healthRouter from "./routes/health";
-import { db, articlesTable, papersTable, ensureDatabaseSchema } from "@workspace/db";
+import { db, articlesTable, papersTable, ensureDatabaseSchema, coreTablesExist } from "@workspace/db";
 import { eq, and, or, ilike, isNull } from "drizzle-orm";
 
 const app: Express = express();
@@ -164,6 +164,27 @@ app.use(async (req, res, next) => {
   } catch (err) {
     bootstrap = null;
     req.log.error({ err }, "Failed to initialize the publication database");
+
+    /*
+      A failed repair is not by itself a reason to refuse the request. On a
+      database that already has its tables — which is every deploy after the
+      first — the repair is a formality, and treating a hiccup in it as fatal
+      turned a warning into a site-wide outage: every endpoint returned 500,
+      which reached people as an empty inbox and a profile that would not save.
+
+      So the question asked here is the one that actually matters: can the
+      database serve this request? If the tables are there, carry on and let
+      the repair be retried by a later request.
+    */
+    try {
+      if (await coreTablesExist()) {
+        req.log.warn("Serving anyway: the schema repair failed but the database has its tables");
+        return next();
+      }
+    } catch (probeErr) {
+      req.log.error({ err: probeErr }, "Could not check whether the database has its tables");
+    }
+
     res.status(500).json({
       error: "The publication database could not be initialized. Please try again.",
     });

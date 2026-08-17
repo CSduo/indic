@@ -1,6 +1,6 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, Check, PenSquare, Search, Users, X } from "lucide-react";
+import { ArrowLeft, Check, PenSquare, RefreshCw, Search, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { createPoller, messagesApi, type ConversationSummary } from "@/lib/messagesApi";
@@ -189,6 +189,7 @@ export default function MessagesInboxPage() {
   const [busy, setBusy] = useState(true);
   const [composing, setComposing] = useState(false);
   const [filter, setFilter] = useState("");
+  const [loadError, setLoadError] = useState("");
   const cursorRef = useRef<string>("");
 
   const load = useCallback(async () => {
@@ -196,8 +197,16 @@ export default function MessagesInboxPage() {
       const data = await messagesApi.inbox();
       setConversations(data.conversations);
       setRequests(data.requests || []);
-    } catch {
-      // Leave whatever is on screen rather than blanking the inbox.
+      setLoadError("");
+    } catch (err: any) {
+      /*
+        A failure must never be drawn as an empty inbox. Swallowing it meant a
+        server error appeared as "No conversations yet" — which reads as though
+        the conversations had been deleted, and is the single most alarming
+        thing this screen could say when nothing is actually wrong with the
+        data. Say what happened, and offer to try again.
+      */
+      setLoadError(err?.message || "Could not load your conversations.");
     } finally {
       setBusy(false);
     }
@@ -370,6 +379,21 @@ export default function MessagesInboxPage() {
                 </div>
               </div>
             ))}
+          </div>
+        ) : loadError ? (
+          <div className="confirm-card text-center">
+            <p className="confirm-card__title">Could not load your conversations</p>
+            <p className="font-body text-sm leading-6 text-[var(--ink-body)]">
+              {loadError} Your messages are safe — this is a problem reaching the
+              server, not a problem with them.
+            </p>
+            <button
+              type="button"
+              onClick={() => { setBusy(true); void load(); }}
+              className="btn-terracotta mt-4"
+            >
+              <RefreshCw size={14} /> Try again
+            </button>
           </div>
         ) : shown.length === 0 ? (
           <div className="confirm-card text-center">

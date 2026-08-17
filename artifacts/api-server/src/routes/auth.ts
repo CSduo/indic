@@ -244,9 +244,16 @@ router.put("/auth/profile", async (req, res) => {
 
     if (!user) return res.status(404).json({ error: "User not found" });
     return res.json({ success: true, user });
-  } catch (err) {
-    req.log.error(err);
-    return res.status(500).json({ error: "Failed" });
+  } catch (err: any) {
+    req.log.error({ err }, "Failed to update profile");
+    // "Failed" told nobody anything. The message is short and non-technical,
+    // but it distinguishes the cases that need different actions from whoever
+    // is reading it.
+    return res.status(500).json({
+      error: err?.code === "23505"
+        ? "That name is already taken."
+        : "Your profile could not be saved. Please try again in a moment.",
+    });
   }
 });
 

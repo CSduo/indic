@@ -82,11 +82,19 @@ export default function ProfilePage() {
         credentials: "include",
         body: JSON.stringify({ name: name.trim(), bio, institution }),
       });
-      if (!r.ok) throw new Error("Failed");
+      // Surface what the server said. "Failed to update profile" with no
+      // reason is impossible to act on and impossible to report.
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        throw new Error(
+          data.error
+            || (r.status === 401 ? "Your session has expired — sign in again." : `The server returned ${r.status}.`),
+        );
+      }
       await refresh();
       toast.success("Profile updated");
-    } catch {
-      toast.error("Failed to update profile");
+    } catch (err: any) {
+      toast.error(err?.message || "Could not reach the server.");
     }
     setSaving(false);
   };

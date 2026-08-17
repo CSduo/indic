@@ -4,6 +4,7 @@ import pg from "pg";
 import * as schema from "./schema/index";
 import {
   runSchemaRepair,
+  schemaRepairStatements,
   schemaFingerprint,
   SCHEMA_MARKER_KEY,
   type SchemaRepairReport,
@@ -151,9 +152,78 @@ export async function closeDatabasePool(): Promise<void> {
  * is already up to date.
  */
 export async function repairDatabaseSchema(): Promise<SchemaRepairReport> {
-  const report = await runSchemaRepair(statement => db.execute(sqlOperator.raw(statement)));
+  const report = await runRepairOnce();
   await recordSchemaFingerprint();
   return report;
+}
+
+/**
+ * A fixed key for the advisory lock that serialises schema repair. Any constant
+ * works as long as nothing else in this database uses the same one.
+ */
+const REPAIR_LOCK_KEY = 8402551;
+
+/**
+ * Apply the schema, once, without a stampede.
+ *
+ * Two things made this expensive enough to take the site down after a schema
+ * change. Every statement was its own round trip, and against a managed
+ * database a hundred of those is seconds rather than milliseconds. And every
+ * serverless instance that cold-started did the whole thing at the same time,
+ * because they all saw the same stale fingerprint — so a deploy meant dozens of
+ * copies of that work running at once, some of them timing out, and a request
+ * that hit a timing-out instance failed.
+ *
+ * Now the statements go over in a single command inside one transaction, held
+ * by an advisory lock so exactly one instance does the work and the rest wait
+ * for it. That turns a hundred round trips into one, and a stampede into a
+ * queue. If the batch cannot be applied as a unit — an existing object that
+ * conflicts, most likely — it falls back to the statement-at-a-time path, which
+ * tolerates individual failures and reports them.
+ */
+async function runRepairOnce(): Promise<SchemaRepairReport> {
+  const statements = schemaRepairStatements();
+
+  try {
+    await db.transaction(async (tx: any) => {
+      // Waits rather than failing: whichever instance arrives second blocks
+      // here until the first has committed, then finds every statement is a
+      // no-op. The lock is released when the transaction ends, including if it
+      // rolls back or the connection dies.
+      await tx.execute(sqlOperator.raw(`SELECT pg_advisory_xact_lock(${REPAIR_LOCK_KEY})`));
+      await tx.execute(sqlOperator.raw(statements.join("\n")));
+    });
+    return { applied: statements.length, failed: [] };
+  } catch (err: any) {
+    console.warn(
+      "Batched schema repair did not apply; falling back to statement-by-statement:",
+      err?.message || err,
+    );
+  }
+
+  return runSchemaRepair(statement => db.execute(sqlOperator.raw(statement)));
+}
+
+/**
+ * Are the tables the site actually reads from present?
+ *
+ * Used to decide whether a failed repair is a catastrophe or a formality. A
+ * database that already has its tables does not need the repair to have
+ * succeeded in order to serve a request, and refusing to serve anything at all
+ * in that case turns a warning into an outage.
+ */
+export async function coreTablesExist(): Promise<boolean> {
+  try {
+    const result: any = await db.execute(sqlOperator.raw(`
+      SELECT to_regclass('public.users') IS NOT NULL
+         AND to_regclass('public.articles') IS NOT NULL
+         AND to_regclass('public.site_settings') IS NOT NULL AS ok
+    `));
+    const rows = result?.rows ?? result ?? [];
+    return rows[0]?.ok === true;
+  } catch {
+    return false;
+  }
 }
 
 /** Persist the fingerprint of the statement list we just applied. */
