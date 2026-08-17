@@ -1,4 +1,4 @@
-﻿import { Router } from "express";
+import { Router } from "express";
 import { db, repairDatabaseSchema, withDbRetry } from "@workspace/db";
 import {
   adminsTable, articlesTable, papersTable, submissionsTable,
@@ -968,9 +968,9 @@ router.get("/admin/database-info", requireAdmin, requireAdminRole("ADMIN"), asyn
           WHERE name = 'neon')                                          AS "neonExtension",
         (SELECT count(*)::int FROM information_schema.schemata
           WHERE schema_name IN ('auth', 'storage', 'realtime'))         AS "supabaseSchemas",
-        -- A pooler terminates the client connection itself, so the backend
-        -- sees no client address. A direct connection always has one.
-        (inet_client_addr() IS NULL)                                    AS "looksPooled",
+        -- A pooler (like Neon PgBouncer or Supabase pooler) connects over loopback (::1 / 127.0.0.1) or unix socket (NULL)
+        (inet_client_addr() IS NULL OR inet_client_addr() = '::1'::inet OR inet_client_addr() = '127.0.0.1'::inet) AS "looksPooled",
+        host(inet_client_addr())                                        AS "clientAddress",
         current_setting('max_connections')                              AS "maxConnections"
     `);
     const row = (result?.rows ?? result ?? [])[0] || {};
