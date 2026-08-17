@@ -60,15 +60,15 @@ function humanDuration(totalSeconds: number): string {
   return `${totalSeconds}s`;
 }
 
-/** A figure. White, because it is the answer, not an ornament. */
+/** A stat figure card with high-contrast theme adaptivity (dark ink on white theme, crisp white on dark theme). */
 function Figure({ label, value, hint }: { label: string; value: number | string; hint?: string }) {
   return (
-    <div className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-4 text-center">
-      <div className="font-display text-2xl" style={{ color: "#FFFFFF" }}>{value}</div>
-      <div className="mt-1 font-ui text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--ink-faint)]">
+    <div className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-4 text-center shadow-sm">
+      <div className="font-display text-2xl font-bold text-[var(--ink)]">{value}</div>
+      <div className="mt-1 font-ui text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--ink-soft)]">
         {label}
       </div>
-      {hint ? <div className="mt-0.5 font-ui text-[9px] text-[var(--ink-faint)]">{hint}</div> : null}
+      {hint ? <div className="mt-0.5 font-ui text-[10px] text-[var(--muted)]">{hint}</div> : null}
     </div>
   );
 }
@@ -105,7 +105,7 @@ function MonthlyTimeline({
               aria-pressed={active}
             >
               {value > 0 ? (
-                <span className="font-ui text-[9px] tabular-nums text-[var(--ink-meta)]">{value}</span>
+                <span className="font-ui text-[9px] font-semibold tabular-nums text-[var(--ink)]">{value}</span>
               ) : null}
               <span
                 className="w-full shrink-0 rounded-t-[3px]"
@@ -122,7 +122,7 @@ function MonthlyTimeline({
       </div>
       <div className="mt-1.5 flex gap-[2px]">
         {months.map(({ key, label }, i) => (
-          <span key={key} className="flex-1 text-center font-ui text-[8px] uppercase text-[var(--ink-faint)]">
+          <span key={key} className="flex-1 text-center font-ui text-[8px] uppercase font-semibold text-[var(--ink-soft)]">
             {/* Thinned out so labels never collide on a phone. */}
             {months.length <= 6 || i % Math.ceil(months.length / 6) === 0 ? label.slice(0, 3) : ""}
           </span>
@@ -285,7 +285,7 @@ export function ProfileStats({
 
             {stats.articles.length > 0 ? (
               <div className="mt-5">
-                <p className="mb-2 font-ui text-[10px] uppercase tracking-[0.12em] text-[var(--ink-faint)]">
+                <p className="mb-2 font-ui text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--ink-soft)]">
                   Most read
                 </p>
                 <ul className="space-y-2.5">
@@ -293,7 +293,7 @@ export function ProfileStats({
                     const max = Math.max(...stats.articles.map(x => x.views), 1);
                     return (
                       <li key={a.slug} className="grid grid-cols-[1fr_4rem_2.5rem] items-center gap-2">
-                        <span className="truncate font-body text-[12px] text-[var(--ink-body)]" title={a.title || a.slug}>
+                        <span className="truncate font-body text-[12px] font-medium text-[var(--ink)]" title={a.title || a.slug}>
                           {a.title || a.slug}
                         </span>
                         <span className="block h-2 rounded-[2px]" style={{ background: "var(--surface-2)" }}>
@@ -302,7 +302,7 @@ export function ProfileStats({
                             style={{ width: `${Math.max((a.views / max) * 100, 6)}%`, background: CHART_BLUE }}
                           />
                         </span>
-                        <span className="text-right font-ui text-[11px] tabular-nums" style={{ color: "#FFFFFF" }}>
+                        <span className="text-right font-ui text-[11px] font-bold tabular-nums text-[var(--ink)]">
                           {a.views}
                         </span>
                       </li>
@@ -311,22 +311,22 @@ export function ProfileStats({
                 </ul>
               </div>
             ) : (
-              <p className="mt-4 font-body text-sm text-[var(--ink-body)]">
+              <p className="mt-4 font-body text-sm text-[var(--ink-soft)]">
                 No reading recorded yet. Views appear here as people open your work.
               </p>
             )}
 
             {stats.sources.length > 0 ? (
               <div className="mt-5">
-                <p className="mb-2 font-ui text-[10px] uppercase tracking-[0.12em] text-[var(--ink-faint)]">
+                <p className="mb-2 font-ui text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--ink-soft)]">
                   Where readers came from
                 </p>
                 <ul className="flex flex-wrap gap-1.5">
                   {stats.sources.map(s => (
                     <li
                       key={s.source}
-                      className="rounded-[2px] border px-2 py-1 font-ui text-[10px]"
-                      style={{ borderColor: "var(--hairline)", color: "var(--ink-body)" }}
+                      className="rounded-[2px] border px-2 py-1 font-ui text-[10px] font-medium"
+                      style={{ borderColor: "var(--hairline)", color: "var(--ink)" }}
                     >
                       {s.source === "direct" ? "Opened directly" : s.source} · {s.views}
                     </li>

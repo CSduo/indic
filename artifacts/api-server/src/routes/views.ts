@@ -91,18 +91,28 @@ router.post("/views", async (req, res) => {
   }
 });
 
-/** Which user, if any, an article belongs to. */
+/** Which user, if any, an article or paper belongs to. */
 async function authorIdForArticle(slug: string): Promise<string | null> {
   try {
     const rows: any = await db.execute(sql`
       SELECT s.user_id AS "userId"
       FROM articles a
-      JOIN submissions s ON s.id = a.source_submission_id
+      LEFT JOIN submissions s ON s.id = a.source_submission_id
       WHERE a.slug = ${slug}
       LIMIT 1
     `);
     const list = rows?.rows ?? rows ?? [];
-    return list[0]?.userId || null;
+    if (list[0]?.userId) return list[0].userId;
+
+    const pRows: any = await db.execute(sql`
+      SELECT coalesce(s.user_id, p.author_id) AS "userId"
+      FROM papers p
+      LEFT JOIN submissions s ON s.id = p.source_submission_id
+      WHERE p.slug = ${slug}
+      LIMIT 1
+    `);
+    const pList = pRows?.rows ?? pRows ?? [];
+    return pList[0]?.userId || null;
   } catch {
     return null;
   }
@@ -138,8 +148,8 @@ router.get("/views/mine", async (req, res) => {
 /**
  * GET /api/stats/me — the author's own readership.
  *
- * Counts and distributions only. No reader is named, and nothing here can be
- * narrowed to a single person.
+ * Counts and distributions of unique accounts/readers only.
+ * Excludes self-views by the author so figures reflect genuine readership.
  */
 router.get("/stats/me", async (req, res) => {
   try {
@@ -149,29 +159,37 @@ router.get("/stats/me", async (req, res) => {
     const [totals, profile, perArticle, byReferrer] = await Promise.all([
       db.execute(sql`
         SELECT
-          count(*)::int                                    AS "views",
-          count(DISTINCT session_key)::int                 AS "readers",
-          coalesce(round(avg(nullif(progress_pct, 0)))::int, 0) AS "avgProgress",
-          coalesce(sum(read_seconds)::int, 0)              AS "totalSeconds",
-          coalesce(count(*) FILTER (WHERE progress_pct >= 90)::int, 0) AS "finished"
+          count(*)::int                                                  AS "views",
+          count(DISTINCT coalesce(viewer_id, session_key))::int           AS "readers",
+          coalesce(round(avg(nullif(progress_pct, 0)))::int, 0)          AS "avgProgress",
+          coalesce(sum(read_seconds)::int, 0)                            AS "totalSeconds",
+          coalesce(count(*) FILTER (WHERE progress_pct >= 90)::int, 0)   AS "finished"
         FROM content_views
-        WHERE author_id = ${auth.userId} AND kind <> 'PROFILE'
-      `),
-      db.execute(sql`
-        SELECT count(*)::int AS "views", count(DISTINCT session_key)::int AS "visitors"
-        FROM content_views
-        WHERE kind = 'PROFILE' AND target_id = ${auth.userId}
+        WHERE author_id = ${auth.userId}
+          AND kind <> 'PROFILE'
+          AND (viewer_id IS NULL OR viewer_id <> ${auth.userId})
       `),
       db.execute(sql`
         SELECT
-          v.target_id                                       AS "slug",
-          a.title                                           AS "title",
-          count(*)::int                                     AS "views",
-          coalesce(round(avg(nullif(v.progress_pct, 0)))::int, 0) AS "avgProgress",
-          coalesce(round(avg(nullif(v.read_seconds, 0)))::int, 0) AS "avgSeconds"
+          count(*)::int                                                  AS "views",
+          count(DISTINCT coalesce(viewer_id, session_key))::int           AS "visitors"
+        FROM content_views
+        WHERE kind = 'PROFILE'
+          AND target_id = ${auth.userId}
+          AND (viewer_id IS NULL OR viewer_id <> ${auth.userId})
+      `),
+      db.execute(sql`
+        SELECT
+          v.target_id                                                   AS "slug",
+          a.title                                                       AS "title",
+          count(*)::int                                                 AS "views",
+          coalesce(round(avg(nullif(v.progress_pct, 0)))::int, 0)      AS "avgProgress",
+          coalesce(round(avg(nullif(v.read_seconds, 0)))::int, 0)      AS "avgSeconds"
         FROM content_views v
         LEFT JOIN articles a ON a.slug = v.target_id
-        WHERE v.author_id = ${auth.userId} AND v.kind = 'ARTICLE'
+        WHERE v.author_id = ${auth.userId}
+          AND v.kind = 'ARTICLE'
+          AND (v.viewer_id IS NULL OR v.viewer_id <> ${auth.userId})
         GROUP BY v.target_id, a.title
         ORDER BY count(*) DESC
         LIMIT 10
@@ -179,7 +197,9 @@ router.get("/stats/me", async (req, res) => {
       db.execute(sql`
         SELECT coalesce(referrer_host, 'direct') AS "source", count(*)::int AS "views"
         FROM content_views
-        WHERE author_id = ${auth.userId} AND kind <> 'PROFILE'
+        WHERE author_id = ${auth.userId}
+          AND kind <> 'PROFILE'
+          AND (viewer_id IS NULL OR viewer_id <> ${auth.userId})
         GROUP BY 1 ORDER BY 2 DESC LIMIT 6
       `),
     ]);
