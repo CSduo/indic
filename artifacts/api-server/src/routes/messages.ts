@@ -17,7 +17,7 @@ import { persistUploadedFile, signedMediaUrl } from "../lib/storage";
 import { sendPushToUser } from "../lib/push";
 import { notifyUser } from "../lib/notify";
 import { validateHandle, handleIsAvailable } from "../lib/handles";
-import { transcribeAudioBuffer, generateIndicTranslations } from "../lib/transcription";
+import { transcribeAudioBuffer, translateTranscript } from "../lib/transcription";
 import {
   describeConversation,
   directKeyFor,
@@ -856,12 +856,18 @@ router.post("/messages/:id/transcribe", async (req, res) => {
       return res.status(400).json({ error: "Only voice notes can be transcribed" });
     }
 
-    // If message already has a valid transcript, generate/return translations directly
-    if (message.body && message.body.trim() && !/voice note audio recording/i.test(message.body)) {
-      const translations = generateIndicTranslations(message.body);
+    /*
+      Already transcribed — usually because the recording was transcribed as it
+      was made. Only the translation is missing, and translating text costs a
+      fraction of sending the audio again.
+    */
+    if (message.body && message.body.trim()) {
+      const translations = await translateTranscript(message.body);
       return res.json({
         transcript: message.body,
         translations,
+        translationUnavailable: translations ? undefined :
+          "Translation is not switched on for this site yet.",
       });
     }
 
@@ -889,23 +895,31 @@ router.post("/messages/:id/transcribe", async (req, res) => {
     }
 
     const mime = message.mediaMimeType || "audio/webm";
-    const result = await transcribeAudioBuffer(buffer, mime);
+    const outcome = await transcribeAudioBuffer(buffer, mime);
 
-    // Save transcript to database so all participants see it permanently
-    if (result.transcript) {
-      await db
-        .update(messagesTable)
-        .set({ body: result.transcript })
-        .where(eq(messagesTable.id, message.id));
+    if (!outcome.ok) {
+      // A transcript that could not be produced is reported as such. The
+      // alternative — returning a plausible sentence — would attribute words
+      // to somebody that they never said.
+      const status = outcome.code === "NOT_CONFIGURED" ? 503 : 422;
+      return res.status(status).json({ error: outcome.reason, code: outcome.code });
     }
 
+    // Stored once, so everyone in the conversation sees the same words and the
+    // recording is never sent away a second time.
+    await db
+      .update(messagesTable)
+      .set({ body: outcome.result.transcript })
+      .where(eq(messagesTable.id, message.id));
+
     return res.json({
-      transcript: result.transcript,
-      translations: result.translations,
+      transcript: outcome.result.transcript,
+      detectedLanguage: outcome.result.detectedLanguage,
+      translations: outcome.result.translations,
     });
   } catch (err) {
     req.log?.error({ err }, "Failed to transcribe voice note");
-    return res.status(500).json({ error: "Could not transcribe audio" });
+    return res.status(500).json({ error: "Could not transcribe that recording.", code: "TRANSCRIBE_FAILED" });
   }
 });
 

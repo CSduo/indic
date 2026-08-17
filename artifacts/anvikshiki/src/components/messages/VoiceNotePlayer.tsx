@@ -31,33 +31,6 @@ function formatTime(secs: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-// Translations dictionary for common phrases / scholarly speech notes
-function translateText(text: string, targetLang: "en" | "hi" | "sa"): string {
-  if (!text) return "";
-  const trimmed = text.trim();
-
-  // Basic intelligent phrase translation
-  if (targetLang === "hi") {
-    if (/done|okay|ok/i.test(trimmed)) return "हो गया, ठीक है।";
-    if (/hello|hi/i.test(trimmed)) return "नमस्ते।";
-    if (/thank you|thanks/i.test(trimmed)) return "धन्यवाद।";
-    if (/voice note audio recording/i.test(trimmed)) return "ध्वनि संदेश (वॉयस नोट)।";
-    return `[अनुवाद - हिन्दी]: ${trimmed}`;
-  } else if (targetLang === "sa") {
-    if (/done|okay|ok/i.test(trimmed)) return "कृतम्, साधु।";
-    if (/hello|hi/i.test(trimmed)) return "नमस्ते / हरिः ॐ।";
-    if (/thank you|thanks/i.test(trimmed)) return "धन्यवादाः।";
-    if (/voice note audio recording/i.test(trimmed)) return "ध्वनिसन्देशः (वॉयस नोट्)।";
-    return `[अनुवादः - संस्कृतम्]: ${trimmed}`;
-  } else {
-    // English
-    if (/हो गया|ठीक है/i.test(trimmed)) return "Done, alright.";
-    if (/नमस्ते|हरिः ॐ/i.test(trimmed)) return "Greetings.";
-    if (/धन्यवाद/i.test(trimmed)) return "Thank you.";
-    return trimmed;
-  }
-}
-
 export function VoiceNotePlayer({
   src,
   mine = false,
@@ -84,17 +57,23 @@ export function VoiceNotePlayer({
 
   // Clean transcript
   const activeTranscript = customTranscript?.trim() || "";
-  const hasValidTranscript = Boolean(activeTranscript && !/voice note audio recording/i.test(activeTranscript));
+  const hasValidTranscript = Boolean(activeTranscript);
 
+  /*
+    A translation is shown only when one was actually produced. This used to
+    fall back to a keyword table — "hello" became a Hindi sentence meaning
+    "Greetings, I have shared my thoughts in this voice note" — and otherwise
+    prefixed a label to the untranslated English. Both put words in somebody's
+    mouth. If a translation is missing, the panel says so.
+  */
   const displayTranscript = useMemo(() => {
-    if (!activeTranscript) return "Voice note audio recording.";
+    if (!activeTranscript) return "";
     if (selectedLang === "orig") return activeTranscript;
-    if (serverTranslations) {
-      if (selectedLang === "en" && serverTranslations.english) return serverTranslations.english;
-      if (selectedLang === "hi" && serverTranslations.hindi) return serverTranslations.hindi;
-      if (selectedLang === "sa" && serverTranslations.sanskrit) return serverTranslations.sanskrit;
-    }
-    return translateText(activeTranscript, selectedLang);
+    const translated =
+      selectedLang === "en" ? serverTranslations?.english
+      : selectedLang === "hi" ? serverTranslations?.hindi
+      : serverTranslations?.sanskrit;
+    return (translated || "").trim();
   }, [activeTranscript, selectedLang, serverTranslations]);
 
   const currentSpeed = SPEED_OPTIONS[speedIndex];
@@ -239,68 +218,37 @@ export function VoiceNotePlayer({
     });
   };
 
+  /**
+   * Ask the server for a transcript.
+   *
+   * There is deliberately no fallback. The previous version, when the server
+   * could not transcribe, switched on the browser's live speech recognition —
+   * which listens to the microphone, not to the recording, so it captured
+   * whatever was happening in the room — and failing that, opened a prompt
+   * asking the reader to type the transcript themselves. Both produce text
+   * that is then shown as what the sender said.
+   *
+   * If a transcript cannot be produced, that is what gets said.
+   */
   const triggerTranscribe = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!messageId) return;
+
     setTranscribing(true);
-
-    if (messageId) {
-      try {
-        const data = await messagesApi.transcribe(messageId);
-        if (data?.transcript) {
-          setCustomTranscript(data.transcript);
-          setServerTranslations(data.translations);
-          onTranscriptUpdate?.(data.transcript);
-          toast.success("Voice note transcribed with AI!");
-          setTranscribing(false);
-          setShowTranscript(true);
-          return;
-        }
-      } catch (err: any) {
-        console.warn("Backend AI transcription fallback:", err);
-      }
-    }
-
-    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRec) {
-      try {
-        const rec = new SpeechRec();
-        rec.continuous = false;
-        rec.interimResults = false;
-        rec.lang = navigator.language || "en-IN";
-        toast.info("Listening — speak or play the audio to transcribe...");
-        rec.onresult = (ev: any) => {
-          const text = ev.results[0]?.[0]?.transcript;
-          if (text) {
-            setCustomTranscript(text);
-            onTranscriptUpdate?.(text);
-            toast.success("Transcript captured!");
-          }
-          setTranscribing(false);
-        };
-        rec.onerror = () => {
-          setTranscribing(false);
-          const manual = window.prompt("Speech recognition unavailable. Enter transcript for this voice note:");
-          if (manual && manual.trim()) {
-            setCustomTranscript(manual.trim());
-            onTranscriptUpdate?.(manual.trim());
-            toast.success("Transcript saved!");
-          }
-        };
-        rec.onend = () => {
-          setTranscribing(false);
-        };
-        rec.start();
+    try {
+      const data = await messagesApi.transcribe(messageId);
+      if (!data?.transcript) {
+        toast.error("No speech could be made out in this recording.");
         return;
-      } catch {}
-    }
-
-    // Prompt user for transcription text if browser speech recognition is unsupported
-    setTranscribing(false);
-    const manual = window.prompt("Enter or paste transcript for this voice note:");
-    if (manual && manual.trim()) {
-      setCustomTranscript(manual.trim());
-      onTranscriptUpdate?.(manual.trim());
-      toast.success("Transcript saved!");
+      }
+      setCustomTranscript(data.transcript);
+      setServerTranslations(data.translations || null);
+      onTranscriptUpdate?.(data.transcript);
+      setShowTranscript(true);
+    } catch (err: any) {
+      toast.error(err?.message || "Could not transcribe this recording.");
+    } finally {
+      setTranscribing(false);
     }
   };
 
@@ -459,9 +407,18 @@ export function VoiceNotePlayer({
             ))}
           </div>
 
-          <p className="font-body text-[13px] leading-relaxed italic text-[#e5e7eb] opacity-95">
-            "{displayTranscript}"
-          </p>
+          {/* An absent translation says so. Showing the original under a
+              "हिन्दी" tab, or an empty pair of quotation marks, would both read
+              as a translation that had been produced. */}
+          {displayTranscript ? (
+            <p className="font-body text-[13px] leading-relaxed italic text-[#e5e7eb] opacity-95">
+              "{displayTranscript}"
+            </p>
+          ) : (
+            <p className="font-body text-[13px] leading-relaxed text-[#9ca3af]">
+              No translation available for this recording.
+            </p>
+          )}
         </div>
       )}
     </div>
