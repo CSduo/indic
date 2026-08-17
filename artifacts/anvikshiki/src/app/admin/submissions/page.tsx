@@ -3,7 +3,6 @@ import { useLocation, Link } from "wouter";
 import { Check, X, Trash2, Globe, ArchiveRestore, Download, ChevronDown, Clock, Edit3, ExternalLink, Eye, FileText, Image as ImageIcon, Link2, Maximize2 } from "lucide-react";
 import { toast } from "sonner";
 import { AdminSidebar } from "@/components/sacred/AdminSidebar";
-import { LotusIcon } from "@/components/sacred/LotusIcon";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -330,7 +329,6 @@ export default function AdminSubmissionsPage() {
                 </div>
               ) : filtered.length === 0 ? (
                 <div className="flex flex-col items-center py-10 gap-3">
-                  <LotusIcon size={32} style={{ color: "var(--gold)", opacity: 0.3 }} />
                   <p className="font-ui text-sm" style={{ color: "var(--muted)" }}>No {filter === "all" ? "" : filter.replace(/_/g, " ")} submissions</p>
                 </div>
               ) : filtered.map(s => {
@@ -714,7 +712,6 @@ export default function AdminSubmissionsPage() {
               );
             })() : (
               <div className="card-sacred flex flex-col items-center justify-center py-20 text-center h-full">
-                <LotusIcon size={40} style={{ color: "var(--gold)", opacity: 0.2, marginBottom: "1rem" }} />
                 <p className="font-ui text-sm" style={{ color: "var(--muted)" }}>Select a submission to view details</p>
               </div>
             )}

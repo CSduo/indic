@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback } from "react";
 import { useLocation } from "wouter";
 import { Settings, Edit3, Check, X, Info } from "lucide-react";
 import { AdminSidebar } from "@/components/sacred/AdminSidebar";
-import { LotusDivider, LotusIcon } from "@/components/sacred/LotusIcon";
 import { toast } from "sonner";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -157,8 +156,6 @@ export default function AdminSettingsPage() {
           )}
         </div>
 
-        <LotusDivider className="my-6" />
-
         {/* Technical settings */}
         <div className="space-y-4 max-w-lg">
           <div className="section-label mb-3">Technical Configuration</div>
@@ -178,9 +175,7 @@ export default function AdminSettingsPage() {
           ))}
 
           <div className="card-sacred p-5">
-            <LotusDivider className="mb-4" />
             <div className="flex justify-center">
-              <LotusIcon size={32} style={{ color: "var(--gold)", opacity: 0.3 }} />
             </div>
             <p className="font-body text-xs text-center mt-3" style={{ color: "var(--ink-faint)" }}>Additional configuration options will be available in future updates.</p>
           </div>

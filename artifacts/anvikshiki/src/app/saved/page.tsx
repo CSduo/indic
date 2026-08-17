@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Bookmark, BookOpen, FileText, X } from "lucide-react";
-import { LotusDivider, LotusIcon } from "@/components/sacred/LotusIcon";
 import { EmptyState } from "@/components/sacred/EmptyState";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -31,7 +30,6 @@ export default function SavedPage() {
           <Bookmark size={22} style={{ color: "var(--gold)" }} />
           <h1 className="font-display text-3xl" style={{ color: "var(--gold-bright)" }}>Saved Items</h1>
         </div>
-        <LotusDivider className="mb-8" />
         {loading ? (
           <div className="flex justify-center py-12">
             <div style={{ width: 36, height: 36, border: "2px solid var(--border-gold)", borderTop: "2px solid var(--gold)", borderRadius: "50%", animation: "rotateSlow 0.8s linear infinite" }} role="status" aria-label="Loading" />

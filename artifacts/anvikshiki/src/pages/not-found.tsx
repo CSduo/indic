@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { LotusIcon, LotusDivider } from "@/components/sacred/LotusIcon";
 import { Search } from "lucide-react";
 
 /**
@@ -33,10 +32,8 @@ export default function NotFound() {
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 40%, rgba(139,26,74,0.05) 0%, transparent 60%)" }} />
       </div>
       <div className="container-anv relative z-10 flex flex-col items-center text-center py-20">
-        <LotusIcon size={56} className="mb-6 animate-float" style={{ color: "var(--gold)", opacity: 0.8 }} />
         <div className="font-display text-[12rem] leading-none mb-4 font-bold" style={{ color: "var(--ink)", opacity: 0.05, userSelect: "none" }}>404</div>
         <div className="-mt-16 mb-4">
-          <LotusDivider className="w-48 mx-auto" />
         </div>
         <h1 className="font-display text-4xl mb-4 font-bold" style={{ color: "var(--ink)" }}>Page Not Found</h1>
         <p className="font-body text-base mb-8 max-w-md mx-auto leading-relaxed" style={{ color: "var(--ink-soft)" }}>

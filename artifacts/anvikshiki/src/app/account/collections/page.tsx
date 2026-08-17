@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { EmptyState } from "@/components/sacred/EmptyState";
-import { LotusIcon } from "@/components/sacred/LotusIcon";
 import { useAuthContext } from "@/contexts/AuthContext";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -104,7 +103,6 @@ export default function CollectionsPage() {
                     {col.createdAt ? ` · Created ${new Date(col.createdAt).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}` : ""}
                   </p>
                 </div>
-                <LotusIcon size={20} style={{ color: "var(--gold)", opacity: 0.4 }} />
               </ParchmentCard>
             ))}
           </div>

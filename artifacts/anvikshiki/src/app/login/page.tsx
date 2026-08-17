@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
-import { LotusIcon } from "@/components/sacred/LotusIcon";
 import { AmbientPetals, FloralCorner, LotusBlossom, LotusRing, LotusWatermark } from "@/components/sacred/FloralDecor";
 import { useAuthContext } from "@/contexts/AuthContext";
 
@@ -179,7 +178,6 @@ export default function LoginPage() {
             {/* Ornate lotus ring header */}
             <div className="mx-auto mb-4 relative w-20 h-20 flex items-center justify-center">
               <LotusRing size={80} className="absolute inset-0 text-[var(--gold)] opacity-60" />
-              <LotusIcon size={36} style={{ color: "var(--gold)" }} className="relative" />
             </div>
             <h1 className="font-display text-3xl tracking-[0.14em] text-[var(--ink)]">ĀNVĪKṢIKĪ</h1>
             <p className="mt-2 font-body text-sm italic text-[var(--ink-soft)]">Sign in to continue your inquiry.</p>

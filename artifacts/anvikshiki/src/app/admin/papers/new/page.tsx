@@ -3,7 +3,6 @@ import { Link, useLocation } from "wouter";
 import { ArrowLeft, FileText, Save } from "lucide-react";
 import { toast } from "sonner";
 import { AdminSidebar } from "@/components/sacred/AdminSidebar";
-import { LotusDivider } from "@/components/sacred/LotusIcon";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -161,7 +160,6 @@ export default function AdminNewPaperPage() {
             <label className="form-label" htmlFor="paper-keywords">Keywords (comma separated)</label>
             <input id="paper-keywords" className="input-sacred" value={form.keywords} onChange={e => set("keywords", e.target.value)} placeholder="phenomenology, consciousness, Husserl" />
           </div>
-          <LotusDivider className="my-4" />
           <div className="flex gap-3">
             <button type="submit" disabled={saving} className="btn-sacred btn-gold inline-flex items-center gap-2">
               <Save size={14} /> {saving ? (pdfFile ? "Uploading PDF…" : "Saving…") : "Create Paper"}

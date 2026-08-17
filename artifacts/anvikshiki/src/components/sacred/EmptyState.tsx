@@ -32,12 +32,12 @@ export function EmptyState({ icon, title, description, action, compact = false }
         </div>
       ) : null}
 
-      {/* Ornamental line */}
-      <div className="flex items-center gap-2 mb-4" aria-hidden="true" style={{ width: compact ? 120 : 180 }}>
-        <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, transparent, var(--border-gold))" }} />
-        <div style={{ width: 4, height: 4, borderRadius: "50%", background: "var(--gold)", opacity: 0.5 }} />
-        <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, var(--border-gold), transparent)" }} />
-      </div>
+      {/*
+        No rule and no ornament. Both were drawn to soften an empty list and
+        did the opposite: a faint glyph on a faint line reads as something
+        failing to load, and the eye stops on it before reaching the sentence
+        that actually explains the emptiness. The words carry it alone.
+      */}
 
       <h3
         className="font-display mb-2"

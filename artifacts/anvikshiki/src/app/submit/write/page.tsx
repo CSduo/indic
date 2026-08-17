@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, Link, useSearch } from "wouter";
 import { ArrowLeft, Image as ImageIcon, X, CheckCircle, AlertCircle, Lock, Save, FileText, Link2, Mic, Square, Play, Pause, Trash2, Volume2, Upload, Maximize2, Minimize2, Quote, List, ListOrdered, Minus, Highlighter, Eraser } from "lucide-react";
-import { LotusIcon, LotusDivider } from "@/components/sacred/LotusIcon";
 import { useAuth } from "@/hooks/useAuth";
 import {
   importedContentMessage,
@@ -1157,7 +1156,6 @@ export default function SubmitWritePage() {
           <Link href="/submit" className="flex items-center gap-1.5 mb-5 font-ui text-xs hover:opacity-70 transition-opacity" style={{ color: "var(--ink-faint)" }}>
             <ArrowLeft size={12} /> Back to Submission Portal
           </Link>
-          <LotusIcon size={22} className="mb-3" style={{ color: "var(--gold)", opacity: 0.7 }} />
           <h1 className="font-display" style={{ fontSize: "clamp(1.75rem, 4vw, 3rem)", color: "var(--gold-bright)", letterSpacing: "0.08em" }}>Write Your Essay</h1>
           <p className="font-body text-sm mt-2" style={{ color: "var(--ink-faint)" }}>Your text is kept in this browser as you write</p>
         </div>
@@ -1744,7 +1742,6 @@ export default function SubmitWritePage() {
 
             {/* Declaration + Submit */}
             <div className="card-sacred p-5">
-              <LotusDivider className="mb-5" style={{ opacity: 0.4 }} />
 
               <label className="mb-5 flex cursor-pointer items-start gap-3.5 p-3.5 rounded-xl border border-[var(--border-gold)] bg-[var(--surface-3)] hover:bg-[rgba(201,152,58,0.08)] transition-all select-none">
                 <input

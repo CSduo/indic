@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { FileText, ScrollText, Inbox, Mail, Plus, Trash2 } from "lucide-react";
 import { AdminSidebar } from "@/components/sacred/AdminSidebar";
-import { LotusIcon } from "@/components/sacred/LotusIcon";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -130,7 +129,6 @@ export default function AdminDashboardPage() {
           </div>
           {recent.length === 0 ? (
             <div className="text-center py-8">
-              <LotusIcon size={32} style={{ color: "var(--gold)", opacity: 0.3, margin: "0 auto 0.75rem" }} />
               <p className="font-ui text-sm" style={{ color: "var(--muted)" }}>No submissions yet</p>
             </div>
           ) : (

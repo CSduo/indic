@@ -3,7 +3,6 @@ import { Link, useLocation } from "wouter";
 import { ArrowLeft, Save } from "lucide-react";
 import { toast } from "sonner";
 import { AdminSidebar } from "@/components/sacred/AdminSidebar";
-import { LotusDivider } from "@/components/sacred/LotusIcon";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -106,7 +105,6 @@ export default function AdminNewArticlePage() {
             <label className="form-label" htmlFor="art-meta">Meta Description</label>
             <input id="art-meta" className="input-sacred" value={form.metaDescription} onChange={e => set("metaDescription", e.target.value)} placeholder="SEO description…" />
           </div>
-          <LotusDivider className="my-4" />
           <div className="flex gap-3">
             <button type="submit" disabled={saving} className="btn-sacred btn-gold inline-flex items-center gap-2">
               <Save size={14} /> {saving ? "Saving…" : "Create Article"}

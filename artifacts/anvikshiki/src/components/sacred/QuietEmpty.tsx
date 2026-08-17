@@ -26,18 +26,6 @@ export function QuietEmpty({
       className={`flex flex-col items-center text-center ${compact ? "px-4 py-10" : "px-6 py-16"}`}
       role="status"
     >
-      {/* A rule with a single point on it — enough to mark the spot without
-          drawing anything that has to be recognised. */}
-      <div
-        className="mb-5 flex items-center gap-2"
-        aria-hidden="true"
-        style={{ width: compact ? 96 : 140 }}
-      >
-        <span className="h-px flex-1" style={{ background: "linear-gradient(90deg, transparent, var(--border-gold))" }} />
-        <span className="h-[3px] w-[3px] rounded-full" style={{ background: "var(--border-gold)" }} />
-        <span className="h-px flex-1" style={{ background: "linear-gradient(90deg, var(--border-gold), transparent)" }} />
-      </div>
-
       <p
         className="font-display"
         style={{ fontSize: compact ? "1.0625rem" : "1.375rem", color: "var(--ink-soft)" }}
