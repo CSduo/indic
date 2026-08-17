@@ -16,6 +16,7 @@ import { getUserAuth } from "../lib/auth";
 import { persistUploadedFile, signedMediaUrl } from "../lib/storage";
 import { sendPushToUser } from "../lib/push";
 import { notifyUser } from "../lib/notify";
+import { validateHandle, handleIsAvailable } from "../lib/handles";
 import {
   describeConversation,
   directKeyFor,
@@ -816,6 +817,70 @@ router.patch("/messages/:id", async (req, res) => {
   } catch (err) {
     req.log?.error({ err }, "Failed to edit message");
     return res.status(500).json({ error: "Could not edit that message" });
+  }
+});
+
+/**
+ * GET /api/handles/check?handle=x — is this one usable?
+ *
+ * Answers only "free or not", never who holds it. Telling an anonymous caller
+ * which handles are taken and by whom would turn this into a way to enumerate
+ * the membership.
+ */
+router.get("/handles/check", async (req, res) => {
+  try {
+    const userId = await requireUser(req, res);
+    if (!userId) return;
+
+    const check = validateHandle(String(req.query.handle || ""));
+    if (!check.ok) return res.json({ available: false, reason: check.reason });
+
+    const available = await handleIsAvailable(check.handle, userId);
+    return res.json({
+      available,
+      handle: check.handle,
+      reason: available ? null : "That handle is already taken.",
+    });
+  } catch (err) {
+    req.log?.error({ err }, "Failed to check a handle");
+    return res.status(500).json({ error: "Could not check that handle.", code: "LOAD_FAILED" });
+  }
+});
+
+/**
+ * GET /api/conversations/by-handle/:handle — the direct thread with a person.
+ *
+ * What makes `/messages/@arya-ambadi` work: the browser asks which conversation
+ * that handle corresponds to, and gets the existing one or a newly opened one,
+ * subject to the same request rules as starting a conversation any other way.
+ */
+router.get("/conversations/by-handle/:handle", async (req, res) => {
+  try {
+    const userId = await requireUser(req, res);
+    if (!userId) return;
+
+    const wanted = String(req.params.handle || "").replace(/^@/, "").toLowerCase();
+    const [other] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(sql`lower(${usersTable.handle}) = ${wanted}`)
+      .limit(1);
+
+    if (!other) return res.status(404).json({ error: "No member with that handle." });
+    if (other.id === userId) return res.status(400).json({ error: "That is you." });
+
+    const key = directKeyFor(userId, other.id);
+    const [existing] = await db
+      .select({ id: conversationsTable.id })
+      .from(conversationsTable)
+      .where(eq(conversationsTable.directKey, key))
+      .limit(1);
+
+    if (!existing) return res.json({ conversationId: null, otherUserId: other.id });
+    return res.json({ conversationId: existing.id, otherUserId: other.id });
+  } catch (err) {
+    req.log?.error({ err }, "Failed to resolve a handle");
+    return res.status(500).json({ error: "Could not open that conversation.", code: "LOAD_FAILED" });
   }
 });
 

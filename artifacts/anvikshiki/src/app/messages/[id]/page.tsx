@@ -2,13 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams, useLocation } from "wouter";
 import {
   ArrowLeft, Bell, BellOff, Check, Copy, CornerUpLeft, Download, ExternalLink,
-  Image as ImageIcon, Mic, MoreHorizontal, Paperclip, Pencil, Send, Trash2, Users, X,
+  Image as ImageIcon, MoreHorizontal, Paperclip, Pencil, Send, Trash2, Users, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { createPoller, messagesApi, type ConversationMember, type Message } from "@/lib/messagesApi";
 import { goBack } from "@/lib/goBack";
-import { VoiceRecorder } from "@/components/messages/VoiceRecorder";
+import { VoiceRecorder, VoiceNoteButton } from "@/components/messages/VoiceRecorder";
 
 const QUICK_REACTIONS = ["❤️", "👍", "🎉", "🙏", "😮", "😢"];
 
@@ -456,7 +456,15 @@ function MessageBubble({
 
 export default function ConversationPage() {
   const params = useParams<{ id: string }>();
-  const conversationId = params.id;
+  /*
+    The address may be a conversation id or somebody's handle. A handle is the
+    readable form — /messages/@arya-ambadi — and is exchanged for the id of the
+    thread with that person before anything else happens.
+  */
+  const routeParam = params.id || "";
+  const isHandle = routeParam.startsWith("@");
+  const [resolvedId, setResolvedId] = useState<string | null>(isHandle ? null : routeParam);
+  const conversationId = resolvedId || "";
   const { user, loading } = useAuthContext();
   const [, navigate] = useLocation();
 
@@ -470,7 +478,7 @@ export default function ConversationPage() {
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [editing, setEditing] = useState<Message | null>(null);
   const [sending, setSending] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(true);
   const [showMembers, setShowMembers] = useState(false);
 
@@ -509,8 +517,35 @@ export default function ConversationPage() {
   }, [conversationId, navigate, scrollToBottom]);
 
   useEffect(() => {
+    if (!isHandle || !user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `${apiBase()}/api/conversations/by-handle/${encodeURIComponent(routeParam.slice(1))}`,
+          { credentials: "include" },
+        );
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "No member with that handle.");
+
+        // No thread yet — open one, which applies the same request rules as
+        // starting a conversation from anywhere else.
+        const id = data.conversationId
+          || (await messagesApi.start([data.otherUserId], "DIRECT")).conversation.id;
+        if (!cancelled) setResolvedId(id);
+      } catch (err: any) {
+        if (cancelled) return;
+        toast.error(err.message || "Could not open that conversation");
+        navigate("/messages");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isHandle, routeParam, user, navigate]);
+
+  useEffect(() => {
     if (loading) return;
     if (!user) { navigate("/login"); return; }
+    if (!conversationId) return;
     setBusy(true);
     void loadInitial();
   }, [user, loading, conversationId, loadInitial, navigate]);
@@ -912,9 +947,16 @@ export default function ConversationPage() {
             tall empty box with the caret stranded at the top of it, and pushed
             the two attachment buttons into the left margin, away from Send.
           */}
-          {/* `items-stretch`: the field matches the height of the column
-              beside it, so the two read as one block rather than a small box
-              floating next to a tall one. */}
+          {/* Recording takes over the row entirely — while it is happening
+              there is nothing else to do here, and the toolbar clips its own
+              contents, so a panel anchored inside it could never be seen. */}
+          {recording ? (
+            <VoiceRecorder
+              busy={sending}
+              onSend={file => attach(file)}
+              onCancel={() => setRecording(false)}
+            />
+          ) : (
           <div className="flex items-stretch gap-2">
             <input ref={imageRef} type="file" accept="image/*" className="sr-only" onChange={e => { const f = e.target.files?.[0]; if (f) void attach(f); e.target.value = ""; }} />
             <input ref={fileRef} type="file" className="sr-only" onChange={e => { const f = e.target.files?.[0]; if (f) void attach(f); e.target.value = ""; }} />
@@ -944,15 +986,7 @@ export default function ConversationPage() {
                   words, it cannot turn a message into a file. */}
               {!editing ? (
                 <>
-                  <button
-                    type="button"
-                    className="composer-tool"
-                    onClick={() => setPickerOpen(v => !v)}
-                    aria-label="Record a voice note"
-                    aria-expanded={pickerOpen}
-                  >
-                    <Mic size={15} />
-                  </button>
+                  <VoiceNoteButton onStart={() => setRecording(true)} disabled={sending} />
                   <button type="button" className="composer-tool" onClick={() => imageRef.current?.click()} aria-label="Send a photo" disabled={sending}>
                     <ImageIcon size={15} />
                   </button>
@@ -972,16 +1006,9 @@ export default function ConversationPage() {
                 {editing ? <Check size={15} /> : <Send size={15} />}
               </button>
 
-              {pickerOpen ? (
-                <VoiceRecorder
-                  busy={sending}
-                  onSend={file => attach(file)}
-                  onClose={() => setPickerOpen(false)}
-                />
-              ) : null}
             </div>
           </div>
-
+          )}
         </div>
       </footer>
     </div>

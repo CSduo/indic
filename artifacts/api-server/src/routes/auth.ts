@@ -8,6 +8,7 @@ import {
 } from "../lib/auth";
 import { z } from "zod";
 import { sendNewMemberNotification } from "../lib/notifier";
+import { ensureHandle, validateHandle, handleIsAvailable } from "../lib/handles";
 
 const router = Router();
 
@@ -115,6 +116,7 @@ const PROFILE_FIELDS = {
   avatarUrl: usersTable.avatarUrl,
   bio: usersTable.bio,
   institution: usersTable.institution,
+  handle: usersTable.handle,
 };
 
 // GET /api/auth/me
@@ -144,11 +146,20 @@ router.get("/auth/me", async (req, res) => {
           avatarUrl: null,
           bio: null,
           institution: "Ānvīkṣikī Editorial Desk",
+          handle: null,
         };
       }
     }
 
     if (!user) return res.status(404).json({ error: "User not found" });
+
+    // Accounts made before handles existed get one the first time they sign
+    // in, rather than needing anybody to run a migration.
+    if (!(user as any).handle && user.id) {
+      const handle = await ensureHandle(user.id, user.name, user.email);
+      if (handle) (user as any).handle = handle;
+    }
+
     return res.json({ user });
   } catch (err) {
     req.log.error(err);
@@ -226,6 +237,7 @@ router.put("/auth/profile", async (req, res) => {
       name: z.string().trim().min(1).max(100).optional(),
       bio: z.string().trim().max(500).optional(),
       institution: z.string().trim().max(200).optional(),
+      handle: z.string().trim().max(40).optional(),
       avatarUrl: z.string().max(2000).optional().or(z.literal("")).or(z.null()),
     });
     const parsed = schema.safeParse(req.body);
@@ -235,6 +247,15 @@ router.put("/auth/profile", async (req, res) => {
     if (parsed.data.name !== undefined) updates.name = parsed.data.name;
     if (parsed.data.bio !== undefined) updates.bio = parsed.data.bio;
     if (parsed.data.institution !== undefined) updates.institution = parsed.data.institution;
+
+    if (parsed.data.handle !== undefined) {
+      const check = validateHandle(parsed.data.handle);
+      if (!check.ok) return res.status(400).json({ error: check.reason, code: "INVALID_HANDLE" });
+      if (!(await handleIsAvailable(check.handle, auth.userId))) {
+        return res.status(409).json({ error: "That handle is already taken.", code: "HANDLE_TAKEN" });
+      }
+      updates.handle = check.handle;
+    }
     if (parsed.data.avatarUrl !== undefined) updates.avatarUrl = parsed.data.avatarUrl || null;
 
     const [user] = await db.update(usersTable)

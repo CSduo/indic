@@ -6482,3 +6482,10 @@ button.editor-tool.is-active {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+
+/* The recording indicator's heartbeat. Stops when the recording is held, so
+   "paused" is visible at a glance rather than only in the button's icon. */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.25; }
+}

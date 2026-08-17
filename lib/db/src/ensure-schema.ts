@@ -336,6 +336,7 @@ const COLUMN_STATEMENTS: Record<string, string[]> = {
     `"avatar_url" text`,
     `"bio" text`,
     `"institution" text`,
+    `"handle" varchar(30)`,
   ],
   articles: [
     `"subtitle" text`,
@@ -414,6 +415,8 @@ const INDEX_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS "notifications_user_idx" ON "notifications" ("user_id");`,
   `CREATE INDEX IF NOT EXISTS "push_subscriptions_user_idx" ON "push_subscriptions" ("user_id");`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "follows_unique" ON "follows" ("follower_id", "following_id");`,
+  // Case-insensitive, because "Arya" and "arya" must not be two people.
+  `CREATE UNIQUE INDEX IF NOT EXISTS "users_handle_unique" ON "users" (lower("handle"));`,
   // One row per reader per thing — this index is what makes a repeat visit an
   // update rather than a second view.
   `CREATE UNIQUE INDEX IF NOT EXISTS "content_views_unique" ON "content_views" ("kind", "target_id", "session_key");`,

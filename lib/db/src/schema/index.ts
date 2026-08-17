@@ -26,6 +26,15 @@ export const usersTable = pgTable("users", {
   avatarUrl: text("avatar_url"),
   bio: text("bio"),
   institution: text("institution"),
+  /**
+   * The short, unique name a person is reachable by: `arya-ambadi`.
+   *
+   * Separate from `name` because a display name is neither unique nor stable —
+   * two people may share one, and anyone may change theirs — and a URL has to
+   * be both. Nullable so accounts that existed before handles keep working
+   * until one is generated for them.
+   */
+  handle: varchar("handle", { length: 30 }).unique(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
