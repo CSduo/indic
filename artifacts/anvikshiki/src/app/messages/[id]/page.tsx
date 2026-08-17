@@ -34,14 +34,34 @@ function downloadUrl(message: Message): string {
   return message.mediaDownloadUrl || message.mediaUrl || "";
 }
 
+/**
+ * The divider between one day and the next.
+ *
+ * "Today" and "Yesterday" are what anyone reading a recent conversation
+ * actually wants, but on their own they answer the wrong question a week
+ * later — so the date is given alongside rather than instead. Anything older
+ * is simply dated.
+ */
 function dayLabel(iso: string): string {
   const d = new Date(iso);
   const today = new Date();
   const yesterday = new Date(Date.now() - 86400000);
   const same = (a: Date, b: Date) => a.toDateString() === b.toDateString();
-  if (same(d, today)) return "Today";
-  if (same(d, yesterday)) return "Yesterday";
-  return d.toLocaleDateString(undefined, { day: "numeric", month: "long", year: d.getFullYear() === today.getFullYear() ? undefined : "numeric" });
+
+  const dated = d.toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "long",
+    year: d.getFullYear() === today.getFullYear() ? undefined : "numeric",
+  });
+
+  if (same(d, today)) return `Today · ${dated}`;
+  if (same(d, yesterday)) return `Yesterday · ${dated}`;
+  return d.toLocaleDateString(undefined, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: d.getFullYear() === today.getFullYear() ? undefined : "numeric",
+  });
 }
 
 function clockTime(iso: string): string {
@@ -354,7 +374,16 @@ function MessageBubble({
 
           {message.body ? <MessageText body={message.body} mine={mine} /> : null}
 
-          <span className="mt-1 flex items-center gap-1.5 opacity-60">
+          {/* The exact moment is always available on hover or long-press, so a
+              message can be dated precisely without every bubble carrying a
+              full timestamp. */}
+          <span
+            className="mt-1 flex items-center gap-1.5 opacity-60"
+            title={new Date(message.createdAt).toLocaleString(undefined, {
+              weekday: "long", day: "numeric", month: "long", year: "numeric",
+              hour: "2-digit", minute: "2-digit",
+            })}
+          >
             <span className="font-ui text-[10px]">
               {message.pending ? "Sending…" : clockTime(message.createdAt)}
             </span>
@@ -836,7 +865,7 @@ export default function ConversationPage() {
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden [overscroll-behavior:contain]"
       >
        <div className="container-anv mx-auto w-full max-w-3xl overflow-x-hidden py-5">
         {busy ? (

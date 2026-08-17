@@ -324,7 +324,7 @@ export default function MessagesInboxPage() {
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto [overscroll-behavior:contain]">
       <div className="container-anv mx-auto max-w-2xl py-5">
 
         {/* Requests are a separate list on purpose. Someone you have not

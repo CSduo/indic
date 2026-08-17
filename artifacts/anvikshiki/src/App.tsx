@@ -2,7 +2,7 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { withContentVersion } from "@/lib/contentVersion";
 import { SacredHeader } from "@/components/sacred/SacredHeader";
@@ -145,9 +145,34 @@ function AppShell({ children }: { children: React.ReactNode }) {
  * screen own its own header, composer and scrolling region.
  */
 function MessagesShell({ children }: { children: React.ReactNode }) {
+  /*
+    While a conversation is open the page itself must not scroll.
+
+    A tall element sized to the viewport is not enough on a phone: the document
+    behind it stays scrollable, so dragging past the last message scrolled the
+    *page* instead, carrying the composer up and leaving a third of the screen
+    empty beneath it. Worse, the viewport height changes as the browser's
+    address bar hides, so the amount of dead space kept moving.
+
+    Two things stop it. The shell is taken out of the flow and pinned to the
+    viewport, which leaves the document with nothing to scroll; and the message
+    list below declares `overscroll-contain`, so reaching its end does not hand
+    the gesture onward to anything else.
+  */
+  useEffect(() => {
+    const { body, documentElement: html } = document;
+    const previous = { body: body.style.overflow, html: html.style.overflow };
+    body.style.overflow = "hidden";
+    html.style.overflow = "hidden";
+    return () => {
+      body.style.overflow = previous.body;
+      html.style.overflow = previous.html;
+    };
+  }, []);
+
   return (
     <div
-      className="flex h-[100dvh] flex-col overflow-hidden"
+      className="fixed inset-0 flex flex-col overflow-hidden"
       style={{ background: "var(--bg)" }}
     >
       <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
