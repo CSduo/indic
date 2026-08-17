@@ -10,6 +10,7 @@ const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 type Member = {
   id: string;
   name: string;
+  handle?: string | null;
   avatarUrl: string | null;
   bio: string | null;
   institution: string | null;
@@ -99,7 +100,11 @@ export default function CommunityMembersPage() {
       if (pendingRequest) {
         toast.success(`Your message request will reach ${member.name} once they accept it.`);
       }
-      navigate(`/messages/${conversation.id}`);
+      if (member.handle) {
+        navigate(`/messages/@${member.handle}`);
+      } else {
+        navigate(`/messages/${conversation.id}`);
+      }
     } catch (err: any) {
       toast.error(err.message || "Could not open that conversation");
     } finally {
@@ -167,8 +172,16 @@ export default function CommunityMembersPage() {
                 <Link href={`/profile/${m.id}`} className="flex min-w-0 flex-1 items-center gap-3">
                   <Avatar name={m.name} url={m.avatarUrl} />
                   <span className="min-w-0">
-                    <span className="block truncate font-body text-sm font-semibold text-[var(--ink)]">
-                      {m.name}{m.isYou ? <span className="ml-1.5 mono-label">You</span> : null}
+                    <span className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                      <span className="truncate font-body text-sm font-semibold text-[var(--ink)]">
+                        {m.name}
+                      </span>
+                      {m.handle ? (
+                        <span className="font-mono text-xs font-semibold text-[var(--gold)]">
+                          @{m.handle}
+                        </span>
+                      ) : null}
+                      {m.isYou ? <span className="mono-label">You</span> : null}
                     </span>
                     {m.institution ? (
                       <span className="block truncate font-body text-[13px] text-[var(--ink-meta)]">{m.institution}</span>

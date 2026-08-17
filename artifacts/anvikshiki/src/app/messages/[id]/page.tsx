@@ -534,12 +534,17 @@ export default function ConversationPage() {
   }, [conversationId, navigate, scrollToBottom]);
 
   useEffect(() => {
-    if (!isHandle || !user) return;
+    if (!isHandle || loading) return;
+    if (!user) {
+      navigate("/login");
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
+        const handleWithoutAt = routeParam.replace(/^@/, "");
         const res = await fetch(
-          `${apiBase()}/api/conversations/by-handle/${encodeURIComponent(routeParam.slice(1))}`,
+          `${apiBase()}/api/conversations/by-handle/${encodeURIComponent(handleWithoutAt)}`,
           { credentials: "include" },
         );
         const data = await res.json().catch(() => ({}));
@@ -557,7 +562,7 @@ export default function ConversationPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [isHandle, routeParam, user, navigate]);
+  }, [isHandle, routeParam, user, loading, navigate]);
 
   useEffect(() => {
     if (loading) return;
@@ -831,6 +836,14 @@ export default function ConversationPage() {
       toast.error(err.message || "Could not leave");
     }
   };
+
+  if (loading) {
+    return (
+      <div className="grid min-h-[60vh] place-items-center" style={{ background: "var(--bg)" }}>
+        <div className="h-8 w-8 rounded-full border-2 border-[var(--border-gold)] border-t-[var(--gold)]" style={{ animation: "rotateSlow .8s linear infinite" }} role="status" aria-label="Loading" />
+      </div>
+    );
+  }
 
   if (!user) return null;
 

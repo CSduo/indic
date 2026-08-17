@@ -231,12 +231,46 @@ export function VoiceNotePlayer({
   const triggerTranscribe = (e: React.MouseEvent) => {
     e.stopPropagation();
     setTranscribing(true);
-    setTimeout(() => {
-      const sampleText = "Namaste, I have reviewed the manuscript details. Let us proceed with the publication review.";
-      setCustomTranscript(sampleText);
-      setTranscribing(false);
-      toast.success("Audio transcribed successfully");
-    }, 1200);
+
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRec) {
+      try {
+        const rec = new SpeechRec();
+        rec.continuous = false;
+        rec.interimResults = false;
+        rec.lang = navigator.language || "en-IN";
+        toast.info("Listening — speak or play the audio to transcribe...");
+        rec.onresult = (ev: any) => {
+          const text = ev.results[0]?.[0]?.transcript;
+          if (text) {
+            setCustomTranscript(text);
+            toast.success("Transcript captured!");
+          }
+          setTranscribing(false);
+        };
+        rec.onerror = () => {
+          setTranscribing(false);
+          const manual = window.prompt("Speech recognition unavailable. Enter transcript for this voice note:");
+          if (manual && manual.trim()) {
+            setCustomTranscript(manual.trim());
+            toast.success("Transcript saved!");
+          }
+        };
+        rec.onend = () => {
+          setTranscribing(false);
+        };
+        rec.start();
+        return;
+      } catch {}
+    }
+
+    // Prompt user for transcription text if browser speech recognition is unsupported
+    setTranscribing(false);
+    const manual = window.prompt("Enter or paste transcript for this voice note:");
+    if (manual && manual.trim()) {
+      setCustomTranscript(manual.trim());
+      toast.success("Transcript saved!");
+    }
   };
 
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;

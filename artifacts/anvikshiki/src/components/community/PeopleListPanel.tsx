@@ -4,7 +4,7 @@ import { X } from "lucide-react";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
-type Person = { id: string; name: string; avatarUrl: string | null; bio: string | null };
+type Person = { id: string; name: string; handle?: string | null; avatarUrl: string | null; bio: string | null };
 
 /**
  * The people behind a follower count.
@@ -87,7 +87,7 @@ export function PeopleListPanel({
               {people.map(person => (
                 <li key={person.id}>
                   <Link
-                    href={`/profile/${person.id}`}
+                    href={person.handle ? `/profile/@${person.handle}` : `/profile/${person.id}`}
                     onClick={onClose}
                     className="flex items-center gap-3 rounded-[2px] p-2 transition-colors hover:bg-[var(--surface-2)]"
                   >
@@ -103,7 +103,12 @@ export function PeopleListPanel({
                       </span>
                     )}
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-body text-sm font-semibold text-[var(--ink)]">{person.name}</span>
+                      <span className="flex items-center gap-1.5 flex-wrap">
+                        <span className="truncate font-body text-sm font-semibold text-[var(--ink)]">{person.name}</span>
+                        {person.handle ? (
+                          <span className="font-mono text-xs font-semibold text-[var(--gold)]">@{person.handle}</span>
+                        ) : null}
+                      </span>
                       {person.bio ? (
                         <span className="block truncate font-body text-[12px] text-[var(--ink-meta)]">{person.bio}</span>
                       ) : null}

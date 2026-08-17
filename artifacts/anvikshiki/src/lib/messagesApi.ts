@@ -16,6 +16,7 @@ export type ConversationSummary = {
   title: string;
   avatarUrl: string | null;
   otherUserId: string | null;
+  handle?: string | null;
   lastMessageAt: string;
   preview: string;
   unread: number;
@@ -109,7 +110,7 @@ export const messagesApi = {
     }),
 
   people: (q: string) =>
-    json<{ people: Array<{ id: string; name: string; avatarUrl: string | null }> }>(
+    json<{ people: Array<{ id: string; name: string; handle?: string | null; avatarUrl: string | null }> }>(
       `/messages/people?q=${encodeURIComponent(q)}`,
     ),
 

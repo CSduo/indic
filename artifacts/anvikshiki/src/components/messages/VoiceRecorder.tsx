@@ -107,19 +107,38 @@ export function VoiceRecorder({
             const rec = new SpeechRec();
             rec.continuous = true;
             rec.interimResults = true;
+            rec.maxAlternatives = 1;
+            // Use browser language or Indian English/Hindi default
+            rec.lang = navigator.language || "en-IN";
+
             rec.onresult = (ev: any) => {
               let text = "";
               for (let i = 0; i < ev.results.length; i++) {
                 text += (ev.results[i][0]?.transcript || "") + " ";
               }
-              if (text.trim()) {
-                transcriptRef.current = text.trim();
-                setLiveTranscript(text.trim());
+              const cleaned = text.trim();
+              if (cleaned) {
+                transcriptRef.current = cleaned;
+                setLiveTranscript(cleaned);
               }
             };
+
+            // Auto-restart if browser cuts off recognition during silence
+            rec.onend = () => {
+              if (streamRef.current && recorderRef.current && recorderRef.current.state === "recording") {
+                try { rec.start(); } catch {}
+              }
+            };
+
+            rec.onerror = (e: any) => {
+              console.debug("Speech recognition event:", e.error);
+            };
+
             rec.start();
             recognitionRef.current = rec;
-          } catch {}
+          } catch (e) {
+            console.debug("Speech recognition not initialized:", e);
+          }
         }
 
         recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };

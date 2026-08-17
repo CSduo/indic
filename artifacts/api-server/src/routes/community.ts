@@ -20,6 +20,7 @@ const router = Router();
 const MEMBER_FIELDS = {
   id: usersTable.id,
   name: usersTable.name,
+  handle: usersTable.handle,
   avatarUrl: usersTable.avatarUrl,
   bio: usersTable.bio,
   institution: usersTable.institution,
@@ -104,6 +105,7 @@ router.get("/community/members", async (req, res) => {
       members: rows.map(r => ({
         id: r.id,
         name: publicName(r),
+        handle: r.handle || null,
         avatarUrl: r.avatarUrl,
         bio: r.bio,
         institution: r.institution,
@@ -220,7 +222,7 @@ for (const kind of ["followers", "following"] as const) {
       const filterBy = kind === "followers" ? followsTable.followingId : followsTable.followerId;
 
       const rows = await db
-        .select({ id: usersTable.id, name: usersTable.name, avatarUrl: usersTable.avatarUrl, bio: usersTable.bio })
+        .select({ id: usersTable.id, name: usersTable.name, handle: usersTable.handle, avatarUrl: usersTable.avatarUrl, bio: usersTable.bio })
         .from(followsTable)
         .innerJoin(usersTable, eq(usersTable.id, joinOn))
         .where(eq(filterBy, req.params.id))
@@ -229,7 +231,7 @@ for (const kind of ["followers", "following"] as const) {
         .offset(offset);
 
       return res.json({
-        people: rows.map(r => ({ id: r.id, name: publicName(r), avatarUrl: r.avatarUrl, bio: r.bio })),
+        people: rows.map(r => ({ id: r.id, name: publicName(r), handle: r.handle || null, avatarUrl: r.avatarUrl, bio: r.bio })),
       });
     } catch (err) {
       req.log?.error({ err }, `Failed to list ${kind}`);

@@ -45,12 +45,12 @@ function Avatar({ name, url, size = 44 }: { name: string; url?: string | null; s
   );
 }
 
-/** The "new message" panel â€” search people, or assemble a group. */
+/** The "new message" panel — search people, or assemble a group. */
 function ComposePanel({ onClose }: { onClose: () => void }) {
   const [, navigate] = useLocation();
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Array<{ id: string; name: string; avatarUrl: string | null }>>([]);
-  const [chosen, setChosen] = useState<Array<{ id: string; name: string }>>([]);
+  const [results, setResults] = useState<Array<{ id: string; name: string; handle?: string | null; avatarUrl: string | null }>>([]);
+  const [chosen, setChosen] = useState<Array<{ id: string; name: string; handle?: string | null }>>([]);
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"DIRECT" | "GROUP">("DIRECT");
@@ -82,7 +82,11 @@ function ComposePanel({ onClose }: { onClose: () => void }) {
       if (pendingRequest) {
         toast.success("Send one message — they'll see it as a request, and can reply once they accept.");
       }
-      navigate(`/messages/${conversation.id}`);
+      if (!isGroup && chosen[0]?.handle) {
+        navigate(`/messages/@${chosen[0].handle}`);
+      } else {
+        navigate(`/messages/${conversation.id}`);
+      }
     } catch (err: any) {
       toast.error(err.message || "Could not start that conversation");
     } finally {
@@ -101,12 +105,6 @@ function ComposePanel({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="p-4">
-          {/*
-            Making a group already worked — selecting a second person did it —
-            but nothing on screen said so, so nobody found it. Saying which
-            kind of conversation is being started, before anyone is picked,
-            is the whole fix.
-          */}
           <div className="mb-4 flex gap-1 rounded-[2px] border border-[var(--hairline)] p-1">
             {([["DIRECT", "Direct message"], ["GROUP", "Group"]] as const).map(([value, label]) => (
               <button
@@ -131,8 +129,9 @@ function ComposePanel({ onClose }: { onClose: () => void }) {
           {chosen.length > 0 ? (
             <div className="mb-3 flex flex-wrap gap-1.5">
               {chosen.map(c => (
-                <span key={c.id} className="status-chip">
-                  {c.name}
+                <span key={c.id} className="status-chip flex items-center gap-1">
+                  <span>{c.name}</span>
+                  {c.handle ? <span className="font-mono text-[10px] text-[var(--gold)]">@{c.handle}</span> : null}
                   <button
                     type="button"
                     onClick={() => setChosen(list => list.filter(x => x.id !== c.id))}
@@ -182,14 +181,21 @@ function ComposePanel({ onClose }: { onClose: () => void }) {
                       if (already) return list.filter(c => c.id !== person.id);
                       // A direct message is to exactly one person, so picking
                       // someone else replaces the choice rather than adding.
-                      return isGroup ? [...list, { id: person.id, name: person.name }] : [{ id: person.id, name: person.name }];
+                      return isGroup ? [...list, { id: person.id, name: person.name, handle: person.handle }] : [{ id: person.id, name: person.name, handle: person.handle }];
                     });
                     setQuery("");
                   }}
                   className="flex w-full items-center gap-3 rounded-[2px] px-2 py-2 text-left hover:bg-[var(--surface-2)]"
                 >
                   <Avatar name={person.name} url={person.avatarUrl} size={32} />
-                  <span className="font-body text-sm text-[var(--ink)]">{person.name}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-body text-sm font-semibold text-[var(--ink)] leading-snug">{person.name}</p>
+                    {person.handle ? (
+                      <p className="font-mono text-xs font-semibold text-[var(--gold)]">@{person.handle}</p>
+                    ) : (
+                      <p className="font-ui text-[10px] text-[var(--muted)]">Scholar</p>
+                    )}
+                  </div>
                   {already ? <span className="ml-auto mono-label">Added</span> : null}
                 </button>
               );
@@ -447,16 +453,23 @@ export default function MessagesInboxPage() {
             {shown.map(c => (
               <li key={c.id}>
                 <Link
-                  href={`/messages/${c.id}`}
+                  href={c.handle ? `/messages/@${c.handle}` : `/messages/${c.id}`}
                   className="flex items-center gap-3 rounded-[2px] border border-[var(--hairline)] bg-[var(--surface)] p-3 transition-colors hover:border-[var(--hairline-strong)]"
                 >
                   <Avatar name={c.title} url={c.avatarUrl} />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline justify-between gap-2">
-                      <span className={`truncate font-body text-sm ${c.unread > 0 ? "font-semibold text-[var(--ink)]" : "text-[var(--ink)]"}`}>
-                        {c.title}
+                      <span className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                        <span className={`truncate font-body text-sm ${c.unread > 0 ? "font-semibold text-[var(--ink)]" : "text-[var(--ink)]"}`}>
+                          {c.title}
+                        </span>
+                        {c.handle ? (
+                          <span className="font-mono text-xs font-semibold text-[var(--gold)] shrink-0">
+                            @{c.handle}
+                          </span>
+                        ) : null}
                         {c.kind === "GROUP" ? (
-                          <span className="ml-1.5 inline-flex items-center gap-1 align-middle mono-label">
+                          <span className="ml-1 inline-flex items-center gap-1 align-middle mono-label">
                             <Users size={10} /> {c.memberCount}
                           </span>
                         ) : null}

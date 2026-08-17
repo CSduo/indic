@@ -1,4 +1,4 @@
-﻿import { Router } from "express";
+import { Router } from "express";
 import multer from "multer";
 import { z } from "zod";
 import {
@@ -141,6 +141,7 @@ router.get("/conversations", async (req, res) => {
               name: usersTable.name,
               email: usersTable.email,
               avatarUrl: usersTable.avatarUrl,
+              handle: usersTable.handle,
             })
             .from(conversationMembersTable)
             .innerJoin(usersTable, eq(conversationMembersTable.userId, usersTable.id))
@@ -168,6 +169,7 @@ router.get("/conversations", async (req, res) => {
         title: described.title,
         avatarUrl: described.avatarUrl,
         otherUserId: described.otherUserId,
+        handle: described.handle || null,
         lastMessageAt: row.lastMessageAt,
         preview: row.lastMessagePreview || "",
         unread: unread.get(row.id) || 0,
@@ -381,12 +383,14 @@ router.get("/conversations/:id", async (req, res) => {
         title: described.title,
         avatarUrl: described.avatarUrl,
         otherUserId: described.otherUserId,
+        handle: described.handle || null,
         muted: membership.muted,
         role: membership.role,
         members: members.map(m => ({
           userId: m.userId,
           name: m.name || m.email.split("@")[0],
           avatarUrl: m.avatarUrl,
+          handle: m.handle || null,
           role: m.role,
           lastReadAt: m.lastReadAt,
         })),
@@ -1256,31 +1260,32 @@ router.get("/messages/people", async (req, res) => {
     const q = String(req.query.q || "").trim();
     if (q.length < 2) return res.json({ people: [] });
 
-    const term = `%${q.replace(/[%_]/g, m => `\\${m}`)}%`;
+    const cleanQuery = q.replace(/^@/, "");
+    const term = `%${cleanQuery.replace(/[%_]/g, m => `\\${m}`)}%`;
     const people = await db
       .select({
         id: usersTable.id,
         name: usersTable.name,
         email: usersTable.email,
+        handle: usersTable.handle,
         avatarUrl: usersTable.avatarUrl,
       })
       .from(usersTable)
       .where(and(
         ne(usersTable.id, userId),
-        // Names only. Matching against email never showed an address, but it
-        // still answered questions about them: whether a particular person has
-        // an account here, and — searching for a provider's domain — who all
-        // of them are. Someone's address is theirs, and it is not a handle
-        // other members get to look people up by.
-        ilike(usersTable.name, term),
+        or(
+          ilike(usersTable.name, term),
+          ilike(usersTable.handle, term)
+        ),
       ))
       .limit(15);
 
-    // The display name is all that leaves this endpoint.
+    // The display name and handle leave this endpoint.
     return res.json({
       people: people.map(p => ({
         id: p.id,
         name: p.name || p.email.split("@")[0],
+        handle: p.handle || null,
         avatarUrl: p.avatarUrl,
       })),
     });
