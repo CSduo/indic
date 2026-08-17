@@ -139,10 +139,11 @@ export function GlobalSidebar({ open, onClose }: GlobalSidebarProps) {
           </button>
         </div>
 
-        {/* Quick Search */}
+        {/* Quick Search — the field alone. The magnifier inside it was the
+            icon you kept seeing; a field with a placeholder that says what it
+            is does not need a picture of a magnifying glass as well. */}
         <div className="global-sidebar-search">
-          <form onSubmit={handleSearch} className="relative">
-            <Search size={16} className="global-sidebar-search-icon" />
+          <form onSubmit={handleSearch}>
             <input
               type="text"
               placeholder="Search Anvikshiki..."

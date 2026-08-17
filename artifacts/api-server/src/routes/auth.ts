@@ -292,8 +292,21 @@ router.get("/users/:userId/profile", async (req, res) => {
 
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    const isChaitanyaOrAdmin = (user.name || "").toLowerCase().includes("chaitanya") || (user.name || "").toLowerCase().includes("xiyato") || user.id.includes("admin");
+    /*
+      Work belongs to the account that submitted it.
 
+      This used to match on the author's *name*, which is not an identity: it
+      is a label anybody can type, two people can share, and one person can
+      change. Two accounts with the same display name therefore showed each
+      other's work. There was also a hardcoded exception that handed every
+      article containing "Chaitanya" or "Xiyato" in its byline to any account
+      whose name contained either — so signing up with such a name adopted
+      somebody else's entire body of work.
+
+      Ownership is the submission the publication came from, and that submission
+      records the user who made it. Nothing else is a claim of authorship, only
+      a description of one.
+    */
     const articles = await db.select({
       id: articlesTable.id,
       slug: articlesTable.slug,
@@ -304,16 +317,11 @@ router.get("/users/:userId/profile", async (req, res) => {
       categorySlug: articlesTable.categorySlug,
       publishedAt: articlesTable.publishedAt,
     }).from(articlesTable)
+      .innerJoin(submissionsTable, eq(articlesTable.sourceSubmissionId, submissionsTable.id))
       .where(and(
         eq(articlesTable.status, "PUBLISHED"),
         isNull(articlesTable.deletedAt),
-        isChaitanyaOrAdmin
-          ? or(
-              ilike(articlesTable.authorName, "%Chaitanya%"),
-              ilike(articlesTable.authorName, "%Xiyato%"),
-              ilike(articlesTable.authorName, user.name || "%")
-            )
-          : ilike(articlesTable.authorName, user.name || "__no_author_name__")
+        eq(submissionsTable.userId, user.id),
       ))
       .orderBy(desc(articlesTable.publishedAt))
       .limit(20);
@@ -327,16 +335,11 @@ router.get("/users/:userId/profile", async (req, res) => {
       categorySlug: papersTable.categorySlug,
       publishedAt: papersTable.publishedAt,
     }).from(papersTable)
+      .innerJoin(submissionsTable, eq(papersTable.sourceSubmissionId, submissionsTable.id))
       .where(and(
         eq(papersTable.status, "PUBLISHED"),
         isNull(papersTable.deletedAt),
-        isChaitanyaOrAdmin
-          ? or(
-              ilike(papersTable.authorName, "%Chaitanya%"),
-              ilike(papersTable.authorName, "%Xiyato%"),
-              ilike(papersTable.authorName, user.name || "%")
-            )
-          : ilike(papersTable.authorName, user.name || "__no_author_name__")
+        eq(submissionsTable.userId, user.id),
       ))
       .orderBy(desc(papersTable.publishedAt))
       .limit(20);

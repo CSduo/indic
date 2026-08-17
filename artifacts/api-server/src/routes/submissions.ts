@@ -535,42 +535,35 @@ router.get("/submissions", async (req, res) => {
           req.log?.warn?.({ err }, "Failed to query submissionsTable in GET /submissions");
           return [] as any[];
         }),
-      (async () => {
-        const conds: any[] = [];
-        if (viewer.name) conds.push(ilike(articlesTable.authorName, viewer.name));
-        if (viewer.email) {
-          const prefix = viewer.email.split("@")[0];
-          if (prefix && prefix.length >= 3) conds.push(ilike(articlesTable.authorName, `%${prefix}%`));
-        }
-        if (conds.length === 0) return [] as any[];
-        return db.select(ARTICLE_LIST_COLUMNS).from(articlesTable)
-          .where(and(
-            trashed ? isNotNull(articlesTable.deletedAt) : isNull(articlesTable.deletedAt),
-            conds.length === 1 ? conds[0] : or(...conds)!
-          ))
-          .catch(err => {
-            req.log?.warn?.({ err }, "Failed to query articlesTable for author works");
-            return [] as any[];
-          });
-      })(),
-      (async () => {
-        const conds: any[] = [];
-        if (viewer.name) conds.push(ilike(papersTable.authorName, viewer.name));
-        if (viewer.email) {
-          const prefix = viewer.email.split("@")[0];
-          if (prefix && prefix.length >= 3) conds.push(ilike(papersTable.authorName, `%${prefix}%`));
-        }
-        if (conds.length === 0) return [] as any[];
-        return db.select(PAPER_LIST_COLUMNS).from(papersTable)
-          .where(and(
-            trashed ? isNotNull(papersTable.deletedAt) : isNull(papersTable.deletedAt),
-            conds.length === 1 ? conds[0] : or(...conds)!
-          ))
-          .catch(err => {
-            req.log?.warn?.({ err }, "Failed to query papersTable for author works");
-            return [] as any[];
-          });
-      })(),
+      /*
+        Published work belongs to the account whose submission produced it.
+
+        This used to match the byline against the viewer's display name, and
+        against the local part of their email address — so an account at
+        arya@… claimed every article by anyone called Arya, and two people
+        sharing a display name each saw the other's work as their own. A name
+        is a label, not an identity.
+      */
+      db.select(ARTICLE_LIST_COLUMNS).from(articlesTable)
+        .innerJoin(submissionsTable, eq(articlesTable.sourceSubmissionId, submissionsTable.id))
+        .where(and(
+          trashed ? isNotNull(articlesTable.deletedAt) : isNull(articlesTable.deletedAt),
+          eq(submissionsTable.userId, viewer.userId),
+        ))
+        .catch(err => {
+          req.log?.warn?.({ err }, "Failed to query articlesTable for author works");
+          return [] as any[];
+        }),
+      db.select(PAPER_LIST_COLUMNS).from(papersTable)
+        .innerJoin(submissionsTable, eq(papersTable.sourceSubmissionId, submissionsTable.id))
+        .where(and(
+          trashed ? isNotNull(papersTable.deletedAt) : isNull(papersTable.deletedAt),
+          eq(submissionsTable.userId, viewer.userId),
+        ))
+        .catch(err => {
+          req.log?.warn?.({ err }, "Failed to query papersTable for author works");
+          return [] as any[];
+        }),
     ]);
 
     const submissions = submissionsResult || [];
