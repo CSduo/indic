@@ -65,7 +65,8 @@ export const messagesApi = {
   conversation: (id: string) => json<{
     conversation: {
       id: string; kind: "DIRECT" | "GROUP"; title: string; avatarUrl: string | null;
-      otherUserId: string | null; muted: boolean; role: "MEMBER" | "ADMIN";
+      otherUserId: string | null; handle?: string | null; muted: boolean; role: "MEMBER" | "ADMIN";
+      pending?: boolean; iRequested?: boolean; isRequest?: boolean;
       members: ConversationMember[];
     };
     typing: Array<{ userId: string; name: string | null }>;

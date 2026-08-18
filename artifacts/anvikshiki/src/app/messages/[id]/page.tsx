@@ -521,9 +521,20 @@ export default function ConversationPage() {
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [details, setDetails] = useState<{
-    kind: "DIRECT" | "GROUP"; title: string; avatarUrl: string | null;
-    muted: boolean; role: "MEMBER" | "ADMIN"; members: ConversationMember[];
+    id?: string;
+    kind: "DIRECT" | "GROUP";
+    title: string;
+    avatarUrl: string | null;
+    otherUserId?: string | null;
+    handle?: string | null;
+    muted: boolean;
+    role: "MEMBER" | "ADMIN";
+    pending?: boolean;
+    iRequested?: boolean;
+    isRequest?: boolean;
+    members: ConversationMember[];
   } | null>(null);
+  const [respondingRequest, setRespondingRequest] = useState(false);
   const [typing, setTyping] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
   const [replyTo, setReplyTo] = useState<Message | null>(null);
@@ -817,6 +828,26 @@ export default function ConversationPage() {
     }
   };
 
+  const respondToRequest = async (accept: boolean) => {
+    if (!conversationId) return;
+    setRespondingRequest(true);
+    try {
+      if (accept) {
+        await messagesApi.acceptRequest(conversationId);
+        toast.success("Request accepted — you can reply now.");
+        setDetails(prev => prev ? { ...prev, pending: false, isRequest: false } : null);
+      } else {
+        await messagesApi.declineRequest(conversationId);
+        toast.success("Request declined.");
+        navigate("/messages");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to respond to request");
+    } finally {
+      setRespondingRequest(false);
+    }
+  };
+
   /** Put a sent message back into the composer to be rewritten. */
   const startEdit = (message: Message) => {
     setEditing(message);
@@ -1007,94 +1038,127 @@ export default function ConversationPage() {
 
       <footer className="shrink-0 border-t border-[var(--hairline)]" style={{ background: "var(--surface)" }}>
         <div className="container-anv mx-auto max-w-3xl py-3">
-          {replyTo ? (
-            <div className="mb-2 flex items-center gap-2 rounded-[2px] border-l-2 px-2.5 py-1.5" style={{ borderColor: "var(--accent)", background: "var(--surface-2)" }}>
-              <div className="min-w-0 flex-1">
-                <p className="mono-label">Replying to {replyTo.senderName}</p>
-                <p className="truncate font-body text-[12px] text-[var(--ink-meta)]">{replyTo.body || "Attachment"}</p>
+          {details?.isRequest ? (
+            <div className="rounded-xl border border-[var(--border-gold)] bg-[var(--surface-card)] p-4 sm:p-5 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-11 h-11 rounded-full border border-[var(--border-gold)] bg-[var(--gold)]/10 text-[var(--gold)] flex items-center justify-center font-display font-bold text-base shrink-0 overflow-hidden">
+                  {details.avatarUrl ? (
+                    <img src={details.avatarUrl} alt={details.title} className="w-full h-full object-cover" />
+                  ) : (
+                    details.title[0]?.toUpperCase() || "?"
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-display text-sm md:text-base font-bold text-[var(--ink)]">
+                    Message request from <span className="text-[var(--gold)]">{details.title}</span>
+                  </p>
+                  <p className="font-body text-xs text-[var(--ink-soft)] mt-0.5">
+                    Accept this request to reply and continue the conversation.
+                  </p>
+                </div>
               </div>
-              <button type="button" onClick={() => setReplyTo(null)} className="editor-tool" aria-label="Cancel reply"><X size={13} /></button>
+              <div className="flex items-center gap-3 w-full sm:w-auto shrink-0 justify-end">
+                <button
+                  type="button"
+                  onClick={() => respondToRequest(false)}
+                  disabled={respondingRequest}
+                  className="px-4 py-2 text-xs font-semibold rounded-full border border-[var(--hairline)] text-[var(--muted)] hover:text-[var(--state-error)] hover:border-[var(--state-error)] transition-all"
+                >
+                  Decline
+                </button>
+                <button
+                  type="button"
+                  onClick={() => respondToRequest(true)}
+                  disabled={respondingRequest}
+                  className="btn-terracotta px-5 py-2 text-xs font-bold rounded-full shadow-md hover:scale-105 transition-all inline-flex items-center gap-1.5"
+                >
+                  {respondingRequest ? <span className="spinner-editorial" aria-hidden="true" /> : <Check size={14} />}
+                  Accept Request
+                </button>
+              </div>
             </div>
-          ) : null}
-
-          {editing ? (
-            <div className="mb-2 flex items-center gap-2 rounded-[2px] border-l-2 px-2.5 py-1.5" style={{ borderColor: "var(--accent)", background: "var(--surface-2)" }}>
-              <Pencil size={13} style={{ color: "var(--accent)" }} />
-              <p className="mono-label flex-1">Editing your message</p>
-              <button type="button" onClick={cancelEdit} className="editor-tool" aria-label="Cancel edit"><X size={13} /></button>
-            </div>
-          ) : null}
-
-          {/*
-            The field takes the whole width and grows downward as you write;
-            everything you can press sits together on the right.
-
-            It previously used the site's shared textarea style, which carries
-            a 8rem minimum height meant for essay forms. In a chat that drew a
-            tall empty box with the caret stranded at the top of it, and pushed
-            the two attachment buttons into the left margin, away from Send.
-          */}
-          {/* Recording takes over the row entirely — while it is happening
-              there is nothing else to do here, and the toolbar clips its own
-              contents, so a panel anchored inside it could never be seen. */}
-          {recording ? (
-            <VoiceRecorder
-              busy={sending}
-              onSend={(file, transcript) => attach(file, transcript)}
-              onCancel={() => setRecording(false)}
-            />
           ) : (
-          <div className="flex items-stretch gap-2">
-            <input ref={imageRef} type="file" accept="image/*" className="sr-only" onChange={e => { const f = e.target.files?.[0]; if (f) void attach(f); e.target.value = ""; }} />
-            <input ref={fileRef} type="file" className="sr-only" onChange={e => { const f = e.target.files?.[0]; if (f) void attach(f); e.target.value = ""; }} />
-
-            <textarea
-              ref={composerRef}
-              className="composer-input min-w-0 flex-1"
-              rows={1}
-              placeholder={editing ? "Edit your message…" : "Write a message…"}
-              value={draft}
-              maxLength={4000}
-              onChange={e => { setDraft(e.target.value); if (!editing) signalTyping(); }}
-              onKeyDown={e => {
-                // Enter sends; Shift+Enter is a new line, as everywhere else.
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  void (editing ? saveEdit() : send());
-                }
-                if (e.key === "Escape" && editing) cancelEdit();
-              }}
-            />
-
-            {/* One lane, one enclosing hairline, each control divided from
-                the next. Send closes it and is the only coloured thing. */}
-            <div className="composer-tools relative">
-              {/* Attachment controls are hidden while editing: an edit changes
-                  words, it cannot turn a message into a file. */}
-              {!editing ? (
-                <>
-                  <VoiceNoteButton onStart={() => setRecording(true)} disabled={sending} />
-                  <button type="button" className="composer-tool" onClick={() => imageRef.current?.click()} aria-label="Send a photo" disabled={sending}>
-                    <ImageIcon size={15} />
-                  </button>
-                  <button type="button" className="composer-tool" onClick={() => fileRef.current?.click()} aria-label="Attach a file" disabled={sending}>
-                    <Paperclip size={15} />
-                  </button>
-                </>
+            <>
+              {details?.pending && details?.iRequested ? (
+                <div className="rounded-lg border border-[var(--border-gold)] bg-[var(--surface-soft)] p-2.5 text-center mb-2.5">
+                  <p className="font-body text-xs text-[var(--ink-soft)]">
+                    ⏳ Message request sent to <strong className="text-[var(--ink)]">{details.title}</strong>. They can reply once accepted.
+                  </p>
+                </div>
               ) : null}
 
-              <button
-                type="button"
-                onClick={editing ? saveEdit : send}
-                disabled={!draft.trim()}
-                className="composer-send"
-                aria-label={editing ? "Save edit" : "Send"}
-              >
-                {editing ? <Check size={15} /> : <Send size={15} />}
-              </button>
+              {replyTo ? (
+                <div className="mb-2 flex items-center gap-2 rounded-[2px] border-l-2 px-2.5 py-1.5" style={{ borderColor: "var(--accent)", background: "var(--surface-2)" }}>
+                  <div className="min-w-0 flex-1">
+                    <p className="mono-label">Replying to {replyTo.senderName}</p>
+                    <p className="truncate font-body text-[12px] text-[var(--ink-meta)]">{replyTo.body || "Attachment"}</p>
+                  </div>
+                  <button type="button" onClick={() => setReplyTo(null)} className="editor-tool" aria-label="Cancel reply"><X size={13} /></button>
+                </div>
+              ) : null}
 
-            </div>
-          </div>
+              {editing ? (
+                <div className="mb-2 flex items-center gap-2 rounded-[2px] border-l-2 px-2.5 py-1.5" style={{ borderColor: "var(--accent)", background: "var(--surface-2)" }}>
+                  <Pencil size={13} style={{ color: "var(--accent)" }} />
+                  <p className="mono-label flex-1">Editing your message</p>
+                  <button type="button" onClick={cancelEdit} className="editor-tool" aria-label="Cancel edit"><X size={13} /></button>
+                </div>
+              ) : null}
+
+              {recording ? (
+                <VoiceRecorder
+                  busy={sending}
+                  onSend={(file) => attach(file)}
+                  onCancel={() => setRecording(false)}
+                />
+              ) : (
+                <div className="flex items-stretch gap-2">
+                  <input ref={imageRef} type="file" accept="image/*" className="sr-only" onChange={e => { const f = e.target.files?.[0]; if (f) void attach(f); e.target.value = ""; }} />
+                  <input ref={fileRef} type="file" className="sr-only" onChange={e => { const f = e.target.files?.[0]; if (f) void attach(f); e.target.value = ""; }} />
+
+                  <textarea
+                    ref={composerRef}
+                    className="composer-input min-w-0 flex-1"
+                    rows={1}
+                    placeholder={editing ? "Edit your message…" : "Write a message…"}
+                    value={draft}
+                    maxLength={4000}
+                    onChange={e => { setDraft(e.target.value); if (!editing) signalTyping(); }}
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        void (editing ? saveEdit() : send());
+                      }
+                      if (e.key === "Escape" && editing) cancelEdit();
+                    }}
+                  />
+
+                  <div className="composer-tools relative">
+                    {!editing ? (
+                      <>
+                        <VoiceNoteButton onStart={() => setRecording(true)} disabled={sending} />
+                        <button type="button" className="composer-tool" onClick={() => imageRef.current?.click()} aria-label="Send a photo" disabled={sending}>
+                          <ImageIcon size={15} />
+                        </button>
+                        <button type="button" className="composer-tool" onClick={() => fileRef.current?.click()} aria-label="Attach a file" disabled={sending}>
+                          <Paperclip size={15} />
+                        </button>
+                      </>
+                    ) : null}
+
+                    <button
+                      type="button"
+                      onClick={editing ? saveEdit : send}
+                      disabled={!draft.trim()}
+                      className="composer-send"
+                      aria-label={editing ? "Save edit" : "Send"}
+                    >
+                      {editing ? <Check size={15} /> : <Send size={15} />}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </footer>

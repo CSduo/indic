@@ -43,7 +43,7 @@ export function VoiceRecorder({
   onCancel,
   busy,
 }: {
-  onSend: (file: File, transcript?: string) => Promise<void> | void;
+  onSend: (file: File) => Promise<void> | void;
   onCancel: () => void;
   busy?: boolean;
 }) {
@@ -51,7 +51,6 @@ export function VoiceRecorder({
   const [seconds, setSeconds] = useState(0);
   const [level, setLevel] = useState(0);
   const [starting, setStarting] = useState(true);
-  const [liveTranscript, setLiveTranscript] = useState("");
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
@@ -59,16 +58,12 @@ export function VoiceRecorder({
   const tickRef = useRef<number | undefined>(undefined);
   const rafRef = useRef<number | undefined>(undefined);
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const recognitionRef = useRef<any>(null);
-  const transcriptRef = useRef<string>("");
   /** Set when the recording is being sent, so onstop knows what to do. */
   const sendOnStopRef = useRef(false);
 
   const releaseEverything = () => {
     window.clearInterval(tickRef.current);
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    try { recognitionRef.current?.stop(); } catch {}
-    recognitionRef.current = null;
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
     audioCtxRef.current?.close().catch(() => {});
@@ -98,57 +93,14 @@ export function VoiceRecorder({
         const recorder = new MediaRecorder(stream, { mimeType });
         recorderRef.current = recorder;
         chunksRef.current = [];
-        transcriptRef.current = "";
-
-        // Attempt live speech recognition in browsers that support it
-        const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (SpeechRec) {
-          try {
-            const rec = new SpeechRec();
-            rec.continuous = true;
-            rec.interimResults = true;
-            rec.maxAlternatives = 1;
-            // Use browser language or Indian English/Hindi default
-            rec.lang = navigator.language || "en-IN";
-
-            rec.onresult = (ev: any) => {
-              let text = "";
-              for (let i = 0; i < ev.results.length; i++) {
-                text += (ev.results[i][0]?.transcript || "") + " ";
-              }
-              const cleaned = text.trim();
-              if (cleaned) {
-                transcriptRef.current = cleaned;
-                setLiveTranscript(cleaned);
-              }
-            };
-
-            // Auto-restart if browser cuts off recognition during silence
-            rec.onend = () => {
-              if (streamRef.current && recorderRef.current && recorderRef.current.state === "recording") {
-                try { rec.start(); } catch {}
-              }
-            };
-
-            rec.onerror = (e: any) => {
-              console.debug("Speech recognition event:", e.error);
-            };
-
-            rec.start();
-            recognitionRef.current = rec;
-          } catch (e) {
-            console.debug("Speech recognition not initialized:", e);
-          }
-        }
 
         recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
         recorder.onstop = async () => {
           const blob = new Blob(chunksRef.current, { type: mimeType });
-          const transcript = transcriptRef.current.trim() || undefined;
           releaseEverything();
           if (!sendOnStopRef.current || blob.size === 0) return;
           const file = new File([blob], `voice-note.${extensionFor(mimeType)}`, { type: mimeType });
-          await onSend(file, transcript);
+          await onSend(file);
           onCancel();
         };
 
@@ -166,21 +118,31 @@ export function VoiceRecorder({
           });
         }, 1000);
 
-        const ctx = new AudioContext();
-        audioCtxRef.current = ctx;
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 256;
-        ctx.createMediaStreamSource(stream).connect(analyser);
-        const data = new Uint8Array(analyser.frequencyBinCount);
+        try {
+          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+          if (AudioContextClass) {
+            const ctx = new AudioContextClass();
+            audioCtxRef.current = ctx;
+            const analyser = ctx.createAnalyser();
+            analyser.fftSize = 256;
+            const source = ctx.createMediaStreamSource(stream);
+            // Connect ONLY to analyser for volume meter — NEVER to destination/speakers
+            source.connect(analyser);
+            const data = new Uint8Array(analyser.frequencyBinCount);
 
-        const sample = () => {
-          analyser.getByteTimeDomainData(data);
-          let peak = 0;
-          for (const v of data) peak = Math.max(peak, Math.abs(v - 128));
-          setLevel(Math.min(1, peak / 55));
-          rafRef.current = requestAnimationFrame(sample);
-        };
-        sample();
+            const sample = () => {
+              if (!analyser) return;
+              analyser.getByteTimeDomainData(data);
+              let peak = 0;
+              for (const v of data) peak = Math.max(peak, Math.abs(v - 128));
+              setLevel(Math.min(1, peak / 55));
+              rafRef.current = requestAnimationFrame(sample);
+            };
+            sample();
+          }
+        } catch {
+          // Audio level meter fallback (silent)
+        }
       } catch (err: any) {
         if (cancelled) return;
         toast.error(
@@ -298,14 +260,6 @@ export function VoiceRecorder({
         >
           {busy ? <span className="spinner-editorial" aria-hidden="true" /> : <Send size={14} />}
         </button>
-      </div>
-
-      {/* Live speech feedback */}
-      <div className="flex items-center gap-1.5 px-1 font-mono text-[10px] text-[var(--muted)] truncate">
-        <span className="text-[#f59e0b]">●</span>
-        <span className="truncate italic">
-          {liveTranscript ? `"${liveTranscript}"` : "Transcribing speech live as you talk…"}
-        </span>
       </div>
     </div>
   );

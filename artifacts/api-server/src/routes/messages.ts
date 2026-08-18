@@ -387,6 +387,9 @@ router.get("/conversations/:id", async (req, res) => {
       typingIn(req.params.id, userId),
     ]);
     const described = describeConversation(conversation, members, userId);
+    const pending = Boolean(!conversation.acceptedAt && conversation.requestedBy);
+    const iRequested = Boolean(pending && conversation.requestedBy === userId);
+    const isRequest = Boolean(pending && !iRequested);
 
     return res.json({
       conversation: {
@@ -398,6 +401,9 @@ router.get("/conversations/:id", async (req, res) => {
         handle: described.handle || null,
         muted: membership.muted,
         role: membership.role,
+        pending,
+        iRequested,
+        isRequest,
         members: members.map(m => ({
           userId: m.userId,
           name: m.name || m.email.split("@")[0],
