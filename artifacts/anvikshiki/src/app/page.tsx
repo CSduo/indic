@@ -7,6 +7,7 @@ import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { PrismaticBurst, YantraPattern } from "@/components/sacred/ColorfulDecor";
 import { DOMAIN_META, DOMAIN_ORDER } from "@/lib/domainMeta";
 import { withContentVersion } from "@/lib/contentVersion";
+import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (p: string) => `${base}${p.startsWith("/") ? p : `/${p}`}`;
@@ -138,6 +139,13 @@ const HOME_STALE_TIME = 1000 * 60;
 const publicContentUrl = (url: string) => withContentVersion(url);
 
 export default function HomePage() {
+  useDocumentMetadata({
+    title: "Ānvīkṣikī — Indic Philosophy, History & Civilizational Thought",
+    description: "An open journal and research platform for Indic philosophy, Sanskrit studies, ancient Indian history, science, and civilizational inquiry.",
+    canonicalPath: "/",
+    image: "https://anvikshikijournal.in/opengraph.jpg",
+  });
+
   const [recentPage, setRecentPage] = useState(1);
   const recentTrackRef = useRef<HTMLDivElement>(null);
 
