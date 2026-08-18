@@ -33,8 +33,14 @@ export type TranscriptionOutcome =
   | { ok: true; result: TranscriptionResult }
   | { ok: false; reason: string; code: "NOT_CONFIGURED" | "NO_SPEECH" | "PROVIDER_FAILED" };
 
-/** Gemini's audio models change names; the default is overridable without a deploy. */
-const MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+/** Prioritized candidate models with automatic failover in case of provider load spikes. */
+const CANDIDATE_MODELS = [
+  process.env.GEMINI_MODEL,
+  "gemini-3.5-flash",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash-lite",
+  "gemini-flash-latest",
+].filter(Boolean) as string[];
 
 function apiKey(): string | null {
   const key = (process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_KEY || "").trim();
@@ -50,31 +56,40 @@ async function callGemini(body: unknown): Promise<any | null> {
   const key = apiKey();
   if (!key) return null;
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-      body: JSON.stringify(body),
-    },
-  );
+  for (const model of CANDIDATE_MODELS) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+          body: JSON.stringify(body),
+        },
+      );
 
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    console.warn(`Gemini returned ${res.status}:`, detail.slice(0, 300));
-    return null;
+      if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        console.warn(`Gemini [${model}] returned ${res.status}:`, detail.slice(0, 200));
+        continue;
+      }
+
+      const data: any = await res.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) continue;
+
+      try {
+        return JSON.parse(text);
+      } catch {
+        // Strip markdown code fences if model returned ```json ... ```
+        const cleaned = text.replace(/```json\s*|```\s*$/g, "").trim();
+        return JSON.parse(cleaned);
+      }
+    } catch (err: any) {
+      console.warn(`Gemini call error on model ${model}:`, err.message);
+    }
   }
 
-  const data: any = await res.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) return null;
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    console.warn("Gemini did not return parseable JSON.");
-    return null;
-  }
+  return null;
 }
 
 /**
