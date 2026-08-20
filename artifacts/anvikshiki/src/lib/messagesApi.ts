@@ -88,10 +88,65 @@ export const messagesApi = {
       body: JSON.stringify({ body, replyToId }),
     }),
 
-  sendAttachment: async (id: string, file: File, body?: string) => {
+  sendAttachment: async (id: string, file: File, body?: string, replyToId?: string) => {
+    // Direct Cloudinary upload for large voice notes and files, bypassing serverless size limits
+    try {
+      const sigRes = await fetch(`${base()}/api/uploads/cloudinary-signature`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (sigRes.ok) {
+        const sigData = await sigRes.json();
+        if (sigData?.signature && sigData?.apiKey && sigData?.cloudName) {
+          const resourceType = file.type.startsWith("audio/") || file.type.startsWith("video/")
+            ? "video"
+            : file.type.startsWith("image/")
+            ? "image"
+            : "raw";
+
+          const uploadFormData = new FormData();
+          uploadFormData.append("file", file);
+          uploadFormData.append("api_key", sigData.apiKey);
+          uploadFormData.append("timestamp", String(sigData.timestamp));
+          uploadFormData.append("signature", sigData.signature);
+          uploadFormData.append("folder", sigData.folder);
+
+          const cloudRes = await fetch(`https://api.cloudinary.com/v1_1/${sigData.cloudName}/${resourceType}/upload`, {
+            method: "POST",
+            body: uploadFormData,
+          });
+
+          if (cloudRes.ok) {
+            const cloudData = await cloudRes.json();
+            const mediaUrl = cloudData.secure_url || cloudData.url;
+            return json<{ message: Message }>(`/conversations/${id}/direct-attachment`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                mediaUrl,
+                mediaMimeType: file.type || (resourceType === "video" ? "audio/webm" : "application/octet-stream"),
+                mediaName: file.name,
+                mediaSizeBytes: file.size,
+                mediaStorageKey: cloudData.public_id,
+                mediaResourceType: resourceType,
+                body,
+                replyToId,
+              }),
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Direct upload fallback to relay:", e);
+    }
+
+    // Fallback: standard server-relayed attachment
     const form = new FormData();
     form.append("file", file);
     if (body) form.append("body", body);
+    if (replyToId) form.append("replyToId", replyToId);
     const res = await fetch(`${base()}/api/conversations/${id}/attachments`, {
       method: "POST", credentials: "include", body: form,
     });

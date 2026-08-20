@@ -795,6 +795,60 @@ router.post(
   },
 );
 
+/** POST /api/conversations/:id/direct-attachment — register an attachment uploaded directly to cloud storage. */
+router.post("/conversations/:id/direct-attachment", async (req: any, res) => {
+  try {
+    const userId = await requireUser(req, res);
+    if (!userId) return;
+
+    const membership = await requireMembership(req.params.id, userId);
+    if (!membership) return res.status(404).json({ error: "Conversation not found" });
+
+    const { mediaUrl, mediaMimeType, mediaName, mediaSizeBytes, mediaStorageKey, mediaResourceType, body, replyToId } = req.body || {};
+    if (!mediaUrl && !mediaStorageKey) {
+      return res.status(400).json({ error: "No media was provided" });
+    }
+
+    const mime = String(mediaMimeType || "");
+    const kind = mime.startsWith("image/") ? "IMAGE" : mime.startsWith("audio/") ? "AUDIO" : "FILE";
+
+    const [message] = await db.insert(messagesTable).values({
+      conversationId: req.params.id,
+      senderId: userId,
+      kind,
+      body: (body || "").trim().slice(0, MAX_MESSAGE_CHARS) || null,
+      mediaUrl: mediaUrl || null,
+      mediaMimeType: mime || null,
+      mediaName: String(mediaName || "attachment").slice(0, 150),
+      mediaSizeBytes: typeof mediaSizeBytes === "number" ? mediaSizeBytes : null,
+      mediaStorageKey: mediaStorageKey || null,
+      mediaResourceType: mediaResourceType || (mime.startsWith("audio/") ? "video" : mime.startsWith("image/") ? "image" : "raw"),
+      replyToId: replyToId || null,
+    }).returning();
+
+    const [sender] = await db
+      .select({ name: usersTable.name, email: usersTable.email })
+      .from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    const senderName = sender?.name || sender?.email?.split("@")[0] || "Someone";
+    const [conversation] = await db
+      .select({ title: conversationsTable.title })
+      .from(conversationsTable).where(eq(conversationsTable.id, req.params.id)).limit(1);
+
+    await deliverMessage({
+      conversationId: req.params.id,
+      senderId: userId,
+      senderName,
+      preview: previewOf(message),
+      conversationTitle: conversation?.title || senderName,
+    });
+
+    return res.status(201).json({ message: normaliseOwnMessage(message, senderName) });
+  } catch (err: any) {
+    req.log?.error({ err }, "Failed to register direct attachment");
+    return res.status(500).json({ error: err?.message || "Could not save that attachment" });
+  }
+});
+
 /**
  * Shape a freshly-written row the way the thread endpoint shapes every other
  * message, so the sender's screen can drop it straight in beside the rest

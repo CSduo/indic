@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   AlertCircle, ArrowLeft, ArrowRight, CheckCircle, Image as ImageIcon,
@@ -483,11 +483,33 @@ export default function SubmitUploadPage() {
   }, [editorBody, editorInitialized]);
 
   const execCmd = (command: string, value: string = "") => {
+    if (editorRef.current) {
+      editorRef.current.focus();
+    }
+    try {
+      document.execCommand("styleWithCSS", false, "false");
+    } catch {}
     document.execCommand(command, false, value);
     if (editorRef.current) {
       setEditorBody(editorRef.current.innerHTML);
     }
     updateEditorStates();
+  };
+
+  const handleEditorKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.ctrlKey || e.metaKey) {
+      const key = e.key.toLowerCase();
+      if (key === "b") {
+        e.preventDefault();
+        execCmd("bold");
+      } else if (key === "i") {
+        e.preventDefault();
+        execCmd("italic");
+      } else if (key === "u") {
+        e.preventDefault();
+        execCmd("underline");
+      }
+    }
   };
 
   const handleInlineImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1159,6 +1181,7 @@ export default function SubmitUploadPage() {
                       setEditorBody(e.currentTarget.innerHTML);
                       updateEditorStates();
                     }}
+                    onKeyDown={handleEditorKeyDown}
                     onBlur={e => setEditorBody(e.currentTarget.innerHTML)}
                     onKeyUp={updateEditorStates}
                     onMouseUp={updateEditorStates}

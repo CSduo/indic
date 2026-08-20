@@ -6384,8 +6384,25 @@ h3, h4 { line-height: 1.15; }
 .prose-editor ul, .prose-editor-content ul { list-style: disc; }
 .prose-editor ol, .prose-editor-content ol { list-style: decimal; }
 
-.prose-editor strong, .prose-editor-content strong { font-weight: 700; color: var(--ink); }
-.prose-editor em, .prose-editor-content em { font-style: italic; }
+.prose-editor strong, .prose-editor b,
+.prose-editor-content strong, .prose-editor-content b,
+.prose-editor [style*="font-weight: bold"], .prose-editor [style*="font-weight: 700"] {
+  font-weight: 700 !important;
+  color: var(--ink);
+}
+
+.prose-editor em, .prose-editor i,
+.prose-editor-content em, .prose-editor-content i,
+.prose-editor [style*="font-style: italic"] {
+  font-style: italic !important;
+}
+
+.prose-editor u, .prose-editor-content u,
+.prose-editor [style*="text-decoration: underline"] {
+  text-decoration: underline !important;
+  text-underline-offset: 3px;
+}
+
 .prose-editor mark, .prose-editor-content mark {
   background: var(--accent-wash);
   color: var(--ink);

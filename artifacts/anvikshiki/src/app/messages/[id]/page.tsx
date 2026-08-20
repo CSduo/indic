@@ -188,19 +188,47 @@ function MessageBubble({
   onEdit: (m: Message) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [swipeX, setSwipeX] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
   const pressTimer = useRef<number | undefined>(undefined);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const mine = message.mine;
 
-  /*
-    Touch has no hover, so the actions open on a long press of the bubble
-    itself — the gesture people already expect from every other messaging app.
-    The visible button remains for pointer users and for anyone who does not
-    know the gesture.
-  */
   const startPress = () => {
     pressTimer.current = window.setTimeout(() => setMenuOpen(true), 450);
   };
   const cancelPress = () => window.clearTimeout(pressTimer.current);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length > 0) {
+      touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      startPress();
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartRef.current || e.touches.length === 0) return;
+    const dx = e.touches[0].clientX - touchStartRef.current.x;
+    const dy = e.touches[0].clientY - touchStartRef.current.y;
+    if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
+      cancelPress();
+      setIsSwiping(true);
+      // For received messages: swipe right to reply; for own: swipe left or right
+      const clamped = mine ? Math.max(Math.min(dx, 0), -65) : Math.min(Math.max(dx, 0), 65);
+      setSwipeX(clamped);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    cancelPress();
+    if (Math.abs(swipeX) >= 36) {
+      onReply(message);
+      try { window.navigator?.vibrate?.(25); } catch {}
+    }
+    setSwipeX(0);
+    setIsSwiping(false);
+    touchStartRef.current = null;
+  };
 
   if (message.deleted) {
     return (
@@ -213,35 +241,58 @@ function MessageBubble({
   }
 
   return (
-    <div className={`group flex items-end gap-2 ${mine ? "flex-row-reverse" : "flex-row"}`}>
-      {/* The avatar column keeps its width on every row so consecutive
-          messages stay aligned instead of stepping in and out. */}
-      {!mine && isGroup ? (
-        showTail
-          ? <Avatar name={message.senderName} url={message.senderAvatarUrl} />
-          : <span className="w-7 shrink-0" aria-hidden="true" />
+    <div className={`group relative flex items-end gap-2 ${mine ? "flex-row-reverse" : "flex-row"}`}>
+      {/* Swipe Reply indicator behind bubble */}
+      {swipeX !== 0 ? (
+        <div
+          className={`absolute top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none transition-opacity ${
+            mine ? "right-2" : "left-2"
+          }`}
+          style={{ opacity: Math.min(Math.abs(swipeX) / 36, 1) }}
+        >
+          <div className="w-7 h-7 rounded-full bg-[var(--terracotta)] text-white flex items-center justify-center shadow-md animate-in zoom-in-75">
+            <CornerUpLeft size={14} className="stroke-[2.5]" />
+          </div>
+        </div>
       ) : null}
 
-      {/*
-        `min-w-0` is what actually lets this column shrink. A flex child
-        defaults to min-width:auto, so a long word or filename inside it forces
-        the column wider than its share and pushes the bubble off the screen.
+      {/* The avatar column with direct profile navigation */}
+      {!mine && isGroup ? (
+        showTail ? (
+          message.senderId ? (
+            <Link href={`/profile/${message.senderId}`} className="hover:opacity-80 transition-opacity" title={`View ${message.senderName}'s profile`}>
+              <Avatar name={message.senderName} url={message.senderAvatarUrl} />
+            </Link>
+          ) : (
+            <Avatar name={message.senderName} url={message.senderAvatarUrl} />
+          )
+        ) : (
+          <span className="w-7 shrink-0" aria-hidden="true" />
+        )
+      ) : null}
 
-        The cap is deliberately well short of the full width. A paragraph that
-        runs to the edge of the screen reads as a wall: the eye has to travel
-        the whole width and then find its way back, and nothing distinguishes
-        one person's turn from the other's. Kept narrower, the same text simply
-        gets taller, which is what makes a conversation scannable.
-      */}
       <div className={`flex min-w-0 max-w-[78%] flex-col sm:max-w-[68%] ${mine ? "items-end" : "items-start"}`}>
         {!mine && isGroup && showTail ? (
-          <span className="mb-0.5 px-1 font-ui text-[10px] font-semibold text-[var(--ink-meta)]">{message.senderName}</span>
+          message.senderId ? (
+            <Link
+              href={`/profile/${message.senderId}`}
+              className="mb-0.5 px-1 font-ui text-[10px] font-semibold text-[var(--ink-meta)] hover:text-[var(--gold)] transition-colors"
+            >
+              {message.senderName}
+            </Link>
+          ) : (
+            <span className="mb-0.5 px-1 font-ui text-[10px] font-semibold text-[var(--ink-meta)]">{message.senderName}</span>
+          )
         ) : null}
 
         {message.replyTo ? (
           <div
-            className="mb-1 max-w-full rounded-[2px] border-l-2 px-2.5 py-1.5"
+            className="mb-1 max-w-full rounded-[2px] border-l-2 px-2.5 py-1.5 cursor-pointer hover:opacity-90 transition-opacity"
             style={{ borderColor: "var(--accent)", background: "var(--surface-2)" }}
+            onClick={() => {
+              const el = document.getElementById(`msg-${message.replyTo?.id}`);
+              if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+            }}
           >
             <p className="mono-label">{message.replyTo.senderName}</p>
             <p className="truncate font-body text-[12px] text-[var(--ink-meta)]">{message.replyTo.preview}</p>
@@ -249,12 +300,15 @@ function MessageBubble({
         ) : null}
 
         <div
-          onTouchStart={startPress}
-          onTouchEnd={cancelPress}
-          onTouchMove={cancelPress}
+          id={`msg-${message.id}`}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onTouchMove={handleTouchMove}
           onContextMenu={e => { e.preventDefault(); setMenuOpen(true); }}
-          className={`relative transition-opacity ${message.kind === "AUDIO" ? "p-2.5 sm:p-3" : "px-3 py-2"}`}
+          className={`relative transition-all select-none ${message.kind === "AUDIO" ? "p-2.5 sm:p-3" : "px-3 py-2"}`}
           style={{
+            transform: `translateX(${swipeX}px)`,
+            transition: isSwiping ? "none" : "transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1)",
             ...(message.kind === "AUDIO"
               ? {
                   background: "#1e2022",
@@ -279,8 +333,6 @@ function MessageBubble({
                     ? `12px 12px ${showTail ? "2px" : "12px"} 12px`
                     : `12px 12px 12px ${showTail ? "2px" : "12px"}`,
                 }),
-            // A message that has not landed yet reads as slightly lighter, so
-            // "sent" is visible without a status line under every bubble.
             opacity: message.pending ? 0.55 : 1,
           }}
         >
@@ -392,8 +444,17 @@ function MessageBubble({
         ) : null}
       </div>
 
-      {/* Action button trigger */}
-      <div className="relative self-center opacity-40 transition-opacity focus-within:opacity-100 md:opacity-0 md:group-hover:opacity-100">
+      {/* Action button trigger & Quick Reply */}
+      <div className="relative self-center flex items-center gap-1 opacity-40 transition-opacity focus-within:opacity-100 md:opacity-0 md:group-hover:opacity-100">
+        <button
+          type="button"
+          className="editor-tool hover:text-[var(--gold)] transition-colors"
+          onClick={() => onReply(message)}
+          aria-label="Reply"
+          title="Reply to message"
+        >
+          <CornerUpLeft size={14} />
+        </button>
         <button
           type="button"
           className="editor-tool"
@@ -750,6 +811,8 @@ export default function ConversationPage() {
     const isImage = file.type.startsWith("image/");
     const localUrl = isImage ? URL.createObjectURL(file) : null;
     const tempId = `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const quoted = replyTo;
+    if (quoted) setReplyTo(null);
 
     const optimistic: Message = {
       id: tempId,
@@ -764,14 +827,16 @@ export default function ConversationPage() {
       mediaSizeBytes: file.size,
       deleted: false, edited: false,
       createdAt: new Date().toISOString(),
-      mine: true, reactions: [], replyTo: null, pending: true,
+      mine: true, reactions: [],
+      replyTo: quoted ? { id: quoted.id, senderName: quoted.senderName, preview: quoted.body || "Attachment" } : null,
+      pending: true,
     };
     setMessages(prev => [...prev, optimistic]);
     atBottomRef.current = true;
     requestAnimationFrame(() => scrollToBottom(true));
 
     try {
-      const result = await messagesApi.sendAttachment(conversationId, file, transcript);
+      const result = await messagesApi.sendAttachment(conversationId, file, transcript, quoted?.id);
       const saved = result?.message;
       if (saved) {
         setMessages(prev => reconcile(prev, tempId, optimistic, saved));
@@ -927,20 +992,36 @@ export default function ConversationPage() {
           >
             <ArrowLeft size={16} />
           </button>
-          <Avatar name={details?.title || ""} url={details?.avatarUrl} size={36} />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <p className="truncate font-body text-sm font-semibold text-[var(--ink)]">{details?.title || "…"}</p>
-              {otherMember?.handle ? (
-                <span className="font-ui text-xs font-semibold text-[var(--gold)]">@{otherMember.handle}</span>
-              ) : null}
+          {otherMember ? (
+            <Link
+              href={`/profile/${otherMember.userId}`}
+              className="flex items-center gap-3 min-w-0 flex-1 group hover:opacity-90 transition-opacity"
+              title={`View ${details?.title || "scholar"}'s profile`}
+            >
+              <Avatar name={details?.title || ""} url={details?.avatarUrl} size={36} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="truncate font-body text-sm font-semibold text-[var(--ink)] group-hover:text-[var(--gold)] transition-colors">{details?.title || "…"}</p>
+                  {otherMember?.handle ? (
+                    <span className="font-ui text-xs font-semibold text-[var(--gold)]">@{otherMember.handle}</span>
+                  ) : null}
+                </div>
+                <p className="mono-label truncate">
+                  {typing.length > 0
+                    ? `${typing.slice(0, 2).join(", ")} ${typing.length === 1 ? "is" : "are"} typing…`
+                    : isGroup ? `${details?.members.length ?? 0} members` : "Direct message · View profile →"}
+                </p>
+              </div>
+            </Link>
+          ) : (
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <Avatar name={details?.title || ""} url={details?.avatarUrl} size={36} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-body text-sm font-semibold text-[var(--ink)]">{details?.title || "…"}</p>
+                <p className="mono-label truncate">{isGroup ? `${details?.members.length ?? 0} members` : "Conversation"}</p>
+              </div>
             </div>
-            <p className="mono-label truncate">
-              {typing.length > 0
-                ? `${typing.slice(0, 2).join(", ")} ${typing.length === 1 ? "is" : "are"} typing…`
-                : isGroup ? `${details?.members.length ?? 0} members` : "Direct message"}
-            </p>
-          </div>
+          )}
           <button type="button" onClick={toggleMute} className="editor-tool" aria-label={details?.muted ? "Unmute" : "Mute"}>
             {details?.muted ? <BellOff size={15} /> : <Bell size={15} />}
           </button>
@@ -956,11 +1037,13 @@ export default function ConversationPage() {
             <p className="mono-label mb-2">Members</p>
             <ul className="space-y-1.5">
               {details.members.map(m => (
-                <li key={m.userId} className="flex items-center gap-2">
-                  <Avatar name={m.name} url={m.avatarUrl} size={24} />
-                  <span className="font-body text-sm text-[var(--ink)]">{m.name}</span>
-                  {m.handle ? <span className="font-mono text-xs text-[var(--gold)]">@{m.handle}</span> : null}
-                  {m.role === "ADMIN" ? <span className="mono-label">Admin</span> : null}
+                <li key={m.userId}>
+                  <Link href={`/profile/${m.userId}`} className="flex items-center gap-2 hover:opacity-85 transition-opacity group">
+                    <Avatar name={m.name} url={m.avatarUrl} size={24} />
+                    <span className="font-body text-sm text-[var(--ink)] group-hover:text-[var(--gold)] transition-colors">{m.name}</span>
+                    {m.handle ? <span className="font-mono text-xs text-[var(--gold)]">@{m.handle}</span> : null}
+                    {m.role === "ADMIN" ? <span className="mono-label">Admin</span> : null}
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -977,12 +1060,28 @@ export default function ConversationPage() {
        <div className="container-anv mx-auto flex min-h-full flex-col justify-end w-full max-w-3xl overflow-x-hidden py-5">
         {/* Header intro / Conversation start sits at top */}
         <div className="mb-auto flex flex-col items-center py-10 text-center">
-          <Avatar name={details?.title || ""} url={details?.avatarUrl} size={64} />
-          <p className="mt-3 font-display text-lg text-[var(--ink)]">{details?.title || ""}</p>
-          {otherMember?.handle ? (
-            <p className="font-mono text-xs font-semibold text-[var(--gold)] mt-0.5">@{otherMember.handle}</p>
-          ) : null}
-          <p className="mx-auto mt-1 max-w-xs font-body text-xs text-[var(--muted)]">
+          {otherMember ? (
+            <Link
+              href={`/profile/${otherMember.userId}`}
+              className="group flex flex-col items-center hover:opacity-90 transition-opacity"
+              title={`View ${details?.title || "scholar"}'s profile`}
+            >
+              <Avatar name={details?.title || ""} url={details?.avatarUrl} size={64} />
+              <p className="mt-3 font-display text-lg text-[var(--ink)] group-hover:text-[var(--gold)] transition-colors">{details?.title || ""}</p>
+              {otherMember?.handle ? (
+                <p className="font-mono text-xs font-semibold text-[var(--gold)] mt-0.5">@{otherMember.handle}</p>
+              ) : null}
+              <span className="mt-2.5 inline-flex items-center gap-1 font-ui text-[11px] font-semibold text-[var(--gold)] border border-[var(--border-gold)] px-3 py-1 rounded-full bg-[var(--surface-2)] hover:bg-[rgba(201,152,58,0.12)] transition-colors shadow-sm">
+                View Scholar Profile →
+              </span>
+            </Link>
+          ) : (
+            <>
+              <Avatar name={details?.title || ""} url={details?.avatarUrl} size={64} />
+              <p className="mt-3 font-display text-lg text-[var(--ink)]">{details?.title || ""}</p>
+            </>
+          )}
+          <p className="mx-auto mt-2 max-w-xs font-body text-xs text-[var(--muted)]">
             This is the beginning of your direct conversation with {details?.title || "this member"}.
           </p>
         </div>

@@ -641,11 +641,33 @@ export default function SubmitWritePage() {
   };
 
   const execCmd = (command: string, value: string = "") => {
+    if (editorRef.current) {
+      editorRef.current.focus();
+    }
+    try {
+      document.execCommand("styleWithCSS", false, "false");
+    } catch {}
     document.execCommand(command, false, value);
     if (editorRef.current) {
       set("body", editorRef.current.innerHTML);
     }
     updateEditorStates();
+  };
+
+  const handleEditorKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.ctrlKey || e.metaKey) {
+      const key = e.key.toLowerCase();
+      if (key === "b") {
+        e.preventDefault();
+        execCmd("bold");
+      } else if (key === "i") {
+        e.preventDefault();
+        execCmd("italic");
+      } else if (key === "u") {
+        e.preventDefault();
+        execCmd("underline");
+      }
+    }
   };
 
   /**
@@ -1730,6 +1752,7 @@ export default function SubmitWritePage() {
                   set("body", event.currentTarget.innerHTML);
                   updateEditorStates();
                 }}
+                onKeyDown={handleEditorKeyDown}
                 onBlur={(event) => set("body", event.currentTarget.innerHTML)}
                 onKeyUp={updateEditorStates}
                 onMouseUp={updateEditorStates}
