@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, Link, useSearch } from "wouter";
-import { ArrowLeft, Image as ImageIcon, X, CheckCircle, AlertCircle, Lock, Save, FileText, Link2, Mic, Square, Play, Pause, Trash2, Volume2, Upload, Maximize2, Minimize2, Quote, List, ListOrdered, Minus, Highlighter, Eraser } from "lucide-react";
+import { ArrowLeft, Image as ImageIcon, X, CheckCircle, AlertCircle, Lock, Save, FileText, Link2, Mic, Square, Play, Pause, Trash2, Volume2, Upload, Maximize2, Minimize2, Quote, List, ListOrdered, Minus, Undo2, Redo2, Eraser } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { loadPdfjs } from "@/lib/pdfjs";
 import {
@@ -695,8 +695,32 @@ export default function SubmitWritePage() {
     updateEditorStates();
   };
 
+  const savedSelectionRef = useRef<Range | null>(null);
+
+  const saveEditorSelection = () => {
+    if (typeof window === "undefined") return;
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && editorRef.current && editorRef.current.contains(sel.anchorNode)) {
+      savedSelectionRef.current = sel.getRangeAt(0).cloneRange();
+    }
+  };
+
+  const restoreEditorSelection = () => {
+    if (typeof window === "undefined" || !savedSelectionRef.current) return;
+    const sel = window.getSelection();
+    if (sel) {
+      sel.removeAllRanges();
+      sel.addRange(savedSelectionRef.current);
+    }
+  };
+
   const execCmd = (command: string, value: string = "") => {
+    if (editorRef.current) {
+      editorRef.current.focus();
+      restoreEditorSelection();
+    }
     document.execCommand(command, false, value);
+    saveEditorSelection();
     updateEditorStates();
   };
 
@@ -1566,6 +1590,28 @@ export default function SubmitWritePage() {
 
               {/* Sticky Top Toolbar */}
               <div className="flex flex-wrap items-center gap-2 p-2.5 bg-[var(--surface-elevated)] border-b border-[rgba(201,152,58,0.15)] sticky top-0 z-10 select-none shadow-sm overflow-x-auto">
+                {/* History: Undo / Redo */}
+                <button
+                  type="button"
+                  onMouseDown={e => { e.preventDefault(); execCmd("undo"); }}
+                  onTouchStart={e => { e.preventDefault(); execCmd("undo"); }}
+                  className="editor-tool"
+                  title="Undo (Ctrl+Z)"
+                >
+                  <Undo2 size={13} />
+                </button>
+                <button
+                  type="button"
+                  onMouseDown={e => { e.preventDefault(); execCmd("redo"); }}
+                  onTouchStart={e => { e.preventDefault(); execCmd("redo"); }}
+                  className="editor-tool"
+                  title="Redo (Ctrl+Y)"
+                >
+                  <Redo2 size={13} />
+                </button>
+
+                <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+
                 {/* Font Selector */}
                 <select
                   className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
@@ -1645,9 +1691,7 @@ export default function SubmitWritePage() {
 
                 <div className="h-4 w-px bg-[var(--hairline)] mx-1" />
 
-                {/* Structure — lists, links, and section rules. An essay needs
-                    more than bold and italic to be readable; these were the
-                    pieces missing from the toolbar. */}
+                {/* Lists & Links */}
                 <button
                   type="button"
                   onMouseDown={e => { e.preventDefault(); execCmd("insertUnorderedList"); }}
@@ -1687,15 +1731,7 @@ export default function SubmitWritePage() {
 
                 <div className="h-4 w-px bg-[var(--hairline)] mx-1" />
 
-                <button
-                  type="button"
-                  onMouseDown={e => { e.preventDefault(); execCmd("hiliteColor", "var(--accent-wash)"); }}
-                  onTouchStart={e => { e.preventDefault(); execCmd("hiliteColor", "var(--accent-wash)"); }}
-                  className="editor-tool"
-                  title="Highlight"
-                >
-                  <Highlighter size={13} />
-                </button>
+                {/* Clear Formatting */}
                 <button
                   type="button"
                   onMouseDown={e => { e.preventDefault(); execCmd("removeFormat"); }}
@@ -1741,28 +1777,6 @@ export default function SubmitWritePage() {
                 >
                   <Mic size={13} />
                   <span>Voice Note</span>
-                </button>
-
-                <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
-
-                {/* Import Document */}
-                <input
-                  type="file"
-                  ref={importDocInputRef}
-                  onChange={handleDocImport}
-                  accept=".docx,.txt,.pdf,.doc,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                  className="sr-only"
-                />
-                <button
-                  type="button"
-                  onClick={() => importDocInputRef.current?.click()}
-                  disabled={importingDoc}
-                  className="flex min-h-11 items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent"
-                  style={{ color: "var(--gold-soft)" }}
-                  title="Import content from a .docx, .pdf, or .txt file"
-                >
-                  <Upload size={13} />
-                  <span>{importingDoc ? "Importing..." : "Import File"}</span>
                 </button>
               </div>
 
@@ -1827,14 +1841,34 @@ export default function SubmitWritePage() {
                 aria-busy={loadingDraft}
                 onInput={(event) => {
                   set("body", event.currentTarget.innerHTML);
+                  saveEditorSelection();
                   updateEditorStates();
                 }}
                 onKeyDown={handleEditorKeyDown}
-                onBlur={(event) => set("body", event.currentTarget.innerHTML)}
-                onKeyUp={updateEditorStates}
-                onMouseUp={updateEditorStates}
-                onClick={updateEditorStates}
-                onFocus={updateEditorStates}
+                onBlur={(event) => {
+                  set("body", event.currentTarget.innerHTML);
+                  saveEditorSelection();
+                }}
+                onKeyUp={() => {
+                  saveEditorSelection();
+                  updateEditorStates();
+                }}
+                onMouseUp={() => {
+                  saveEditorSelection();
+                  updateEditorStates();
+                }}
+                onTouchEnd={() => {
+                  saveEditorSelection();
+                  updateEditorStates();
+                }}
+                onClick={() => {
+                  saveEditorSelection();
+                  updateEditorStates();
+                }}
+                onFocus={() => {
+                  saveEditorSelection();
+                  updateEditorStates();
+                }}
                 className="w-full p-6 min-h-[400px] max-h-[600px] outline-none bg-transparent text-[var(--ink)] font-body leading-[1.85] overflow-y-auto prose-editor"
                 style={{ boxSizing: "border-box" }}
               />

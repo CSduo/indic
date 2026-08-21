@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useParams, useLocation } from "wouter";
 import {
   ArrowLeft, Bell, BellOff, Check, Copy, CornerUpLeft, Download, ExternalLink,
@@ -464,9 +465,9 @@ function MessageBubble({
           <MoreHorizontal size={15} />
         </button>
 
-        {menuOpen ? (
+        {menuOpen && typeof document !== "undefined" ? createPortal(
           <div
-            className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
+            className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
             role="dialog"
             aria-modal="true"
             aria-label="Message options"
@@ -480,8 +481,12 @@ function MessageBubble({
 
             {/* Aesthetic Sacred Floating Card */}
             <div
-              className="relative z-10 w-full max-w-sm overflow-hidden rounded-2xl border border-[rgba(201,152,58,0.3)] bg-[var(--surface-elevated)] p-4 shadow-[0_16px_50px_rgba(0,0,0,0.5)] animate-in zoom-in-95 slide-in-from-bottom-3 sm:slide-in-from-bottom-0 duration-200"
-              style={{ background: "var(--surface)", borderColor: "rgba(201,152,58,0.3)" }}
+              className="relative z-10 w-full max-w-sm overflow-hidden rounded-2xl border border-[rgba(201,152,58,0.4)] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.6)] animate-in zoom-in-95 slide-in-from-bottom-3 sm:slide-in-from-bottom-0 duration-200"
+              style={{
+                backgroundColor: "var(--surface-elevated, var(--surface, #1A1715))",
+                borderColor: "rgba(201,152,58,0.4)",
+                color: "var(--ink)"
+              }}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Quick Reactions Floating Pill */}
@@ -525,7 +530,8 @@ function MessageBubble({
                   </button>
                 ) : null}
 
-                {message.mediaUrl ? (
+                {/* Only display attachment actions if this message is an actual image/audio/file attachment */}
+                {message.mediaUrl && message.kind !== "TEXT" ? (
                   <>
                     <a
                       href={mediaUrl(message)}
@@ -584,7 +590,8 @@ function MessageBubble({
                 Close
               </button>
             </div>
-          </div>
+          </div>,
+          document.body
         ) : null}
       </div>
     </div>

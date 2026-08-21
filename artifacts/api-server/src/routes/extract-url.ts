@@ -5,6 +5,9 @@ import net from 'net';
 import { v2 as cloudinary } from 'cloudinary';
 import { put } from '@vercel/blob';
 import { decode as decodeHtmlEntities } from 'html-entities';
+import { db } from '@workspace/db';
+import { articlesTable, papersTable } from '@workspace/db';
+import { eq, and, isNull } from 'drizzle-orm';
 import { getUserAuth } from '../lib/auth';
 import { sanitizeArticleBody } from '../lib/content';
 import { hasExpectedFileSignature } from '../lib/file-validation';
@@ -797,6 +800,48 @@ router.post('/extract-url', async (req, res) => {
     if (!auth) return res.status(401).json({ error: 'Unauthorized' });
 
     const { url } = schema.parse(req.body);
+
+    // ── 0. Fast local resolution for own website links (/articles/:slug, /papers/:slug, /essays/:slug) ──
+    try {
+      const parsedUrl = new URL(url);
+      const host = parsedUrl.hostname.toLowerCase();
+      if (host.includes('anvikshiki') || host === 'localhost' || host === '127.0.0.1') {
+        const match = parsedUrl.pathname.match(/\/(?:articles|papers|essays)\/([^/?#]+)/i);
+        if (match) {
+          const slug = decodeURIComponent(match[1]);
+          const [article] = await db
+            .select()
+            .from(articlesTable)
+            .where(and(eq(articlesTable.slug, slug), isNull(articlesTable.deletedAt)))
+            .limit(1);
+          if (article && article.body) {
+            return res.json({
+              html: sanitizeArticleBody(article.body),
+              url,
+              title: article.title || '',
+              excerpt: article.excerpt || '',
+              coverImageUrl: article.heroImageUrl || '',
+            });
+          }
+          const [paper] = await db
+            .select()
+            .from(papersTable)
+            .where(and(eq(papersTable.slug, slug), isNull(papersTable.deletedAt)))
+            .limit(1);
+          if (paper && (paper.body || paper.abstract)) {
+            return res.json({
+              html: sanitizeArticleBody(paper.body || paper.abstract || ''),
+              url,
+              title: paper.title || '',
+              excerpt: paper.abstract || '',
+              coverImageUrl: paper.coverImageUrl || '',
+            });
+          }
+        }
+      }
+    } catch {
+      // Continue with normal fetch
+    }
 
     const googleDocument = getGoogleDocumentImport(url);
     const fetchUrl = googleDocument?.fetchUrl || url;

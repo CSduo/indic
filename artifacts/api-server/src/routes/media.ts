@@ -304,32 +304,32 @@ router.post("/media/extract-doc",
       const imageHandler = async (image: any) => {
         try {
           const buffer: Buffer = await image.readAsBuffer();
-          const contentType = String(image.contentType || "").toLowerCase();
-          if (!IMAGE_MIME_TYPES.has(contentType)) {
-            throw new Error("The document contains an unsupported embedded image type");
+          if (!buffer || buffer.length === 0) return { src: "" };
+          const contentType = String(image.contentType || "image/jpeg").toLowerCase();
+
+          // If Cloudinary / Vercel Blob is configured, attempt upload with a fast fallback
+          if (process.env.CLOUDINARY_URL || process.env.BLOB_READ_WRITE_TOKEN) {
+            try {
+              const ext = MIME_TO_EXTENSIONS[contentType]?.[0] || ".jpg";
+              const filename = `doc-import-${Date.now()}-${Math.random().toString(36).substring(2, 8)}${ext}`;
+              const stored = await persistUploadedFile({
+                buffer,
+                filename,
+                mimeType: contentType,
+                folder: "doc_imports",
+                visibility: "public",
+              });
+              if (stored?.url) return { src: stored.url };
+            } catch (storageErr) {
+              // Fall through to data URI
+            }
           }
-          if (buffer.length > MAX_IMAGE_BYTES) {
-            throw new Error("An embedded document image exceeds the 10 MB image limit");
-          }
-          const ext = MIME_TO_EXTENSIONS[contentType][0];
-          const filename = `doc-import-${Date.now()}-${Math.random().toString(36).substring(2, 8)}${ext}`;
-          const stored = await persistUploadedFile({
-            buffer,
-            filename,
-            mimeType: contentType,
-            folder: "doc_imports",
-          });
-          return { src: stored.url };
+
+          // Fall back to data URI so images never break the document import
+          return { src: `data:${contentType};base64,${buffer.toString("base64")}` };
         } catch (err) {
-          // If individual image error occurs, fall back to inline base64 if possible
-          try {
-            const buffer: Buffer = await image.readAsBuffer();
-            const contentType = String(image.contentType || "image/jpeg").toLowerCase();
-            return { src: `data:${contentType};base64,${buffer.toString("base64")}` };
-          } catch {
-            imageImportErrors.push(err);
-            throw err;
-          }
+          imageImportErrors.push(err);
+          return { src: "" };
         }
       };
 

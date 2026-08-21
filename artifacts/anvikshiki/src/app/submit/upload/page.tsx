@@ -1253,7 +1253,7 @@ export default function SubmitUploadPage() {
                           className="mt-3 inline-flex items-center gap-2 rounded-[8px] border border-[var(--border-gold)] bg-[var(--surface-elevated)] px-4 py-2 font-ui text-xs font-bold uppercase tracking-[0.1em] text-[var(--gold)] transition hover:bg-[var(--surface)] cursor-pointer"
                         >
                           <FileText size={13} />
-                          {extracting ? "Extracting text-€¦" : "Extract text into Editor -†’"}
+                          {extracting ? "Extracting text..." : "Extract text into Editor →"}
                         </button>
                       )}
                     </div>
@@ -1390,7 +1390,7 @@ export default function SubmitUploadPage() {
                 className="btn-terracotta w-full justify-center py-4 mt-6"
               >
                 {submitting
-                  ? `Uploading ${progress}%-€¦`
+                  ? `Uploading ${progress}%...`
                   : <>Submit Edited Article <ArrowRight size={14} /></>}
               </button>
             ) : (
@@ -1402,7 +1402,7 @@ export default function SubmitUploadPage() {
                   className="btn-terracotta w-full justify-center py-4"
                 >
                   {submitting
-                    ? `Uploading ${progress}%-€¦`
+                    ? `Uploading ${progress}%...`
                     : <>Submit for Review <ArrowRight size={14} /></>}
                 </button>
               )
