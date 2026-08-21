@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import {
   AlertCircle, ArrowLeft, ArrowRight, CheckCircle, Image as ImageIcon,
   Link2, Lock, Upload, X, FileText, Mic, Square, Play, Pause, Trash2, Volume2,
+  Undo2, Redo2, Eraser, Quote, List, ListOrdered, Minus,
 } from "lucide-react";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
 import { HeroPanel } from "@/components/manuscript/HeroPanel";
@@ -17,6 +18,7 @@ import {
 } from "@/lib/documentImport";
 import { loadPdfjs } from "@/lib/pdfjs";
 import { clearSubmissionDraft, loadSubmissionDetails, loadSubmissionType, missingSubmissionDetails } from "@/lib/submissionDraft";
+import { uploadInlineBase64Images, safeJsonResponse } from "@/lib/inlineImageUploader";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
@@ -280,25 +282,18 @@ export default function SubmitUploadPage() {
       let htmlContent = "";
 
       const lowerName = file.name.toLowerCase();
-      const isTxt = file.type === "text/plain" || lowerName.endsWith(".txt");
       const isPdf = file.type === "application/pdf" || lowerName.endsWith(".pdf");
-      const isDocx =
-        file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-        lowerName.endsWith(".docx");
+      const isDocx = file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || lowerName.endsWith(".docx");
+      const isHtml = file.type === "text/html" || lowerName.endsWith(".html") || lowerName.endsWith(".htm");
+      const isTxt = file.type.startsWith("text/") || lowerName.endsWith(".txt") || lowerName.endsWith(".md") || lowerName.endsWith(".rtf");
 
-      if (file.type === "application/msword" || lowerName.endsWith(".doc")) {
-        setError("DOC files can be submitted, but only DOCX and TXT files can be imported into the editor.");
-        return;
-      }
+      let sourceLabel = "document";
 
-      if (isTxt) {
-        // Browser-side: plain text -†’ HTML paragraphs
-        const text = await file.text();
-        htmlContent = plainTextToHtml(text);
-      } else if (isPdf) {
-        // Browser-side PDF -†’ HTML paragraphs (text layer only)
+      if (isPdf) {
+        sourceLabel = "PDF document";
         htmlContent = await extractPdfAsHtml(file);
-      } else if (isDocx) {
+      } else if (isDocx || (!isTxt && !isHtml && !isPdf)) {
+        sourceLabel = isDocx ? "Word document (.docx)" : "document";
         // Direct in-browser conversion via mammoth for instant extraction & zero payload limit errors
         try {
           const mammoth = await import("mammoth");
@@ -307,25 +302,44 @@ export default function SubmitUploadPage() {
           htmlContent = result.value || "";
         } catch (clientErr) {
           // Fallback to server endpoint
-          const formData = new FormData();
-          formData.append("file", file);
-          const res = await fetch(`${base()}/api/media/extract-doc`, {
-            method: "POST",
-            body: formData,
-            credentials: "include",
-          });
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || "Failed to extract document content");
-          }
-          const data = await res.json();
-          htmlContent = data.html || "";
+          try {
+            const formData = new FormData();
+            formData.append("file", file);
+            const res = await fetch(`${base()}/api/media/extract-doc`, {
+              method: "POST",
+              body: formData,
+              credentials: "include",
+            });
+            if (res.ok) {
+              const data = await res.json();
+              htmlContent = data.html || "";
+            }
+          } catch (serverErr) {}
         }
+      } else if (isHtml) {
+        sourceLabel = "HTML document";
+        const text = await file.text();
+        htmlContent = text;
+      } else if (isTxt) {
+        sourceLabel = "text file";
+        const text = await file.text();
+        htmlContent = plainTextToHtml(text);
       }
+
+      // Universal text fallback
+      if (!htmlContent || !htmlContent.trim()) {
+        try {
+          const rawText = await file.text();
+          if (rawText && rawText.trim()) {
+            htmlContent = plainTextToHtml(rawText);
+          }
+        } catch {}
+      }
+
       if (htmlContent && htmlContent.trim().length > 0) {
         setEditorBody(htmlContent);
         setEditorInitialized(false);
-        setImportSummary(summarizeImportedHtml(htmlContent, isDocx ? "document" : isPdf ? "PDF" : "text file"));
+        setImportSummary(summarizeImportedHtml(htmlContent, sourceLabel));
         setError("");
       } else {
         setError("Could not extract content from this file. Try uploading as .txt or paste via URL.");
@@ -385,8 +399,32 @@ export default function SubmitUploadPage() {
   const [isQuoteActive, setIsQuoteActive] = useState(false);
   const [currentBlockType, setCurrentBlockType] = useState("p");
 
+  // Selection persistence across taps (especially on mobile keyboards)
+  const savedSelectionRef = useRef<Range | null>(null);
+
+  const saveEditorSelection = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      if (editorRef.current && editorRef.current.contains(range.commonAncestorContainer)) {
+        savedSelectionRef.current = range.cloneRange();
+      }
+    }
+  }, []);
+
+  const restoreEditorSelection = useCallback(() => {
+    if (typeof window === "undefined" || !savedSelectionRef.current) return;
+    const sel = window.getSelection();
+    if (sel) {
+      sel.removeAllRanges();
+      sel.addRange(savedSelectionRef.current);
+    }
+  }, []);
+
   const updateEditorStates = () => {
     if (typeof window === "undefined") return;
+    saveEditorSelection();
     setIsBold(document.queryCommandState("bold"));
     setIsItalic(document.queryCommandState("italic"));
     setIsUnderline(document.queryCommandState("underline"));
@@ -418,6 +456,9 @@ export default function SubmitUploadPage() {
   };
 
   const toggleBlockquote = () => {
+    restoreEditorSelection();
+    if (editorRef.current) editorRef.current.focus();
+
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
     const range = selection.getRangeAt(0);
@@ -479,6 +520,7 @@ export default function SubmitUploadPage() {
 
     // Trigger an input event so onInput persists the change
     editorRef.current?.dispatchEvent(new Event("input", { bubbles: true }));
+    saveEditorSelection();
     updateEditorStates();
   };
 
@@ -490,7 +532,15 @@ export default function SubmitUploadPage() {
   }, [editorBody, editorInitialized]);
 
   const execCmd = (command: string, value: string = "") => {
+    restoreEditorSelection();
+    if (editorRef.current) {
+      editorRef.current.focus();
+    }
     document.execCommand(command, false, value);
+    saveEditorSelection();
+    if (editorRef.current) {
+      setEditorBody(editorRef.current.innerHTML);
+    }
     updateEditorStates();
   };
 
@@ -697,8 +747,7 @@ export default function SubmitUploadPage() {
             body: JSON.stringify(payload),
           });
           setProgress(100);
-          const data = await response.json();
-          if (!response.ok) throw new Error(data.error || "Submission failed");
+          const data = await safeJsonResponse(response, "Submission failed");
           sessionStorage.setItem("anvikshiki_submit_id", data.submission?.id || "");
           uploadSucceeded = true;
         } catch (cloudErr) {
@@ -728,8 +777,7 @@ export default function SubmitUploadPage() {
           body: formData,
         });
         setProgress(100);
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Submission failed");
+        const data = await safeJsonResponse(response, "Submission failed");
         sessionStorage.setItem("anvikshiki_submit_id", data.submission?.id || "");
       }
 
@@ -841,6 +889,9 @@ export default function SubmitUploadPage() {
         coverUrl ? `Cover image: ${coverUrl}` : "",
       ].filter(Boolean).join("\n");
 
+      // Upload any large inline base64 images from imported documents to CDN first
+      const cleanBody = await uploadInlineBase64Images(editorBody);
+
       const response = await fetch(`${base()}/api/submissions/write`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -852,18 +903,17 @@ export default function SubmitUploadPage() {
           title: details.title || "",
           domain: details.domain,
           abstract: details.abstract || "Submitted via editor.",
-          body: editorBody,
+          body: cleanBody,
           notes: finalNotes,
           consent: true,
         }),
       });
 
       setProgress(100);
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Submission failed");
+      const data = await safeJsonResponse(response, "Submission failed");
       sessionStorage.setItem("anvikshiki_submit_id", data.submission?.id || "");
 
-            clearSubmissionDraft();
+      clearSubmissionDraft();
       navigate("/submit/success");
     } catch (err: any) {
       setError(err.message || "Submission failed. Please try again.");
@@ -967,7 +1017,30 @@ export default function SubmitUploadPage() {
                   </div>
 
                   {/* Sticky Top Toolbar */}
-                  <div className="flex flex-wrap items-center gap-2 p-2.5 bg-[var(--surface-elevated)] border-b border-[rgba(201,152,58,0.15)] sticky top-0 z-10 select-none shadow-sm overflow-x-auto">
+                  <div className="flex flex-wrap items-center gap-1.5 p-2.5 bg-[var(--surface-elevated)] border-b border-[rgba(201,152,58,0.15)] sticky top-0 z-10 select-none shadow-sm overflow-x-auto">
+                    {/* Undo / Redo */}
+                    <button
+                      type="button"
+                      onMouseDown={e => { e.preventDefault(); execCmd("undo"); }}
+                      onTouchStart={e => { e.preventDefault(); execCmd("undo"); }}
+                      className="p-1.5 px-2 rounded hover:bg-white/5 text-xs text-[var(--ink-soft)] border-none cursor-pointer transition-all flex items-center justify-center"
+                      title="Undo (Ctrl+Z)"
+                    >
+                      <Undo2 size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onMouseDown={e => { e.preventDefault(); execCmd("redo"); }}
+                      onTouchStart={e => { e.preventDefault(); execCmd("redo"); }}
+                      className="p-1.5 px-2 rounded hover:bg-white/5 text-xs text-[var(--ink-soft)] border-none cursor-pointer transition-all flex items-center justify-center"
+                      title="Redo (Ctrl+Y)"
+                    >
+                      <Redo2 size={14} />
+                    </button>
+
+                    <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+
+                    {/* Font Family Selector */}
                     <select
                       className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
                       onChange={e => execCmd("fontName", e.target.value)}
@@ -979,30 +1052,40 @@ export default function SubmitUploadPage() {
                       <option value="'Noto Serif Sharada', serif">Sharada</option>
                     </select>
 
+                    {/* Block Style */}
                     <select
                       className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
-                      onChange={e => execCmd("formatBlock", e.target.value)}
-                      onMouseDown={e => e.stopPropagation()}
                       value={currentBlockType}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val === "p") execCmd("formatBlock", "<p>");
+                        else if (val === "h1") execCmd("formatBlock", "<h1>");
+                        else if (val === "h2") execCmd("formatBlock", "<h2>");
+                        else if (val === "h3") execCmd("formatBlock", "<h3>");
+                        else if (val === "blockquote") toggleBlockquote();
+                      }}
+                      onMouseDown={e => e.stopPropagation()}
                     >
                       <option value="p">Paragraph</option>
-                      <option value="h1">Main Heading (H1)</option>
-                      <option value="h2">Subheading (H2)</option>
-                      <option value="h3">Third Heading (H3)</option>
+                      <option value="h1">Heading 1</option>
+                      <option value="h2">Heading 2</option>
+                      <option value="h3">Heading 3</option>
+                      <option value="blockquote">Quote</option>
                     </select>
 
                     <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
 
+                    {/* Inline Formatting */}
                     <button
                       type="button"
                       onMouseDown={e => { e.preventDefault(); execCmd("bold"); }}
                       onTouchStart={e => { e.preventDefault(); execCmd("bold"); }}
-                      className="p-1 px-2.5 rounded hover:bg-white/5 font-bold text-xs border-none cursor-pointer transition-all"
+                      className="p-1.5 px-2.5 rounded font-bold text-xs border-none cursor-pointer transition-all"
                       style={{
                         color: isBold ? "var(--gold)" : "var(--ink-soft)",
                         background: isBold ? "rgba(201, 152, 58, 0.15)" : "transparent"
                       }}
-                      title="Bold"
+                      title="Bold (Ctrl+B)"
                     >
                       B
                     </button>
@@ -1010,12 +1093,12 @@ export default function SubmitUploadPage() {
                       type="button"
                       onMouseDown={e => { e.preventDefault(); execCmd("italic"); }}
                       onTouchStart={e => { e.preventDefault(); execCmd("italic"); }}
-                      className="p-1 px-2.5 rounded hover:bg-white/5 italic text-xs border-none cursor-pointer transition-all"
+                      className="p-1.5 px-2.5 rounded italic font-serif text-xs border-none cursor-pointer transition-all"
                       style={{
                         color: isItalic ? "var(--gold)" : "var(--ink-soft)",
                         background: isItalic ? "rgba(201, 152, 58, 0.15)" : "transparent"
                       }}
-                      title="Italic"
+                      title="Italic (Ctrl+I)"
                     >
                       I
                     </button>
@@ -1023,53 +1106,68 @@ export default function SubmitUploadPage() {
                       type="button"
                       onMouseDown={e => { e.preventDefault(); execCmd("underline"); }}
                       onTouchStart={e => { e.preventDefault(); execCmd("underline"); }}
-                      className="p-1 px-2.5 rounded hover:bg-white/5 underline text-xs border-none cursor-pointer transition-all"
+                      className="p-1.5 px-2.5 rounded underline text-xs border-none cursor-pointer transition-all"
                       style={{
                         color: isUnderline ? "var(--gold)" : "var(--ink-soft)",
                         background: isUnderline ? "rgba(201, 152, 58, 0.15)" : "transparent"
                       }}
-                      title="Underline"
+                      title="Underline (Ctrl+U)"
                     >
                       U
                     </button>
                     <button
                       type="button"
-                      onMouseDown={e => { e.preventDefault(); toggleBlockquote(); }}
-                      onTouchStart={e => { e.preventDefault(); toggleBlockquote(); }}
-                      className="p-1 px-2.5 rounded hover:bg-white/5 text-xs border-none cursor-pointer transition-all"
-                      style={{
-                        color: isQuoteActive ? "var(--gold)" : "var(--ink-soft)",
-                        fontWeight: "bold",
-                        background: isQuoteActive ? "rgba(201, 152, 58, 0.15)" : "transparent"
-                      }}
-                      title="Toggle Quote Block"
+                      onMouseDown={e => { e.preventDefault(); execCmd("removeFormat"); }}
+                      onTouchStart={e => { e.preventDefault(); execCmd("removeFormat"); }}
+                      className="p-1.5 px-2 rounded hover:bg-white/5 text-xs text-[var(--ink-soft)] border-none cursor-pointer transition-all flex items-center justify-center"
+                      title="Clear Formatting"
                     >
-                      "
+                      <Eraser size={14} />
                     </button>
 
                     <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
 
-                    <select
-                      className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
-                      onChange={e => execCmd("foreColor", e.target.value)}
-                      onMouseDown={e => e.stopPropagation()}
-                      defaultValue=""
+                    {/* Lists */}
+                    <button
+                      type="button"
+                      onMouseDown={e => { e.preventDefault(); execCmd("insertUnorderedList"); }}
+                      onTouchStart={e => { e.preventDefault(); execCmd("insertUnorderedList"); }}
+                      className="p-1.5 px-2 rounded hover:bg-white/5 text-xs text-[var(--ink-soft)] border-none cursor-pointer transition-all"
+                      title="Bullet List"
                     >
-                      <option value="">Text Color</option>
-                      <option value="#ffffff">White</option>
-                      <option value="#a3a3a3">Muted Gray</option>
-                    </select>
-
-                    <select
-                      className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
-                      onChange={e => execCmd("hiliteColor", e.target.value)}
-                      onMouseDown={e => e.stopPropagation()}
-                      defaultValue=""
+                      <List size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onMouseDown={e => { e.preventDefault(); execCmd("insertOrderedList"); }}
+                      onTouchStart={e => { e.preventDefault(); execCmd("insertOrderedList"); }}
+                      className="p-1.5 px-2 rounded hover:bg-white/5 text-xs text-[var(--ink-soft)] border-none cursor-pointer transition-all"
+                      title="Numbered List"
                     >
-                      <option value="">Highlight</option>
-                      <option value="rgba(255,255,255,0.15)">White glow</option>
-                      <option value="transparent">None</option>
-                    </select>
+                      <ListOrdered size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onMouseDown={e => { e.preventDefault(); toggleBlockquote(); }}
+                      onTouchStart={e => { e.preventDefault(); toggleBlockquote(); }}
+                      className="p-1.5 px-2 rounded text-xs border-none cursor-pointer transition-all"
+                      style={{
+                        color: isQuoteActive ? "var(--gold)" : "var(--ink-soft)",
+                        background: isQuoteActive ? "rgba(201, 152, 58, 0.15)" : "transparent"
+                      }}
+                      title="Quote Block"
+                    >
+                      <Quote size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onMouseDown={e => { e.preventDefault(); execCmd("insertHorizontalRule"); }}
+                      onTouchStart={e => { e.preventDefault(); execCmd("insertHorizontalRule"); }}
+                      className="p-1.5 px-2 rounded hover:bg-white/5 text-xs text-[var(--ink-soft)] border-none cursor-pointer transition-all"
+                      title="Horizontal Divider"
+                    >
+                      <Minus size={14} />
+                    </button>
 
                     <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
 
@@ -1089,7 +1187,7 @@ export default function SubmitUploadPage() {
                       title="Insert Inline Image"
                     >
                       <ImageIcon size={13} />
-                      <span>{insertingInlineImage ? "Uploading-€¦" : "Add Image"}</span>
+                      <span>{insertingInlineImage ? "Uploading..." : "Add Image"}</span>
                     </button>
 
                     <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
@@ -1111,7 +1209,7 @@ export default function SubmitUploadPage() {
                       title="Insert Voice Note"
                     >
                       <Mic size={13} />
-                      <span>{uploadingInlineAudio ? "Uploading-€¦" : "Add VN"}</span>
+                      <span>{uploadingInlineAudio ? "Uploading..." : "Add VN"}</span>
                     </button>
                   </div>
 

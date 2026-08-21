@@ -9,6 +9,7 @@ import {
   summarizeImportedHtml,
   type ImportedContentSummary,
 } from "@/lib/documentImport";
+import { uploadInlineBase64Images, safeJsonResponse } from "@/lib/inlineImageUploader";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const STORAGE_KEY = "anvikshiki_write_draft";
@@ -477,20 +478,10 @@ export default function SubmitWritePage() {
 
   const processDocFile = async (file: File) => {
     const lower = file.name.toLowerCase();
-    const isTxt = lower.endsWith(".txt") || file.type === "text/plain";
     const isDocx = lower.endsWith(".docx") || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-    const isLegacyDoc = lower.endsWith(".doc") || file.type === "application/msword";
     const isPdf = lower.endsWith(".pdf") || file.type === "application/pdf";
-
-    if (isLegacyDoc) {
-      setError("This is a Word 97-2003 document (.doc). Open it in Word or Google Docs and save it as .docx, then import that.");
-      return;
-    }
-
-    if (!isTxt && !isDocx && !isPdf) {
-      setError("Please import a .docx, .pdf, or .txt file.");
-      return;
-    }
+    const isHtml = lower.endsWith(".html") || lower.endsWith(".htm") || file.type === "text/html";
+    const isTxt = lower.endsWith(".txt") || lower.endsWith(".md") || lower.endsWith(".rtf") || file.type.startsWith("text/");
 
     setImportingDoc(true);
     setError("");
@@ -498,15 +489,13 @@ export default function SubmitWritePage() {
 
     try {
       let htmlContent = "";
+      let sourceLabel = "document";
 
-      if (isTxt) {
-        // Read plain text directly in browser
-        const text = await file.text();
-        htmlContent = plainTextToHtml(text);
-      } else if (isPdf) {
-        // Extract text from PDF in browser
+      if (isPdf) {
+        sourceLabel = "PDF document";
         htmlContent = await extractPdfAsHtml(file);
-      } else if (isDocx) {
+      } else if (isDocx || (!isTxt && !isHtml && !isPdf)) {
+        sourceLabel = isDocx ? "Word document (.docx)" : "document";
         // Direct in-browser conversion via mammoth for blazing speed and zero payload limit errors
         try {
           const mammoth = await import("mammoth");
@@ -515,28 +504,47 @@ export default function SubmitWritePage() {
           htmlContent = result.value || "";
         } catch (clientErr) {
           // Fallback to server endpoint
-          const formData = new FormData();
-          formData.append("file", file);
-          const res = await fetch(`${base()}/api/media/extract-doc`, {
-            method: "POST",
-            body: formData,
-            credentials: "include",
-          });
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || `Failed to extract document content (${res.status})`);
+          try {
+            const formData = new FormData();
+            formData.append("file", file);
+            const res = await fetch(`${base()}/api/media/extract-doc`, {
+              method: "POST",
+              body: formData,
+              credentials: "include",
+            });
+            if (res.ok) {
+              const data = await res.json();
+              htmlContent = data.html || "";
+              if (data.warning) setMetadataNotice(data.warning);
+            }
+          } catch (serverErr) {
+            // Continue to text fallback
           }
-          const data = await res.json();
-          htmlContent = data.html || "";
-          if (data.warning) setMetadataNotice(data.warning);
         }
+      } else if (isHtml) {
+        sourceLabel = "HTML document";
+        const text = await file.text();
+        htmlContent = text;
+      } else if (isTxt) {
+        sourceLabel = "text file";
+        const text = await file.text();
+        htmlContent = plainTextToHtml(text);
+      }
+
+      // Universal fallback: if htmlContent is still empty, read as text
+      if (!htmlContent || !htmlContent.trim()) {
+        try {
+          const rawText = await file.text();
+          if (rawText && rawText.trim()) {
+            htmlContent = plainTextToHtml(rawText);
+          }
+        } catch {}
       }
 
       if (!htmlContent || !htmlContent.trim()) {
         throw new Error("No readable text could be extracted from this file. Try uploading as .txt or copy-pasting directly.");
       }
 
-      const sourceLabel = isDocx ? "Word document (.docx)" : isPdf ? "PDF document" : "text file";
       insertImportedHtml(htmlContent, sourceLabel);
 
       // Auto-fill title from filename if title is empty
@@ -561,10 +569,10 @@ export default function SubmitWritePage() {
     }
   };
 
-  const handleGoogleDocImport = async () => {
+  const handleUrlImport = async () => {
     const rawUrl = googleDocUrl.trim();
     if (!rawUrl) {
-      setGoogleDocImportError("Paste a public Google Docs link first.");
+      setGoogleDocImportError("Paste a link or document URL first.");
       return;
     }
 
@@ -572,15 +580,11 @@ export default function SubmitWritePage() {
     try {
       url = new URL(rawUrl).href;
     } catch {
-      setGoogleDocImportError("Please paste a full Google Docs URL, including https://");
+      setGoogleDocImportError("Please paste a full web address, including https://");
       return;
     }
 
-    if (!isGoogleDocumentUrl(url)) {
-      setGoogleDocImportError("Paste the share link for a Google Docs document (docs.google.com/document/d/...).");
-      return;
-    }
-
+    const isGoogleDoc = isGoogleDocumentUrl(url);
     setImportingDoc(true);
     setGoogleDocImportError("");
     setMetadataNotice("");
@@ -592,14 +596,15 @@ export default function SubmitWritePage() {
         credentials: "include",
         body: JSON.stringify({ url }),
       });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Failed to import the Google Doc");
-      insertImportedHtml(typeof data.html === "string" ? data.html : "", "Google Doc");
+      const data = await safeJsonResponse(response, "Failed to import content from this URL");
+      const html = typeof data.html === "string" ? data.html : (data.text ? `<p>${data.text}</p>` : "");
+      if (!html.trim()) throw new Error("No readable content could be extracted from this URL.");
+      insertImportedHtml(html, isGoogleDoc ? "Google Doc" : "web article");
       applyImportedMetadata(data);
       setGoogleDocUrl("");
       setGoogleDocImportError("");
     } catch (err: any) {
-      const message = err.message || "Failed to import the Google Doc.";
+      const message = err.message || "Failed to import content from URL.";
       setGoogleDocImportError(message);
     } finally {
       setImportingDoc(false);
@@ -1133,6 +1138,9 @@ export default function SubmitWritePage() {
       const audioUrlVal = audioResult ? audioResult.url : draft.audioUrl || null;
       const audioPublicIdVal = audioResult ? audioResult.publicId : draft.audioPublicId || null;
 
+      // Upload any large inline base64 images from imported documents to CDN first
+      const cleanBody = await uploadInlineBase64Images(submissionDraft.body);
+
       if (serverDraftId) {
         const r = await fetch(`${base()}/api/submissions/${serverDraftId}`, {
           method: "PUT",
@@ -1140,13 +1148,12 @@ export default function SubmitWritePage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             type, submitterName: submissionDraft.fullName, submitterEmail: submissionDraft.email,
-            title: submissionDraft.title || "Untitled draft", abstract: submissionDraft.abstract, body: submissionDraft.body,
+            title: submissionDraft.title || "Untitled draft", abstract: submissionDraft.abstract, body: cleanBody,
             domain: submissionDraft.domain, notes: buildNotes(submissionDraft, imageUrl), status: "DRAFT",
             audioUrl: audioUrlVal, audioPublicId: audioPublicIdVal,
           }),
         });
-        const data = await r.json();
-        if (!r.ok) throw new Error(data.error || "Could not save draft");
+        await safeJsonResponse(r, "Could not save draft");
       } else {
         const r = await fetch(`${base()}/api/submissions/write`, {
           method: "POST",
@@ -1154,13 +1161,12 @@ export default function SubmitWritePage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             type, submitterName: submissionDraft.fullName || user.name || "Draft author", submitterEmail: submissionDraft.email || user.email,
-            title: submissionDraft.title || "Untitled draft", abstract: submissionDraft.abstract, body: submissionDraft.body,
+            title: submissionDraft.title || "Untitled draft", abstract: submissionDraft.abstract, body: cleanBody,
             domain: submissionDraft.domain, notes: buildNotes(submissionDraft, imageUrl), status: "DRAFT",
             audioUrl: audioUrlVal, audioPublicId: audioPublicIdVal,
           }),
         });
-        const data = await r.json();
-        if (!r.ok) throw new Error(data.error || "Could not save draft");
+        const data = await safeJsonResponse(r, "Could not save draft");
         setServerDraftId(data.submission?.id || null);
       }
 
@@ -1198,6 +1204,9 @@ export default function SubmitWritePage() {
 
       const notes = buildNotes(submissionDraft, imageUrl);
 
+      // Upload any large inline base64 images from imported documents to CDN first
+      const cleanBody = await uploadInlineBase64Images(submissionDraft.body);
+
       let r: Response;
       if (serverDraftId) {
         r = await fetch(`${base()}/api/submissions/${serverDraftId}`, {
@@ -1206,7 +1215,7 @@ export default function SubmitWritePage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             type, submitterName: submissionDraft.fullName, submitterEmail: submissionDraft.email,
-            title: submissionDraft.title, abstract: submissionDraft.abstract || "See essay body.", body: submissionDraft.body,
+            title: submissionDraft.title, abstract: submissionDraft.abstract || "See essay body.", body: cleanBody,
             domain: submissionDraft.domain, notes, consent: true, status: "RECEIVED",
             audioUrl: audioUrlVal, audioPublicId: audioPublicIdVal,
           }),
@@ -1218,15 +1227,14 @@ export default function SubmitWritePage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             type, submitterName: submissionDraft.fullName, submitterEmail: submissionDraft.email,
-            title: submissionDraft.title, abstract: submissionDraft.abstract || "See essay body.", body: submissionDraft.body,
+            title: submissionDraft.title, abstract: submissionDraft.abstract || "See essay body.", body: cleanBody,
             domain: submissionDraft.domain, notes, consent: true,
             audioUrl: audioUrlVal, audioPublicId: audioPublicIdVal,
           }),
         });
       }
 
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || "Submission failed");
+      const data = await safeJsonResponse(r, "Submission failed");
 
       sessionStorage.setItem("anvikshiki_submit_id", data.submission?.id || "");
       sessionStorage.removeItem(STORAGE_KEY);
@@ -1549,15 +1557,15 @@ export default function SubmitWritePage() {
                     </div>
                   </div>
 
-                  {/* Option 2: Google Docs Import */}
+                  {/* Option 2: Link / URL Import (Google Docs, web articles, blogs, journals) */}
                   <div className="flex flex-col justify-between h-full bg-[var(--surface)] p-3 rounded-lg border border-[rgba(201,152,58,0.2)]">
                     <div>
                       <p className="font-ui text-xs font-bold uppercase tracking-[0.1em] text-[var(--ink)] flex items-center gap-1.5">
                         <Link2 size={14} className="text-[var(--gold)]" />
-                        <span>Import from Google Docs</span>
+                        <span>Import from Link / Google Docs / Web</span>
                       </p>
-                      <p id="google-doc-import-help" className="mt-1 font-body text-xs leading-5 text-[var(--ink-faint)]">
-                        Set share link to <em>Anyone with link — Viewer</em>.
+                      <p id="url-import-help" className="mt-1 font-body text-xs leading-5 text-[var(--ink-faint)]">
+                        Paste any public web article, Google Doc, Medium post, or journal link.
                       </p>
                     </div>
                     <div className="mt-2.5 flex w-full min-w-0 gap-2">
@@ -1565,15 +1573,15 @@ export default function SubmitWritePage() {
                         type="url"
                         value={googleDocUrl}
                         onChange={(event) => { setGoogleDocUrl(event.target.value); setGoogleDocImportError(""); }}
-                        onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void handleGoogleDocImport(); } }}
-                        placeholder="https://docs.google.com/document/d/..."
+                        onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void handleUrlImport(); } }}
+                        placeholder="https://... (Google Docs, web article, blog)"
                         className="input-sacred min-w-0 flex-1 text-xs py-1.5 h-9"
-                        aria-label="Public Google Docs URL"
-                        aria-describedby="google-doc-import-help"
+                        aria-label="Article or Document URL"
+                        aria-describedby="url-import-help"
                       />
                       <button
                         type="button"
-                        onClick={handleGoogleDocImport}
+                        onClick={handleUrlImport}
                         disabled={importingDoc || !googleDocUrl.trim()}
                         className="btn-terracotta min-h-9 shrink-0 justify-center px-3.5 text-xs"
                       >
