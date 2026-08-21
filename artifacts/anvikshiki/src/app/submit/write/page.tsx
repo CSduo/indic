@@ -507,21 +507,29 @@ export default function SubmitWritePage() {
         // Extract text from PDF in browser
         htmlContent = await extractPdfAsHtml(file);
       } else if (isDocx) {
-        // Upload docx to server for extraction
-        const formData = new FormData();
-        formData.append("file", file);
-        const res = await fetch(`${base()}/api/media/extract-doc`, {
-          method: "POST",
-          body: formData,
-          credentials: "include",
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || `Failed to extract document content (${res.status})`);
+        // Direct in-browser conversion via mammoth for blazing speed and zero payload limit errors
+        try {
+          const mammoth = await import("mammoth");
+          const arrayBuffer = await file.arrayBuffer();
+          const result = await mammoth.convertToHtml({ arrayBuffer });
+          htmlContent = result.value || "";
+        } catch (clientErr) {
+          // Fallback to server endpoint
+          const formData = new FormData();
+          formData.append("file", file);
+          const res = await fetch(`${base()}/api/media/extract-doc`, {
+            method: "POST",
+            body: formData,
+            credentials: "include",
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || `Failed to extract document content (${res.status})`);
+          }
+          const data = await res.json();
+          htmlContent = data.html || "";
+          if (data.warning) setMetadataNotice(data.warning);
         }
-        const data = await res.json();
-        htmlContent = data.html || "";
-        if (data.warning) setMetadataNotice(data.warning);
       }
 
       if (!htmlContent || !htmlContent.trim()) {
@@ -1522,6 +1530,13 @@ export default function SubmitWritePage() {
                       </p>
                     </div>
                     <div className="mt-2.5">
+                      <input
+                        type="file"
+                        ref={importDocInputRef}
+                        onChange={handleDocImport}
+                        accept=".docx,.txt,.pdf,.doc,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        className="hidden"
+                      />
                       <button
                         type="button"
                         onClick={() => importDocInputRef.current?.click()}

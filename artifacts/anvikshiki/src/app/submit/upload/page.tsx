@@ -299,20 +299,28 @@ export default function SubmitUploadPage() {
         // Browser-side PDF -†’ HTML paragraphs (text layer only)
         htmlContent = await extractPdfAsHtml(file);
       } else if (isDocx) {
-        // Server-side mammoth -†’ full HTML with embedded images uploaded to Cloudinary
-        const formData = new FormData();
-        formData.append("file", file);
-        const res = await fetch(`${base()}/api/media/extract-doc`, {
-          method: "POST",
-          body: formData,
-          credentials: "include",
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || "Failed to extract document content");
+        // Direct in-browser conversion via mammoth for instant extraction & zero payload limit errors
+        try {
+          const mammoth = await import("mammoth");
+          const arrayBuffer = await file.arrayBuffer();
+          const result = await mammoth.convertToHtml({ arrayBuffer });
+          htmlContent = result.value || "";
+        } catch (clientErr) {
+          // Fallback to server endpoint
+          const formData = new FormData();
+          formData.append("file", file);
+          const res = await fetch(`${base()}/api/media/extract-doc`, {
+            method: "POST",
+            body: formData,
+            credentials: "include",
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || "Failed to extract document content");
+          }
+          const data = await res.json();
+          htmlContent = data.html || "";
         }
-        const data = await res.json();
-        htmlContent = data.html || "";
       }
       if (htmlContent && htmlContent.trim().length > 0) {
         setEditorBody(htmlContent);
