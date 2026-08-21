@@ -469,9 +469,8 @@ export default function SubmitUploadPage() {
       }
     }
 
-    if (editorRef.current) {
-      setEditorBody(editorRef.current.innerHTML);
-    }
+    // Trigger an input event so onInput persists the change
+    editorRef.current?.dispatchEvent(new Event("input", { bubbles: true }));
     updateEditorStates();
   };
 
@@ -483,16 +482,7 @@ export default function SubmitUploadPage() {
   }, [editorBody, editorInitialized]);
 
   const execCmd = (command: string, value: string = "") => {
-    if (editorRef.current) {
-      editorRef.current.focus();
-    }
-    try {
-      document.execCommand("styleWithCSS", false, "false");
-    } catch {}
     document.execCommand(command, false, value);
-    if (editorRef.current) {
-      setEditorBody(editorRef.current.innerHTML);
-    }
     updateEditorStates();
   };
 

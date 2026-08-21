@@ -10,7 +10,6 @@ import { persistUploadedFile } from "../lib/storage";
 import mammoth from "mammoth";
 
 const router = Router();
-
 const IMAGE_MIME_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -21,11 +20,15 @@ const AUDIO_MIME_TYPES = new Set([
   "audio/webm",
   "audio/ogg",
   "audio/wav",
+  "audio/x-wav",
   "audio/mp3",
   "audio/mpeg",
   "audio/mp4",
   "audio/m4a",
   "audio/x-m4a",
+  "audio/aac",
+  "audio/x-aac",
+  "audio/flac",
 ]);
 const PDF_MIME_TYPE = "application/pdf";
 const MIME_TO_EXTENSIONS: Readonly<Record<string, readonly string[]>> = {
@@ -36,11 +39,15 @@ const MIME_TO_EXTENSIONS: Readonly<Record<string, readonly string[]>> = {
   "audio/webm": [".webm"],
   "audio/ogg": [".ogg"],
   "audio/wav": [".wav"],
+  "audio/x-wav": [".wav"],
   "audio/mp3": [".mp3"],
   "audio/mpeg": [".mp3", ".mpeg"],
-  "audio/mp4": [".m4a"],
+  "audio/mp4": [".m4a", ".mp4"],
   "audio/m4a": [".m4a"],
   "audio/x-m4a": [".m4a"],
+  "audio/aac": [".aac", ".m4a"],
+  "audio/x-aac": [".aac", ".m4a"],
+  "audio/flac": [".flac"],
   [PDF_MIME_TYPE]: [".pdf"],
 };
 const ALLOWED_UPLOAD_CONTEXTS = new Set([
@@ -101,12 +108,18 @@ const upload = multer({
   limits: { fileSize: MAX_PDF_BYTES },
   fileFilter: (_req: any, file: any, cb: any): void => {
     const ext = path.extname(file.originalname).toLowerCase();
-    const expectedExtensions = MIME_TO_EXTENSIONS[file.mimetype];
-    if (!expectedExtensions?.includes(ext)) {
-      cb(new Error("Unsupported file type. Only JPEG, PNG, WEBP, GIF images; WebM, MP3, OGG, WAV, M4A audio; and PDF paper files are allowed."));
-      return;
+    const rawMime = String(file.mimetype || "").split(";")[0].trim().toLowerCase();
+    const expectedExtensions = MIME_TO_EXTENSIONS[rawMime];
+    if (expectedExtensions?.includes(ext)) {
+      return cb(null, true);
     }
-    cb(null, true);
+    // Fallback: if browser sends generic audio/octet-stream with valid extension
+    const audioExts = [".webm", ".ogg", ".wav", ".mp3", ".m4a", ".mp4", ".aac", ".flac"];
+    const imageExts = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+    if (audioExts.includes(ext) || imageExts.includes(ext) || ext === ".pdf") {
+      return cb(null, true);
+    }
+    cb(new Error("Unsupported file type. Only JPEG, PNG, WEBP, GIF images; WebM, MP3, OGG, WAV, M4A audio; and PDF paper files are allowed."));
   },
 });
 
@@ -115,12 +128,6 @@ const docUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
   fileFilter: (_req: any, file: any, cb: any): void => {
-    // Accept on extension alone and let the handler judge the actual bytes.
-    // Browsers and operating systems disagree about the MIME type of a .docx —
-    // Chrome on one machine sends the wordprocessingml type, another sends
-    // application/zip, a file dragged from some clients sends nothing at all.
-    // Requiring the header to match rejected perfectly good documents before
-    // anything had looked inside them, reported as a bare "extraction failed".
     const ext = path.extname(file.originalname).toLowerCase();
     if (ext !== ".docx" && ext !== ".txt" && ext !== ".doc") {
       cb(new Error("Import a .docx or .txt file. If your document is a PDF or a Word 97-2003 .doc, re-export it as .docx first."));
@@ -145,7 +152,7 @@ router.post("/media/upload", async (req: any, res: any, next: any): Promise<void
     }
     next();
   });
-}, async (req: any, res) => {
+}, async (req: any, res: any) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
@@ -161,9 +168,10 @@ router.post("/media/upload", async (req: any, res: any, next: any): Promise<void
       return res.status(400).json({ error: "Invalid upload context" });
     }
 
-    const isImage = IMAGE_MIME_TYPES.has(file.mimetype);
-    const isAudio = AUDIO_MIME_TYPES.has(file.mimetype);
-    const isPdf = file.mimetype === PDF_MIME_TYPE;
+    const rawMime = String(file.mimetype || "").split(";")[0].trim().toLowerCase();
+    const isImage = IMAGE_MIME_TYPES.has(rawMime) || [".jpg", ".jpeg", ".png", ".webp", ".gif"].includes(extension);
+    const isAudio = AUDIO_MIME_TYPES.has(rawMime) || [".webm", ".ogg", ".wav", ".mp3", ".m4a", ".mp4", ".aac", ".flac"].includes(extension);
+    const isPdf = rawMime === PDF_MIME_TYPE || extension === ".pdf";
     const maxSize = isImage ? MAX_IMAGE_BYTES : isAudio ? MAX_AUDIO_BYTES : MAX_PDF_BYTES;
     if (file.size > maxSize) {
       return res.status(413).json({

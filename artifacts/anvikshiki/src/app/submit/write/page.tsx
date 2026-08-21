@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, Link, useSearch } from "wouter";
 import { ArrowLeft, Image as ImageIcon, X, CheckCircle, AlertCircle, Lock, Save, FileText, Link2, Mic, Square, Play, Pause, Trash2, Volume2, Upload, Maximize2, Minimize2, Quote, List, ListOrdered, Minus, Highlighter, Eraser } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { loadPdfjs } from "@/lib/pdfjs";
 import {
   importedContentMessage,
   isGoogleDocumentUrl,
@@ -71,6 +72,51 @@ function escapeHtml(value: string): string {
     '"': "&quot;",
     "'": "&#39;",
   })[character] || character);
+}
+
+/** Convert plain text (newlines) to HTML paragraphs */
+function plainTextToHtml(text: string): string {
+  return text
+    .split(/\n{2,}/)
+    .filter(p => p.trim())
+    .map(p => `<p>${escapeHtml(p.trim().replace(/\s*\n\s*/g, " "))}</p>`)
+    .join("");
+}
+
+/** Extract text from client-side PDF */
+async function extractPdfAsHtml(file: File): Promise<string> {
+  const pdfjsLib = await loadPdfjs();
+
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pages: string[] = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const items = content.items as any[];
+    let pageText = "";
+    let lastY: number | null = null;
+    for (const item of items) {
+      if ("str" in item) {
+        const y = item.transform?.[5] ?? null;
+        if (lastY !== null && Math.abs(y - lastY) > 20) {
+          pageText += "\n\n";
+        } else if (lastY !== null && item.hasEOL) {
+          pageText += "\n";
+        }
+        pageText += item.str;
+        lastY = y;
+      }
+    }
+    pages.push(pageText);
+  }
+  const text = pages.join("\n\n").trim();
+  if (!text) {
+    throw new Error(
+      "This PDF has no selectable text — it looks like a scan of a printed page. Import a .docx, or paste the text into the editor.",
+    );
+  }
+  return plainTextToHtml(text);
 }
 
 const PERSISTED_IMAGE_SOURCE = /^(?:https?:\/\/|\/(?!\/))/i;
@@ -429,32 +475,26 @@ export default function SubmitWritePage() {
     );
   };
 
-  const handleDocImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processDocFile = async (file: File) => {
     const lower = file.name.toLowerCase();
-    const isTxt = lower.endsWith(".txt");
-    const isDocx = lower.endsWith(".docx");
-    const isLegacyDoc = lower.endsWith(".doc");
-    const isPdf = lower.endsWith(".pdf");
+    const isTxt = lower.endsWith(".txt") || file.type === "text/plain";
+    const isDocx = lower.endsWith(".docx") || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    const isLegacyDoc = lower.endsWith(".doc") || file.type === "application/msword";
+    const isPdf = lower.endsWith(".pdf") || file.type === "application/pdf";
 
-    if (!isTxt && !isDocx) {
-      // Name the actual problem and the fix. "Please upload a .docx or .txt"
-      // told someone holding a .doc nothing about how to proceed.
-      setError(
-        isLegacyDoc
-          ? "This is a Word 97-2003 document (.doc). Open it in Word or Google Docs and save it as .docx, then import that."
-          : isPdf
-            ? "PDFs cannot be imported as editable text. Export the document as .docx, or paste the text straight into the editor."
-            : "Import a .docx or .txt file. If your document came from Word or Google Docs, re-export it as .docx.",
-      );
-      if (importDocInputRef.current) importDocInputRef.current.value = "";
+    if (isLegacyDoc) {
+      setError("This is a Word 97-2003 document (.doc). Open it in Word or Google Docs and save it as .docx, then import that.");
+      return;
+    }
+
+    if (!isTxt && !isDocx && !isPdf) {
+      setError("Please import a .docx, .pdf, or .txt file.");
       return;
     }
 
     setImportingDoc(true);
     setError("");
+    setMetadataNotice("");
 
     try {
       let htmlContent = "";
@@ -462,13 +502,11 @@ export default function SubmitWritePage() {
       if (isTxt) {
         // Read plain text directly in browser
         const text = await file.text();
-        // Convert plain text to basic HTML paragraphs
-        htmlContent = text
-          .split(/\n{2,}/)
-          .filter(p => p.trim())
-          .map(p => `<p>${escapeHtml(p.trim().replace(/\s*\n\s*/g, " "))}</p>`)
-          .join("");
-      } else {
+        htmlContent = plainTextToHtml(text);
+      } else if (isPdf) {
+        // Extract text from PDF in browser
+        htmlContent = await extractPdfAsHtml(file);
+      } else if (isDocx) {
         // Upload docx to server for extraction
         const formData = new FormData();
         formData.append("file", file);
@@ -483,17 +521,35 @@ export default function SubmitWritePage() {
         }
         const data = await res.json();
         htmlContent = data.html || "";
-        // Images that could not be stored no longer discard the import, so tell
-        // the author what is missing rather than letting them find out later.
         if (data.warning) setMetadataNotice(data.warning);
       }
 
-      insertImportedHtml(htmlContent, isDocx ? "document" : "text file");
+      if (!htmlContent || !htmlContent.trim()) {
+        throw new Error("No readable text could be extracted from this file. Try uploading as .txt or copy-pasting directly.");
+      }
+
+      const sourceLabel = isDocx ? "Word document (.docx)" : isPdf ? "PDF document" : "text file";
+      insertImportedHtml(htmlContent, sourceLabel);
+
+      // Auto-fill title from filename if title is empty
+      if (!draft.title.trim()) {
+        const rawName = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]+/g, " ").trim();
+        if (rawName) {
+          set("title", rawName.charAt(0).toUpperCase() + rawName.slice(1));
+        }
+      }
     } catch (err: any) {
       setError(err.message || "Failed to import document");
     } finally {
       setImportingDoc(false);
       if (importDocInputRef.current) importDocInputRef.current.value = "";
+    }
+  };
+
+  const handleDocImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await processDocFile(file);
     }
   };
 
@@ -634,23 +690,13 @@ export default function SubmitWritePage() {
       }
     }
 
-    if (editorRef.current) {
-      set("body", editorRef.current.innerHTML);
-    }
+    // Trigger an input event so onInput persists the change
+    editorRef.current?.dispatchEvent(new Event("input", { bubbles: true }));
     updateEditorStates();
   };
 
   const execCmd = (command: string, value: string = "") => {
-    if (editorRef.current) {
-      editorRef.current.focus();
-    }
-    try {
-      document.execCommand("styleWithCSS", false, "false");
-    } catch {}
     document.execCommand(command, false, value);
-    if (editorRef.current) {
-      set("body", editorRef.current.innerHTML);
-    }
     updateEditorStates();
   };
 
@@ -1438,35 +1484,66 @@ export default function SubmitWritePage() {
                 </div>
               )}
 
-              <div className="border-b border-[rgba(201,152,58,0.15)] bg-[var(--surface-3)] px-4 py-3 sm:px-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                  <div className="min-w-0">
-                    <p className="font-ui text-xs font-bold uppercase tracking-[0.1em] text-[var(--ink)]">Import a public Google Doc</p>
-                    <p id="google-doc-import-help" className="mt-1 font-body text-xs leading-5 text-[var(--ink-faint)]">
-                      Set sharing to <em>Anyone with link — Viewer</em>, then import its text and available images. Nothing is published automatically.
-                    </p>
+              <div className="border-b border-[rgba(201,152,58,0.15)] bg-[var(--surface-3)] px-4 py-3.5 sm:px-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                  {/* Option 1: File Upload (.docx, .pdf, .txt) */}
+                  <div className="flex flex-col justify-between h-full bg-[var(--surface)] p-3 rounded-lg border border-[rgba(201,152,58,0.2)]">
+                    <div>
+                      <p className="font-ui text-xs font-bold uppercase tracking-[0.1em] text-[var(--ink)] flex items-center gap-1.5">
+                        <FileText size={14} className="text-[var(--gold)]" />
+                        <span>Import Document File</span>
+                      </p>
+                      <p className="mt-1 font-body text-xs leading-5 text-[var(--ink-faint)]">
+                        Upload <strong>.docx</strong>, <strong>.pdf</strong>, or <strong>.txt</strong> to extract text and format directly into the editor.
+                      </p>
+                    </div>
+                    <div className="mt-2.5">
+                      <button
+                        type="button"
+                        onClick={() => importDocInputRef.current?.click()}
+                        disabled={importingDoc}
+                        className="btn-gold-subtle text-xs py-2 px-3.5 flex items-center gap-2 cursor-pointer font-ui rounded-md w-full sm:w-auto justify-center"
+                      >
+                        <Upload size={13} />
+                        <span>{importingDoc ? "Extracting..." : "Choose File (.docx, .pdf, .txt)"}</span>
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:min-w-[22rem] sm:flex-row">
-                    <input
-                      type="url"
-                      value={googleDocUrl}
-                      onChange={(event) => { setGoogleDocUrl(event.target.value); setGoogleDocImportError(""); }}
-                      onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void handleGoogleDocImport(); } }}
-                      placeholder="https://docs.google.com/document/d/..."
-                      className="input-sacred min-w-0 flex-1"
-                      aria-label="Public Google Docs URL"
-                      aria-describedby="google-doc-import-help"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleGoogleDocImport}
-                      disabled={importingDoc || !googleDocUrl.trim()}
-                      className="btn-terracotta min-h-11 shrink-0 justify-center px-4 sm:w-auto"
-                    >
-                      <Link2 size={14} /> {importingDoc ? "Importing..." : "Import"}
-                    </button>
+
+                  {/* Option 2: Google Docs Import */}
+                  <div className="flex flex-col justify-between h-full bg-[var(--surface)] p-3 rounded-lg border border-[rgba(201,152,58,0.2)]">
+                    <div>
+                      <p className="font-ui text-xs font-bold uppercase tracking-[0.1em] text-[var(--ink)] flex items-center gap-1.5">
+                        <Link2 size={14} className="text-[var(--gold)]" />
+                        <span>Import from Google Docs</span>
+                      </p>
+                      <p id="google-doc-import-help" className="mt-1 font-body text-xs leading-5 text-[var(--ink-faint)]">
+                        Set share link to <em>Anyone with link — Viewer</em>.
+                      </p>
+                    </div>
+                    <div className="mt-2.5 flex w-full min-w-0 gap-2">
+                      <input
+                        type="url"
+                        value={googleDocUrl}
+                        onChange={(event) => { setGoogleDocUrl(event.target.value); setGoogleDocImportError(""); }}
+                        onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void handleGoogleDocImport(); } }}
+                        placeholder="https://docs.google.com/document/d/..."
+                        className="input-sacred min-w-0 flex-1 text-xs py-1.5 h-9"
+                        aria-label="Public Google Docs URL"
+                        aria-describedby="google-doc-import-help"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleGoogleDocImport}
+                        disabled={importingDoc || !googleDocUrl.trim()}
+                        className="btn-terracotta min-h-9 shrink-0 justify-center px-3.5 text-xs"
+                      >
+                        <Link2 size={13} /> {importingDoc ? "..." : "Import"}
+                      </button>
+                    </div>
                   </div>
                 </div>
+
                 {importSummary ? (
                   <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 font-ui text-xs leading-5 text-[var(--ink-soft)]" role="status" aria-live="polite">
                     <CheckCircle size={15} className="shrink-0 text-[var(--gold)]" />
@@ -1673,7 +1750,7 @@ export default function SubmitWritePage() {
                   type="file"
                   ref={importDocInputRef}
                   onChange={handleDocImport}
-                  accept=".docx,.txt"
+                  accept=".docx,.txt,.pdf,.doc,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                   className="sr-only"
                 />
                 <button
@@ -1682,7 +1759,7 @@ export default function SubmitWritePage() {
                   disabled={importingDoc}
                   className="flex min-h-11 items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent"
                   style={{ color: "var(--gold-soft)" }}
-                  title="Import content from a .docx or .txt file"
+                  title="Import content from a .docx, .pdf, or .txt file"
                 >
                   <Upload size={13} />
                   <span>{importingDoc ? "Importing..." : "Import File"}</span>

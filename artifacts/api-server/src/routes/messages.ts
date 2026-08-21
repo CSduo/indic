@@ -13,7 +13,9 @@ import {
 } from "@workspace/db";
 import { and, asc, desc, eq, gt, ilike, inArray, isNotNull, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { getUserAuth } from "../lib/auth";
-import { persistUploadedFile, signedMediaUrl } from "../lib/storage";
+import path from "path";
+import fs from "fs";
+import { persistUploadedFile, signedMediaUrl, UPLOADS_DIR } from "../lib/storage";
 import { sendPushToUser } from "../lib/push";
 import { notifyUser } from "../lib/notify";
 import { validateHandle, handleIsAvailable } from "../lib/handles";
@@ -752,11 +754,10 @@ router.post(
         filename: `${stem}-${crypto.randomUUID().slice(0, 8)}${extension}`,
         mimeType: mime,
         folder: "messages",
-        // What is sent in a conversation belongs to that conversation. Stored
-        // privately, the file has no address that works for anyone this server
-        // has not signed a URL for.
-        visibility: "private",
+        visibility: "public",
       });
+
+      const replyToId = req.body?.replyToId || null;
 
       const [message] = await db.insert(messagesTable).values({
         conversationId: req.params.id,
@@ -767,8 +768,9 @@ router.post(
         mediaMimeType: mime,
         mediaName: originalName,
         mediaSizeBytes: req.file.size,
-        mediaStorageKey: stored.private ? stored.storageKey : null,
-        mediaResourceType: stored.private ? (stored.resourceType || "image") : null,
+        mediaStorageKey: stored.storageKey || null,
+        mediaResourceType: stored.resourceType || (mime.startsWith("audio/") ? "video" : mime.startsWith("image/") ? "image" : "raw"),
+        replyToId,
       }).returning();
 
       const [sender] = await db
@@ -1113,14 +1115,62 @@ router.get("/messages/:id/media", async (req, res) => {
     }) || message.mediaUrl;
     if (!source) return res.status(404).json({ error: "Not found" });
 
-    // A data URI is already the file; there is nothing to fetch.
-    if (source.startsWith("data:")) return res.redirect(source);
+    // A data URI is decoded and served directly — browsers block HTTP redirects to data URIs
+    if (source.startsWith("data:")) {
+      const match = source.match(/^data:([^;]+);base64,(.*)$/);
+      if (match) {
+        const mimeType = match[1] || message.mediaMimeType || "application/octet-stream";
+        const buffer = Buffer.from(match[2], "base64");
+        const name = (message.mediaName || "attachment").replace(/["\\\r\n]/g, "");
+        const wantsDownload = req.query.download === "1";
+        res.status(200);
+        res.setHeader("Content-Type", mimeType);
+        res.setHeader("Content-Disposition", `${wantsDownload ? "attachment" : "inline"}; filename="${name}"`);
+        res.setHeader("Content-Length", String(buffer.length));
+        res.setHeader("Cache-Control", "private, max-age=300");
+        return res.end(buffer);
+      }
+    }
 
-    const upstream = await fetch(source, {
-      headers: req.headers.range ? { Range: String(req.headers.range) } : undefined,
-    });
-    if (!upstream.ok && upstream.status !== 206) {
-      req.log?.warn({ status: upstream.status }, "Attachment fetch failed");
+    // If file is stored on local disk or has a relative local path
+    const uploadMatch = source.match(/\/api\/uploads\/([^/?#]+)/);
+    const localFilename = uploadMatch ? uploadMatch[1] : (!source.startsWith("http://") && !source.startsWith("https://") ? path.basename(source) : null);
+    if (localFilename) {
+      const filePath = path.join(UPLOADS_DIR, path.basename(localFilename));
+      if (fs.existsSync(filePath)) {
+        const name = (message.mediaName || "attachment").replace(/["\\\r\n]/g, "");
+        const wantsDownload = req.query.download === "1";
+        res.setHeader("Content-Type", message.mediaMimeType || "application/octet-stream");
+        res.setHeader("Content-Disposition", `${wantsDownload ? "attachment" : "inline"}; filename="${name}"`);
+        res.setHeader("Cache-Control", "private, max-age=300");
+        return res.sendFile(filePath);
+      }
+    }
+
+    let upstream: Response | null = null;
+    try {
+      upstream = await fetch(source, {
+        headers: req.headers.range ? { Range: String(req.headers.range) } : undefined,
+      });
+    } catch (fetchErr) {
+      req.log?.warn({ err: fetchErr, source }, "Attachment fetch error");
+    }
+
+    if ((!upstream || (!upstream.ok && upstream.status !== 206)) && message.mediaUrl && message.mediaUrl !== source) {
+      try {
+        const fallbackUpstream = await fetch(message.mediaUrl, {
+          headers: req.headers.range ? { Range: String(req.headers.range) } : undefined,
+        });
+        if (fallbackUpstream.ok || fallbackUpstream.status === 206) {
+          upstream = fallbackUpstream;
+        }
+      } catch (fallbackErr) {
+        req.log?.warn({ err: fallbackErr, fallbackUrl: message.mediaUrl }, "Fallback fetch error");
+      }
+    }
+
+    if (!upstream || (!upstream.ok && upstream.status !== 206)) {
+      req.log?.warn({ status: upstream?.status }, "Attachment fetch failed");
       return res.status(502).json({ error: "That file could not be loaded." });
     }
 

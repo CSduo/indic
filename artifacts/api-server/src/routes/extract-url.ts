@@ -842,9 +842,7 @@ router.post('/extract-url', async (req, res) => {
     }
 
     if (googleDocument && failedEmbeddedImages > 0) {
-      return res.status(502).json({
-        error: 'Google Docs text was read, but one or more embedded images could not be stored. Nothing was imported; please retry after checking image size and storage configuration.',
-      });
+      req.log?.warn?.({ failedEmbeddedImages }, 'Google Docs imported with some failed embedded images');
     }
 
     // Fallback: only if extraction yielded virtually nothing

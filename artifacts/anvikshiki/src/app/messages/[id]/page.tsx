@@ -466,30 +466,31 @@ function MessageBubble({
 
         {menuOpen ? (
           <div
-            className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+            className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
             role="dialog"
             aria-modal="true"
             aria-label="Message options"
+            onKeyDown={(e) => { if (e.key === "Escape") setMenuOpen(false); }}
           >
-            {/* Backdrop */}
+            {/* Ambient Backdrop */}
             <div
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+              className="absolute inset-0 bg-black/60 backdrop-blur-md transition-opacity"
               onClick={() => setMenuOpen(false)}
             />
 
-            {/* Floating Pop-up Card */}
+            {/* Aesthetic Sacred Floating Card */}
             <div
-              className="relative z-10 w-full max-w-xs overflow-hidden rounded-[8px] border border-[var(--hairline-strong)] bg-[var(--surface)] p-3.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
-              style={{ background: "var(--surface)", borderColor: "var(--hairline-strong)" }}
+              className="relative z-10 w-full max-w-sm overflow-hidden rounded-2xl border border-[rgba(201,152,58,0.3)] bg-[var(--surface-elevated)] p-4 shadow-[0_16px_50px_rgba(0,0,0,0.5)] animate-in zoom-in-95 slide-in-from-bottom-3 sm:slide-in-from-bottom-0 duration-200"
+              style={{ background: "var(--surface)", borderColor: "rgba(201,152,58,0.3)" }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Quick Reactions Bar */}
-              <div className="flex items-center justify-around gap-1 rounded-[6px] bg-[var(--surface-2)] p-2 mb-2">
+              {/* Quick Reactions Floating Pill */}
+              <div className="flex items-center justify-between gap-1 rounded-xl bg-[var(--surface-2)] border border-[var(--hairline)] p-2 mb-3 shadow-inner">
                 {QUICK_REACTIONS.map(emoji => (
                   <button
                     key={emoji}
                     type="button"
-                    className="text-xl hover:scale-125 active:scale-95 transition-transform p-1 rounded"
+                    className="text-2xl hover:scale-125 active:scale-90 transition-transform p-1.5 rounded-lg hover:bg-[rgba(201,152,58,0.15)] flex items-center justify-center"
                     onClick={() => { onReact(message, emoji); setMenuOpen(false); }}
                     aria-label={`React ${emoji}`}
                   >
@@ -498,39 +499,63 @@ function MessageBubble({
                 ))}
               </div>
 
-              {/* Action list */}
+              {/* Action List */}
               <div className="space-y-1">
                 <button
                   type="button"
-                  className="flex w-full items-center gap-3 rounded-[4px] px-3 py-2.5 text-left font-ui text-sm font-medium text-[var(--ink)] hover:bg-[var(--surface-2)] transition-colors"
+                  className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left font-ui text-sm font-semibold text-[var(--ink)] hover:bg-[rgba(201,152,58,0.12)] hover:text-[var(--gold)] transition-colors"
                   onClick={() => { onReply(message); setMenuOpen(false); }}
                 >
-                  <CornerUpLeft size={16} className="text-[var(--accent)]" />
+                  <CornerUpLeft size={16} className="text-[var(--gold)] shrink-0" />
                   <span>Reply</span>
                 </button>
 
                 {message.body ? (
                   <button
                     type="button"
-                    className="flex w-full items-center gap-3 rounded-[4px] px-3 py-2.5 text-left font-ui text-sm font-medium text-[var(--ink)] hover:bg-[var(--surface-2)] transition-colors"
+                    className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left font-ui text-sm font-medium text-[var(--ink-soft)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)] transition-colors"
                     onClick={() => {
                       void navigator.clipboard?.writeText(message.body || "");
                       setMenuOpen(false);
                       toast.success("Text copied to clipboard");
                     }}
                   >
-                    <Copy size={16} className="text-[var(--ink-meta)]" />
+                    <Copy size={16} className="text-[var(--ink-meta)] shrink-0" />
                     <span>Copy Text</span>
                   </button>
+                ) : null}
+
+                {message.mediaUrl ? (
+                  <>
+                    <a
+                      href={mediaUrl(message)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left font-ui text-sm font-medium text-[var(--ink-soft)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)] transition-colors"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <ExternalLink size={16} className="text-emerald-400 shrink-0" />
+                      <span>Open Attachment</span>
+                    </a>
+                    <a
+                      href={downloadUrl(message)}
+                      download={message.mediaName || "attachment"}
+                      className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left font-ui text-sm font-medium text-[var(--ink-soft)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)] transition-colors"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <Download size={16} className="text-amber-400 shrink-0" />
+                      <span>Save / Download</span>
+                    </a>
+                  </>
                 ) : null}
 
                 {mine && message.kind === "TEXT" && !message.pending ? (
                   <button
                     type="button"
-                    className="flex w-full items-center gap-3 rounded-[4px] px-3 py-2.5 text-left font-ui text-sm font-medium text-[var(--ink)] hover:bg-[var(--surface-2)] transition-colors"
+                    className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left font-ui text-sm font-semibold text-[var(--gold)] hover:bg-[rgba(201,152,58,0.15)] transition-colors"
                     onClick={() => { onEdit(message); setMenuOpen(false); }}
                   >
-                    <Pencil size={16} className="text-[var(--gold)]" />
+                    <Pencil size={16} className="text-[var(--gold)] shrink-0" />
                     <span>Edit Message</span>
                   </button>
                 ) : null}
@@ -538,25 +563,25 @@ function MessageBubble({
                 {mine && !message.pending ? (
                   <button
                     type="button"
-                    className="flex w-full items-center gap-3 rounded-[4px] px-3 py-2.5 text-left font-ui text-sm font-medium text-red-500 hover:bg-red-500/10 transition-colors"
+                    className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left font-ui text-sm font-semibold text-rose-400 hover:bg-rose-500/15 transition-colors"
                     onClick={() => {
                       setMenuOpen(false);
                       onUnsend(message);
                     }}
                   >
-                    <Trash2 size={16} className="text-red-500" />
-                    <span className="font-semibold">Unsend Message</span>
+                    <Trash2 size={16} className="text-rose-400 shrink-0" />
+                    <span>Unsend Message</span>
                   </button>
                 ) : null}
               </div>
 
-              {/* Cancel Button */}
+              {/* Close Button */}
               <button
                 type="button"
-                className="mt-2.5 w-full rounded-[4px] border border-[var(--hairline)] py-2 text-center font-ui text-xs font-semibold text-[var(--ink-meta)] hover:bg-[var(--surface-2)] transition-colors"
+                className="mt-3 w-full rounded-xl border border-[var(--hairline)] py-2.5 text-center font-ui text-xs font-semibold text-[var(--ink-meta)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)] transition-colors"
                 onClick={() => setMenuOpen(false)}
               >
-                Cancel
+                Close
               </button>
             </div>
           </div>
@@ -805,11 +830,12 @@ export default function ConversationPage() {
     if (!file) return;
     setSending(true);
 
-    // Photos preview from a local object URL while the upload runs, so the
-    // picture is on screen the moment it is chosen rather than after a round
-    // trip. The URL is revoked once the stored copy replaces it.
+    // Photos and voice notes preview from a local object URL while the upload runs,
+    // so the attachment is on screen and playable the moment it is chosen rather than after a round trip.
+    // The URL is revoked once the stored copy replaces it.
     const isImage = file.type.startsWith("image/");
-    const localUrl = isImage ? URL.createObjectURL(file) : null;
+    const isAudio = file.type.startsWith("audio/") || /\.(webm|ogg|mp3|m4a|wav)$/i.test(file.name);
+    const localUrl = (isImage || isAudio) ? URL.createObjectURL(file) : null;
     const tempId = `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const quoted = replyTo;
     if (quoted) setReplyTo(null);
@@ -819,16 +845,16 @@ export default function ConversationPage() {
       senderId: user?.id ?? null,
       senderName: user?.name || "You",
       senderAvatarUrl: user?.avatarUrl ?? null,
-      kind: isImage ? "IMAGE" : file.type.startsWith("audio/") ? "AUDIO" : "FILE",
+      kind: isImage ? "IMAGE" : isAudio ? "AUDIO" : "FILE",
       body: transcript || null,
       mediaUrl: localUrl,
-      mediaMimeType: file.type || null,
+      mediaMimeType: file.type || (isAudio ? "audio/webm" : null),
       mediaName: file.name,
       mediaSizeBytes: file.size,
       deleted: false, edited: false,
       createdAt: new Date().toISOString(),
       mine: true, reactions: [],
-      replyTo: quoted ? { id: quoted.id, senderName: quoted.senderName, preview: quoted.body || "Attachment" } : null,
+      replyTo: quoted ? { id: quoted.id, senderName: quoted.senderName, preview: quoted.body || quoted.mediaName || "Attachment" } : null,
       pending: true,
     };
     setMessages(prev => [...prev, optimistic]);
