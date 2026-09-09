@@ -4,7 +4,8 @@
   "regions": ["sin1"],
   "functions": {
     "api/index.js": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "includeFiles": "artifacts/anvikshiki/dist/public/**"
     }
   },
   "installCommand": "pnpm install --frozen-lockfile",
@@ -55,6 +56,42 @@
     },
     {
       "source": "/papers/:slug*",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/authors/:slug*",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/domains/:slug*",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/categories/:slug*",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/sitemap.xml",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/robots.txt",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/rss.xml",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/feed",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/indexnow-key.txt",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/:key([a-zA-Z0-9_-]+).txt",
       "destination": "/api/index"
     },
     {

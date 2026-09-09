@@ -1,5 +1,5 @@
-﻿import { Suspense, lazy } from "react";
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Suspense, lazy } from "react";
+import { Switch, Route, Redirect, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import { useState, useEffect } from "react";
@@ -227,8 +227,12 @@ const RouteSubmitSuccess     = () => <AppShell><SubmitSuccessPage /></AppShell>;
 const RouteSaved             = () => <AppShell><SavedPage /></AppShell>;
 const RoutePrivacy           = () => <AppShell><PrivacyPage /></AppShell>;
 const RouteTerms             = () => <AppShell><TermsPage /></AppShell>;
-const RouteCategories        = () => <AppShell><DomainPage /></AppShell>;
-const RouteEssay             = () => <AppShell><ArticlePage /></AppShell>;
+const RouteEssayRedirect     = ({ params }: { params: { slug: string } }) => (
+  <Redirect to={`/articles/${params.slug}`} replace />
+);
+const RouteCategoryRedirect  = ({ params }: { params: { slug: string } }) => (
+  <Redirect to={`/domains/${params.slug}`} replace />
+);
 
 const RouteAdminLogin        = () => <AdminShell><AdminLoginPage /></AdminShell>;
 const RouteAdminDashboard    = () => <AdminShell><AdminDashboardPage /></AdminShell>;
@@ -253,7 +257,10 @@ function Router() {
         <Route path="/domains"                 component={RouteDomains} />
         <Route path="/domains/:slug"           component={RouteDomain} />
         <Route path="/articles/:slug"          component={RouteArticle} />
-        <Route path="/essays/:slug"            component={RouteEssay} />
+        <Route path="/essays/:slug"            component={RouteEssayRedirect} />
+        <Route path="/essays">
+          <Redirect to="/articles" replace />
+        </Route>
         <Route path="/papers"                  component={RoutePapers} />
         <Route path="/papers/:slug"            component={RoutePaperDetail} />
         <Route path="/search"                  component={RouteSearch} />
@@ -282,7 +289,10 @@ function Router() {
         <Route path="/privacy"                 component={RoutePrivacy} />
         <Route path="/terms"                   component={RouteTerms} />
         {/* Legacy category routes */}
-        <Route path="/categories/:slug"        component={RouteCategories} />
+        <Route path="/categories/:slug"        component={RouteCategoryRedirect} />
+        <Route path="/categories">
+          <Redirect to="/domains" replace />
+        </Route>
 
         {/* Admin */}
         <Route path="/admin/login"             component={RouteAdminLogin} />

@@ -83,8 +83,7 @@ export function getArticleStats(bodyHtmlOrText?: string, excerpt?: string) {
 
 export default function ArticlePage() {
   const [, articlesParams] = useRoute("/articles/:slug");
-  const [, essaysParams] = useRoute("/essays/:slug");
-  const slug = articlesParams?.slug || essaysParams?.slug || "";
+  const slug = articlesParams?.slug || "";
   const [article, setArticle] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -221,7 +220,7 @@ export default function ArticlePage() {
 
   const articleDescription = textSummary(article?.excerpt || article?.body);
   const articleImage = article?.heroImageUrl || article?.featuredImage || article?.coverImage || null;
-  const canonicalPath = `${articlesParams ? "/articles" : "/essays"}/${encodeURIComponent(slug)}`;
+  const canonicalPath = `/articles/${encodeURIComponent(slug)}`;
   useDocumentMetadata({
     title: article?.title ? `${article.title} — Ānvīkṣikī` : undefined,
     description: articleDescription,
