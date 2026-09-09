@@ -432,17 +432,17 @@ export default function HomePage() {
                   <button
                     onClick={() => setRecentPage(p => Math.max(1, p - 1))}
                     disabled={recentPage === 1}
-                    className="px-5 py-2.5 rounded-xl bg-[#1c1c1e] text-white font-bold disabled:opacity-30 border border-[#333336] hover:border-[var(--gold)] flex items-center gap-2 text-xs uppercase tracking-wider"
+                    className="px-5 py-2.5 rounded-xl bg-[var(--surface-elevated)] text-[var(--ink)] font-bold disabled:opacity-30 border border-[var(--border)] hover:border-[var(--gold)] flex items-center gap-2 text-xs uppercase tracking-wider transition-colors shadow-sm"
                   >
                     <ChevronLeft size={16} /> Previous
                   </button>
-                  <span className="font-ui text-sm font-extrabold text-white uppercase tracking-widest px-3">
+                  <span className="font-ui text-sm font-extrabold text-[var(--ink)] uppercase tracking-widest px-3">
                     Page {recentPage} of {totalRecentPages}
                   </span>
                   <button
                     onClick={() => setRecentPage(p => Math.min(totalRecentPages, p + 1))}
                     disabled={recentPage === totalRecentPages}
-                    className="px-5 py-2.5 rounded-xl bg-[#1c1c1e] text-white font-bold disabled:opacity-30 border border-[#333336] hover:border-[var(--gold)] flex items-center gap-2 text-xs uppercase tracking-wider"
+                    className="px-5 py-2.5 rounded-xl bg-[var(--surface-elevated)] text-[var(--ink)] font-bold disabled:opacity-30 border border-[var(--border)] hover:border-[var(--gold)] flex items-center gap-2 text-xs uppercase tracking-wider transition-colors shadow-sm"
                   >
                     Next <ChevronRight size={16} />
                   </button>

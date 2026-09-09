@@ -8,6 +8,7 @@ import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { EmptyState } from "@/components/sacred/EmptyState";
 import { DOMAIN_META, getDomainMeta, normalizeDomainKey } from "@/lib/domainMeta";
+import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
@@ -29,13 +30,40 @@ export default function DomainPage() {
   const key = normalizeDomainKey(slug);
   const meta = getDomainMeta(key);
   const known = Boolean(slug && (slug in DOMAIN_META || slug === "civilizations" || slug === "civilisation"));
-  const [publications, setPublications] = useState<PublicWork[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [publications, setPublications] = useState<PublicWork[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = sessionStorage.getItem(`anv_domain_${key}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(() => publications.length === 0);
   const [error, setError] = useState(false);
+
+  useDocumentMetadata({
+    title: `${meta.label} — Domain Archive — Ānvīkṣikī`,
+    description: meta.description || `Essays and research papers in ${meta.label} published in Ānvīkṣikī Journal.`,
+    canonicalPath: `/domains/${encodeURIComponent(slug)}`,
+    type: "website",
+    structuredData: {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      "name": `${meta.label} — Domain Archive`,
+      "description": meta.description,
+      "url": `https://anvikshikijournal.in/domains/${encodeURIComponent(slug)}`,
+    },
+  });
 
   useEffect(() => {
     if (!slug) return;
-    setLoading(true);
+    if (publications.length === 0) {
+      setLoading(true);
+    }
     setError(false);
     fetch(`${base()}/api/categories/${encodeURIComponent(key)}`)
       .then(async (response) => {
@@ -61,11 +89,13 @@ export default function DomainPage() {
           authorName: paper.authorName,
           publishedAt: paper.publishedAt || paper.createdAt,
         }));
-        setPublications(
-          [...articles, ...papers].sort(
-            (a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime(),
-          ),
+        const sorted = [...articles, ...papers].sort(
+          (a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime(),
         );
+        setPublications(sorted);
+        try {
+          sessionStorage.setItem(`anv_domain_${key}`, JSON.stringify(sorted));
+        } catch {}
         setLoading(false);
       })
       .catch(() => {
