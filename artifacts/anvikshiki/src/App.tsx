@@ -44,6 +44,7 @@ const SettingsPage          = lazy(() => import("@/app/account/settings/page"));
 const EditArticlePage       = lazy(() => import("@/app/account/edit/[slug]/page"));
 const SubmitLandingPage     = lazy(() => import("@/app/submit/page"));
 const PublicUserProfilePage = lazy(() => import("@/app/profile/[userId]/page"));
+const AuthorHubPage         = lazy(() => import("@/app/authors/[slug]/page"));
 const SubmitDetailsPage     = lazy(() => import("@/app/submit/details/page"));
 const SubmitUploadPage      = lazy(() => import("@/app/submit/upload/page"));
 const SubmitWritePage       = lazy(() => import("@/app/submit/write/page"));
@@ -227,6 +228,7 @@ const RouteSubmitSuccess     = () => <AppShell><SubmitSuccessPage /></AppShell>;
 const RouteSaved             = () => <AppShell><SavedPage /></AppShell>;
 const RoutePrivacy           = () => <AppShell><PrivacyPage /></AppShell>;
 const RouteTerms             = () => <AppShell><TermsPage /></AppShell>;
+const RouteAuthor            = () => <AppShell><AuthorHubPage /></AppShell>;
 const RouteEssayRedirect     = ({ params }: { params: { slug: string } }) => (
   <Redirect to={`/articles/${params.slug}`} replace />
 );
@@ -257,6 +259,10 @@ function Router() {
         <Route path="/domains"                 component={RouteDomains} />
         <Route path="/domains/:slug"           component={RouteDomain} />
         <Route path="/articles/:slug"          component={RouteArticle} />
+        <Route path="/authors/:slug"           component={RouteAuthor} />
+        <Route path="/authors">
+          <Redirect to="/browse" replace />
+        </Route>
         <Route path="/essays/:slug"            component={RouteEssayRedirect} />
         <Route path="/essays">
           <Redirect to="/articles" replace />

@@ -22,14 +22,34 @@ const textSummary = (value: unknown, maxLength = 220) => String(value || "")
 export default function PaperDetailPage() {
   const [, params] = useRoute("/papers/:slug");
   const slug = params?.slug || "";
-  const [paper, setPaper] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [paper, setPaper] = useState<any>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const el = document.getElementById("__ANVIKSHIKI_DATA__");
+        if (el && el.textContent) {
+          const parsed = JSON.parse(el.textContent);
+          if (parsed && (parsed.slug === slug || !slug)) {
+            return parsed;
+          }
+        }
+        const cached = sessionStorage.getItem(`anv_paper_${slug}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && parsed.title) return parsed;
+        }
+      } catch {}
+    }
+    return null;
+  });
+  const [loading, setLoading] = useState(() => !paper);
   const [error, setError] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
     const controller = new AbortController();
-    setLoading(true);
+    if (!paper) {
+      setLoading(true);
+    }
     setError(false);
     fetch(`${base()}/api/papers/${slug}`, { signal: controller.signal })
       .then((response) => {
@@ -37,8 +57,12 @@ export default function PaperDetailPage() {
         return response.json();
       })
       .then((data) => {
-        setPaper(data.paper || data);
+        const p = data.paper || data;
+        setPaper(p);
         setLoading(false);
+        try {
+          sessionStorage.setItem(`anv_paper_${slug}`, JSON.stringify(p));
+        } catch {}
       })
       .catch(fetchError => {
         if (fetchError instanceof DOMException && fetchError.name === "AbortError") return;
@@ -128,7 +152,17 @@ export default function PaperDetailPage() {
               <ExternalLink size={12} className="text-[var(--gold)]" /> DOI: {paper.doi}
             </a>
           )}
-          {paper.authorName ? <p className="mt-4 font-ui text-sm uppercase tracking-[0.08em] text-[var(--muted)]">by {paper.authorName}</p> : null}
+          {paper.authorName ? (
+            <div className="mt-4 font-ui text-sm uppercase tracking-[0.08em] text-[var(--muted)] flex items-center gap-1.5">
+              <span>by</span>
+              <Link
+                href={paper.authorHandle ? `/authors/${paper.authorHandle}` : `/authors/${paper.authorId || encodeURIComponent(paper.authorName)}`}
+                className="font-semibold text-[var(--ink)] hover:underline capitalize"
+              >
+                {paper.authorName}
+              </Link>
+            </div>
+          ) : null}
           <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--border-subtle)] pt-6">
             <div className="flex gap-2 items-center flex-wrap">
               <ArticleActionBar title={paper.title} downloadUrl={paper.pdfUrl || paper.fileUrl} />
@@ -168,6 +202,48 @@ export default function PaperDetailPage() {
               <p className="font-body text-sm leading-6 text-[var(--ink-soft)]">{paper.citationText}</p>
             </ParchmentCard>
           ) : null}
+
+          {/* Author Hub card */}
+          {paper.authorName && (
+            <div className="card-sacred p-6 mt-12 flex flex-col md:flex-row items-center gap-5" style={{ borderLeft: "3px solid var(--gold)" }}>
+              <Link
+                href={paper.authorHandle ? `/authors/${paper.authorHandle}` : `/authors/${paper.authorId || encodeURIComponent(paper.authorName)}`}
+                className="h-14 w-14 rounded-full overflow-hidden bg-[var(--terracotta-pale)] flex items-center justify-center border border-[var(--border-gold)] shrink-0 cursor-pointer hover:opacity-80 transition-opacity ring-2 ring-[var(--border-gold)] ring-offset-2 ring-offset-[var(--bg)]"
+              >
+                <span className="font-display text-lg font-bold text-[var(--terracotta)]">
+                  {paper.authorName.charAt(0).toUpperCase()}
+                </span>
+              </Link>
+              <div className="text-center md:text-left space-y-1 flex-1">
+                <Link
+                  href={paper.authorHandle ? `/authors/${paper.authorHandle}` : `/authors/${paper.authorId || encodeURIComponent(paper.authorName)}`}
+                  className="font-ui text-base font-bold text-[var(--gold-bright)] hover:underline cursor-pointer block"
+                >
+                  {paper.authorName}
+                </Link>
+                <p className="font-ui text-[11px] text-[var(--ink-faint)]">Contributing Scholar · Ānvīkṣikī Journal</p>
+                <div className="pt-2">
+                  <Link
+                    href={paper.authorHandle ? `/authors/${paper.authorHandle}` : `/authors/${paper.authorId || encodeURIComponent(paper.authorName)}`}
+                    className="inline-flex items-center gap-1.5 font-ui text-[11px] font-semibold text-[var(--terracotta)] hover:underline"
+                  >
+                    View Scholar Profile &amp; Publications &rarr;
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Contributor Callout */}
+          <div className="mt-8 p-5 rounded-lg border border-[var(--border-gold)] bg-[var(--surface-elevated)] flex flex-col sm:flex-row items-center justify-between gap-4 text-left">
+            <div className="space-y-1">
+              <p className="font-ui text-xs font-bold uppercase tracking-wider text-[var(--gold)]">Submit to Ānvīkṣikī</p>
+              <p className="font-body text-xs text-[var(--ink-soft)]">Ānvīkṣikī welcomes monographs, research papers, and translations from independent scholars.</p>
+            </div>
+            <Link href="/submit" className="btn-terracotta text-xs py-2 px-4 whitespace-nowrap">
+              Submit Manuscript
+            </Link>
+          </div>
         </article>
       </section>
     </div>

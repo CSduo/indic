@@ -5,7 +5,7 @@ interface DocumentMetadata {
   description?: string;
   canonicalPath?: string;
   image?: string | null;
-  type?: "website" | "article";
+  type?: "website" | "article" | "profile";
   structuredData?: Record<string, unknown> | null;
 }
 

@@ -84,8 +84,26 @@ export function getArticleStats(bodyHtmlOrText?: string, excerpt?: string) {
 export default function ArticlePage() {
   const [, articlesParams] = useRoute("/articles/:slug");
   const slug = articlesParams?.slug || "";
-  const [article, setArticle] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [article, setArticle] = useState<any>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const el = document.getElementById("__ANVIKSHIKI_DATA__");
+        if (el && el.textContent) {
+          const parsed = JSON.parse(el.textContent);
+          if (parsed && (parsed.slug === slug || !slug)) {
+            return parsed;
+          }
+        }
+        const cached = sessionStorage.getItem(`anv_article_${slug}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && parsed.title) return parsed;
+        }
+      } catch {}
+    }
+    return null;
+  });
+  const [loading, setLoading] = useState(() => !article);
   const [error, setError] = useState(false);
 
   // Voice note player states
@@ -154,20 +172,22 @@ export default function ArticlePage() {
     if (!slug) return;
     const controller = new AbortController();
 
-    // 0ms instant cache restore if previously visited
-    let hasCached = false;
-    try {
-      const cached = sessionStorage.getItem(`anv_article_${slug}`);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed && parsed.title) {
-          setArticle(parsed);
-          setLoading(false);
-          setError(false);
-          hasCached = true;
+    // 0ms instant cache restore if previously visited or SSR'd
+    let hasCached = Boolean(article && article.title);
+    if (!hasCached) {
+      try {
+        const cached = sessionStorage.getItem(`anv_article_${slug}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && parsed.title) {
+            setArticle(parsed);
+            setLoading(false);
+            setError(false);
+            hasCached = true;
+          }
         }
-      }
-    } catch {}
+      } catch {}
+    }
 
     if (!hasCached) {
       setLoading(true);
@@ -473,7 +493,13 @@ export default function ArticlePage() {
         <nav className="mb-6 flex items-center justify-center gap-2 font-ui text-xs font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]" aria-label="Breadcrumb">
           <Link href="/browse" className="inline-flex items-center gap-1 hover:text-[var(--ink)]"><ArrowLeft size={13} /> Journal</Link>
           <span>/</span>
-          <span className="text-[var(--ink)]">Essay</span>
+          {article.categorySlug ? (
+            <Link href={`/domains/${article.categorySlug}`} className="hover:text-[var(--ink)] capitalize">
+              {article.categoryName || article.categorySlug}
+            </Link>
+          ) : (
+            <span className="text-[var(--ink)]">Essay</span>
+          )}
         </nav>
 
         <div className="space-y-6">
@@ -490,7 +516,14 @@ export default function ArticlePage() {
 
           <OrnamentDivider variant="minimal" className="my-5 justify-center mx-auto" />
           <div className="flex flex-wrap items-center justify-center gap-4 font-ui text-xs uppercase tracking-[0.08em] text-[var(--ink-faint)]">
-            {article.authorName ? <span>By {article.authorName}</span> : null}
+            {article.authorName ? (
+              <Link
+                href={article.authorHandle ? `/authors/${article.authorHandle}` : `/authors/${article.authorId || encodeURIComponent(article.authorName)}`}
+                className="hover:underline font-semibold text-[var(--ink)] transition-colors"
+              >
+                By {article.authorName}
+              </Link>
+            ) : null}
             {article.publishedAt ? <span>{new Date(article.publishedAt).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })}</span> : null}
             {(() => {
               const stats = getArticleStats(article.body, article.excerpt);
@@ -624,37 +657,51 @@ export default function ArticlePage() {
           </div>
 
           {/* Author profile card at the end of the text */}
+          {/* Author profile card at the end of the text */}
           <div className="card-sacred p-6 mt-12 flex flex-col md:flex-row items-center gap-5" style={{ borderLeft: "3px solid var(--gold)" }}>
-            {article.authorId ? (
-              <Link href={`/profile/${article.authorId}`} className="h-14 w-14 rounded-full overflow-hidden bg-[var(--terracotta-pale)] flex items-center justify-center border border-[var(--border-gold)] shrink-0 cursor-pointer hover:opacity-80 transition-opacity">
-                {article.authorAvatarUrl ? (
-                  <img src={article.authorAvatarUrl} alt={article.authorName || "Author"} className="h-full w-full object-cover" />
-                ) : (
-                  <span className="font-display text-lg font-bold text-[var(--terracotta)]">
-                    {(article.authorName || "A").charAt(0).toUpperCase()}
-                  </span>
-                )}
-              </Link>
-            ) : (
-              <div className="h-14 w-14 rounded-full overflow-hidden bg-[var(--terracotta-pale)] flex items-center justify-center border border-[var(--border-gold)] shrink-0">
+            <Link
+              href={article.authorHandle ? `/authors/${article.authorHandle}` : `/authors/${article.authorId || encodeURIComponent(article.authorName || "scholar")}`}
+              className="h-14 w-14 rounded-full overflow-hidden bg-[var(--terracotta-pale)] flex items-center justify-center border border-[var(--border-gold)] shrink-0 cursor-pointer hover:opacity-80 transition-opacity ring-2 ring-[var(--border-gold)] ring-offset-2 ring-offset-[var(--bg)]"
+            >
+              {article.authorAvatarUrl ? (
+                <img src={article.authorAvatarUrl} alt={article.authorName || "Author"} className="h-full w-full object-cover" />
+              ) : (
                 <span className="font-display text-lg font-bold text-[var(--terracotta)]">
                   {(article.authorName || "A").charAt(0).toUpperCase()}
                 </span>
-              </div>
-            )}
-            <div className="text-center md:text-left space-y-1">
-              {article.authorId ? (
-                <Link href={`/profile/${article.authorId}`} className="font-ui text-sm font-bold text-[var(--gold-bright)] hover:underline cursor-pointer block">
-                  {article.authorName}
-                </Link>
-              ) : (
-                <h4 className="font-ui text-sm font-bold text-[var(--gold-bright)]">{article.authorName}</h4>
               )}
-              <p className="font-ui text-[10px] text-[var(--ink-faint)]">Contributor · Anvikshiki Journal</p>
+            </Link>
+            <div className="text-center md:text-left space-y-1 flex-1">
+              <Link
+                href={article.authorHandle ? `/authors/${article.authorHandle}` : `/authors/${article.authorId || encodeURIComponent(article.authorName || "scholar")}`}
+                className="font-ui text-base font-bold text-[var(--gold-bright)] hover:underline cursor-pointer block"
+              >
+                {article.authorName}
+              </Link>
+              <p className="font-ui text-[11px] text-[var(--ink-faint)]">Contributing Scholar · Ānvīkṣikī Journal</p>
               <p className="font-body text-xs text-[var(--ink-soft)] leading-relaxed mt-2">
                 {article.authorBio || "This contribution is part of Anvikshiki's ongoing dedication to independent civilizational dialogue, multidisciplinary analysis, and rigorous philosophical inquiry."}
               </p>
+              <div className="pt-2">
+                <Link
+                  href={article.authorHandle ? `/authors/${article.authorHandle}` : `/authors/${article.authorId || encodeURIComponent(article.authorName || "scholar")}`}
+                  className="inline-flex items-center gap-1.5 font-ui text-[11px] font-semibold text-[var(--terracotta)] hover:underline"
+                >
+                  View Author Profile &amp; Works &rarr;
+                </Link>
+              </div>
             </div>
+          </div>
+
+          {/* Contributor Callout */}
+          <div className="mt-8 p-5 rounded-lg border border-[var(--border-gold)] bg-[var(--surface-elevated)] flex flex-col sm:flex-row items-center justify-between gap-4 text-left">
+            <div className="space-y-1">
+              <p className="font-ui text-xs font-bold uppercase tracking-wider text-[var(--gold)]">Contribute Your Inquiry</p>
+              <p className="font-body text-xs text-[var(--ink-soft)]">Ānvīkṣikī welcomes monographs, philosophical papers, and translations from independent scholars.</p>
+            </div>
+            <Link href="/submit" className="btn-terracotta text-xs py-2 px-4 whitespace-nowrap">
+              Submit Manuscript
+            </Link>
           </div>
 
           <OrnamentDivider className="my-10" />

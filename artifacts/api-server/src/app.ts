@@ -585,22 +585,403 @@ export function sanitizeTemplateHead(html: string): string {
     .replace(/<script\s+type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gis, "");
 }
 
-export function injectSsrHtml(template: string, metaTags: string, ssrBody: string): string {
+export const SSR_CSS_STYLES = `<style id="anvikshiki-ssr-styles">
+  :root {
+    --ssr-bg: #faf7f2;
+    --ssr-ink: #1a1612;
+    --ssr-ink-soft: #4a433a;
+    --ssr-ink-faint: #8c8273;
+    --ssr-gold: #c9944a;
+    --ssr-border: #e8e0d2;
+    --ssr-surface: #fbf8f2;
+    --ssr-surface-alt: #f4eee3;
+  }
+  html.dark {
+    --ssr-bg: #0e0d0b;
+    --ssr-ink: #f5f0e8;
+    --ssr-ink-soft: #ded8ce;
+    --ssr-ink-faint: #a69e90;
+    --ssr-gold: #e8b066;
+    --ssr-border: #2b2721;
+    --ssr-surface: #171512;
+    --ssr-surface-alt: #1a1815;
+  }
+  body {
+    margin: 0;
+    background-color: var(--ssr-bg);
+    color: var(--ssr-ink);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .ssr-content {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 2.5rem 1.25rem;
+    box-sizing: border-box;
+  }
+  .ssr-domain-hub, .ssr-author-hub {
+    max-width: 1080px;
+  }
+  .ssr-breadcrumbs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0;
+    margin: 0 0 1.5rem 0;
+    list-style: none;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ssr-ink-faint);
+  }
+  .ssr-breadcrumbs a {
+    color: var(--ssr-ink-faint);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  .ssr-breadcrumbs a:hover {
+    color: var(--ssr-ink);
+    text-decoration: underline;
+  }
+  .ssr-breadcrumbs li:not(:last-child)::after {
+    content: "/";
+    margin-left: 0.5rem;
+    color: var(--ssr-border);
+  }
+  .ssr-badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    background: #eedfc8;
+    color: #8c5324;
+    text-decoration: none;
+  }
+  html.dark .ssr-badge {
+    background: #2a2218;
+    color: #e8b066;
+  }
+  .ssr-title {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: clamp(2.1rem, 4.5vw, 3.5rem);
+    line-height: 1.12;
+    font-weight: 700;
+    color: var(--ssr-ink);
+    margin: 0.75rem 0;
+  }
+  .ssr-subtitle {
+    font-size: 1.25rem;
+    line-height: 1.4;
+    font-style: italic;
+    color: var(--ssr-ink-soft);
+    margin: 0 0 1.5rem 0;
+  }
+  .ssr-byline-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ssr-ink-faint);
+    border-top: 1px solid var(--ssr-border);
+    border-bottom: 1px solid var(--ssr-border);
+    padding: 0.85rem 0;
+    margin: 1.75rem 0;
+  }
+  .ssr-author-link {
+    color: var(--ssr-ink);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .ssr-author-link:hover {
+    text-decoration: underline;
+  }
+  .ssr-hero-figure {
+    margin: 2rem 0;
+    text-align: center;
+  }
+  .ssr-hero-figure img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    border: 1px solid var(--ssr-border);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+  }
+  .ssr-hero-figure figcaption {
+    font-size: 0.8rem;
+    color: var(--ssr-ink-faint);
+    margin-top: 0.5rem;
+    font-style: italic;
+  }
+  .ssr-abstract-box {
+    background: var(--ssr-surface-alt);
+    border-left: 4px solid var(--ssr-gold);
+    padding: 1.25rem 1.5rem;
+    border-radius: 4px;
+    margin: 2rem 0;
+    text-align: left;
+  }
+  .ssr-section-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--ssr-gold);
+    margin: 0 0 0.5rem 0;
+  }
+  .ssr-abstract-text {
+    font-style: italic;
+    font-size: 1.05rem;
+    line-height: 1.6;
+    color: var(--ssr-ink-soft);
+    margin: 0;
+  }
+  .ssr-body {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 1.25rem;
+    line-height: 1.85;
+    color: var(--ssr-ink);
+    margin: 2.5rem 0;
+  }
+  .ssr-body p {
+    margin-bottom: 1.75rem;
+  }
+  .ssr-body h2, .ssr-body h3, .ssr-body h4 {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-weight: 700;
+    color: var(--ssr-ink);
+    margin-top: 2.25rem;
+    margin-bottom: 1rem;
+    line-height: 1.25;
+  }
+  .ssr-body blockquote {
+    border-left: 3px solid var(--ssr-gold);
+    padding-left: 1.25rem;
+    margin: 1.75rem 0;
+    font-style: italic;
+    color: var(--ssr-ink-soft);
+  }
+  .ssr-tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0;
+    list-style: none;
+    margin: 1rem 0;
+  }
+  .ssr-tag-list a {
+    display: inline-block;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    border: 1px solid var(--ssr-border);
+    color: var(--ssr-ink-soft);
+    text-decoration: none;
+    background: var(--ssr-surface);
+  }
+  .ssr-author-bio-card {
+    background: var(--ssr-surface);
+    border: 1px solid var(--ssr-border);
+    border-left: 4px solid var(--ssr-gold);
+    padding: 1.5rem;
+    border-radius: 6px;
+    margin: 2.5rem 0;
+    text-align: left;
+  }
+  .ssr-author-bio-card h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
+    color: var(--ssr-ink);
+  }
+  .ssr-author-bio-card p {
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--ssr-ink-soft);
+  }
+  .ssr-citation-note {
+    background: var(--ssr-surface);
+    border: 1px dashed var(--ssr-border);
+    padding: 1rem 1.25rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: var(--ssr-ink-faint);
+    margin: 1.5rem 0;
+    word-break: break-all;
+    text-align: left;
+  }
+  .ssr-contributor-cta {
+    background: var(--ssr-surface-alt);
+    border: 1px solid var(--ssr-border);
+    padding: 1.25rem 1.5rem;
+    border-radius: 6px;
+    margin: 2rem 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    text-align: left;
+  }
+  .ssr-contributor-cta a {
+    display: inline-block;
+    background: #8c5324;
+    color: #ffffff;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .ssr-author-header {
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+    background: var(--ssr-surface);
+    border: 1px solid var(--ssr-border);
+    padding: 2rem;
+    border-radius: 8px;
+    margin-bottom: 2.5rem;
+    flex-wrap: wrap;
+  }
+  .ssr-avatar-container {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid var(--ssr-gold);
+    box-shadow: 0 0 0 4px var(--ssr-bg);
+    flex-shrink: 0;
+  }
+  .ssr-author-avatar {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .ssr-author-avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    background: #eedfc8;
+    color: #8c5324;
+    font-weight: 700;
+    font-size: 2rem;
+    display: grid;
+    place-items: center;
+  }
+  .ssr-author-details {
+    flex: 1;
+    min-width: 260px;
+    text-align: left;
+  }
+  .ssr-handle {
+    font-size: 0.85rem;
+    color: var(--ssr-ink-faint);
+    margin: -0.25rem 0 0.5rem 0;
+  }
+  .ssr-institution, .ssr-location {
+    font-size: 0.9rem;
+    color: var(--ssr-ink-soft);
+    margin: 0.25rem 0;
+  }
+  .ssr-author-counts {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+  }
+  .ssr-count-badge {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.65rem;
+    border-radius: 4px;
+    background: var(--ssr-surface-alt);
+    border: 1px solid var(--ssr-border);
+    color: var(--ssr-ink-soft);
+  }
+  .ssr-work-list {
+    list-style: none;
+    padding: 0;
+    margin: 1.5rem 0;
+    display: grid;
+    gap: 1.25rem;
+  }
+  .ssr-work-item {
+    background: var(--ssr-surface);
+    border: 1px solid var(--ssr-border);
+    border-radius: 6px;
+    padding: 1.25rem 1.5rem;
+    text-align: left;
+    transition: border-color 0.15s;
+  }
+  .ssr-work-item h3, .ssr-work-item h4 {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 1.35rem;
+    margin: 0 0 0.5rem 0;
+    line-height: 1.25;
+  }
+  .ssr-work-item a {
+    color: var(--ssr-ink);
+    text-decoration: none;
+  }
+  .ssr-work-item a:hover {
+    color: var(--ssr-gold);
+    text-decoration: underline;
+  }
+  .ssr-work-excerpt {
+    font-size: 0.9rem;
+    color: var(--ssr-ink-soft);
+    line-height: 1.6;
+    margin: 0.5rem 0;
+  }
+  .ssr-work-meta {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ssr-ink-faint);
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.75rem;
+  }
+  .ssr-columns-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 2rem;
+    margin-top: 1.5rem;
+  }
+</style>`;
+
+export function injectSsrHtml(template: string, metaTags: string, ssrBody: string, initialData?: unknown): string {
   const cleanTemplate = sanitizeTemplateHead(template);
-  const withMeta = cleanTemplate.replace(/<\/head>/i, `${metaTags}\n</head>`);
+  const dataScript = initialData !== undefined
+    ? `\n<script id="__ANVIKSHIKI_DATA__" type="application/json">${JSON.stringify(initialData).replace(/</g, "\\u003c")}</script>`
+    : "";
+  const withMeta = cleanTemplate.replace(/<\/head>/i, `${SSR_CSS_STYLES}\n${metaTags}${dataScript}\n</head>`);
   if (withMeta.includes('<div id="root"></div>')) {
     return withMeta.replace('<div id="root"></div>', `<div id="root">${ssrBody}</div>`);
   }
   return withMeta.replace(/<div id=["']root["']>[\s\S]*?<\/div>/i, `<div id="root">${ssrBody}</div>`);
 }
 
-export function buildFallbackHtml(metaTags: string, ssrBody: string): string {
+export function buildFallbackHtml(metaTags: string, ssrBody: string, initialData?: unknown): string {
+  const dataScript = initialData !== undefined
+    ? `\n<script id="__ANVIKSHIKI_DATA__" type="application/json">${JSON.stringify(initialData).replace(/</g, "\\u003c")}</script>`
+    : "";
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    ${SSR_CSS_STYLES}
     ${metaTags}
+    ${dataScript}
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
@@ -1367,8 +1748,8 @@ ${JSON.stringify(breadcrumbJsonLd, null, 2)}
 
     const template = getHtmlTemplate();
     const finalHtml = template
-      ? injectSsrHtml(template, ogTags, ssrHtml)
-      : buildFallbackHtml(ogTags, ssrHtml);
+      ? injectSsrHtml(template, ogTags, ssrHtml, item)
+      : buildFallbackHtml(ogTags, ssrHtml, item);
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
@@ -1504,8 +1885,8 @@ ${JSON.stringify(authorProfilePageJsonLd, null, 2)}
     const ssrHtml = generateAuthorHubSsrHtml(authorData, authorArticles, authorPapers);
     const template = getHtmlTemplate();
     const finalHtml = template
-      ? injectSsrHtml(template, ogTags, ssrHtml)
-      : buildFallbackHtml(ogTags, ssrHtml);
+      ? injectSsrHtml(template, ogTags, ssrHtml, authorData)
+      : buildFallbackHtml(ogTags, ssrHtml, authorData);
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
@@ -1614,8 +1995,8 @@ ${JSON.stringify(domainCollectionJsonLd, null, 2)}
     const ssrHtml = generateDomainHubSsrHtml(category, domainArticles, domainPapers);
     const template = getHtmlTemplate();
     const finalHtml = template
-      ? injectSsrHtml(template, ogTags, ssrHtml)
-      : buildFallbackHtml(ogTags, ssrHtml);
+      ? injectSsrHtml(template, ogTags, ssrHtml, category)
+      : buildFallbackHtml(ogTags, ssrHtml, category);
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
