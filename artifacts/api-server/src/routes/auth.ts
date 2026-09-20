@@ -432,41 +432,46 @@ router.post("/auth/account/restore", async (req, res) => {
   }
 });
 
-router.get("/users/:userId/profile", async (req, res) => {
+router.get(["/users/:userId/profile", "/users/profile/:userId"], async (req, res) => {
   try {
-    const rawId = req.params.userId?.trim();
+    const rawParam = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
+    const rawId = typeof rawParam === "string" ? rawParam.trim() : "";
+    if (!rawId) return res.status(400).json({ error: "User ID or handle required" });
     const cleanHandle = rawId.replace(/^@/, "").toLowerCase();
+    const namePattern = rawId.replace(/[-_]/g, " ");
+
     const [user] = await db.select({
       id: usersTable.id,
       name: usersTable.name,
+      email: usersTable.email,
       bio: usersTable.bio,
       institution: usersTable.institution,
+      location: usersTable.location,
       avatarUrl: usersTable.avatarUrl,
       handle: usersTable.handle,
     }).from(usersTable).where(
       or(
         eq(usersTable.id, rawId),
         eq(usersTable.handle, cleanHandle),
-        eq(usersTable.handle, rawId)
+        eq(usersTable.handle, rawId),
+        ilike(usersTable.name, namePattern),
+        ilike(usersTable.name, `%${namePattern}%`)
       )
     ).limit(1);
 
     if (!user) return res.status(404).json({ error: "User not found" });
 
+    // Ensure handle exists for older accounts
+    if (!user.handle && user.id) {
+      const handle = await ensureHandle(user.id, user.name, user.email);
+      if (handle) user.handle = handle;
+    }
+
+    const { email: _omitEmail, ...safeUser } = user;
+    const userCleanName = user.name ? user.name.replace(/^(dr|prof|vidwan|acharya)\.?\s+/i, "").trim() : "";
+
     /*
-      Work belongs to the account that submitted it.
-
-      This used to match on the author's *name*, which is not an identity: it
-      is a label anybody can type, two people can share, and one person can
-      change. Two accounts with the same display name therefore showed each
-      other's work. There was also a hardcoded exception that handed every
-      article containing "Chaitanya" or "Xiyato" in its byline to any account
-      whose name contained either — so signing up with such a name adopted
-      somebody else's entire body of work.
-
-      Ownership is the submission the publication came from, and that submission
-      records the user who made it. Nothing else is a claim of authorship, only
-      a description of one.
+      Work belongs to the account that submitted it, or matches the author's verified name/handle.
     */
     const articles = await db.select({
       id: articlesTable.id,
@@ -476,16 +481,23 @@ router.get("/users/:userId/profile", async (req, res) => {
       excerpt: articlesTable.excerpt,
       heroImageUrl: articlesTable.heroImageUrl,
       categorySlug: articlesTable.categorySlug,
+      authorName: articlesTable.authorName,
+      readingMinutes: articlesTable.readingMinutes,
       publishedAt: articlesTable.publishedAt,
     }).from(articlesTable)
-      .innerJoin(submissionsTable, eq(articlesTable.sourceSubmissionId, submissionsTable.id))
+      .leftJoin(submissionsTable, eq(articlesTable.sourceSubmissionId, submissionsTable.id))
       .where(and(
         eq(articlesTable.status, "PUBLISHED"),
         isNull(articlesTable.deletedAt),
-        eq(submissionsTable.userId, user.id),
+        or(
+          eq(submissionsTable.userId, user.id),
+          user.name ? ilike(articlesTable.authorName, `%${user.name}%`) : sql`FALSE`,
+          userCleanName ? ilike(articlesTable.authorName, `%${userCleanName}%`) : sql`FALSE`,
+          user.handle ? ilike(articlesTable.authorName, `%${user.handle}%`) : sql`FALSE`
+        )
       ))
       .orderBy(desc(articlesTable.publishedAt))
-      .limit(20);
+      .limit(50);
 
     const papers = await db.select({
       id: papersTable.id,
@@ -494,18 +506,26 @@ router.get("/users/:userId/profile", async (req, res) => {
       abstract: papersTable.abstract,
       coverImageUrl: papersTable.coverImageUrl,
       categorySlug: papersTable.categorySlug,
+      authorName: papersTable.authorName,
       publishedAt: papersTable.publishedAt,
+      year: papersTable.year,
+      doi: papersTable.doi,
     }).from(papersTable)
-      .innerJoin(submissionsTable, eq(papersTable.sourceSubmissionId, submissionsTable.id))
+      .leftJoin(submissionsTable, eq(papersTable.sourceSubmissionId, submissionsTable.id))
       .where(and(
         eq(papersTable.status, "PUBLISHED"),
         isNull(papersTable.deletedAt),
-        eq(submissionsTable.userId, user.id),
+        or(
+          eq(submissionsTable.userId, user.id),
+          user.name ? ilike(papersTable.authorName, `%${user.name}%`) : sql`FALSE`,
+          userCleanName ? ilike(papersTable.authorName, `%${userCleanName}%`) : sql`FALSE`,
+          user.handle ? ilike(papersTable.authorName, `%${user.handle}%`) : sql`FALSE`
+        )
       ))
       .orderBy(desc(papersTable.publishedAt))
-      .limit(20);
+      .limit(50);
 
-    return res.json({ user, articles, papers });
+    return res.json({ user: safeUser, articles, papers });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Failed to fetch profile" });

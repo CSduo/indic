@@ -1,4 +1,4 @@
-﻿import { Router, type IRouter } from "express";
+import { Router, type IRouter } from "express";
 import authRouter from "./auth";
 import articlesRouter from "./articles";
 import papersRouter from "./papers";
@@ -23,6 +23,7 @@ import pushRouter from "./push";
 import messagesRouter from "./messages";
 import communityRouter from "./community";
 import viewsRouter from "./views";
+import indexnowRouter from "./indexnow";
 
 const router: IRouter = Router();
 
@@ -50,5 +51,6 @@ router.use(pushRouter);
 router.use(messagesRouter);
 router.use(communityRouter);
 router.use(viewsRouter);
+router.use(indexnowRouter);
 
 export default router;

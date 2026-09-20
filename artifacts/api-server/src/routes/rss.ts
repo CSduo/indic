@@ -5,7 +5,7 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 
 const router = Router();
 
-router.get("/rss", async (req, res) => {
+router.get(["/rss", "/rss.xml", "/feed"], async (req, res) => {
   try {
     const limit = 50;
     const [articles, papers] = await Promise.all([

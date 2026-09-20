@@ -1,8 +1,8 @@
-﻿import { Router } from "express";
+import { Router } from "express";
 import { db, withDbRetry } from "@workspace/db";
 import { articlesTable, categoriesTable, submissionsTable, usersTable } from "@workspace/db";
 import { eq, and, desc, ilike, inArray, or, sql, isNull } from "drizzle-orm";
-import { categorySlugCandidates, normalizeCategorySlug, syncSubmissionFromPublication } from "../lib/publication-sync";
+import { categorySlugCandidates, normalizeCategorySlug, slugify, syncSubmissionFromPublication } from "../lib/publication-sync";
 import { ownsAuthoredWork, resolveViewer } from "../lib/viewer";
 import { countUnresolvedArticleImages, sanitizeArticleBody, MAX_BODY_CHARS } from "../lib/content";
 import { recoverLegacyInlineImages } from "../lib/legacy-content";
@@ -52,6 +52,8 @@ router.get("/articles", async (req, res) => {
       readingMinutes: articlesTable.readingMinutes,
       publishedAt: articlesTable.publishedAt,
       updatedAt: articlesTable.updatedAt,
+      authorId: submissionsTable.userId,
+      authorHandle: usersTable.handle,
       category: categoriesTable,
     };
 
@@ -66,6 +68,8 @@ router.get("/articles", async (req, res) => {
         .select(selectFields)
         .from(articlesTable)
         .leftJoin(categoriesTable, eq(articlesTable.categorySlug, categoriesTable.slug))
+        .leftJoin(submissionsTable, eq(articlesTable.sourceSubmissionId, submissionsTable.id))
+        .leftJoin(usersTable, eq(submissionsTable.userId, usersTable.id))
         .where(and(...conditions))
         .orderBy(desc(articlesTable.publishedAt), desc(articlesTable.id))
         .limit(limit).offset(offset),
@@ -106,6 +110,8 @@ router.get("/articles", async (req, res) => {
         heroImageUrl: r.heroImageUrl,
         categorySlug: r.categorySlug,
         authorName: r.authorName,
+        authorId: r.authorId || null,
+        authorHandle: r.authorHandle || null,
         featured: r.featured,
         status: r.status,
         readingMinutes: calcMinutes,
@@ -161,6 +167,7 @@ router.get("/articles/:slug", async (req, res) => {
           status: articlesTable.status,
           featured: articlesTable.featured,
           publishedAt: articlesTable.publishedAt,
+          sourceSubmissionId: articlesTable.sourceSubmissionId,
           createdAt: articlesTable.createdAt,
           updatedAt: articlesTable.updatedAt,
         },
@@ -192,17 +199,51 @@ router.get("/articles/:slug", async (req, res) => {
     const lines = Math.max(blockLines.length, words > 0 ? Math.ceil(words / 13) : 0);
     const calcMinutes = words > 0 ? (words < 100 ? 1 : Math.max(1, Math.ceil(words / 200))) : (row.article.readingMinutes || 1);
 
-    const [authorUser] = await db.select({
-      id: usersTable.id,
-      name: usersTable.name,
-      avatarUrl: usersTable.avatarUrl,
-      bio: usersTable.bio,
-    }).from(usersTable).where(
-      or(
-        eq(usersTable.role, "ADMIN"),
-        ilike(usersTable.name, row.article.authorName || "%")
-      )
-    ).limit(1);
+    // Resolve author user via source submission or author name
+    let authorUser: any = null;
+    if (row.article.sourceSubmissionId) {
+      const [submission] = await db
+        .select({ userId: submissionsTable.userId })
+        .from(submissionsTable)
+        .where(eq(submissionsTable.id, row.article.sourceSubmissionId))
+        .limit(1);
+      if (submission?.userId) {
+        [authorUser] = await db
+          .select({
+            id: usersTable.id,
+            name: usersTable.name,
+            handle: usersTable.handle,
+            avatarUrl: usersTable.avatarUrl,
+            bio: usersTable.bio,
+          })
+          .from(usersTable)
+          .where(eq(usersTable.id, submission.userId))
+          .limit(1);
+      }
+    }
+
+    if (!authorUser && row.article.authorName) {
+      const authorClean = row.article.authorName.trim();
+      const strippedName = authorClean.replace(/^(dr|prof|vidwan|acharya)\.?\s+/i, "").trim();
+      [authorUser] = await db
+        .select({
+          id: usersTable.id,
+          name: usersTable.name,
+          handle: usersTable.handle,
+          avatarUrl: usersTable.avatarUrl,
+          bio: usersTable.bio,
+        })
+        .from(usersTable)
+        .where(
+          or(
+            ilike(usersTable.name, authorClean),
+            ilike(usersTable.name, strippedName),
+            eq(usersTable.handle, slugify(authorClean)),
+            eq(usersTable.handle, slugify(strippedName))
+          )
+        )
+        .limit(1);
+    }
 
     return res.json({
       article: {
@@ -210,7 +251,8 @@ router.get("/articles/:slug", async (req, res) => {
         readingMinutes: calcMinutes,
         wordCount: words,
         lineCount: lines,
-        authorId: authorUser ? authorUser.id : "f6200aac-6489-49df-94d8-301aa3539557",
+        authorId: authorUser?.id || null,
+        authorHandle: authorUser?.handle || null,
         authorAvatarUrl: authorUser?.avatarUrl || null,
         authorBio: authorUser?.bio || null,
         body: sanitizeArticleBody(recoverLegacyInlineImages(row.article.slug, row.article.body)),

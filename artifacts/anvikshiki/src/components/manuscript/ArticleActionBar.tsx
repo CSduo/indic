@@ -11,9 +11,10 @@ type ArticleActionBarProps = {
   downloadUrl?: string | null;
   className?: string;
   vertical?: boolean;
+  onCiteClick?: () => void;
 };
 
-export function ArticleActionBar({ articleId, title, downloadUrl, className, vertical = false }: ArticleActionBarProps) {
+export function ArticleActionBar({ articleId, title, downloadUrl, className, vertical = false, onCiteClick }: ArticleActionBarProps) {
   const { user } = useAuthContext();
   const [isSaved, setIsSaved] = useState(false);
   const [savedItemId, setSavedItemId] = useState<string | null>(null);
@@ -98,10 +99,14 @@ export function ArticleActionBar({ articleId, title, downloadUrl, className, ver
   };
 
   const cite = async () => {
-    const citation = `${title}. Anvikshiki Journal & Research Platform. ${window.location.href}`;
+    if (onCiteClick) {
+      onCiteClick();
+      return;
+    }
+    const citation = `"${title}." Ānvīkṣikī: An Open Journal of Indic Philosophy & Intellectual Traditions. ${window.location.href}`;
     try {
       await navigator.clipboard.writeText(citation);
-      toast.success("Citation copied");
+      toast.success("Citation copied to clipboard");
     } catch {
       toast.error("Could not copy citation");
     }

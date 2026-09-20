@@ -25,7 +25,7 @@ router.get("/sitemap.xml", async (req, res) => {
 
     const baseUrl = 'https://anvikshikijournal.in';
     const staticPages = [
-      '', '/about', '/contact', '/privacy', '/terms',
+      '', '/about', '/about/anvikshiki', '/contact', '/privacy', '/terms',
       '/browse', '/domains', '/archive', '/papers',
       '/community', '/submit',
     ];

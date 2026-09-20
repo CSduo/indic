@@ -52,7 +52,11 @@ interface AuthorData {
 
 export default function AuthorHubPage() {
   const [, params] = useRoute("/authors/:slug");
-  const slug = (params?.slug || "").trim();
+  let rawSlug = (params?.slug || "").trim();
+  try {
+    rawSlug = decodeURIComponent(rawSlug);
+  } catch {}
+  const slug = rawSlug;
 
   // Try reading pre-hydrated SSR data if available
   const [author, setAuthor] = useState<AuthorData | null>(() => {
@@ -87,33 +91,61 @@ export default function AuthorHubPage() {
         setError(false);
 
         // 1. Fetch user/author metadata
-        const userRes = await fetch(`${base()}/api/users/profile/${encodeURIComponent(slug)}`, {
+        let resolvedUser: AuthorData | null = null;
+        let profileArticles: any[] = [];
+        let profilePapers: any[] = [];
+
+        // Support both routes: /api/users/:userId/profile and /api/users/profile/:userId
+        const userRes = await fetch(`${base()}/api/users/${encodeURIComponent(slug)}/profile`, {
           signal: controller.signal,
           credentials: "include",
         }).catch(() => null);
 
-        let resolvedUser: AuthorData | null = null;
         if (userRes && userRes.ok) {
           const u = await userRes.json();
-          resolvedUser = u.user || u;
+          resolvedUser = u.user || null;
+          if (Array.isArray(u.articles)) profileArticles = u.articles;
+          if (Array.isArray(u.papers)) profilePapers = u.papers;
+        } else {
+          const userResAlt = await fetch(`${base()}/api/users/profile/${encodeURIComponent(slug)}`, {
+            signal: controller.signal,
+            credentials: "include",
+          }).catch(() => null);
+          if (userResAlt && userResAlt.ok) {
+            const u = await userResAlt.json();
+            resolvedUser = u.user || null;
+            if (Array.isArray(u.articles)) profileArticles = u.articles;
+            if (Array.isArray(u.papers)) profilePapers = u.papers;
+          }
         }
 
         // 2. Fetch publications associated with this scholar
         const [artsRes, papersRes] = await Promise.all([
-          fetch(`${base()}/api/articles?limit=50`, { signal: controller.signal }).then(r => r.ok ? r.json() : { articles: [] }),
-          fetch(`${base()}/api/papers?limit=50`, { signal: controller.signal }).then(r => r.ok ? r.json() : { papers: [] }),
+          fetch(`${base()}/api/articles?limit=100`, { signal: controller.signal }).then(r => r.ok ? r.json() : { articles: [] }),
+          fetch(`${base()}/api/papers?limit=100`, { signal: controller.signal }).then(r => r.ok ? r.json() : { papers: [] }),
         ]);
 
         const rawArticles = artsRes.articles || [];
         const rawPapers = papersRes.papers || [];
 
-        // Filter publications matching this author by handle, id, or name
-        const authorArticles: AuthorPublication[] = rawArticles
-          .filter((a: any) => {
-            if (resolvedUser?.id && a.authorId === resolvedUser.id) return true;
-            const cleanAuthor = String(a.authorName || "").toLowerCase().replace(/^(dr|prof|vidwan|acharya)\.?\s+/i, "").replace(/[^a-z0-9]/g, "-");
-            return cleanAuthor.includes(slug.toLowerCase()) || slug.toLowerCase().includes(cleanAuthor);
-          })
+        const cleanSlug = slug.toLowerCase().replace(/^@/, "").replace(/\/+$/, "");
+        const userHandle = (resolvedUser?.handle || "").toLowerCase().replace(/^@/, "");
+        const userId = resolvedUser?.id || "";
+        const userNameClean = (resolvedUser?.name || "").toLowerCase().replace(/^(dr|prof|vidwan|acharya)\.?\s+/i, "").trim();
+        const userNameSlug = userNameClean ? userNameClean.replace(/[^a-z0-9]/g, "-") : "";
+
+        const matchesAuthor = (item: any) => {
+          if (userId && item.authorId === userId) return true;
+          if (userHandle && item.authorHandle && item.authorHandle.toLowerCase().replace(/^@/, "") === userHandle) return true;
+          const cleanItemAuthor = String(item.authorName || "").toLowerCase().replace(/^(dr|prof|vidwan|acharya)\.?\s+/i, "").replace(/[^a-z0-9]/g, "-");
+          if (cleanSlug && (cleanItemAuthor === cleanSlug || cleanItemAuthor.includes(cleanSlug) || cleanSlug.includes(cleanItemAuthor))) return true;
+          if (userHandle && (cleanItemAuthor === userHandle || cleanItemAuthor.includes(userHandle) || userHandle.includes(cleanItemAuthor))) return true;
+          if (userNameSlug && (cleanItemAuthor === userNameSlug || cleanItemAuthor.includes(userNameSlug) || userNameSlug.includes(cleanItemAuthor))) return true;
+          return false;
+        };
+
+        const mappedArticlesFromList: AuthorPublication[] = rawArticles
+          .filter(matchesAuthor)
           .map((a: any) => ({
             id: a.id,
             kind: "article",
@@ -126,12 +158,25 @@ export default function AuthorHubPage() {
             readingMinutes: a.readingMinutes,
           }));
 
-        const authorPapers: AuthorPublication[] = rawPapers
-          .filter((p: any) => {
-            if (resolvedUser?.id && p.authorId === resolvedUser.id) return true;
-            const cleanAuthor = String(p.authorName || "").toLowerCase().replace(/^(dr|prof|vidwan|acharya)\.?\s+/i, "").replace(/[^a-z0-9]/g, "-");
-            return cleanAuthor.includes(slug.toLowerCase()) || slug.toLowerCase().includes(cleanAuthor);
-          })
+        const mappedArticlesFromProfile: AuthorPublication[] = profileArticles.map((a: any) => ({
+          id: a.id,
+          kind: "article",
+          slug: a.slug,
+          title: a.title,
+          excerpt: a.excerpt || a.subtitle,
+          authorName: a.authorName,
+          categorySlug: a.categorySlug,
+          publishedAt: a.publishedAt || a.createdAt,
+          readingMinutes: a.readingMinutes,
+        }));
+
+        const combinedArticlesMap = new Map<string, AuthorPublication>();
+        for (const a of mappedArticlesFromProfile) combinedArticlesMap.set(a.id, a);
+        for (const a of mappedArticlesFromList) combinedArticlesMap.set(a.id, a);
+        const authorArticles = Array.from(combinedArticlesMap.values());
+
+        const mappedPapersFromList: AuthorPublication[] = rawPapers
+          .filter(matchesAuthor)
           .map((p: any) => ({
             id: p.id,
             kind: "paper",
@@ -145,17 +190,46 @@ export default function AuthorHubPage() {
             doi: p.doi,
           }));
 
+        const mappedPapersFromProfile: AuthorPublication[] = profilePapers.map((p: any) => ({
+          id: p.id,
+          kind: "paper",
+          slug: p.slug,
+          title: p.title,
+          abstract: p.abstract,
+          authorName: p.authorName,
+          categorySlug: p.categorySlug,
+          publishedAt: p.publishedAt || p.createdAt,
+          year: p.year,
+          doi: p.doi,
+        }));
+
+        const combinedPapersMap = new Map<string, AuthorPublication>();
+        for (const p of mappedPapersFromProfile) combinedPapersMap.set(p.id, p);
+        for (const p of mappedPapersFromList) combinedPapersMap.set(p.id, p);
+        const authorPapers = Array.from(combinedPapersMap.values());
+
         if (!resolvedUser && authorArticles.length === 0 && authorPapers.length === 0) {
           setError(true);
           setLoading(false);
           return;
         }
 
+        // If author has a handle, update the URL seamlessly if accessed via UUID or @handle
+        if (resolvedUser?.handle && (slug === resolvedUser.id || slug.startsWith("@")) && typeof window !== "undefined") {
+          window.history.replaceState(null, "", `/authors/${encodeURIComponent(resolvedUser.handle)}`);
+        }
+
         const fallbackName = authorArticles[0]?.authorName || authorPapers[0]?.authorName || slug.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-        const finalAuthor: AuthorData = resolvedUser || {
-          name: fallbackName,
-          handle: slug,
-          bio: `${fallbackName} is a contributing scholar and researcher on Ānvīkṣikī Journal.`,
+        const finalAuthor: AuthorData = {
+          id: resolvedUser?.id,
+          name: resolvedUser?.name || fallbackName,
+          handle: resolvedUser?.handle || slug,
+          bio: resolvedUser?.bio || `${resolvedUser?.name || fallbackName} is a contributing scholar and researcher on Ānvīkṣikī Journal.`,
+          institution: resolvedUser?.institution,
+          location: resolvedUser?.location,
+          avatarUrl: resolvedUser?.avatarUrl,
+          website: resolvedUser?.website,
+          orcid: resolvedUser?.orcid,
           articleCount: authorArticles.length,
           paperCount: authorPapers.length,
         };
@@ -181,7 +255,7 @@ export default function AuthorHubPage() {
   useDocumentMetadata({
     title: authorName ? `${authorName} — Author Profile — Ānvīkṣikī` : undefined,
     description: authorBio.slice(0, 200),
-    canonicalPath: `/authors/${encodeURIComponent(slug)}`,
+    canonicalPath: `/authors/${encodeURIComponent(author?.handle || slug)}`,
     image: author?.avatarUrl || null,
     type: "profile",
     structuredData: author ? {

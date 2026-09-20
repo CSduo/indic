@@ -1,8 +1,8 @@
-﻿import { Router } from "express";
+import { Router } from "express";
 import { db, withDbRetry } from "@workspace/db";
 import { papersTable, categoriesTable, submissionsTable, usersTable } from "@workspace/db";
 import { eq, and, desc, ilike, inArray, or, sql, isNull } from "drizzle-orm";
-import { categorySlugCandidates, normalizeCategorySlug, syncSubmissionFromPublication } from "../lib/publication-sync";
+import { categorySlugCandidates, normalizeCategorySlug, slugify, syncSubmissionFromPublication } from "../lib/publication-sync";
 import { ownsAuthoredWork, resolveViewer } from "../lib/viewer";
 import { countUnresolvedArticleImages, sanitizeArticleBody, MAX_BODY_CHARS } from "../lib/content";
 import { parsePagination, toLikePattern, PUBLIC_CONTENT_CACHE_CONTROL } from "../lib/request";
@@ -51,10 +51,14 @@ router.get("/papers", async (req, res) => {
         publishedAt: papersTable.publishedAt,
         updatedAt: papersTable.updatedAt,
         pdfUrl: papersTable.pdfUrl,
+        authorId: submissionsTable.userId,
+        authorHandle: usersTable.handle,
         category: categoriesTable,
       })
       .from(papersTable)
       .leftJoin(categoriesTable, eq(papersTable.categorySlug, categoriesTable.slug))
+      .leftJoin(submissionsTable, eq(papersTable.sourceSubmissionId, submissionsTable.id))
+      .leftJoin(usersTable, eq(submissionsTable.userId, usersTable.id))
       .where(and(...conditions))
       .orderBy(desc(papersTable.publishedAt), desc(papersTable.id))
       .limit(limit).offset(offset));
@@ -81,7 +85,7 @@ router.get("/papers", async (req, res) => {
 
       const words = rawContent ? rawContent.split(/\s+/).filter(Boolean).length : 0;
       const blockLines = (r.body || r.abstract || "")
-        .split(/\r?\n|<br\s*\/?>|<\/p>|<\/div>|<\/li>|<\/h[1-6]>/i)
+        .split(/\r?\n|<br\s*\/?>|<\/p>|<\/div>|<\/li>/i)
         .map((l: string) => l.replace(/<[^>]*>/g, "").trim())
         .filter(Boolean);
       const lines = Math.max(blockLines.length, words > 0 ? Math.ceil(words / 13) : 0);
@@ -95,8 +99,9 @@ router.get("/papers", async (req, res) => {
         coverImageUrl: r.coverImageUrl,
         categorySlug: r.categorySlug,
         authorName: r.authorName,
+        authorId: r.authorId || null,
+        authorHandle: r.authorHandle || null,
         peerReviewed: r.peerReviewed,
-        status: r.status,
         readingMinutes: calcMinutes,
         wordCount: words,
         lineCount: lines,
@@ -138,6 +143,7 @@ router.get("/papers/:slug", async (req, res) => {
           paperType: papersTable.paperType,
           status: papersTable.status,
           publishedAt: papersTable.publishedAt,
+          sourceSubmissionId: papersTable.sourceSubmissionId,
           deletedAt: papersTable.deletedAt,
           createdAt: papersTable.createdAt,
           updatedAt: papersTable.updatedAt,
@@ -151,9 +157,59 @@ router.get("/papers/:slug", async (req, res) => {
 
     if (!row) return res.status(404).json({ error: "Paper not found" });
 
+    // Resolve author user via source submission or author name
+    let authorUser: any = null;
+    if (row.paper.sourceSubmissionId) {
+      const [submission] = await db
+        .select({ userId: submissionsTable.userId })
+        .from(submissionsTable)
+        .where(eq(submissionsTable.id, row.paper.sourceSubmissionId))
+        .limit(1);
+      if (submission?.userId) {
+        [authorUser] = await db
+          .select({
+            id: usersTable.id,
+            name: usersTable.name,
+            handle: usersTable.handle,
+            avatarUrl: usersTable.avatarUrl,
+            bio: usersTable.bio,
+          })
+          .from(usersTable)
+          .where(eq(usersTable.id, submission.userId))
+          .limit(1);
+      }
+    }
+
+    if (!authorUser && row.paper.authorName) {
+      const authorClean = row.paper.authorName.trim().split(/,\s*/)[0];
+      const strippedName = authorClean.replace(/^(dr|prof|vidwan|acharya)\.?\s+/i, "").trim();
+      [authorUser] = await db
+        .select({
+          id: usersTable.id,
+          name: usersTable.name,
+          handle: usersTable.handle,
+          avatarUrl: usersTable.avatarUrl,
+          bio: usersTable.bio,
+        })
+        .from(usersTable)
+        .where(
+          or(
+            ilike(usersTable.name, authorClean),
+            ilike(usersTable.name, strippedName),
+            eq(usersTable.handle, slugify(authorClean)),
+            eq(usersTable.handle, slugify(strippedName))
+          )
+        )
+        .limit(1);
+    }
+
     return res.json({
       paper: {
         ...row.paper,
+        authorId: authorUser?.id || null,
+        authorHandle: authorUser?.handle || null,
+        authorAvatarUrl: authorUser?.avatarUrl || null,
+        authorBio: authorUser?.bio || null,
         body: sanitizeArticleBody(row.paper.body),
         category: row.category,
       },

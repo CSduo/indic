@@ -44,11 +44,17 @@ export default function AboutPage() {
                   We publish essays, research papers, translations, and commentary across philosophy, history, psychology, sociology, science, geopolitics, civilizational thought, and the Sanskrit tradition.
                 </p>
                 <blockquote>
-                  The ancient word Anvikshiki means the philosophical examination of truth: the disciplined habit of questioning, comparing, and seeing clearly.
+                  The ancient word Ānvīkṣikī (आन्वीक्षिकी) means the philosophical examination of truth: the disciplined habit of questioning, comparing, and seeing clearly.
                 </blockquote>
                 <p>
                   Our aim is to bridge timeless wisdom with contemporary inquiry while preserving the calm, serious reading experience that scholarship deserves.
                 </p>
+                <div className="mt-6 pt-4 border-t border-[var(--border-ink)]">
+                  <Link href="/about/anvikshiki" className="inline-flex items-center gap-2 text-[var(--terracotta)] font-ui font-semibold text-sm hover:underline">
+                    <span>Read the complete scholarly treatise on the Meaning & Etymology of Ānvīkṣikī</span>
+                    <ArrowRight size={14} />
+                  </Link>
+                </div>
               </div>
             </ParchmentCard>
           </div>

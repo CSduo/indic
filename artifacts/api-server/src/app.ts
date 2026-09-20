@@ -9,7 +9,11 @@ import { logger } from "./lib/logger";
 import { ensureDefaultCategories } from "./lib/publication-sync";
 import { UPLOADS_DIR } from "./lib/storage";
 import healthRouter from "./routes/health";
-import { db, articlesTable, papersTable, usersTable, categoriesTable, ensureDatabaseSchema, coreTablesExist } from "@workspace/db";
+import sitemapRouter from "./routes/sitemap";
+import rssRouter from "./routes/rss";
+import indexnowRouter from "./routes/indexnow";
+import { DEFAULT_INDEXNOW_KEY } from "./lib/indexnow";
+import { db, articlesTable, papersTable, usersTable, categoriesTable, submissionsTable, ensureDatabaseSchema, coreTablesExist } from "@workspace/db";
 import { eq, and, or, ilike, isNull } from "drizzle-orm";
 import { sanitizeArticleBody } from "./lib/content";
 import fs from "fs";
@@ -296,6 +300,17 @@ app.use("/api/uploads", express.static(UPLOADS_DIR, {
 }));
 
 app.use("/api", router);
+
+// Direct root protocol endpoints
+app.use(sitemapRouter);
+app.use(rssRouter);
+app.use(indexnowRouter);
+
+// Serve IndexNow verification key file at root
+app.get(["/indexnow-key.txt", `/${DEFAULT_INDEXNOW_KEY}.txt`], (_req, res) => {
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  return res.status(200).send(DEFAULT_INDEXNOW_KEY);
+});
 
 export const CANONICAL_DOMAIN = "https://anvikshikijournal.in";
 
@@ -1120,14 +1135,31 @@ export function generateArticleSsrHtml(article: any, domainDisplayName: string):
   ${tagsHtml}
   ${referencesHtml}
 
-  <footer class="ssr-article-footer">
     <div class="ssr-author-bio-card">
       <h3>About the Author</h3>
       <p><strong><a href="/authors/${escapeHtml(authorSlug)}">${escapeHtml(author)}</a></strong> is a contributor to Ānvīkṣikī Journal.</p>
     </div>
-    <div class="ssr-citation-note">
-      <p><strong>Citation</strong>: ${escapeHtml(author)} (${article.publishedAt ? new Date(article.publishedAt).getFullYear() : new Date().getFullYear()}). "${escapeHtml(article.title)}". <em>Ānvīkṣikī</em>. <a href="https://anvikshikijournal.in/articles/${escapeHtml(article.slug)}">https://anvikshikijournal.in/articles/${escapeHtml(article.slug)}</a></p>
-    </div>
+    <section class="ssr-section ssr-citation-details">
+      <h2>Citation &amp; Scholarly Attribution</h2>
+      <div class="ssr-citation-card">
+        <p class="ssr-citation-formatted"><strong>APA:</strong> ${escapeHtml(author)} (${article.publishedAt ? new Date(article.publishedAt).getFullYear() : new Date().getFullYear()}). "${escapeHtml(article.title)}". <em>Ānvīkṣikī: An Open Journal of Indic Philosophy &amp; Intellectual Traditions</em>. <a href="https://anvikshikijournal.in/articles/${escapeHtml(article.slug)}">https://anvikshikijournal.in/articles/${escapeHtml(article.slug)}</a></p>
+        <p class="ssr-citation-formatted"><strong>MLA:</strong> ${escapeHtml(author)}. "${escapeHtml(article.title)}." <em>Ānvīkṣikī</em>, ${article.publishedAt ? new Date(article.publishedAt).getFullYear() : new Date().getFullYear()}, &lt;https://anvikshikijournal.in/articles/${escapeHtml(article.slug)}&gt;.</p>
+        <p class="ssr-citation-formatted"><strong>Chicago:</strong> ${escapeHtml(author)}. ${article.publishedAt ? new Date(article.publishedAt).getFullYear() : new Date().getFullYear()}. "${escapeHtml(article.title)}." <em>Ānvīkṣikī: An Open Journal of Indic Philosophy &amp; Intellectual Traditions</em>. https://anvikshikijournal.in/articles/${escapeHtml(article.slug)}</p>
+        <pre class="ssr-bibtex-code"><code>@article{${slugify(author).replace(/-/g, "_")}_${article.publishedAt ? new Date(article.publishedAt).getFullYear() : new Date().getFullYear()},
+  title={${article.title}},
+  author={${author}},
+  journal={Ānvīkṣikī: An Open Journal of Indic Philosophy & Intellectual Traditions},
+  year={${article.publishedAt ? new Date(article.publishedAt).getFullYear() : new Date().getFullYear()}},
+  url={https://anvikshikijournal.in/articles/${article.slug}}
+}</code></pre>
+      </div>
+      <div class="ssr-social-share-links" style="margin-top: 1rem; display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+        <span><strong>Share Publication:</strong> </span>
+        <a href="https://twitter.com/intent/tweet?text=${encodeURIComponent(article.title)}&url=${encodeURIComponent(`https://anvikshikijournal.in/articles/${article.slug}`)}" target="_blank" rel="noopener noreferrer">X (Twitter)</a> · 
+        <a href="https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`https://anvikshikijournal.in/articles/${article.slug}`)}" target="_blank" rel="noopener noreferrer">LinkedIn</a> · 
+        <a href="https://api.whatsapp.com/send?text=${encodeURIComponent(`${article.title} https://anvikshikijournal.in/articles/${article.slug}`)}" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+      </div>
+    </section>
     <div class="ssr-contributor-cta">
       <h3>Contribute to Ānvīkṣikī</h3>
       <p>Have research, translations, or philosophical arguments in Indic studies worth publishing? <a href="/submit">Submit your manuscript or essay for editorial review</a>.</p>
@@ -1346,6 +1378,11 @@ export function generateAuthorHubSsrHtml(
     </ul>
   </section>
   ` : ""}
+  ${articles.length === 0 && papers.length === 0 ? `
+  <section class="ssr-section ssr-author-publications">
+    <p>No published articles or papers currently catalogued for this scholar.</p>
+  </section>
+  ` : ""}
 </main>`;
 }
 
@@ -1466,6 +1503,281 @@ app.get("/categories", (req, res) => {
   return res.redirect(301, `/domains${qs}`);
 });
 
+export function generateAboutAnvikshikiSsrHtml(): string {
+  const breadcrumbsHtml = renderBreadcrumbs([
+    { name: "Home", url: "/" },
+    { name: "About", url: "/about" },
+    { name: "Meaning of Ānvīkṣikī" },
+  ]);
+
+  return `<article class="ssr-content ssr-meaning-article" itemscope itemtype="https://schema.org/Article">
+  ${breadcrumbsHtml}
+
+  <header class="ssr-article-header">
+    <div class="ssr-domain-pill">
+      <a href="/domains/philosophy" class="ssr-badge">Classical Epistemology &amp; Nyāya</a>
+    </div>
+    <h1 class="ssr-title" itemprop="headline">The Meaning of Ānvīkṣikī: Etymology, Philosophy &amp; Classical Heritage</h1>
+    <p class="ssr-subtitle" itemprop="alternativeHeadline">आन्वीक्षिकी — The Science of Critical Inquiry and Rational Examination</p>
+  </header>
+
+  <div class="ssr-body" itemprop="articleBody">
+    <h2>Etymological Origin in Sanskrit (Pāṇinian Vyutpatti)</h2>
+    <p>In the classical Sanskrit intellectual tradition, <strong>Ānvīkṣikī</strong> (Devanagari: <em>आन्वीक्षिकी</em>; IAST: <em>ānvīkṣikī</em>; commonly Anglicized as <em>Anvikshiki</em>) designates <strong>the science of critical inquiry, logical investigation, and philosophical examination</strong>.</p>
+    <p>Morphologically, the compound is derived according to Pāṇinian grammatical principles from:</p>
+    <ul>
+      <li><strong>anu (अनु)</strong> — prefix meaning "following upon", "after", or "subsequent to" (direct sensory observation or received testimony).</li>
+      <li><strong>īkṣā (ईक्षा)</strong> — verbal root meaning "to look closely", "to scrutinize", "to behold", or "to investigate".</li>
+      <li><strong>ikī (इक / की)</strong> — feminine secondary affix (*ṭhañ* / *striyām*) denoting a recognized discipline or branch of systematic learning (<em>vidyā</em>).</li>
+    </ul>
+    <p>Taken together, Ānvīkṣikī literally signifies: <em>"That systematic science which undertakes inquiry (*īkṣā*) subsequent to (*anu*) immediate perception or textual authority by means of rigorous reason (*yukti*)."</em> In English academic scholarship, it translates as <strong>"rational inquiry"</strong>, <strong>"critical philosophy"</strong>, <strong>"investigative science"</strong>, or <strong>"dialectic epistemology"</strong>.</p>
+
+    <h2>The Classical Doctrine in Kautilya's Arthaśāstra</h2>
+    <p>The most celebrated classical exposition of Ānvīkṣikī appears in the opening book of Kautilya's <em>Arthaśāstra</em> (circa 4th–3rd century BCE). Kautilya divides all civilizational learning into four foundational sciences (*catasra eva vidyā iti kauṭilyaḥ*):</p>
+    <ol>
+      <li><strong>Ānvīkṣikī (आन्वीक्षिकी)</strong> — Philosophy, logic, and rational scrutiny.</li>
+      <li><strong>Trayī (त्रयी)</strong> — The sacred ethical and cultural knowledge of the three Vedas.</li>
+      <li><strong>Vārtā (वार्ता)</strong> — Economics, commerce, agriculture, and animal husbandry.</li>
+      <li><strong>Daṇḍanīti (दण्डनीति)</strong> — Political theory, jurisprudence, and statecraft.</li>
+    </ol>
+    <blockquote>
+      <p><em>"प्रदीपः सर्वविद्यानाम् उपायः सर्वकर्मणाम् ।<br />आश्रयः सर्वधर्माणां शश्वदान्वीक्षिकी मता ॥"</em><br />
+      — <strong>Kautilya, Arthaśāstra 1.2.12</strong></p>
+      <p><em>"Ānvīkṣikī is ever held to be the illuminating lamp of all sciences, the pragmatic means of all actions, and the foundational support of all civic and ethical duties."</em></p>
+    </blockquote>
+    <p>Significantly, Kautilya identifies Ānvīkṣikī with three schools of disciplined thought: <strong>Sāṅkhya</strong> (analytical metaphysics), <strong>Yoga</strong> (disciplined introspection and psychological verification), and <strong>Lokāyata</strong> (empirical observation and material inquiry). By testing what is sound and unsound in economics, right and wrong in law, and strength and weakness in governance, Ānvīkṣikī illuminates the intellect (*buddhim avasthāpayati*) and confers poise (*prajñā-vākya-kriyā-vaiśāradyaṃ*) in prosperity and adversity alike.</p>
+
+    <h2>Evolution into Epistemology: The Nyāya Tradition</h2>
+    <p>In subsequent centuries, Ānvīkṣikī became synonymous with the formal school of logic: the <strong>Nyāya-darśana</strong>. In his authoritative commentary on the <em>Nyāyasūtra</em> (<em>Nyāyabhāṣya</em> 1.1.1), master philosopher <strong>Vātsyāyana</strong> defined the discipline with utmost precision:</p>
+    <blockquote>
+      <p><em>"प्रत्यक्षागमाभ्यामीक्षितस्यान्वीक्षणमन्वीक्षा । तया प्रवर्तत इत्यान्वीक्षिकी न्यायविद्या न्यायशास्त्रम् ।"</em><br />
+      — <strong>Vātsyāyana, Nyāyabhāṣya 1.1.1</strong></p>
+      <p><em>"Anvīkṣā is the critical re-examination (*anv-īkṣaṇa*) of what has already been cognized through perception (*pratyakṣa*) and tradition (*āgama*). That science which proceeds by this method is Ānvīkṣikī — the science of Nyāya, the discipline of rational critique."</em></p>
+    </blockquote>
+    <p>Vātsyāyana famously describes its method as <em>pramāṇair artha-parīkṣaṇam</em>: the rigorous testing and verification of objects of knowledge through the valid instruments of cognition (<em>pramāṇas</em>): direct perception (<em>pratyakṣa</em>), inference (<em>anumāna</em>), comparison (<em>upamāna</em>), and authoritative testimony (<em>śabda</em>).</p>
+
+    <h2>Why the Journal Bears the Name Ānvīkṣikī</h2>
+    <p><strong>Ānvīkṣikī</strong> was established as an open-access journal and living research archive to revive this intellectual heritage. In an era often dominated by fragmented attention, dogmatic assertions, and disposable media, the journal provides a permanent sanctuary for calm, rigorous, and beautiful long-form scholarship across Indic philosophy, Sanskrit studies, civilizational history, and related disciplines.</p>
+  </div>
+
+  <footer class="ssr-article-footer">
+    <div class="ssr-citation-note">
+      <p><strong>Related Destinations</strong>: <a href="/domains/philosophy">Indian Philosophy Hub</a> · <a href="/domains/sanskrit-studies">Sanskrit Studies Hub</a> · <a href="/domains/history">History &amp; Civilizational Memory</a> · <a href="/browse">Publication Index</a> · <a href="/submit">Submit Your Research</a></p>
+    </div>
+  </footer>
+</article>`;
+}
+
+export function generateBrowseSsrHtml(
+  articles: Array<any>,
+  papers: Array<any>,
+  categories: Array<any>
+): string {
+  const breadcrumbsHtml = renderBreadcrumbs([
+    { name: "Home", url: "/" },
+    { name: "Browse Archive" },
+  ]);
+
+  return `<main class="ssr-content ssr-browse-hub" itemscope itemtype="https://schema.org/CollectionPage">
+  ${breadcrumbsHtml}
+
+  <header class="ssr-domain-header">
+    <span class="ssr-domain-label">Publication Index</span>
+    <h1 class="ssr-title" itemprop="name">Browse Research Papers, Articles &amp; Scholarly Archives</h1>
+    <p class="ssr-description" itemprop="description">Explore published research papers, peer-level philosophical essays, monographs, and archives across Indic studies, Sanskrit traditions, and civilizational history.</p>
+    <div class="ssr-domain-stats">
+      <span><strong>${articles.length}</strong> Essays</span> · <span><strong>${papers.length}</strong> Papers</span> · <span><strong>${categories.length}</strong> Disciplines</span>
+    </div>
+  </header>
+
+  <section class="ssr-section ssr-disciplines">
+    <h2>Disciplines &amp; Research Domains</h2>
+    <div class="ssr-disciplines-grid" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0 2rem 0;">
+      ${categories.map(c => `
+        <a href="/domains/${escapeHtml(c.slug)}" class="ssr-badge" style="display: inline-block; padding: 0.35rem 0.75rem; border: 1px solid var(--ssr-border); border-radius: 4px; text-decoration: none; color: var(--ssr-ink);">
+          ${escapeHtml(c.name)}
+        </a>
+      `).join("\n")}
+    </div>
+  </section>
+
+  <section class="ssr-section ssr-publications">
+    <h2>Published Research &amp; Essays</h2>
+    <div class="ssr-columns-container">
+      <div class="ssr-column">
+        <h3>Recent Articles &amp; Monographs (${articles.length})</h3>
+        <ul class="ssr-work-list">
+          ${articles.map(art => `
+            <li class="ssr-work-item">
+              <article>
+                <h4><a href="/articles/${escapeHtml(art.slug)}">${escapeHtml(art.title)}</a></h4>
+                ${art.authorName ? `<p class="ssr-byline">By <a href="/authors/${slugify(art.authorName)}">${escapeHtml(art.authorName)}</a></p>` : ""}
+                ${art.excerpt ? `<p class="ssr-work-excerpt">${escapeHtml(art.excerpt)}</p>` : ""}
+                ${art.publishedAt ? `<time datetime="${formatIsoDate(art.publishedAt)}">${escapeHtml(formatDate(art.publishedAt))}</time>` : ""}
+              </article>
+            </li>
+          `).join("\n")}
+        </ul>
+      </div>
+
+      ${papers.length > 0 ? `
+      <div class="ssr-column">
+        <h3>Research Papers (${papers.length})</h3>
+        <ul class="ssr-work-list">
+          ${papers.map(p => `
+            <li class="ssr-work-item">
+              <article>
+                <h4><a href="/papers/${escapeHtml(p.slug)}">${escapeHtml(p.title)}</a></h4>
+                ${p.authorName ? `<p class="ssr-byline">By <a href="/authors/${slugify(p.authorName)}">${escapeHtml(p.authorName)}</a></p>` : ""}
+                ${p.abstract ? `<p class="ssr-work-excerpt">${escapeHtml(stripHtml(p.abstract).slice(0, 220))}...</p>` : ""}
+              </article>
+            </li>
+          `).join("\n")}
+        </ul>
+      </div>
+      ` : ""}
+    </div>
+  </section>
+</main>`;
+}
+
+// SSR for /about/anvikshiki (Meaning of Ānvīkṣikī Canonical Hub)
+app.get("/about/anvikshiki", (_req, res) => {
+  const template = getHtmlTemplate();
+  const canonicalUrl = "https://anvikshikijournal.in/about/anvikshiki";
+  const title = "Meaning of Ānvīkṣikī: Etymology, Philosophy & Classical Heritage — Ānvīkṣikī";
+  const description = "Explore the profound meaning of Ānvīkṣikī (आन्वीक्षिकी): the Sanskrit etymology, Kautilya's Arthaśāstra doctrine of the foundational science, and Nyāya rational inquiry.";
+  const definedTermJsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "AboutPage",
+        "@id": `${canonicalUrl}#webpage`,
+        "url": canonicalUrl,
+        "name": title,
+        "description": description,
+        "inLanguage": "en",
+        "publisher": {
+          "@type": "Organization",
+          "@id": "https://anvikshikijournal.in/#organization",
+          "name": "Ānvīkṣikī Journal",
+          "url": "https://anvikshikijournal.in",
+        },
+        "mainEntity": {
+          "@type": "DefinedTerm",
+          "@id": `${canonicalUrl}#term`,
+          "name": "Ānvīkṣikī",
+          "alternateName": ["Anvikshiki", "आन्वीक्षिकी", "Aanvikshiki", "Anvikshiki Vidya"],
+          "description": "The classical Sanskrit science of critical inquiry, logical examination, and rational philosophy as articulated in Kautilya's Arthaśāstra and Vātsyāyana's Nyāyabhāṣya.",
+          "inDefinedTermSet": "https://anvikshikijournal.in/domains/philosophy",
+        },
+      },
+    ],
+  };
+
+  const metaTags = `
+    <title>${escapeHtml(title)}</title>
+    <meta name="description" content="${escapeHtml(description)}" />
+    <meta name="keywords" content="anvikshiki meaning, anvikshiki meaning in english, meaning of anvikshiki, anvikshiki philosophy, ānvīkṣikī, kautilya anvikshiki, arthashastra anvikshiki, nyaya anvikshiki, indic philosophy, sanskrit inquiry" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta property="og:site_name" content="Ānvīkṣikī Journal" />
+    <meta property="og:title" content="${escapeHtml(title)}" />
+    <meta property="og:description" content="${escapeHtml(description)}" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="${canonicalUrl}" />
+    <meta property="og:image" content="https://anvikshikijournal.in/opengraph.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${escapeHtml(title)}" />
+    <meta name="twitter:description" content="${escapeHtml(description)}" />
+    <meta name="twitter:image" content="https://anvikshikijournal.in/opengraph.jpg" />
+    <link rel="canonical" href="${canonicalUrl}" />
+    <script type="application/ld+json">
+${JSON.stringify(definedTermJsonLd, null, 2)}
+    </script>
+  `;
+
+  const ssrHtml = generateAboutAnvikshikiSsrHtml();
+  const finalHtml = template ? injectSsrHtml(template, metaTags, ssrHtml) : buildFallbackHtml(metaTags, ssrHtml);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  return res.status(200).send(finalHtml);
+});
+
+// SSR for /about
+app.get("/about", (_req, res) => {
+  const template = getHtmlTemplate();
+  const canonicalUrl = "https://anvikshikijournal.in/about";
+  const title = "About Ānvīkṣikī: An Open Journal of Indic Philosophy & Civilizational Thought";
+  const description = "Ānvīkṣikī is an open-access journal and living archive dedicated to rigorous scholarship in Indic philosophy, Sanskrit traditions, history, and civilizational inquiry.";
+  const metaTags = `
+    <title>${escapeHtml(title)}</title>
+    <meta name="description" content="${escapeHtml(description)}" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta property="og:site_name" content="Ānvīkṣikī Journal" />
+    <meta property="og:title" content="${escapeHtml(title)}" />
+    <meta property="og:description" content="${escapeHtml(description)}" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="${canonicalUrl}" />
+    <meta property="og:image" content="https://anvikshikijournal.in/opengraph.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="${canonicalUrl}" />
+  `;
+  const ssrHtml = `<main class="ssr-content ssr-about">
+    <h1>About Ānvīkṣikī</h1>
+    <p>An open journal and research platform for rigorous inquiry, civilizational memory, and beautiful long-form scholarship.</p>
+    <p>We publish essays, research papers, translations, and commentary across philosophy, history, psychology, sociology, science, geopolitics, civilizational thought, and the Sanskrit tradition.</p>
+    <p><strong><a href="/about/anvikshiki">Read the complete treatise on the Meaning of Ānvīkṣikī</a></strong></p>
+    <p><a href="/browse">Browse Published Works</a> · <a href="/submit">Submit Your Work</a></p>
+  </main>`;
+  const finalHtml = template ? injectSsrHtml(template, metaTags, ssrHtml) : buildFallbackHtml(metaTags, ssrHtml);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  return res.status(200).send(finalHtml);
+});
+
+// SSR for /browse
+app.get("/browse", async (_req, res) => {
+  const template = getHtmlTemplate();
+  const canonicalUrl = "https://anvikshikijournal.in/browse";
+  const title = "Browse Research Papers, Articles & Scholarly Archives — Ānvīkṣikī";
+  const description = "Explore published research papers, peer-level philosophical essays, monographs, and archives across Indic studies, Sanskrit traditions, and civilizational history.";
+
+  let articles: any[] = [];
+  let papers: any[] = [];
+  let categories: any[] = [];
+
+  try {
+    [articles, papers, categories] = await Promise.all([
+      db.select({ slug: articlesTable.slug, title: articlesTable.title, excerpt: articlesTable.excerpt, authorName: articlesTable.authorName, categorySlug: articlesTable.categorySlug, publishedAt: articlesTable.publishedAt })
+        .from(articlesTable)
+        .where(and(eq(articlesTable.status, "PUBLISHED"), isNull(articlesTable.deletedAt)))
+        .limit(30),
+      db.select({ slug: papersTable.slug, title: papersTable.title, abstract: papersTable.abstract, authorName: papersTable.authorName, categorySlug: papersTable.categorySlug, publishedAt: papersTable.publishedAt })
+        .from(papersTable)
+        .where(and(eq(papersTable.status, "PUBLISHED"), isNull(papersTable.deletedAt)))
+        .limit(30),
+      db.select().from(categoriesTable).where(eq(categoriesTable.visible, true)),
+    ]);
+  } catch {}
+
+  const metaTags = `
+    <title>${escapeHtml(title)}</title>
+    <meta name="description" content="${escapeHtml(description)}" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta property="og:site_name" content="Ānvīkṣikī Journal" />
+    <meta property="og:title" content="${escapeHtml(title)}" />
+    <meta property="og:description" content="${escapeHtml(description)}" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="${canonicalUrl}" />
+    <meta property="og:image" content="https://anvikshikijournal.in/opengraph.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="${canonicalUrl}" />
+  `;
+
+  const ssrHtml = generateBrowseSsrHtml(articles, papers, categories);
+  const finalHtml = template ? injectSsrHtml(template, metaTags, ssrHtml) : buildFallbackHtml(metaTags, ssrHtml);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  return res.status(200).send(finalHtml);
+});
+
 // SSR / Landing Route Handlers for Submissions
 app.get(/^\/submit(?:\/.*)?$/, (_req, res) => {
   const template = getHtmlTemplate();
@@ -1484,6 +1796,77 @@ app.get(/^\/submit(?:\/.*)?$/, (_req, res) => {
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   return res.status(200).send(finalHtml);
 });
+
+const ARTICLE_TOPIC_KEYWORDS: Record<string, string[]> = {
+  "beyond-angkor-why-is-vietnam-frequently-excluded-from-the-history-of-hindu-influence-in-southeast-asia": [
+    "Champa civilization",
+    "Mỹ Sơn sanctuary",
+    "Hinduism in Vietnam",
+    "Southeast Asian Indic traditions",
+    "Sanskrit inscriptions of Champa",
+    "Śaivism in Champa",
+    "Greater India historiography",
+    "Indianized kingdoms"
+  ],
+  "beyond-angkor-why-is-vietnam-frequently-excluded-from-the-history-of-hindu-influence-in-southeast-asia-86ef8134": [
+    "Champa civilization",
+    "Mỹ Sơn sanctuary",
+    "Hinduism in Vietnam",
+    "Southeast Asian Indic traditions",
+    "Sanskrit inscriptions of Champa",
+    "Śaivism in Champa",
+    "Greater India historiography",
+    "Indianized kingdoms"
+  ],
+  "quantum-eternal": [
+    "Quantum physics and Vedanta",
+    "Indic philosophy and quantum mechanics",
+    "Schrödinger and Upanishads",
+    "Consciousness in Indian philosophy",
+    "Brahman and quantum reality",
+    "Eastern metaphysics"
+  ],
+  "arithmetic-betrayal": [
+    "Indian economic history",
+    "Colonial deindustrialization",
+    "Drain of wealth theory",
+    "Dadabhai Naoroji",
+    "Indic civilization economics"
+  ],
+  "triple-fragmentation": [
+    "Indic historiography",
+    "Civilizational memory",
+    "Colonial fragmentation of India",
+    "Indian intellectual history"
+  ],
+  "indo-fijians-overtook-indigenous-fijians-numerically-1940s": [
+    "Indo-Fijian history",
+    "Girmitiya indenture system",
+    "Indian diaspora in Fiji",
+    "Colonial migration",
+    "Fijian demographic history"
+  ],
+  "the-human-tapestry-of-the-slave-trade": [
+    "Indian Ocean slave trade",
+    "Historical slavery in South Asia",
+    "Colonial servitude",
+    "Maritime history of India"
+  ],
+  "why-this-website-exists-0fc91e71": [
+    "Ānvīkṣikī journal",
+    "Indic studies open access",
+    "Classical Indian philosophy",
+    "Sanskrit intellectual traditions",
+    "Critical rational inquiry"
+  ],
+  "why-this-website-exists": [
+    "Ānvīkṣikī journal",
+    "Indic studies open access",
+    "Classical Indian philosophy",
+    "Sanskrit intellectual traditions",
+    "Critical rational inquiry"
+  ]
+};
 
 // SSR Route Handlers for Articles and Research Papers
 app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
@@ -1581,15 +1964,11 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
     const authorRaw = item.authorName || (isPaper ? "Anonymous Scholar" : "Ānvīkṣikī Editorial Collective");
     const cleanAuthor = escapeHtml(authorRaw);
 
-    let scholarCitationAuthorTags = "";
-    let scholarAuthorMeta = "";
-    if (isPaper) {
-      const authors = authorRaw.split(/,\s*/);
-      scholarCitationAuthorTags = authors.map((a: string) => `<meta name="citation_author" content="${escapeHtml(a.trim())}" />`).join("\n");
-      scholarAuthorMeta = authors.map((a: string) => `<meta name="author" content="${escapeHtml(a.trim())}" />\n<meta property="article:author" content="${escapeHtml(a.trim())}" />`).join("\n");
-    } else {
-      scholarAuthorMeta = `<meta name="author" content="${cleanAuthor}" />\n<meta property="article:author" content="${cleanAuthor}" />`;
-    }
+    // Split authors by comma or "and" to handle multiple contributors
+    const rawAuthors = authorRaw.split(/,\s*|\s+and\s+/i).map((s: string) => s.trim()).filter(Boolean);
+    const authors = rawAuthors.length > 0 ? rawAuthors : [authorRaw];
+    const scholarCitationAuthorTags = authors.map((a: string) => `<meta name="citation_author" content="${escapeHtml(a)}" />`).join("\n    ");
+    const scholarAuthorMeta = authors.map((a: string) => `<meta name="author" content="${escapeHtml(a)}" />\n    <meta property="article:author" content="${escapeHtml(a)}" />`).join("\n    ");
 
     const robotsDirective = isDraft
       ? '<meta name="robots" content="noindex, nofollow" />'
@@ -1597,6 +1976,28 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
     if (isDraft) {
       res.setHeader("X-Robots-Tag", "noindex, nofollow");
     }
+
+    // Resolve enriched topic keywords
+    const mappedKeywords = ARTICLE_TOPIC_KEYWORDS[item.slug] || ARTICLE_TOPIC_KEYWORDS[cleanSlug] || [];
+    const itemDbTags = Array.isArray(item.tags)
+      ? item.tags
+      : (typeof item.tags === "string" ? item.tags.split(/,\s*/).filter(Boolean) : []);
+    const mergedKeywords = Array.from(new Set([...itemDbTags, ...mappedKeywords]));
+    const keywordsStr = mergedKeywords.length > 0 ? mergedKeywords.join(", ") : undefined;
+
+    const authorSchema = isPaper || authors.length > 1
+      ? authors.map((a: string) => ({
+          "@type": "Person",
+          "@id": `https://anvikshikijournal.in/authors/${slugify(a)}#person`,
+          "name": a,
+          "url": `https://anvikshikijournal.in/authors/${slugify(a)}`,
+        }))
+      : {
+          "@type": "Person",
+          "@id": `https://anvikshikijournal.in/authors/${slugify(authorRaw)}#person`,
+          "name": authorRaw,
+          "url": `https://anvikshikijournal.in/authors/${slugify(authorRaw)}`,
+        };
 
     const jsonLdData: any = {
       "@context": "https://schema.org",
@@ -1626,24 +2027,12 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
           "url": "https://anvikshikijournal.in/favicon.svg",
         },
       },
-      "author": isPaper
-        ? authorRaw.split(/,\s*/).map((a: string) => ({
-            "@type": "Person",
-            "@id": `https://anvikshikijournal.in/authors/${slugify(a.trim())}#person`,
-            "name": a.trim(),
-            "url": `https://anvikshikijournal.in/authors/${slugify(a.trim())}`,
-          }))
-        : {
-            "@type": "Person",
-            "@id": `https://anvikshikijournal.in/authors/${slugify(authorRaw)}#person`,
-            "name": authorRaw,
-            "url": `https://anvikshikijournal.in/authors/${slugify(authorRaw)}`,
-          },
+      "author": authorSchema,
       "datePublished": isoPublished || undefined,
       "dateModified": isoUpdated || isoPublished || undefined,
       "image": imageUrl || undefined,
       "articleSection": domainDisplayName || undefined,
-      "keywords": item.tags ? (Array.isArray(item.tags) ? item.tags.join(", ") : String(item.tags)) : undefined,
+      "keywords": keywordsStr || undefined,
     };
 
     if (isPaper && item.pdfUrl) {
@@ -1705,6 +2094,7 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
     <!-- Dynamic Open Graph & Twitter Card Meta Tags -->
     <title>${cleanTitle} — Ānvīkṣikī</title>
     <meta name="description" content="${cleanExcerpt}" />
+    ${keywordsStr ? `<meta name="keywords" content="${escapeHtml(keywordsStr)}" />` : ""}
     ${robotsDirective}
     ${scholarAuthorMeta}
     ${isoPublished ? `<meta property="article:published_time" content="${isoPublished}" />` : ""}
@@ -1730,7 +2120,6 @@ ${JSON.stringify(jsonLdData, null, 2)}
     <script type="application/ld+json">
 ${JSON.stringify(breadcrumbJsonLd, null, 2)}
     </script>
-    ${isPaper ? `
     <!-- Google Scholar Highwire Metadata -->
     <meta name="citation_title" content="${cleanTitle}" />
     ${scholarCitationAuthorTags}
@@ -1739,7 +2128,7 @@ ${JSON.stringify(breadcrumbJsonLd, null, 2)}
     ${item.pdfUrl ? `<meta name="citation_pdf_url" content="${safeUrl(item.pdfUrl)}" />` : ""}
     <meta name="citation_abstract_html_url" content="${cleanUrl}" />
     ${item.doi ? `<meta name="citation_doi" content="${escapeHtml(item.doi)}" />` : ""}
-    ` : ""}
+    ${keywordsStr ? `<meta name="citation_keywords" content="${escapeHtml(keywordsStr)}" />` : ""}
     `;
 
     const ssrHtml = isPaper
@@ -1773,37 +2162,84 @@ app.get("/authors/:slug", async (req, res, next) => {
       return;
     }
     const cleanSlug = rawSlug.trim().replace(/\/+$/, "");
+    const cleanHandle = cleanSlug.replace(/^@/, "").toLowerCase();
+    const namePattern = cleanSlug.replace(/[-_]/g, " ");
 
     let [user] = await db
       .select()
       .from(usersTable)
-      .where(eq(usersTable.handle, cleanSlug))
+      .where(
+        or(
+          eq(usersTable.id, cleanSlug),
+          eq(usersTable.handle, cleanSlug),
+          eq(usersTable.handle, cleanHandle),
+          ilike(usersTable.name, namePattern),
+          ilike(usersTable.name, `%${namePattern}%`)
+        )
+      )
       .limit(1);
-    if (!user) {
-      [user] = await db
-        .select()
-        .from(usersTable)
-        .where(eq(usersTable.id, cleanSlug))
-        .limit(1);
+
+    // If cleanSlug is user ID, or user has handle and URL is ID or @handle, 301 redirect to canonical handle
+    if (user?.handle && (cleanSlug === user.id || cleanSlug === `@${user.handle}`)) {
+      return res.redirect(301, `/authors/${encodeURIComponent(user.handle)}`);
     }
 
     const [allArticles, allPapers] = await Promise.all([
-      db.select().from(articlesTable).where(and(eq(articlesTable.status, "PUBLISHED"), isNull(articlesTable.deletedAt))),
-      db.select().from(papersTable).where(and(eq(papersTable.status, "PUBLISHED"), isNull(papersTable.deletedAt))),
+      db.select({
+        id: articlesTable.id,
+        slug: articlesTable.slug,
+        title: articlesTable.title,
+        subtitle: articlesTable.subtitle,
+        excerpt: articlesTable.excerpt,
+        categorySlug: articlesTable.categorySlug,
+        authorName: articlesTable.authorName,
+        readingMinutes: articlesTable.readingMinutes,
+        heroImageUrl: articlesTable.heroImageUrl,
+        publishedAt: articlesTable.publishedAt,
+        authorId: submissionsTable.userId,
+      }).from(articlesTable)
+        .leftJoin(submissionsTable, eq(articlesTable.sourceSubmissionId, submissionsTable.id))
+        .where(and(eq(articlesTable.status, "PUBLISHED"), isNull(articlesTable.deletedAt))),
+      db.select({
+        id: papersTable.id,
+        slug: papersTable.slug,
+        title: papersTable.title,
+        abstract: papersTable.abstract,
+        categorySlug: papersTable.categorySlug,
+        authorName: papersTable.authorName,
+        readingMinutes: papersTable.readingMinutes,
+        coverImageUrl: papersTable.coverImageUrl,
+        publishedAt: papersTable.publishedAt,
+        year: papersTable.year,
+        doi: papersTable.doi,
+        authorId: submissionsTable.userId,
+      }).from(papersTable)
+        .leftJoin(submissionsTable, eq(papersTable.sourceSubmissionId, submissionsTable.id))
+        .where(and(eq(papersTable.status, "PUBLISHED"), isNull(papersTable.deletedAt))),
     ]);
 
     const userNameSlug = user && user.name ? slugify(user.name) : "";
+    const userCleanName = user && user.name ? user.name.replace(/^(dr|prof|vidwan|acharya)\.?\s+/i, "").trim().toLowerCase() : "";
 
     const authorArticles = allArticles.filter((a: any) => {
       if (user && a.authorId === user.id) return true;
       const aSlug = slugify(a.authorName || "");
-      return aSlug === cleanSlug || (userNameSlug && aSlug === userNameSlug);
+      if (aSlug && (aSlug === cleanSlug || aSlug === cleanHandle)) return true;
+      if (userNameSlug && aSlug === userNameSlug) return true;
+      if (userCleanName && a.authorName && a.authorName.toLowerCase().includes(userCleanName)) return true;
+      return false;
     });
 
     const authorPapers = allPapers.filter((p: any) => {
       if (user && p.authorId === user.id) return true;
       const pAuthors = (p.authorName || "").split(/,\s*/);
-      return pAuthors.some((pa: string) => slugify(pa) === cleanSlug || (userNameSlug && slugify(pa) === userNameSlug));
+      return pAuthors.some((pa: string) => {
+        const paSlug = slugify(pa);
+        if (paSlug && (paSlug === cleanSlug || paSlug === cleanHandle)) return true;
+        if (userNameSlug && paSlug === userNameSlug) return true;
+        if (userCleanName && pa.toLowerCase().includes(userCleanName)) return true;
+        return false;
+      });
     });
 
     if (!user && authorArticles.length === 0 && authorPapers.length === 0) {
@@ -1814,6 +2250,7 @@ app.get("/authors/:slug", async (req, res, next) => {
     const displayName = user?.name || authorArticles[0]?.authorName || (authorPapers[0]?.authorName ? authorPapers[0].authorName.split(/,\s*/)[0] : cleanSlug);
     const authorBio = user?.bio || `${displayName} is a contributing scholar to Ānvīkṣikī Journal.`;
     const authorData = {
+      id: user?.id,
       name: displayName,
       handle: user?.handle || cleanSlug,
       bio: authorBio,
@@ -1910,6 +2347,21 @@ app.get("/domains/:slug", async (req, res, next) => {
       return;
     }
     const cleanSlug = rawSlug.trim().replace(/\/+$/, "");
+
+    const DOMAIN_ALIASES: Record<string, string> = {
+      "sanskrit": "sanskrit-studies",
+      "indian-philosophy": "philosophy",
+      "indic-civilization": "civilizational-thought",
+      "indian-history": "history",
+      "art-aesthetics": "aesthetics",
+      "iks": "science",
+      "indian-knowledge-systems": "science",
+      "political-science": "political-theory",
+    };
+    if (DOMAIN_ALIASES[cleanSlug]) {
+      const qs = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+      return res.redirect(301, `/domains/${DOMAIN_ALIASES[cleanSlug]}${qs}`);
+    }
 
     const [category] = await db
       .select()

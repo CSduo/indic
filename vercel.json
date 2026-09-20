@@ -95,6 +95,18 @@
       "destination": "/api/index"
     },
     {
+      "source": "/about/anvikshiki",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/about",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/browse",
+      "destination": "/api/index"
+    },
+    {
       "source": "/:path*",
       "destination": "/index.html"
     }

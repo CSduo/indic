@@ -8,6 +8,7 @@ import {
   type Submission,
 } from "@workspace/db";
 import { sanitizeArticleBody } from "./content";
+import { submitIndexNow } from "./indexnow";
 
 type PublicationKind = "article" | "paper";
 
@@ -38,6 +39,7 @@ const DEFAULT_CATEGORIES = [
   { slug: "multimedia", name: "Multimedia", description: "Audio, video, and rich-media research", icon: "Video", sortOrder: 12 },
   { slug: "papers", name: "Papers", description: "Research papers and monographs", icon: "FileSearch", sortOrder: 13 },
   { slug: "archive", name: "Archive", description: "Historical archive files and miscellaneous work", icon: "Archive", sortOrder: 14 },
+  { slug: "hindu-studies", name: "Hindu Studies", description: "Vedic traditions, Darśanas, Dharmaśāstras, and Indic spiritual heritage", icon: "BookOpen", sortOrder: 15 },
 ] as const;
 
 let categoriesReady: Promise<void> | null = null;
@@ -296,6 +298,7 @@ export async function ensurePublicPublicationForSubmission(
           updatedAt: new Date(),
         })
         .where(eq(papersTable.id, existing.id));
+      submitIndexNow([`https://anvikshikijournal.in/papers/${existing.slug}`]).catch(() => {});
       return {
         kind,
         status: restoredFromTrash ? "restored" : "existing",
@@ -342,7 +345,10 @@ export async function ensurePublicPublicationForSubmission(
           })
           .returning({ id: papersTable.id, slug: papersTable.slug });
 
-        if (paper) return { kind, status: "created", id: paper.id, slug: paper.slug };
+        if (paper) {
+          submitIndexNow([`https://anvikshikijournal.in/papers/${paper.slug}`]).catch(() => {});
+          return { kind, status: "created", id: paper.id, slug: paper.slug };
+        }
       } catch (insertErr: any) {
         lastInsertError = insertErr;
         console.warn(`Paper insertion attempt ${attempt + 1} failed:`, insertErr);
@@ -428,6 +434,7 @@ export async function ensurePublicPublicationForSubmission(
         updatedAt: new Date(),
       })
       .where(eq(articlesTable.id, existing.id));
+    submitIndexNow([`https://anvikshikijournal.in/articles/${existing.slug}`]).catch(() => {});
     return {
       kind,
       status: restoredFromTrash ? "restored" : "existing",
@@ -475,7 +482,10 @@ export async function ensurePublicPublicationForSubmission(
         })
         .returning({ id: articlesTable.id, slug: articlesTable.slug });
 
-      if (article) return { kind, status: "created", id: article.id, slug: article.slug };
+      if (article) {
+        submitIndexNow([`https://anvikshikijournal.in/articles/${article.slug}`]).catch(() => {});
+        return { kind, status: "created", id: article.id, slug: article.slug };
+      }
     } catch (insertErr: any) {
       lastInsertError = insertErr;
       console.warn(`Article insertion attempt ${attempt + 1} failed:`, insertErr);

@@ -77,4 +77,39 @@ describe("Tier 1 - Feature 10: Domain Authority Hubs & Internal Linking (R5)", (
       }
     }
   });
+
+  it("redirects legacy domain aliases to canonical domain hubs with HTTP 301", async () => {
+    const resSanskrit = await request(app).get("/domains/sanskrit");
+    expect(resSanskrit.status).toBe(301);
+    expect(resSanskrit.headers.location).toBe("/domains/sanskrit-studies");
+
+    const resPhil = await request(app).get("/domains/indian-philosophy");
+    expect(resPhil.status).toBe(301);
+    expect(resPhil.headers.location).toBe("/domains/philosophy");
+
+    const resCiv = await request(app).get("/domains/indic-civilization");
+    expect(resCiv.status).toBe(301);
+    expect(resCiv.headers.location).toBe("/domains/civilizational-thought");
+  });
+
+  it("serves canonical treatise at /about/anvikshiki with DefinedTerm schema and Pāṇinian vyutpatti", async () => {
+    const res = await request(app).get("/about/anvikshiki");
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toMatch(/text\/html/);
+    expect(res.text).toContain("Meaning of Ānvīkṣikī: Etymology, Philosophy");
+    expect(res.text).toContain('"@type": "DefinedTerm"');
+    expect(res.text).toContain("Pāṇinian Vyutpatti");
+    expect(res.text).toContain("Kautilya");
+    expect(res.text).toContain("Nyāya");
+  });
+
+  it("serves publication index at /browse with canonical link and disciplinary domains", async () => {
+    const res = await request(app).get("/browse");
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toMatch(/text\/html/);
+    expect(res.text).toContain("Browse Research Papers, Articles &amp; Scholarly Archives");
+    expect(res.text).toContain('<link rel="canonical" href="https://anvikshikijournal.in/browse"');
+    expect(res.text).toContain("Disciplines &amp; Research Domains");
+  });
 });
+

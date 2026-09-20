@@ -78,4 +78,32 @@ describe("Tier 1 - Feature 4: Google Scholar Highwire Tags (R3)", () => {
       expect(valStr).not.toMatch(/undefined|null|placeholder|lorem ipsum|todo/i);
     }
   });
+
+  it("outputs Highwire Google Scholar tags for published articles as well as papers", async () => {
+    const res = await request(app)
+      .get("/articles/nyaya-epistemology-pramana-theory");
+
+    expect(res.status).toBe(200);
+    const citationTitle = getMeta(res.text, "citation_title");
+    expect(citationTitle).toBeTruthy();
+    expect(citationTitle).toContain("Nyāya Epistemology");
+
+    const citationJournal = getMeta(res.text, "citation_journal_title");
+    expect(citationJournal).toBeTruthy();
+    expect(citationJournal).toMatch(/Ānvīkṣikī/);
+
+    const authors = getAllMeta(res.text, "citation_author");
+    expect(authors.length).toBeGreaterThanOrEqual(1);
+
+    const pubDate = getMeta(res.text, "citation_publication_date");
+    expect(pubDate).toBeTruthy();
+
+    const abstractUrl = getMeta(res.text, "citation_abstract_html_url");
+    expect(abstractUrl).toBeTruthy();
+    expect(abstractUrl).toContain("/articles/nyaya-epistemology-pramana-theory");
+
+    const keywords = getMeta(res.text, "citation_keywords");
+    expect(keywords).toBeTruthy();
+  });
 });
+

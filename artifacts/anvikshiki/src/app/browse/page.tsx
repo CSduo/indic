@@ -7,13 +7,20 @@ import { HeroPanel } from "@/components/manuscript/HeroPanel";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { AmbientPetals, FloralBorder, FloralCorner } from "@/components/sacred/FloralDecor";
-import { DOMAIN_META, DOMAIN_ORDER } from "@/lib/domainMeta";
+import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
+import { DOMAIN_ORDER, DOMAIN_META, type DomainKey } from "@/lib/domainMeta";
 
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
 
 export default function BrowsePage() {
+  useDocumentMetadata({
+    title: "Browse Research Papers, Articles & Scholarly Archives — Ānvīkṣikī",
+    description: "Explore published research papers, peer-level philosophical essays, monographs, and archives across Indic studies, Sanskrit traditions, and civilizational history.",
+    canonicalPath: "/browse",
+  });
+
   const [view, setView] = useState<"grid" | "list">("grid");
-  const domains = DOMAIN_ORDER.filter(key => key !== "philosophy");
+  const domains = DOMAIN_ORDER.filter((key: DomainKey) => key !== "philosophy");
 
   return (
     <div className="relative bg-[var(--bg)] overflow-hidden">
@@ -24,20 +31,20 @@ export default function BrowsePage() {
         <nav className="mb-4 flex items-center gap-2 font-ui text-xs font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]" aria-label="Breadcrumb">
           <Link href="/" className="hover:text-[var(--terracotta)]">Home</Link>
           <span>/</span>
-          <span className="text-[var(--terracotta)]">Explore</span>
+          <span className="text-[var(--terracotta)]">Browse Archive</span>
         </nav>
 
         <HeroPanel
           image={asset("/images/provided/browse-atlas-map-hero.jpg")}
           imageAlt="Illustrated civilizational atlas map with routes, ships, animals, and cities"
-          eyebrow="Domain Atlas"
-          title="Explore by Domain"
-          subtitle="Discover knowledge across timeless fields of inquiry."
-          description="Move through essays, papers, archives, and civilizational questions using a symbolic taxonomy of domains."
+          eyebrow="Publication Index & Archives"
+          title="Browse Research & Publications"
+          subtitle="Explore essays, papers, and scholarship across Indic knowledge traditions."
+          description="Discover peer-level publications, academic working papers, and critical monographs organized by discipline, author, and research domain."
           glyph="archive"
           focal="center"
-          ctaPrimary={{ label: "View Archive", href: "/archive" }}
-          ctaSecondary={{ label: "Search", href: "/search" }}
+          ctaPrimary={{ label: "View Research Papers", href: "/papers" }}
+          ctaSecondary={{ label: "Search Archive", href: "/search" }}
         />
       </section>
 

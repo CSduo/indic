@@ -23,6 +23,7 @@ const textSummary = (value: unknown, maxLength = 220) => String(value || "")
   .slice(0, maxLength);
 
 import { FileText, BookOpen } from "lucide-react";
+import { CitationModal } from "@/components/CitationModal";
 
 export function getArticleStats(bodyHtmlOrText?: string, excerpt?: string) {
   const content = bodyHtmlOrText || excerpt || "";
@@ -113,6 +114,7 @@ export default function ArticlePage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const articleContentRef = useRef<HTMLElement>(null);
   const [relatedArticles, setRelatedArticles] = useState<any[]>([]);
+  const [citationModalOpen, setCitationModalOpen] = useState(false);
 
   const togglePlay = () => {
     if (!audioRef.current) return;
@@ -278,11 +280,14 @@ export default function ArticlePage() {
   };
 
   const handleCopyCitation = () => {
-    const author = article.authorName || "Anvikshiki Journal";
+    const author = article.authorName || "Ānvīkṣikī Editorial Collective";
     const year = article.publishedAt ? new Date(article.publishedAt).getFullYear() : new Date().getFullYear();
-    const citation = `${author} (${year}). ${article.title}. Ānvīkṣikī. Retrieved from ${window.location.href}`;
-    navigator.clipboard.writeText(citation);
-    toast.success("Citation copied to clipboard");
+    const citation = `${author} (${year}). ${article.title}. Ānvīkṣikī: An Open Journal of Indic Philosophy & Intellectual Traditions. https://anvikshikijournal.in/articles/${article.slug}`;
+    try {
+      navigator.clipboard.writeText(citation);
+      toast.success("APA Citation copied to clipboard");
+    } catch {}
+    setCitationModalOpen(true);
   };
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
@@ -568,7 +573,7 @@ export default function ArticlePage() {
 
         {/* Action bar below cover image */}
         <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
-          <ArticleActionBar articleId={article.id} title={article.title} downloadUrl={article.pdfUrl || article.fileUrl} />
+          <ArticleActionBar articleId={article.id} title={article.title} downloadUrl={article.pdfUrl || article.fileUrl} onCiteClick={() => setCitationModalOpen(true)} />
           {user && (user.role === "ADMIN" || user.name === article.authorName) ? (
             <Link
               href={`/account/edit/${article.slug}`}
@@ -1052,8 +1057,23 @@ export default function ArticlePage() {
       </section>
 
       <div className="fixed inset-x-4 bottom-4 z-40 rounded-full border border-[var(--border-gold)] bg-[var(--surface)]/95 px-4 py-3 shadow-[var(--shadow-lg)] backdrop-blur md:hidden">
-        <ArticleActionBar title={article.title} downloadUrl={article.pdfUrl || article.fileUrl} />
+        <ArticleActionBar articleId={article.id} title={article.title} downloadUrl={article.pdfUrl || article.fileUrl} onCiteClick={() => setCitationModalOpen(true)} />
       </div>
+
+      {article && (
+        <CitationModal
+          isOpen={citationModalOpen}
+          onClose={() => setCitationModalOpen(false)}
+          publication={{
+            title: article.title,
+            authorName: article.authorName,
+            publishedAt: article.publishedAt,
+            slug: article.slug,
+            kind: "article",
+            doi: article.doi,
+          }}
+        />
+      )}
     </div>
   );
 }

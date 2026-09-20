@@ -30,6 +30,7 @@ const PaperDetailPage       = lazy(() => import("@/app/papers/[slug]/page"));
 const SearchPage            = lazy(() => import("@/app/search/page"));
 const ArchivePage           = lazy(() => import("@/app/archive/page"));
 const AboutPage             = lazy(() => import("@/app/about/page"));
+const AnvikshikiMeaningPage = lazy(() => import("@/app/about/anvikshiki/page"));
 const ContactPage           = lazy(() => import("@/app/contact/page"));
 const CommunityPage         = lazy(() => import("@/app/community/page"));
 const CommunityFeedPage     = lazy(() => import("@/app/community/feed/page"));
@@ -206,6 +207,7 @@ const RoutePaperDetail       = () => <AppShell><PaperDetailPage /></AppShell>;
 const RouteSearch            = () => <AppShell><SearchPage /></AppShell>;
 const RouteArchive           = () => <AppShell><ArchivePage /></AppShell>;
 const RouteAbout             = () => <AppShell><AboutPage /></AppShell>;
+const RouteAnvikshikiMeaning = () => <AppShell><AnvikshikiMeaningPage /></AppShell>;
 const RouteContact           = () => <AppShell><ContactPage /></AppShell>;
 const RouteCommunity         = () => <AppShell><CommunityPage /></AppShell>;
 const RouteCommunityFeed     = () => <AppShell><CommunityFeedPage /></AppShell>;
@@ -271,6 +273,7 @@ function Router() {
         <Route path="/papers/:slug"            component={RoutePaperDetail} />
         <Route path="/search"                  component={RouteSearch} />
         <Route path="/archive"                 component={RouteArchive} />
+        <Route path="/about/anvikshiki"        component={RouteAnvikshikiMeaning} />
         <Route path="/about"                   component={RouteAbout} />
         <Route path="/contact"                 component={RouteContact} />
         <Route path="/community"               component={RouteCommunity} />

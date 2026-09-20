@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/sacred/EmptyState";
 import { ThemeToggle } from "@/components/brand/ThemeToggle";
 import { DocumentViewer } from "@/components/manuscript/DocumentViewer";
 import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
+import { CitationModal } from "@/components/CitationModal";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const textSummary = (value: unknown, maxLength = 220) => String(value || "")
@@ -43,6 +44,7 @@ export default function PaperDetailPage() {
   });
   const [loading, setLoading] = useState(() => !paper);
   const [error, setError] = useState(false);
+  const [citationModalOpen, setCitationModalOpen] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -165,9 +167,9 @@ export default function PaperDetailPage() {
           ) : null}
           <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--border-subtle)] pt-6">
             <div className="flex gap-2 items-center flex-wrap">
-              <ArticleActionBar title={paper.title} downloadUrl={paper.pdfUrl || paper.fileUrl} />
-              <button onClick={handleBibtexExport} className="btn-ink px-3 py-1.5 text-xs h-9 flex items-center gap-2">
-                <FileText size={14} /> Cite (BibTeX)
+              <ArticleActionBar title={paper.title} downloadUrl={paper.pdfUrl || paper.fileUrl} onCiteClick={() => setCitationModalOpen(true)} />
+              <button onClick={() => setCitationModalOpen(true)} className="btn-ink px-3 py-1.5 text-xs h-9 flex items-center gap-2">
+                <FileText size={14} /> Cite Publication
               </button>
               {paper.pdfUrl && (
                 <a href={paper.pdfUrl} target="_blank" rel="noreferrer" className="btn-terracotta px-4 py-1.5 text-xs h-9 flex items-center gap-2">
@@ -246,6 +248,21 @@ export default function PaperDetailPage() {
           </div>
         </article>
       </section>
+
+      {paper && (
+        <CitationModal
+          isOpen={citationModalOpen}
+          onClose={() => setCitationModalOpen(false)}
+          publication={{
+            title: paper.title,
+            authorName: paper.authorName,
+            publishedAt: paper.publishedAt,
+            slug: paper.slug,
+            kind: "paper",
+            doi: paper.doi,
+          }}
+        />
+      )}
     </div>
   );
 }
