@@ -902,7 +902,7 @@ export const SSR_CSS_STYLES = `<style id="anvikshiki-ssr-styles">
     color: var(--ssr-ink-faint);
     margin: -0.25rem 0 0.5rem 0;
   }
-  .ssr-institution, .ssr-location {
+  .ssr-institution {
     font-size: 0.9rem;
     color: var(--ssr-ink-soft);
     margin: 0.25rem 0;
@@ -1285,7 +1285,6 @@ export function generateAuthorHubSsrHtml(
     handle?: string | null;
     bio?: string | null;
     institution?: string | null;
-    location?: string | null;
     avatarUrl?: string | null;
     articleCount: number;
     paperCount: number;
@@ -1323,7 +1322,6 @@ export function generateAuthorHubSsrHtml(
       <h1 class="ssr-title" itemprop="name">${escapeHtml(author.name)}</h1>
       ${author.handle ? `<p class="ssr-handle">@${escapeHtml(author.handle)}</p>` : ""}
       ${author.institution ? `<p class="ssr-institution" itemprop="worksFor">${escapeHtml(author.institution)}</p>` : ""}
-      ${author.location ? `<p class="ssr-location" itemprop="homeLocation">${escapeHtml(author.location)}</p>` : ""}
 
       ${author.bio ? `
       <div class="ssr-bio" itemprop="description">
@@ -2033,6 +2031,7 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
       "image": imageUrl || undefined,
       "articleSection": domainDisplayName || undefined,
       "keywords": keywordsStr || undefined,
+      "about": mergedKeywords.length > 0 ? mergedKeywords.map(k => ({ "@type": "Thing", "name": k })) : undefined,
     };
 
     if (isPaper && item.pdfUrl) {
@@ -2095,6 +2094,7 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
     <title>${cleanTitle} — Ānvīkṣikī</title>
     <meta name="description" content="${cleanExcerpt}" />
     ${keywordsStr ? `<meta name="keywords" content="${escapeHtml(keywordsStr)}" />` : ""}
+    ${mergedKeywords.map(k => `<meta property="article:tag" content="${escapeHtml(k)}" />`).join("\n    ")}
     ${robotsDirective}
     ${scholarAuthorMeta}
     ${isoPublished ? `<meta property="article:published_time" content="${isoPublished}" />` : ""}
@@ -2255,7 +2255,6 @@ app.get("/authors/:slug", async (req, res, next) => {
       handle: user?.handle || cleanSlug,
       bio: authorBio,
       institution: user?.institution || (authorPapers[0] as any)?.institution || null,
-      location: user?.location || null,
       avatarUrl: user?.avatarUrl || null,
       articleCount: authorArticles.length,
       paperCount: authorPapers.length,
@@ -2268,13 +2267,26 @@ app.get("/authors/:slug", async (req, res, next) => {
     const cleanImage = authorData.avatarUrl
       ? escapeHtml(authorData.avatarUrl)
       : `https://anvikshikijournal.in/api/og/author/${encodeURIComponent(cleanSlug)}`;
-    const authorPersonJsonLd = {
+
+    // Extract keywords and subject domains from author's publications
+    const authorKeywordsList = Array.from(new Set([
+      ...authorArticles.flatMap(a => (a as any).tags || []),
+      ...authorPapers.flatMap(p => (p as any).tags || []),
+      ...authorArticles.map(a => a.categorySlug),
+      ...authorPapers.map(p => p.categorySlug),
+      ...(authorData.institution ? [authorData.institution] : []),
+    ].filter(Boolean)));
+    const authorKeywords = authorKeywordsList.length > 0 ? authorKeywordsList.join(", ") : undefined;
+
+    const authorPersonJsonLd: any = {
       "@context": "https://schema.org",
       "@type": "Person",
       "@id": `https://anvikshikijournal.in/authors/${cleanSlug}#person`,
       "name": authorData.name,
       "url": canonicalUrl,
       "description": authorData.bio || undefined,
+      "keywords": authorKeywords || undefined,
+      "knowsAbout": authorKeywordsList.length > 0 ? authorKeywordsList : undefined,
       "worksFor": authorData.institution ? {
         "@type": "Organization",
         "name": authorData.institution,
@@ -2288,6 +2300,7 @@ app.get("/authors/:slug", async (req, res, next) => {
       "@id": canonicalUrl,
       "url": canonicalUrl,
       "name": `${cleanName} — Author Profile — Ānvīkṣikī`,
+      "keywords": authorKeywords || undefined,
       "mainEntity": {
         "@id": `https://anvikshikijournal.in/authors/${cleanSlug}#person`,
       },
@@ -2297,6 +2310,7 @@ app.get("/authors/:slug", async (req, res, next) => {
     <!-- Dynamic Open Graph & Twitter Card Meta Tags for Author Hub -->
     <title>${cleanName} — Author Profile — Ānvīkṣikī</title>
     <meta name="description" content="${cleanBio}" />
+    ${authorKeywords ? `<meta name="keywords" content="${escapeHtml(authorKeywords)}" />` : ""}
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <meta property="og:site_name" content="Ānvīkṣikī Journal" />
     <meta property="og:title" content="${cleanName} — Author Profile" />
@@ -2389,27 +2403,23 @@ app.get("/domains/:slug", async (req, res, next) => {
     const cleanUrl = escapeHtml(canonicalUrl);
     const cleanImage = `https://anvikshikijournal.in/api/og/domain/${encodeURIComponent(category.slug)}`;
 
+    const domainKeywords = `${cleanName}, Indic Studies, Philosophy, Research Archive, Ānvīkṣikī`;
     const domainCollectionJsonLd = {
       "@context": "https://schema.org",
       "@type": "CollectionPage",
       "@id": canonicalUrl,
       "url": canonicalUrl,
       "name": `${cleanName} — Domain Archive — Ānvīkṣikī`,
-      "description": descRaw,
-      "publisher": {
-        "@type": "Organization",
-        "@id": "https://anvikshikijournal.in/#organization",
-        "name": "Ānvīkṣikī Journal",
-        "url": "https://anvikshikijournal.in",
-      },
+      "description": cleanDesc,
+      "keywords": domainKeywords,
       "mainEntity": {
         "@type": "ItemList",
         "itemListElement": [
-          ...domainArticles.map((art: any, i: number) => ({
+          ...domainArticles.map((a: any, i: number) => ({
             "@type": "ListItem",
             "position": i + 1,
-            "url": `https://anvikshikijournal.in/articles/${art.slug}`,
-            "name": art.title,
+            "url": `https://anvikshikijournal.in/articles/${a.slug}`,
+            "name": a.title,
           })),
           ...domainPapers.map((p: any, i: number) => ({
             "@type": "ListItem",
@@ -2425,6 +2435,7 @@ app.get("/domains/:slug", async (req, res, next) => {
     <!-- Dynamic Open Graph & Twitter Card Meta Tags for Domain Hub -->
     <title>${cleanName} — Domain Archive — Ānvīkṣikī</title>
     <meta name="description" content="${cleanDesc}" />
+    <meta name="keywords" content="${domainKeywords}" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <meta property="og:site_name" content="Ānvīkṣikī Journal" />
     <meta property="og:title" content="${cleanName} — Domain Archive" />
@@ -2456,6 +2467,72 @@ ${JSON.stringify(domainCollectionJsonLd, null, 2)}
     return;
   } catch (err) {
     req.log?.error({ err }, "Domain Hub SSR error");
+    next();
+    return;
+  }
+});
+
+// Direct robots.txt route for search engines & crawlers
+app.get("/robots.txt", (_req, res) => {
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  return res.status(200).send(`User-agent: *
+Allow: /
+Allow: /api/sitemap.xml
+Allow: /api/rss
+Allow: /api/og/
+Allow: /favicon.ico
+Allow: /favicon.png
+Allow: /icon.png
+Allow: /apple-touch-icon.png
+Allow: /opengraph.jpg
+Allow: /logo.png
+Allow: /brand-emblem.png
+Disallow: /api/
+Disallow: /admin/
+Disallow: /account/
+Disallow: /messages/
+Disallow: /notifications
+Disallow: /saved
+Disallow: /submit/write
+Disallow: /submit/upload
+
+Sitemap: https://anvikshikijournal.in/sitemap.xml
+Sitemap: https://anvikshikijournal.in/api/sitemap.xml
+`);
+});
+
+// Canonical SSR redirection and pre-rendering for Profile URLs
+app.get(["/profile/:userId", "/profile/@:handle"], async (req, res, next) => {
+  try {
+    const rawParam = req.params.handle || req.params.userId || "";
+    const rawId = (Array.isArray(rawParam) ? rawParam[0] : String(rawParam || "")).trim();
+    if (!rawId) return next();
+    const cleanHandle = rawId.replace(/^@/, "").toLowerCase();
+
+    const [user] = await db
+      .select()
+      .from(usersTable)
+      .where(
+        or(
+          eq(usersTable.id, rawId),
+          eq(usersTable.handle, cleanHandle),
+          eq(usersTable.handle, rawId)
+        )
+      )
+      .limit(1);
+
+    if (user?.handle) {
+      return res.redirect(301, `/authors/${encodeURIComponent(user.handle)}`);
+    }
+
+    if (user?.id) {
+      return res.redirect(301, `/authors/${encodeURIComponent(user.id)}`);
+    }
+
+    return res.redirect(301, `/authors/${encodeURIComponent(rawId)}`);
+  } catch (err) {
+    req.log?.error({ err }, "Profile redirect error");
     next();
     return;
   }

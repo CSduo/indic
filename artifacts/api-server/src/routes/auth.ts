@@ -10,6 +10,7 @@ import { z } from "zod";
 import { sendNewMemberNotification } from "../lib/notifier";
 import { ensureHandle, validateHandle, handleIsAvailable, generateHandle } from "../lib/handles";
 import { DELETION_GRACE_DAYS, deletionDueDate } from "../lib/account-deletion";
+import { triggerPublicContentSeo } from "../lib/seo-service";
 
 const router = Router();
 
@@ -342,6 +343,16 @@ router.put("/auth/profile", async (req, res) => {
       .returning(PROFILE_FIELDS);
 
     if (!user) return res.status(404).json({ error: "User not found" });
+
+    if (user.handle) {
+      triggerPublicContentSeo({
+        type: "profile",
+        slug: user.handle,
+        authorId: user.id,
+        title: user.name || undefined,
+      });
+    }
+
     return res.json({ success: true, user });
   } catch (err: any) {
     req.log.error({ err }, "Failed to update profile");
@@ -446,7 +457,6 @@ router.get(["/users/:userId/profile", "/users/profile/:userId"], async (req, res
       email: usersTable.email,
       bio: usersTable.bio,
       institution: usersTable.institution,
-      location: usersTable.location,
       avatarUrl: usersTable.avatarUrl,
       handle: usersTable.handle,
     }).from(usersTable).where(

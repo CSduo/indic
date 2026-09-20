@@ -4,7 +4,6 @@ import {
   ArrowLeft, 
   BookOpen, 
   Building2, 
-  MapPin, 
   ExternalLink, 
   Share2, 
   FileText, 
@@ -43,7 +42,6 @@ interface AuthorData {
   handle: string;
   bio?: string;
   institution?: string;
-  location?: string;
   avatarUrl?: string;
   website?: string;
   orcid?: string;
@@ -228,7 +226,6 @@ export default function AuthorHubPage() {
           handle: resolvedUser?.handle || slug,
           bio: resolvedUser?.bio || `${resolvedUser?.name || fallbackName} is a contributing scholar and researcher on Ānvīkṣikī Journal.`,
           institution: resolvedUser?.institution,
-          location: resolvedUser?.location,
           avatarUrl: resolvedUser?.avatarUrl,
           website: resolvedUser?.website,
           orcid: resolvedUser?.orcid,
@@ -254,9 +251,34 @@ export default function AuthorHubPage() {
   const authorName = author?.name || slug;
   const authorBio = author?.bio || `Scholar profile for ${authorName} on Ānvīkṣikī.`;
 
+  const authorKeywords = useMemo(() => {
+    const kws = new Set<string>();
+    articles.forEach(a => {
+      if (a.categorySlug) kws.add(a.categorySlug);
+      if (a.title) {
+        a.title.split(/\s+/).forEach(w => {
+          const clean = w.toLowerCase().replace(/[^a-z0-9]/g, "");
+          if (clean.length > 3) kws.add(clean);
+        });
+      }
+    });
+    papers.forEach(p => {
+      if (p.categorySlug) kws.add(p.categorySlug);
+      if (p.title) {
+        p.title.split(/\s+/).forEach(w => {
+          const clean = w.toLowerCase().replace(/[^a-z0-9]/g, "");
+          if (clean.length > 3) kws.add(clean);
+        });
+      }
+    });
+    if (author?.institution) kws.add(author.institution);
+    return Array.from(kws).filter(Boolean);
+  }, [articles, papers, author?.institution]);
+
   useDocumentMetadata({
     title: authorName ? `${authorName} — Author Profile — Ānvīkṣikī` : undefined,
     description: authorBio.slice(0, 200),
+    keywords: authorKeywords,
     canonicalPath: `/authors/${encodeURIComponent(author?.handle || slug)}`,
     image: author?.avatarUrl || null,
     type: "profile",
@@ -265,6 +287,8 @@ export default function AuthorHubPage() {
       "@type": "Person",
       "name": authorName,
       "description": authorBio,
+      "keywords": authorKeywords.join(", "),
+      "knowsAbout": authorKeywords,
       "worksFor": author.institution ? { "@type": "Organization", "name": author.institution } : undefined,
     } : null,
   });
@@ -389,19 +413,12 @@ export default function AuthorHubPage() {
                   {authorName}
                 </h1>
 
-                {/* Affiliation and Location */}
-                {(author.institution || author.location) && (
+                {/* Academic Affiliation */}
+                {author.institution && (
                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 font-ui text-xs text-[var(--ink-faint)] pt-0.5">
-                    {author.institution && (
-                      <span className="inline-flex items-center gap-1.5">
-                        <Building2 size={13} className="text-[var(--gold)]" /> {author.institution}
-                      </span>
-                    )}
-                    {author.location && (
-                      <span className="inline-flex items-center gap-1.5">
-                        <MapPin size={13} className="text-[var(--gold)]" /> {author.location}
-                      </span>
-                    )}
+                    <span className="inline-flex items-center gap-1.5">
+                      <Building2 size={13} className="text-[var(--gold)]" /> {author.institution}
+                    </span>
                   </div>
                 )}
 

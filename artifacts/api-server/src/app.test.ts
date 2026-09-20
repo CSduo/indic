@@ -57,7 +57,6 @@ describe("Author Hub SSR Generator", () => {
       handle: "arya-ambadi",
       bio: "Scholar of Nyāya philosophy and classical epistemology.",
       institution: "Benares Research Institute",
-      location: "Varanasi, India",
       avatarUrl: "https://example.com/avatar.jpg",
       articleCount: 1,
       paperCount: 1,
@@ -85,7 +84,7 @@ describe("Author Hub SSR Generator", () => {
     expect(html).toContain("Arya Ambadi");
     expect(html).toContain("@arya-ambadi");
     expect(html).toContain("Benares Research Institute");
-    expect(html).toContain("Varanasi, India");
+    expect(html).not.toContain("Varanasi, India");
     expect(html).toContain("Scholar of Nyāya philosophy");
     expect(html).toContain("itemtype=\"https://schema.org/ProfilePage\"");
     expect(html).toContain("itemtype=\"https://schema.org/Person\"");

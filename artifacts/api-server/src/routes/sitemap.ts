@@ -113,7 +113,8 @@ router.get("/sitemap.xml", async (req, res) => {
 
     xml += `</urlset>`;
 
-    res.header('Content-Type', 'application/xml');
+    res.header('Content-Type', 'application/xml; charset=utf-8');
+    res.header('Cache-Control', 'public, max-age=1800, s-maxage=3600');
     return res.send(xml);
   } catch (err) {
     req.log.error(err);

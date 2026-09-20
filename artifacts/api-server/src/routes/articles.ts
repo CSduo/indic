@@ -8,6 +8,7 @@ import { countUnresolvedArticleImages, sanitizeArticleBody, MAX_BODY_CHARS } fro
 import { recoverLegacyInlineImages } from "../lib/legacy-content";
 import { z } from "zod";
 import { parsePagination, toLikePattern, PUBLIC_CONTENT_CACHE_CONTROL } from "../lib/request";
+import { triggerPublicContentSeo } from "../lib/seo-service";
 
 const router = Router();
 
@@ -374,6 +375,15 @@ router.patch("/articles/:slug/edit", async (req, res) => {
     // reconciliation pass copies the stale submission text over this change.
     await syncSubmissionFromPublication(updated, "article")
       .catch(err => console.warn("Submission back-sync after article edit failed:", err));
+
+    if (updated.status === "PUBLISHED") {
+      triggerPublicContentSeo({
+        type: "article",
+        slug: updated.slug,
+        title: updated.title,
+        tags: updated.tags,
+      });
+    }
 
     return res.json({
       success: true,

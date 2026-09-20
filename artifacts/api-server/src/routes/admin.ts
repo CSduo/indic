@@ -20,6 +20,7 @@ import {
 import { z } from "zod";
 import { notifyUser, notifyFollowersOfNewWork } from "../lib/notify";
 import { sanitizeArticleBody, MAX_BODY_CHARS } from "../lib/content";
+import { triggerPublicContentSeo } from "../lib/seo-service";
 
 const router = Router();
 
@@ -250,6 +251,15 @@ router.post("/admin/articles", requireAdmin, requireAdminRole("ADMIN", "EDITOR")
       publishedAt: data.publishedAt ? new Date(data.publishedAt) : null,
     }).returning();
 
+    if (article.status === "PUBLISHED") {
+      triggerPublicContentSeo({
+        type: "article",
+        slug: article.slug,
+        title: article.title,
+        tags: article.tags,
+      });
+    }
+
     return res.status(201).json({ success: true, article });
   } catch (err) {
     req.log.error(err);
@@ -273,6 +283,16 @@ router.patch("/admin/articles/:id", requireAdmin, requireAdminRole("ADMIN", "EDI
     const [article] = await db.update(articlesTable).set(updates)
       .where(and(eq(articlesTable.id, req.params.id), isNull(articlesTable.deletedAt))).returning();
     if (!article) return res.status(404).json({ error: "Not found" });
+
+    if (article.status === "PUBLISHED") {
+      triggerPublicContentSeo({
+        type: "article",
+        slug: article.slug,
+        title: article.title,
+        tags: article.tags,
+      });
+    }
+
     return res.json({ article });
   } catch (err) {
     req.log.error(err);
@@ -653,6 +673,15 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
           href: readingHref,
           kind: publication?.kind === "paper" ? "paper" : "essay",
         }).catch(err => req.log.warn({ err }, "Could not notify followers"));
+
+        if (publication?.slug) {
+          triggerPublicContentSeo({
+            type: publication.kind === "paper" ? "paper" : "article",
+            slug: publication.slug,
+            authorId: previous.userId,
+            title: previous.title || undefined,
+          });
+        }
       }
       return res.json({ submission, publication });
     }

@@ -2,6 +2,7 @@ User-agent: *
 Allow: /
 Allow: /api/sitemap.xml
 Allow: /api/rss
+Allow: /api/og/
 Allow: /favicon.ico
 Allow: /favicon.png
 Allow: /icon.png
@@ -12,6 +13,7 @@ Allow: /brand-emblem.png
 Disallow: /api/
 Disallow: /admin/
 Disallow: /account/
+Disallow: /messages/
 Disallow: /notifications
 Disallow: /saved
 Disallow: /submit/write

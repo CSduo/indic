@@ -3,6 +3,7 @@ import { useEffect } from "react";
 interface DocumentMetadata {
   title?: string;
   description?: string;
+  keywords?: string | string[];
   canonicalPath?: string;
   image?: string | null;
   type?: "website" | "article" | "profile";
@@ -47,12 +48,14 @@ function setMeta(selector: string, attributes: Record<string, string>) {
 export function useDocumentMetadata({
   title,
   description,
+  keywords,
   canonicalPath,
   image,
   type = "website",
   structuredData,
 }: DocumentMetadata) {
   const structuredDataJson = structuredData ? JSON.stringify(structuredData) : "";
+  const keywordsStr = Array.isArray(keywords) ? keywords.filter(Boolean).join(", ") : (keywords || "").trim();
 
   useEffect(() => {
     if (!title) return;
@@ -81,6 +84,16 @@ export function useDocumentMetadata({
       setMeta('meta[name="twitter:title"]', { name: "twitter:title", content: title }),
       setMeta('meta[name="twitter:description"]', { name: "twitter:description", content: cleanDescription }),
     ];
+    if (keywordsStr) {
+      restores.push(
+        setMeta('meta[name="keywords"]', { name: "keywords", content: keywordsStr })
+      );
+      if (type === "article") {
+        restores.push(
+          setMeta('meta[name="citation_keywords"]', { name: "citation_keywords", content: keywordsStr })
+        );
+      }
+    }
     if (imageUrl) {
       restores.push(
         setMeta('meta[property="og:image"]', { property: "og:image", content: imageUrl }),
@@ -105,5 +118,5 @@ export function useDocumentMetadata({
       else canonical.setAttribute("href", previousCanonical);
       schema?.remove();
     };
-  }, [canonicalPath, description, image, structuredDataJson, title, type]);
+  }, [canonicalPath, description, image, keywordsStr, structuredDataJson, title, type]);
 }
