@@ -17,6 +17,7 @@ import {
 import { toast } from "sonner";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { EmptyState } from "@/components/sacred/EmptyState";
+import { useAuthContext } from "@/contexts/AuthContext";
 import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -57,6 +58,7 @@ export default function AuthorHubPage() {
     rawSlug = decodeURIComponent(rawSlug);
   } catch {}
   const slug = rawSlug;
+  const { user } = useAuthContext();
 
   // Try reading pre-hydrated SSR data if available
   const [author, setAuthor] = useState<AuthorData | null>(() => {
@@ -431,9 +433,10 @@ export default function AuthorHubPage() {
                   {author.id && (
                     <Link
                       href={`/messages/@${author.handle || author.id}`}
-                      className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[var(--terracotta)] text-white font-ui text-xs font-semibold hover:opacity-90 transition-opacity shadow-sm"
+                      style={{ backgroundColor: "#C84A10", color: "#FFFFFF" }}
+                      className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full font-ui text-xs font-semibold hover:opacity-90 transition-opacity shadow-sm"
                     >
-                      <Send size={13} /> Message Scholar
+                      <Send size={13} /> {user?.id === author.id ? "Message (You)" : "Message Scholar"}
                     </Link>
                   )}
 
@@ -547,8 +550,8 @@ export default function AuthorHubPage() {
           )}
 
           {/* Contributor Acquisition Banner */}
-          <div className="mt-12 rounded-2xl border border-[#FDE68A] bg-gradient-to-br from-[#FFFDF8] to-[#FFF7ED] dark:from-[#1C1814] dark:to-[#17120D] p-8 text-center space-y-3 shadow-sm">
-            <Sparkles size={24} className="mx-auto text-[#D97706]" />
+          <div className="mt-12 rounded-2xl border border-[var(--border)] bg-[var(--surface-card)] p-8 text-center space-y-3 shadow-sm">
+            <Sparkles size={24} className="mx-auto text-[var(--gold)]" />
             <h3 className="font-display text-2xl font-bold text-[var(--ink)]">
               Publish Your Research on Ānvīkṣikī
             </h3>

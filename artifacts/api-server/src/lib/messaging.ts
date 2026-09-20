@@ -102,8 +102,11 @@ export function describeConversation(
     };
   }
   const other = members.find(m => m.userId !== viewerId) || members[0];
+  const isSelf = other?.userId === viewerId;
   return {
-    title: other?.name || other?.email.split("@")[0] || "Conversation",
+    title: isSelf
+      ? (other?.name ? `${other.name} (You)` : "Saved Messages (You)")
+      : (other?.name || other?.email.split("@")[0] || "Conversation"),
     avatarUrl: other?.avatarUrl || null,
     otherUserId: other?.userId || null,
     handle: other?.handle || null,

@@ -253,6 +253,56 @@ router.post("/conversations", async (req, res) => {
     if (!parsed.success) return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
 
     const { kind, title } = parsed.data;
+    const isSelfDirect = kind === "DIRECT" && parsed.data.userIds.length === 1 && parsed.data.userIds[0] === userId;
+
+    if (isSelfDirect) {
+      const [currentUser] = await db
+        .select({ id: usersTable.id, handle: usersTable.handle })
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .limit(1);
+
+      if (!currentUser) {
+        return res.status(400).json({ error: "User account not found" });
+      }
+
+      const key = directKeyFor(userId, userId);
+      const [existing] = await db
+        .select({ id: conversationsTable.id })
+        .from(conversationsTable)
+        .where(eq(conversationsTable.directKey, key))
+        .limit(1);
+
+      if (existing) {
+        await db
+          .update(conversationMembersTable)
+          .set({ leftAt: null })
+          .where(and(
+            eq(conversationMembersTable.conversationId, existing.id),
+            eq(conversationMembersTable.userId, userId),
+          ));
+        return res.json({ conversation: { id: existing.id }, created: false, pendingRequest: false });
+      }
+
+      const [conversation] = await db.insert(conversationsTable).values({
+        kind: "DIRECT",
+        directKey: key,
+        createdBy: userId,
+        requestedBy: null,
+        acceptedAt: new Date(),
+      }).returning({ id: conversationsTable.id });
+
+      await db.insert(conversationMembersTable).values([
+        { conversationId: conversation.id, userId, role: "MEMBER" },
+      ]);
+
+      return res.status(201).json({
+        conversation: { id: conversation.id },
+        created: true,
+        pendingRequest: false,
+      });
+    }
+
     const others = [...new Set(parsed.data.userIds.filter(id => id !== userId))];
     if (others.length === 0) return res.status(400).json({ error: "Choose someone to message" });
 
@@ -1050,7 +1100,6 @@ router.get("/conversations/by-handle/:handle", async (req, res) => {
       .limit(1);
 
     if (!other) return res.status(404).json({ error: "No member with that handle." });
-    if (other.id === userId) return res.status(400).json({ error: "That is you." });
 
     const key = directKeyFor(userId, other.id);
     const [existing] = await db
@@ -1498,12 +1547,9 @@ router.get("/messages/people", async (req, res) => {
         avatarUrl: usersTable.avatarUrl,
       })
       .from(usersTable)
-      .where(and(
-        ne(usersTable.id, userId),
-        or(
-          ilike(usersTable.name, term),
-          ilike(usersTable.handle, term)
-        ),
+      .where(or(
+        ilike(usersTable.name, term),
+        ilike(usersTable.handle, term)
       ))
       .limit(15);
 
@@ -1511,7 +1557,7 @@ router.get("/messages/people", async (req, res) => {
     return res.json({
       people: people.map(p => ({
         id: p.id,
-        name: p.name || p.email.split("@")[0],
+        name: p.id === userId ? `${p.name || p.email.split("@")[0]} (You)` : (p.name || p.email.split("@")[0]),
         handle: p.handle || null,
         avatarUrl: p.avatarUrl,
       })),

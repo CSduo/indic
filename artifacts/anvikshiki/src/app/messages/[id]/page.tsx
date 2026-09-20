@@ -251,7 +251,10 @@ function MessageBubble({
           }`}
           style={{ opacity: Math.min(Math.abs(swipeX) / 36, 1) }}
         >
-          <div className="w-7 h-7 rounded-full bg-[var(--terracotta)] text-white flex items-center justify-center shadow-md animate-in zoom-in-75">
+          <div
+            style={{ backgroundColor: "#C84A10", color: "#FFFFFF" }}
+            className="w-7 h-7 rounded-full flex items-center justify-center shadow-md animate-in zoom-in-75"
+          >
             <CornerUpLeft size={14} className="stroke-[2.5]" />
           </div>
         </div>
@@ -713,7 +716,7 @@ export default function ConversationPage() {
   // Synchronize browser address bar to aesthetic handle URL (/messages/@handle) for 1-on-1 chats
   useEffect(() => {
     if (!details || details.kind === "GROUP" || !user) return;
-    const other = details.members.find(m => m.userId !== user.id);
+    const other = details.members.find(m => m.userId !== user.id) || details.members.find(m => m.userId === user.id);
     if (other?.handle && typeof window !== "undefined") {
       const aestheticPath = `/messages/@${other.handle}`;
       if (window.location.pathname !== aestheticPath) {
@@ -1011,7 +1014,10 @@ export default function ConversationPage() {
   if (!user) return null;
 
   const isGroup = details?.kind === "GROUP";
-  const otherMember = !isGroup ? details?.members.find(m => m.userId !== user.id) : null;
+  const otherMember = !isGroup
+    ? (details?.members.find(m => m.userId !== user.id) || details?.members.find(m => m.userId === user.id))
+    : null;
+  const isSelf = !isGroup && otherMember?.userId === user.id;
 
   return (
     <div className="flex h-full min-h-0 flex-col" style={{ background: "var(--bg)" }}>
@@ -1042,7 +1048,7 @@ export default function ConversationPage() {
                 <p className="mono-label truncate">
                   {typing.length > 0
                     ? `${typing.slice(0, 2).join(", ")} ${typing.length === 1 ? "is" : "are"} typing…`
-                    : isGroup ? `${details?.members.length ?? 0} members` : "Direct message · View profile →"}
+                    : isGroup ? `${details?.members.length ?? 0} members` : (isSelf ? "Note to self · Saved messages" : "Direct message · View profile →")}
                 </p>
               </div>
             </Link>
@@ -1105,7 +1111,7 @@ export default function ConversationPage() {
                 <p className="font-mono text-xs font-semibold text-[var(--gold)] mt-0.5">@{otherMember.handle}</p>
               ) : null}
               <span className="mt-2.5 inline-flex items-center gap-1 font-ui text-[11px] font-semibold text-[var(--gold)] border border-[var(--border-gold)] px-3 py-1 rounded-full bg-[var(--surface-2)] hover:bg-[rgba(201,152,58,0.12)] transition-colors shadow-sm">
-                View Scholar Profile →
+                {isSelf ? "Your Personal Profile →" : "View Scholar Profile →"}
               </span>
             </Link>
           ) : (
@@ -1115,7 +1121,9 @@ export default function ConversationPage() {
             </>
           )}
           <p className="mx-auto mt-2 max-w-xs font-body text-xs text-[var(--muted)]">
-            This is the beginning of your direct conversation with {details?.title || "this member"}.
+            {isSelf
+              ? "This is your personal space. Send notes, drafts, links, and files to yourself."
+              : `This is the beginning of your direct conversation with ${details?.title || "this member"}.`}
           </p>
         </div>
 

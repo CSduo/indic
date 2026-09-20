@@ -282,26 +282,40 @@ export default function PublicProfilePage() {
               {/* Follow and message live on the profile itself — finding
                   someone and being able to reach them should not be two
                   separate journeys. */}
-              {viewer && viewer.id !== userId ? (
+              {viewer ? (
                 <div className="mt-5 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={toggleFollow}
-                    disabled={socialBusy}
-                    className={social?.youFollow ? "btn-ink" : "btn-terracotta"}
-                  >
-                    {social?.youFollow ? <><UserCheck size={14} /> Following</> : <><UserPlus size={14} /> Follow</>}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={startConversation}
-                    disabled={socialBusy || !profile?.handle}
-                    className={`btn-ink ${!profile?.handle ? "opacity-40 cursor-not-allowed" : ""}`}
-                    title={!profile?.handle ? "Scholar must claim a @handle before receiving direct messages" : undefined}
-                  >
-                    <MessageSquare size={14} /> {profile?.handle ? "Message" : "No Handle"}
-                  </button>
-                  {social?.followsYou ? <span className="status-chip">Follows you</span> : null}
+                  {viewer.id !== userId ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={toggleFollow}
+                        disabled={socialBusy}
+                        className={social?.youFollow ? "btn-ink" : "btn-terracotta"}
+                      >
+                        {social?.youFollow ? <><UserCheck size={14} /> Following</> : <><UserPlus size={14} /> Follow</>}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={startConversation}
+                        disabled={socialBusy || !profile?.handle}
+                        className={`btn-ink ${!profile?.handle ? "opacity-40 cursor-not-allowed" : ""}`}
+                        title={!profile?.handle ? "Scholar must claim a @handle before receiving direct messages" : undefined}
+                      >
+                        <MessageSquare size={14} /> {profile?.handle ? "Message" : "No Handle"}
+                      </button>
+                      {social?.followsYou ? <span className="status-chip">Follows you</span> : null}
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={startConversation}
+                      disabled={socialBusy}
+                      className="btn-terracotta"
+                      title="Message yourself / Note to self"
+                    >
+                      <MessageSquare size={14} /> Note to Self
+                    </button>
+                  )}
                 </div>
               ) : null}
             </div>

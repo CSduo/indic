@@ -55,6 +55,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", resolvedTheme);
     document.documentElement.setAttribute("data-theme-preference", theme);
+    document.documentElement.classList.toggle("dark", resolvedTheme === "dark");
     document.documentElement.style.colorScheme = resolvedTheme;
     try {
       localStorage.setItem("anv-theme", theme);
