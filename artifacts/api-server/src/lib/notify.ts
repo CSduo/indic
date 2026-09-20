@@ -1,6 +1,6 @@
 import { db, notificationsTable, followsTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { sendPushToUser } from "./push";
+import { sendPushToUser, broadcastPushNotification } from "./push";
 
 /**
  * Raise a notification for one person.
@@ -122,4 +122,35 @@ export async function notifyFollowersOfNewWork(options: {
   }
 
   return { notified };
+}
+
+/**
+ * Notify all subscribers who have allowed browser notifications that a new piece of work has been published.
+ */
+export async function notifyAllSubscribersOfNewArticle(options: {
+  title: string;
+  slug: string;
+  authorName?: string | null;
+  kind?: "article" | "paper" | "essay";
+  heroImageUrl?: string | null;
+}): Promise<{ pushSent: number }> {
+  const { title, slug, authorName, kind = "article", heroImageUrl } = options;
+  const href = `/${kind === "paper" ? "papers" : "articles"}/${slug}`;
+  const label = kind === "paper" ? "research paper" : "article";
+  const author = (authorName || "").trim() || "Ānvīkṣikī";
+  const message = `${author} published a new ${label}: "${title}"`;
+
+  try {
+    const result = await broadcastPushNotification({
+      title: "Ānvīkṣikī · New Publication",
+      body: message,
+      url: href,
+      tag: `new-work-${slug}`,
+      image: heroImageUrl || undefined,
+    });
+    return { pushSent: result.sent };
+  } catch (err: any) {
+    console.warn("Could not broadcast new publication push:", err?.message || err);
+    return { pushSent: 0 };
+  }
 }

@@ -18,7 +18,7 @@ import {
   unpublishPublicPublicationForSubmission,
 } from "../lib/publication-sync";
 import { z } from "zod";
-import { notifyUser, notifyFollowersOfNewWork } from "../lib/notify";
+import { notifyUser, notifyFollowersOfNewWork, notifyAllSubscribersOfNewArticle } from "../lib/notify";
 import { sanitizeArticleBody, MAX_BODY_CHARS } from "../lib/content";
 import { triggerPublicContentSeo } from "../lib/seo-service";
 
@@ -258,6 +258,13 @@ router.post("/admin/articles", requireAdmin, requireAdminRole("ADMIN", "EDITOR")
         title: article.title,
         tags: article.tags,
       });
+      notifyAllSubscribersOfNewArticle({
+        title: article.title,
+        slug: article.slug,
+        authorName: article.authorName,
+        kind: "article",
+        heroImageUrl: article.heroImageUrl,
+      }).catch(err => req.log?.warn?.({ err }, "Failed to broadcast article push"));
     }
 
     return res.status(201).json({ success: true, article });
@@ -291,6 +298,15 @@ router.patch("/admin/articles/:id", requireAdmin, requireAdminRole("ADMIN", "EDI
         title: article.title,
         tags: article.tags,
       });
+      if (parsed.data.status === "PUBLISHED") {
+        notifyAllSubscribersOfNewArticle({
+          title: article.title,
+          slug: article.slug,
+          authorName: article.authorName,
+          kind: "article",
+          heroImageUrl: article.heroImageUrl,
+        }).catch(err => req.log?.warn?.({ err }, "Failed to broadcast article push"));
+      }
     }
 
     return res.json({ article });
@@ -406,6 +422,22 @@ router.post("/admin/papers", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), 
       publishedAt: data.publishedAt ? new Date(data.publishedAt) : null,
     }).returning();
 
+    if (paper.status === "PUBLISHED") {
+      triggerPublicContentSeo({
+        type: "paper",
+        slug: paper.slug,
+        title: paper.title,
+        tags: paper.tags,
+      });
+      notifyAllSubscribersOfNewArticle({
+        title: paper.title,
+        slug: paper.slug,
+        authorName: paper.authorName,
+        kind: "paper",
+        heroImageUrl: paper.coverImageUrl,
+      }).catch(err => req.log?.warn?.({ err }, "Failed to broadcast paper push"));
+    }
+
     return res.status(201).json({ success: true, paper });
   } catch (err) {
     req.log.error(err);
@@ -429,6 +461,25 @@ router.patch("/admin/papers/:id", requireAdmin, requireAdminRole("ADMIN", "EDITO
     const [paper] = await db.update(papersTable).set(updates)
       .where(and(eq(papersTable.id, req.params.id), isNull(papersTable.deletedAt))).returning();
     if (!paper) return res.status(404).json({ error: "Not found" });
+
+    if (paper.status === "PUBLISHED") {
+      triggerPublicContentSeo({
+        type: "paper",
+        slug: paper.slug,
+        title: paper.title,
+        tags: paper.tags,
+      });
+      if (parsed.data.status === "PUBLISHED") {
+        notifyAllSubscribersOfNewArticle({
+          title: paper.title,
+          slug: paper.slug,
+          authorName: paper.authorName,
+          kind: "paper",
+          heroImageUrl: paper.coverImageUrl,
+        }).catch(err => req.log?.warn?.({ err }, "Failed to broadcast paper push"));
+      }
+    }
+
     return res.json({ paper });
   } catch (err) {
     req.log.error(err);
@@ -681,6 +732,13 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
             authorId: previous.userId,
             title: previous.title || undefined,
           });
+          notifyAllSubscribersOfNewArticle({
+            title: submission.title || previous.title || "a new piece",
+            slug: publication.slug,
+            authorName: submission.submitterName,
+            kind: publication.kind === "paper" ? "paper" : "article",
+            heroImageUrl: submission.coverImageUrl,
+          }).catch(err => req.log?.warn?.({ err }, "Could not broadcast subscriber push"));
         }
       }
       return res.json({ submission, publication });

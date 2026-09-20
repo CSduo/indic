@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Link, useParams, useLocation } from "wouter";
 import {
   ArrowLeft, Bell, BellOff, Check, Copy, CornerUpLeft, Download, ExternalLink,
-  Image as ImageIcon, MoreHorizontal, Paperclip, Pencil, Send, Trash2, Users, X,
+  Image as ImageIcon, MoreHorizontal, Paperclip, Pencil, Plus, Send, Smile, Trash2, Users, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -11,8 +11,9 @@ import { createPoller, messagesApi, type ConversationMember, type Message } from
 import { goBack } from "@/lib/goBack";
 import { VoiceRecorder, VoiceNoteButton } from "@/components/messages/VoiceRecorder";
 import { VoiceNotePlayer } from "@/components/messages/VoiceNotePlayer";
+import { AestheticEmojiPicker } from "@/components/messages/AestheticEmojiPicker";
 
-const QUICK_REACTIONS = ["❤️", "👍", "🎉", "🙏", "😮", "😢"];
+const QUICK_REACTIONS = ["🪷", "✨", "🗿", "💀", "🤌", "🫡", "🙏", "❤️"];
 
 function formatBytes(bytes: number | null | undefined): string {
   if (!bytes || bytes < 0) return "";
@@ -189,6 +190,7 @@ function MessageBubble({
   onEdit: (m: Message) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [swipeX, setSwipeX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const pressTimer = useRef<number | undefined>(undefined);
@@ -427,13 +429,13 @@ function MessageBubble({
         </div>
 
         {message.reactions.length > 0 ? (
-          <div className="mt-1 flex flex-wrap gap-1">
+          <div className="mt-1 flex flex-wrap items-center gap-1">
             {message.reactions.map(r => (
               <button
                 key={r.emoji}
                 type="button"
                 onClick={() => onReact(message, r.emoji)}
-                className="rounded-full border px-1.5 py-0.5 font-ui text-[11px]"
+                className="rounded-full border px-2 py-0.5 font-ui text-[11px] flex items-center gap-1 hover:scale-105 transition-transform"
                 style={{
                   borderColor: r.mine ? "var(--accent)" : "var(--hairline)",
                   background: r.mine ? "var(--accent-wash)" : "var(--surface)",
@@ -441,15 +443,32 @@ function MessageBubble({
                 }}
                 aria-label={`${r.emoji} ${r.count}`}
               >
-                {r.emoji} {r.count}
+                <span>{r.emoji}</span> <span>{r.count}</span>
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => { setMenuOpen(true); setShowEmojiPicker(true); }}
+              className="rounded-full border border-dashed border-[var(--hairline)] hover:border-[#f59e0b] px-1.5 py-0.5 text-[11px] text-[var(--ink-muted)] hover:text-[#f59e0b] transition-colors"
+              title="Add aesthetic reaction (120+)"
+            >
+              +
+            </button>
           </div>
         ) : null}
       </div>
 
       {/* Action button trigger & Quick Reply */}
       <div className="relative self-center flex items-center gap-1 opacity-40 transition-opacity focus-within:opacity-100 md:opacity-0 md:group-hover:opacity-100">
+        <button
+          type="button"
+          className="editor-tool hover:text-[#f59e0b] transition-colors"
+          onClick={() => { setMenuOpen(true); setShowEmojiPicker(true); }}
+          aria-label="React with emoji"
+          title="React with aesthetic emoji"
+        >
+          <Smile size={14} />
+        </button>
         <button
           type="button"
           className="editor-tool hover:text-[var(--gold)] transition-colors"
@@ -462,7 +481,7 @@ function MessageBubble({
         <button
           type="button"
           className="editor-tool"
-          onClick={() => setMenuOpen(true)}
+          onClick={() => { setShowEmojiPicker(false); setMenuOpen(true); }}
           aria-label="Message actions"
         >
           <MoreHorizontal size={15} />
@@ -474,17 +493,17 @@ function MessageBubble({
             role="dialog"
             aria-modal="true"
             aria-label="Message options"
-            onKeyDown={(e) => { if (e.key === "Escape") setMenuOpen(false); }}
+            onKeyDown={(e) => { if (e.key === "Escape") { setMenuOpen(false); setShowEmojiPicker(false); } }}
           >
             {/* Ambient Backdrop */}
             <div
               className="absolute inset-0 bg-black/60 backdrop-blur-md transition-opacity"
-              onClick={() => setMenuOpen(false)}
+              onClick={() => { setMenuOpen(false); setShowEmojiPicker(false); }}
             />
 
             {/* Aesthetic Sacred Floating Card */}
             <div
-              className="relative z-10 w-full max-w-sm overflow-hidden rounded-2xl border border-[rgba(201,152,58,0.4)] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.6)] animate-in zoom-in-95 slide-in-from-bottom-3 sm:slide-in-from-bottom-0 duration-200"
+              className="relative z-10 w-full max-w-sm overflow-hidden rounded-2xl border border-[rgba(201,152,58,0.4)] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.6)] animate-in zoom-in-95 slide-in-from-bottom-3 sm:slide-in-from-bottom-0 duration-200 max-h-[90vh] overflow-y-auto"
               style={{
                 backgroundColor: "var(--surface-elevated, var(--surface, #1A1715))",
                 borderColor: "rgba(201,152,58,0.4)",
@@ -494,18 +513,44 @@ function MessageBubble({
             >
               {/* Quick Reactions Floating Pill */}
               <div className="flex items-center justify-between gap-1 rounded-xl bg-[var(--surface-2)] border border-[var(--hairline)] p-2 mb-3 shadow-inner">
-                {QUICK_REACTIONS.map(emoji => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    className="text-2xl hover:scale-125 active:scale-90 transition-transform p-1.5 rounded-lg hover:bg-[rgba(201,152,58,0.15)] flex items-center justify-center"
-                    onClick={() => { onReact(message, emoji); setMenuOpen(false); }}
-                    aria-label={`React ${emoji}`}
-                  >
-                    {emoji}
-                  </button>
-                ))}
+                <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
+                  {QUICK_REACTIONS.map(emoji => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      className="text-2xl hover:scale-125 active:scale-90 transition-transform p-1.5 rounded-lg hover:bg-[rgba(201,152,58,0.15)] flex items-center justify-center shrink-0"
+                      onClick={() => { onReact(message, emoji); setMenuOpen(false); }}
+                      aria-label={`React ${emoji}`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--hairline)] text-[#f59e0b] hover:bg-[#f59e0b]/20 hover:scale-110 transition-all shrink-0 ml-1"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  aria-label="All 120+ Emojis"
+                  title="All 120+ aesthetic emojis"
+                >
+                  <Plus size={16} />
+                </button>
               </div>
+
+              {/* Full Aesthetic Emoji Picker in Modal */}
+              {showEmojiPicker && (
+                <div className="mb-3 flex justify-center">
+                  <AestheticEmojiPicker
+                    onSelect={emoji => {
+                      onReact(message, emoji);
+                      setShowEmojiPicker(false);
+                      setMenuOpen(false);
+                    }}
+                    onClose={() => setShowEmojiPicker(false)}
+                    className="w-full"
+                  />
+                </div>
+              )}
 
               {/* Action List */}
               <div className="space-y-1">
@@ -639,6 +684,7 @@ export default function ConversationPage() {
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(true);
   const [showMembers, setShowMembers] = useState(false);
+  const [showComposerEmoji, setShowComposerEmoji] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -647,6 +693,22 @@ export default function ConversationPage() {
   const lastAtRef = useRef<string>("");
   const typingSentAtRef = useRef(0);
   const atBottomRef = useRef(true);
+
+  const insertEmojiAtCursor = (emoji: string) => {
+    const textarea = composerRef.current;
+    if (!textarea) {
+      setDraft(prev => prev + emoji);
+      return;
+    }
+    const start = textarea.selectionStart ?? draft.length;
+    const end = textarea.selectionEnd ?? draft.length;
+    const nextDraft = draft.slice(0, start) + emoji + draft.slice(end);
+    setDraft(nextDraft);
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + emoji.length, start + emoji.length);
+    });
+  };
 
   const scrollToBottom = useCallback((smooth = false) => {
     const el = scrollRef.current;
@@ -1248,7 +1310,7 @@ export default function ConversationPage() {
               {recording ? (
                 <VoiceRecorder
                   busy={sending}
-                  onSend={(file) => attach(file)}
+                  onSend={(file, transcript) => attach(file, transcript)}
                   onCancel={() => setRecording(false)}
                 />
               ) : (
@@ -1274,13 +1336,36 @@ export default function ConversationPage() {
                   />
 
                   <div className="composer-tools relative">
+                    {showComposerEmoji && (
+                      <div className="absolute right-0 bottom-full mb-2 z-50 shadow-2xl animate-in zoom-in-95 duration-150">
+                        <AestheticEmojiPicker
+                          onSelect={emoji => {
+                            insertEmojiAtCursor(emoji);
+                            setShowComposerEmoji(false);
+                          }}
+                          onClose={() => setShowComposerEmoji(false)}
+                        />
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      className={`composer-tool ${showComposerEmoji ? "text-[var(--gold)] bg-[var(--surface-2)]" : ""}`}
+                      onClick={() => setShowComposerEmoji(prev => !prev)}
+                      aria-label="Insert aesthetic emoji"
+                      title="120+ Aesthetic & Funny Emojis"
+                      disabled={sending}
+                    >
+                      <Smile size={15} />
+                    </button>
+
                     {!editing ? (
                       <>
-                        <VoiceNoteButton onStart={() => setRecording(true)} disabled={sending} />
-                        <button type="button" className="composer-tool" onClick={() => imageRef.current?.click()} aria-label="Send a photo" disabled={sending}>
+                        <VoiceNoteButton onStart={() => { setShowComposerEmoji(false); setRecording(true); }} disabled={sending} />
+                        <button type="button" className="composer-tool" onClick={() => { setShowComposerEmoji(false); imageRef.current?.click(); }} aria-label="Send a photo" disabled={sending}>
                           <ImageIcon size={15} />
                         </button>
-                        <button type="button" className="composer-tool" onClick={() => fileRef.current?.click()} aria-label="Attach a file" disabled={sending}>
+                        <button type="button" className="composer-tool" onClick={() => { setShowComposerEmoji(false); fileRef.current?.click(); }} aria-label="Attach a file" disabled={sending}>
                           <Paperclip size={15} />
                         </button>
                       </>

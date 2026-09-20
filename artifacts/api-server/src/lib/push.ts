@@ -156,3 +156,73 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
 
   return { sent, removed: dead.length };
 }
+
+/**
+ * Send a notification to every device that has approved notifications on the site.
+ * Used when a new article or research paper is published.
+ */
+export async function broadcastPushNotification(payload: PushPayload): Promise<{
+  sent: number;
+  removed: number;
+  skipped?: string;
+}> {
+  if (!ensureConfigured()) return { sent: 0, removed: 0, skipped: "vapid-not-configured" };
+
+  let subscriptions;
+  try {
+    subscriptions = await db.select().from(pushSubscriptionsTable);
+  } catch (err: any) {
+    console.warn("Could not load push subscriptions for broadcast:", err?.message || err);
+    return { sent: 0, removed: 0, skipped: "lookup-failed" };
+  }
+
+  if (subscriptions.length === 0) return { sent: 0, removed: 0, skipped: "no-subscriptions" };
+
+  const body = JSON.stringify({
+    title: payload.title,
+    body: payload.body,
+    url: payload.url || "/browse",
+    tag: payload.tag,
+    icon: payload.icon || "https://anvikshikijournal.in/favicon.png",
+    badge: payload.badge || "https://anvikshikijournal.in/brand-emblem.png",
+    image: payload.image,
+  });
+
+  const dead: string[] = [];
+  let sent = 0;
+
+  const BATCH_SIZE = 25;
+  for (let i = 0; i < subscriptions.length; i += BATCH_SIZE) {
+    const batch = subscriptions.slice(i, i + BATCH_SIZE);
+    await Promise.all(batch.map(async (subscription) => {
+      try {
+        await webpush.sendNotification(
+          {
+            endpoint: subscription.endpoint,
+            keys: { p256dh: subscription.p256dh, auth: subscription.auth },
+          },
+          body,
+          { TTL: 24 * 60 * 60 },
+        );
+        sent += 1;
+      } catch (err: any) {
+        const status = err?.statusCode;
+        if (status === 404 || status === 410) {
+          dead.push(subscription.id);
+        } else {
+          console.warn(`Broadcast push delivery failed (${status ?? "no status"}):`, err?.message || err);
+        }
+      }
+    }));
+  }
+
+  if (dead.length > 0) {
+    try {
+      await db.delete(pushSubscriptionsTable).where(inArray(pushSubscriptionsTable.id, dead));
+    } catch (err: any) {
+      console.warn("Could not prune expired push subscriptions:", err?.message || err);
+    }
+  }
+
+  return { sent, removed: dead.length };
+}

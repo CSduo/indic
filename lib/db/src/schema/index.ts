@@ -401,7 +401,7 @@ export const typingIndicatorsTable = pgTable("typing_indicators", {
  */
 export const pushSubscriptionsTable = pgTable("push_subscriptions", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  userId: text("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  userId: text("user_id").references(() => usersTable.id, { onDelete: "cascade" }),
   endpoint: text("endpoint").notNull().unique(),
   p256dh: text("p256dh").notNull(),
   auth: text("auth").notNull(),

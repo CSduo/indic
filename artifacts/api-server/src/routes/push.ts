@@ -40,9 +40,6 @@ const subscriptionSchema = z.object({
  */
 router.post("/push/subscribe", async (req, res) => {
   try {
-    const auth = await getUserAuth(req);
-    if (!auth) return res.status(401).json({ error: "Sign in to enable notifications" });
-
     if (!pushIsConfigured()) {
       return res.status(503).json({ error: "Push notifications are not configured", code: "PUSH_NOT_CONFIGURED" });
     }
@@ -52,17 +49,19 @@ router.post("/push/subscribe", async (req, res) => {
       return res.status(400).json({ error: "Invalid subscription", details: parsed.error.flatten() });
     }
 
+    const auth = await getUserAuth(req);
+    const userId = auth?.userId || null;
     const { endpoint, keys } = parsed.data;
     const userAgent = (req.get("user-agent") || "").slice(0, 300);
     const now = new Date();
 
     // The browser reissues the same endpoint for the same device, so a repeat
-    // approval must update the existing row — including moving it to a
-    // different account if someone else signs in on a shared machine.
+    // approval must update the existing row — including associating it with a
+    // signed-in user account if they logged in later.
     await db
       .insert(pushSubscriptionsTable)
       .values({
-        userId: auth.userId,
+        userId,
         endpoint,
         p256dh: keys.p256dh,
         auth: keys.auth,
@@ -72,7 +71,7 @@ router.post("/push/subscribe", async (req, res) => {
       .onConflictDoUpdate({
         target: pushSubscriptionsTable.endpoint,
         set: {
-          userId: auth.userId,
+          ...(userId ? { userId } : {}),
           p256dh: keys.p256dh,
           auth: keys.auth,
           userAgent,
@@ -80,7 +79,7 @@ router.post("/push/subscribe", async (req, res) => {
         },
       });
 
-    return res.status(201).json({ success: true });
+    return res.status(201).json({ success: true, registered: true });
   } catch (err) {
     req.log?.error({ err }, "Failed to store push subscription");
     return res.status(500).json({ error: "Could not enable notifications" });
@@ -117,14 +116,35 @@ router.post("/push/unsubscribe", async (req, res) => {
 router.get("/push/status", async (req, res) => {
   try {
     const auth = await getUserAuth(req);
-    if (!auth) return res.json({ configured: pushIsConfigured(), signedIn: false, subscriptions: 0 });
+    const endpoint = typeof req.query.endpoint === "string" ? req.query.endpoint : null;
+    let endpointRegistered = false;
+    if (endpoint) {
+      const [existing] = await db
+        .select({ id: pushSubscriptionsTable.id })
+        .from(pushSubscriptionsTable)
+        .where(eq(pushSubscriptionsTable.endpoint, endpoint))
+        .limit(1);
+      endpointRegistered = Boolean(existing);
+    }
+
+    if (!auth) {
+      return res.json({
+        configured: pushIsConfigured(),
+        signedIn: false,
+        subscriptions: endpointRegistered ? 1 : 0,
+      });
+    }
 
     const rows = await db
       .select({ id: pushSubscriptionsTable.id })
       .from(pushSubscriptionsTable)
       .where(eq(pushSubscriptionsTable.userId, auth.userId));
 
-    return res.json({ configured: pushIsConfigured(), signedIn: true, subscriptions: rows.length });
+    return res.json({
+      configured: pushIsConfigured(),
+      signedIn: true,
+      subscriptions: Math.max(rows.length, endpointRegistered ? 1 : 0),
+    });
   } catch (err) {
     req.log?.error({ err }, "Failed to read push status");
     return res.status(500).json({ error: "Could not read notification status" });

@@ -631,16 +631,27 @@ async function deliverMessage(options: {
   // Sending a message must not fail because a push did.
   try {
     const recipients = await recipientsOf(conversationId, senderId);
-    await Promise.all(recipients
-      .filter(r => !r.muted)
-      .map(r => sendPushToUser(r.userId, {
-        title: conversationTitle === senderName ? senderName : `${senderName} Â· ${conversationTitle}`,
-        body: preview,
-        url: `/messages/${conversationId}`,
-        // One notification per conversation, replaced as it goes -€- a burst of
-        // messages should not become a wall of separate alerts.
+    let targets = recipients.filter(r => !r.muted);
+    // If it's a self-conversation (e.g. notes to self or self-testing), include sender
+    if (targets.length === 0) {
+      const allMembers = await listMembers(conversationId);
+      if (allMembers.length === 1 && allMembers[0].userId === senderId) {
+        targets = [{ userId: senderId, muted: false }];
+      }
+    }
+
+    const pushTitle = conversationTitle === senderName ? senderName : `${senderName} · ${conversationTitle}`;
+
+    await Promise.all(targets.map(r =>
+      notifyUser({
+        userId: r.userId,
+        type: "NEW_MESSAGE",
+        message: `${senderName}: ${preview}`,
+        href: `/messages/${conversationId}`,
+        pushTitle,
         tag: `conversation-${conversationId}`,
-      })));
+      })
+    ));
   } catch (err) {
     console.warn("Could not notify conversation members:", err);
   }
@@ -1015,6 +1026,22 @@ router.post("/messages/:id/transcribe", async (req, res) => {
     if (source.startsWith("data:")) {
       const base64Data = source.split(",")[1];
       buffer = Buffer.from(base64Data, "base64");
+    } else if (source.startsWith("/") && !source.startsWith("//")) {
+      const filename = message.mediaStorageKey || path.basename(source);
+      const localPath = path.join(UPLOADS_DIR, filename);
+      if (fs.existsSync(localPath)) {
+        buffer = await fs.promises.readFile(localPath);
+      } else {
+        const host = req.get("host") || "127.0.0.1:5000";
+        const protocol = req.protocol || "http";
+        const fullUrl = `${protocol}://${host}${source}`;
+        const resp = await fetch(fullUrl, { headers: { cookie: req.get("cookie") || "" } });
+        if (!resp.ok) {
+          return res.status(502).json({ error: "Could not fetch audio file for transcription" });
+        }
+        const arr = await resp.arrayBuffer();
+        buffer = Buffer.from(arr);
+      }
     } else {
       const resp = await fetch(source);
       if (!resp.ok) {

@@ -36,14 +36,20 @@ export type TranscriptionOutcome =
 /** Prioritized candidate models with automatic failover in case of provider load spikes. */
 const CANDIDATE_MODELS = [
   process.env.GEMINI_MODEL,
-  "gemini-3.5-flash",
-  "gemini-3.6-flash",
-  "gemini-3.5-flash-lite",
-  "gemini-flash-latest",
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
+  "gemini-2.5-pro",
+  "gemini-1.5-pro",
 ].filter(Boolean) as string[];
 
 function apiKey(): string | null {
-  const key = (process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_KEY || "").trim();
+  const key = (
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_AI_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    ""
+  ).trim();
   return key || null;
 }
 

@@ -43,7 +43,7 @@ export function VoiceRecorder({
   onCancel,
   busy,
 }: {
-  onSend: (file: File) => Promise<void> | void;
+  onSend: (file: File, transcript?: string) => Promise<void> | void;
   onCancel: () => void;
   busy?: boolean;
 }) {
@@ -51,6 +51,7 @@ export function VoiceRecorder({
   const [seconds, setSeconds] = useState(0);
   const [level, setLevel] = useState(0);
   const [starting, setStarting] = useState(true);
+  const [liveTranscript, setLiveTranscript] = useState("");
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
@@ -58,6 +59,8 @@ export function VoiceRecorder({
   const tickRef = useRef<number | undefined>(undefined);
   const rafRef = useRef<number | undefined>(undefined);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const recognitionRef = useRef<any>(null);
+  const transcriptRef = useRef<string>("");
   /** Set when the recording is being sent, so onstop knows what to do. */
   const sendOnStopRef = useRef(false);
 
@@ -68,6 +71,10 @@ export function VoiceRecorder({
     streamRef.current = null;
     audioCtxRef.current?.close().catch(() => {});
     audioCtxRef.current = null;
+    try {
+      recognitionRef.current?.stop();
+      recognitionRef.current = null;
+    } catch { /* ignore */ }
   };
 
   // Recording begins as soon as this appears — the tap on the microphone was
@@ -97,15 +104,43 @@ export function VoiceRecorder({
         recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
         recorder.onstop = async () => {
           const blob = new Blob(chunksRef.current, { type: mimeType });
+          const finalTranscript = transcriptRef.current.trim() || undefined;
           releaseEverything();
           if (!sendOnStopRef.current || blob.size === 0) return;
           const file = new File([blob], `voice-note.${extensionFor(mimeType)}`, { type: mimeType });
-          await onSend(file);
+          await onSend(file, finalTranscript);
           onCancel();
         };
 
         recorder.start(250);
         setStarting(false);
+
+        // Start live in-browser speech recognition if supported
+        try {
+          const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+          if (SpeechRec) {
+            const rec = new SpeechRec();
+            rec.continuous = true;
+            rec.interimResults = true;
+            rec.lang = navigator.language || "en-US";
+            rec.onresult = (event: any) => {
+              let text = "";
+              for (let i = 0; i < event.results.length; i++) {
+                text += event.results[i][0].transcript + " ";
+              }
+              const trimmed = text.trim();
+              if (trimmed) {
+                setLiveTranscript(trimmed);
+                transcriptRef.current = trimmed;
+              }
+            };
+            rec.onerror = () => {};
+            rec.start();
+            recognitionRef.current = rec;
+          }
+        } catch {
+          // Web speech not available or denied
+        }
 
         tickRef.current = window.setInterval(() => {
           setSeconds(value => {
@@ -261,6 +296,15 @@ export function VoiceRecorder({
           {busy ? <span className="spinner-editorial" aria-hidden="true" /> : <Send size={14} />}
         </button>
       </div>
+
+      {liveTranscript && (
+        <div className="flex items-center gap-1.5 px-1 pt-1.5 border-t border-[var(--hairline)]">
+          <span className="font-ui text-[10px] uppercase font-bold text-[#d97706] tracking-wider shrink-0">Live:</span>
+          <p className="font-body text-[12px] italic text-[var(--ink-body)] truncate" title={liveTranscript}>
+            "{liveTranscript}"
+          </p>
+        </div>
+      )}
     </div>
   );
 }
