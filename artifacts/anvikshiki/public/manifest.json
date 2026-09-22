@@ -1,0 +1,25 @@
+{
+  "name": "Ānvīkṣikī — Indic Academic Journal",
+  "short_name": "Ānvīkṣikī",
+  "description": "Peer-reviewed Indic humanities, philosophy, and scholarly research.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#111317",
+  "theme_color": "#C84A10",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/brand-emblem.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

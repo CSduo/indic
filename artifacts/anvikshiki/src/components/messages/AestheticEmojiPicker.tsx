@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { Search, X, Sparkles } from "lucide-react";
-import { AESTHETIC_EMOJI_CATEGORIES, ALL_AESTHETIC_EMOJIS, type AestheticEmoji } from "@/data/aestheticEmojis";
+import { AESTHETIC_EMOJI_CATEGORIES, ALL_AESTHETIC_EMOJIS, type AestheticEmoji as EmojiItem } from "@/data/aestheticEmojis";
+import { AestheticEmoji } from "./AestheticEmoji";
 
 interface AestheticEmojiPickerProps {
   onSelect: (emoji: string) => void;
@@ -17,7 +18,7 @@ export function AestheticEmojiPicker({
 }: AestheticEmojiPickerProps) {
   const [activeTab, setActiveTab] = useState<string>("wit");
   const [search, setSearch] = useState<string>("");
-  const [hoveredEmoji, setHoveredEmoji] = useState<AestheticEmoji | null>(null);
+  const [hoveredEmoji, setHoveredEmoji] = useState<EmojiItem | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -121,7 +122,7 @@ export function AestheticEmojiPicker({
                     : "text-[#9ca3af] hover:bg-[#232930] hover:text-[#f3f4f6]"
                 }`}
               >
-                <span>{cat.icon}</span>
+                <AestheticEmoji glyph={cat.icon} size={15} />
                 <span className="hidden sm:inline text-[11px]">{cat.title.split(" ")[0]}</span>
               </button>
             );
@@ -148,12 +149,10 @@ export function AestheticEmojiPicker({
                 }}
                 onMouseEnter={() => setHoveredEmoji(item)}
                 onMouseLeave={() => setHoveredEmoji(null)}
-                className="group flex h-10 w-10 items-center justify-center rounded-lg text-2xl transition-all duration-100 hover:scale-125 hover:bg-[#2c333d] active:scale-95"
+                className="group flex h-10 w-10 items-center justify-center rounded-lg transition-all duration-100 hover:scale-125 hover:bg-[#2c333d] active:scale-95"
                 title={item.name}
               >
-                <span className="transform transition-transform group-hover:scale-110">
-                  {item.emoji}
-                </span>
+                <AestheticEmoji glyph={item.emoji} size={26} className="transform transition-transform group-hover:scale-110" />
               </button>
             ))}
           </div>
@@ -164,7 +163,7 @@ export function AestheticEmojiPicker({
       <div className="flex items-center justify-between border-t border-[#2d333b] bg-[#111317] px-3 py-1.5 text-[11px] text-[#9ca3af]">
         {hoveredEmoji ? (
           <div className="flex items-center gap-1.5 truncate">
-            <span className="text-base">{hoveredEmoji.emoji}</span>
+            <AestheticEmoji glyph={hoveredEmoji.emoji} size={18} />
             <span className="font-medium text-[#f3f4f6] truncate">{hoveredEmoji.name}</span>
           </div>
         ) : (

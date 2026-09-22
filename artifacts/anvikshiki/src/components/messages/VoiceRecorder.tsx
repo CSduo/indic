@@ -122,19 +122,39 @@ export function VoiceRecorder({
             const rec = new SpeechRec();
             rec.continuous = true;
             rec.interimResults = true;
+            rec.maxAlternatives = 1;
             rec.lang = navigator.language || "en-US";
+
+            let accumulatedBeforeRestart = "";
+
             rec.onresult = (event: any) => {
-              let text = "";
+              let currentSessionText = "";
               for (let i = 0; i < event.results.length; i++) {
-                text += event.results[i][0].transcript + " ";
+                currentSessionText += event.results[i][0].transcript + " ";
               }
-              const trimmed = text.trim();
-              if (trimmed) {
-                setLiveTranscript(trimmed);
-                transcriptRef.current = trimmed;
+              const total = (accumulatedBeforeRestart + currentSessionText).trim();
+              if (total) {
+                setLiveTranscript(total);
+                transcriptRef.current = total;
               }
             };
-            rec.onerror = () => {};
+
+            rec.onerror = (e: any) => {
+              // Non-fatal error; ignore no-speech
+              if (e.error === "no-speech") return;
+            };
+
+            rec.onend = () => {
+              accumulatedBeforeRestart = transcriptRef.current ? transcriptRef.current + " " : "";
+              if (!cancelled && recorderRef.current && recorderRef.current.state === "recording") {
+                try {
+                  rec.start();
+                } catch {
+                  // Ignore restart collisions
+                }
+              }
+            };
+
             rec.start();
             recognitionRef.current = rec;
           }
@@ -207,10 +227,12 @@ export function VoiceRecorder({
       recorder.pause();
       setPaused(true);
       window.clearInterval(tickRef.current);
+      try { recognitionRef.current?.stop(); } catch { /* ignore */ }
     } else if (recorder.state === "paused") {
       recorder.resume();
       setPaused(false);
       tickRef.current = window.setInterval(() => setSeconds(v => v + 1), 1000);
+      try { recognitionRef.current?.start(); } catch { /* ignore */ }
     }
   };
 

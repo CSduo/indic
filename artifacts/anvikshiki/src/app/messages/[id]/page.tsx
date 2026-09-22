@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Link, useParams, useLocation } from "wouter";
 import {
-  ArrowLeft, Bell, BellOff, Check, Copy, CornerUpLeft, Download, ExternalLink,
+  ArrowLeft, Bell, BellOff, BellRing, Check, Copy, CornerUpLeft, Download, ExternalLink,
   Image as ImageIcon, MoreHorizontal, Paperclip, Pencil, Plus, Send, Smile, Trash2, Users, X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -11,9 +10,15 @@ import { createPoller, messagesApi, type ConversationMember, type Message } from
 import { goBack } from "@/lib/goBack";
 import { VoiceRecorder, VoiceNoteButton } from "@/components/messages/VoiceRecorder";
 import { VoiceNotePlayer } from "@/components/messages/VoiceNotePlayer";
+import { AestheticEmoji } from "@/components/messages/AestheticEmoji";
 import { AestheticEmojiPicker } from "@/components/messages/AestheticEmojiPicker";
+import {
+  describePushSupport,
+  currentPermission,
+  enableNotifications,
+} from "@/lib/pushNotifications";
 
-const QUICK_REACTIONS = ["🪷", "✨", "🗿", "💀", "🤌", "🫡", "🙏", "❤️"];
+const QUICK_REACTIONS = ["❤️", "😂", "😮", "😢", "🔥"];
 
 function formatBytes(bytes: number | null | undefined): string {
   if (!bytes || bytes < 0) return "";
@@ -178,7 +183,7 @@ function Avatar({ name, url, size = 28 }: { name: string; url?: string | null; s
 }
 
 function MessageBubble({
-  message, isGroup, showTail, onReply, onReact, onUnsend, onEdit,
+  message, isGroup, showTail, onReply, onReact, onUnsend, onEdit, onTranscriptUpdate,
 }: {
   message: Message;
   isGroup: boolean;
@@ -188,6 +193,7 @@ function MessageBubble({
   onReact: (m: Message, emoji: string) => void;
   onUnsend: (m: Message) => void;
   onEdit: (m: Message) => void;
+  onTranscriptUpdate?: (m: Message, transcript: string) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -195,10 +201,52 @@ function MessageBubble({
   const [isSwiping, setIsSwiping] = useState(false);
   const pressTimer = useRef<number | undefined>(undefined);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [openAbove, setOpenAbove] = useState(true);
   const mine = message.mine;
 
+  const openMenu = (withPicker = false) => {
+    if (bubbleRef.current) {
+      const rect = bubbleRef.current.getBoundingClientRect();
+      setOpenAbove(rect.top >= 220);
+    }
+    setShowEmojiPicker(withPicker);
+    setMenuOpen(true);
+  };
+
+  const closeMenu = () => {
+    setMenuOpen(false);
+    setShowEmojiPicker(false);
+  };
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        closeMenu();
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        closeMenu();
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("touchstart", handleOutsideClick);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("touchstart", handleOutsideClick);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [menuOpen]);
+
   const startPress = () => {
-    pressTimer.current = window.setTimeout(() => setMenuOpen(true), 450);
+    pressTimer.current = window.setTimeout(() => {
+      openMenu(false);
+      try { window.navigator?.vibrate?.(30); } catch {}
+    }, 450);
   };
   const cancelPress = () => window.clearTimeout(pressTimer.current);
 
@@ -306,14 +354,15 @@ function MessageBubble({
         ) : null}
 
         <div
+          ref={bubbleRef}
           id={`msg-${message.id}`}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           onTouchMove={handleTouchMove}
-          onContextMenu={e => { e.preventDefault(); setMenuOpen(true); }}
+          onContextMenu={e => { e.preventDefault(); openMenu(false); }}
           className={`relative transition-all select-none ${message.kind === "AUDIO" ? "p-2.5 sm:p-3" : "px-3 py-2"}`}
           style={{
-            transform: `translateX(${swipeX}px)`,
+            transform: swipeX !== 0 ? `translateX(${swipeX}px)` : undefined,
             transition: isSwiping ? "none" : "transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1)",
             ...(message.kind === "AUDIO"
               ? {
@@ -342,6 +391,152 @@ function MessageBubble({
             opacity: message.pending ? 0.55 : 1,
           }}
         >
+          {/* Floating Contextual Popover anchored directly above or beside message bubble */}
+          {menuOpen && (
+            <>
+              {/* Transparent click-away backdrop: captures outside clicks with zero screen takeover/darkening */}
+              <div
+                className="fixed inset-0 z-40 bg-transparent cursor-default"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeMenu();
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  closeMenu();
+                }}
+              />
+
+              <div
+                ref={popoverRef}
+                className={`absolute z-50 ${
+                  openAbove ? "bottom-[calc(100%+8px)]" : "top-[calc(100%+8px)]"
+                } ${
+                  mine ? "right-0" : "left-0"
+                } flex flex-col gap-1.5 animate-in fade-in zoom-in-95 duration-150 select-none`}
+                style={{
+                  filter: "drop-shadow(0 12px 32px rgba(0, 0, 0, 0.45))",
+                  maxWidth: "min(340px, calc(100vw - 2rem))",
+                }}
+                onClick={(e) => e.stopPropagation()}
+                role="dialog"
+                aria-label="Message reactions and options"
+              >
+                {/* 5 Top Instagram Reactions Pill */}
+                <div
+                  className="flex items-center gap-1 rounded-full px-2.5 py-1.5 border shadow-2xl backdrop-blur-md"
+                  style={{
+                    backgroundColor: "var(--surface-elevated, #1c1d21)",
+                    borderColor: "rgba(201, 152, 58, 0.45)",
+                  }}
+                >
+                  <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 px-0.5">
+                    {QUICK_REACTIONS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        className="flex h-8 w-8 items-center justify-center rounded-full hover:scale-125 active:scale-95 transition-all p-1 hover:bg-[rgba(201,152,58,0.18)] shrink-0"
+                        onClick={() => {
+                          onReact(message, emoji);
+                          closeMenu();
+                        }}
+                        aria-label={`React ${emoji}`}
+                        title={`React with ${emoji}`}
+                      >
+                        <AestheticEmoji glyph={emoji} size={22} />
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="h-5 w-px mx-0.5 bg-[var(--hairline,rgba(255,255,255,0.18))]" />
+
+                  <button
+                    type="button"
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--hairline)] text-[#f59e0b] hover:bg-[#f59e0b]/20 hover:scale-110 active:scale-90 transition-all shrink-0"
+                    onClick={() => setShowEmojiPicker((prev) => !prev)}
+                    aria-label="All 120+ Emojis"
+                    title="120+ aesthetic emojis"
+                  >
+                    <Plus
+                      size={16}
+                      className={showEmojiPicker ? "rotate-45 transition-transform duration-150" : "transition-transform duration-150"}
+                    />
+                  </button>
+                </div>
+
+                {/* Filtered Contextual Options (Reply, Copy Text, Unsend) or Full Picker when '+' clicked */}
+                {!showEmojiPicker ? (
+                  <div
+                    className={`flex flex-col min-w-[175px] rounded-2xl border p-1.5 shadow-2xl backdrop-blur-md overflow-hidden ${
+                      mine ? "self-end" : "self-start"
+                    }`}
+                    style={{
+                      backgroundColor: "var(--surface-elevated, #1c1d21)",
+                      borderColor: "rgba(201, 152, 58, 0.35)",
+                      color: "var(--ink)",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left font-ui text-xs font-semibold text-[var(--ink)] hover:bg-[rgba(201,152,58,0.14)] hover:text-[var(--gold)] transition-colors"
+                      onClick={() => {
+                        onReply(message);
+                        closeMenu();
+                      }}
+                    >
+                      <CornerUpLeft size={14} className="text-[var(--gold)] shrink-0" />
+                      <span>Reply</span>
+                    </button>
+
+                    {message.body ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left font-ui text-xs font-medium text-[var(--ink-soft)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)] transition-colors"
+                        onClick={() => {
+                          void navigator.clipboard?.writeText(message.body || "");
+                          closeMenu();
+                          toast.success("Text copied to clipboard");
+                        }}
+                      >
+                        <Copy size={14} className="text-[var(--ink-meta)] shrink-0" />
+                        <span>Copy Text</span>
+                      </button>
+                    ) : null}
+
+                    {mine && !message.pending ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left font-ui text-xs font-semibold text-rose-400 hover:bg-rose-500/15 transition-colors"
+                        onClick={() => {
+                          closeMenu();
+                          onUnsend(message);
+                        }}
+                      >
+                        <Trash2 size={14} className="text-rose-400 shrink-0" />
+                        <span>Unsend</span>
+                      </button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className={`animate-in zoom-in-95 duration-150 ${mine ? "self-end" : "self-start"}`}>
+                    <AestheticEmojiPicker
+                      onSelect={(emoji) => {
+                        onReact(message, emoji);
+                        closeMenu();
+                      }}
+                      onClose={() => {
+                        setShowEmojiPicker(false);
+                      }}
+                      align={mine ? "right" : "left"}
+                      className="w-full max-w-[calc(100vw-2rem)] sm:w-[340px]"
+                    />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
           {message.kind === "IMAGE" && message.mediaUrl ? (
             <a href={mediaUrl(message)} target="_blank" rel="noopener noreferrer" className="block">
               {/* max-w-full keeps a wide photo inside the bubble instead of
@@ -362,6 +557,7 @@ function MessageBubble({
               messageId={message.id}
               onTranscriptUpdate={(t) => {
                 message.body = t;
+                onTranscriptUpdate?.(message, t);
               }}
             />
           ) : null}
@@ -435,20 +631,21 @@ function MessageBubble({
                 key={r.emoji}
                 type="button"
                 onClick={() => onReact(message, r.emoji)}
-                className="rounded-full border px-2 py-0.5 font-ui text-[11px] flex items-center gap-1 hover:scale-105 transition-transform"
+                className="rounded-full border px-2 py-0.5 font-ui text-[11px] flex items-center gap-1.5 hover:scale-105 transition-transform"
                 style={{
                   borderColor: r.mine ? "var(--accent)" : "var(--hairline)",
                   background: r.mine ? "var(--accent-wash)" : "var(--surface)",
                   color: "var(--ink)",
                 }}
-                aria-label={`${r.emoji} ${r.count}`}
+                aria-label={`${r.emoji} ${r.count} reactions`}
               >
-                <span>{r.emoji}</span> <span>{r.count}</span>
+                <AestheticEmoji glyph={r.emoji} size={15} />
+                <span className="font-semibold text-[11px]">{r.count}</span>
               </button>
             ))}
             <button
               type="button"
-              onClick={() => { setMenuOpen(true); setShowEmojiPicker(true); }}
+              onClick={() => openMenu(true)}
               className="rounded-full border border-dashed border-[var(--hairline)] hover:border-[#f59e0b] px-1.5 py-0.5 text-[11px] text-[var(--ink-muted)] hover:text-[#f59e0b] transition-colors"
               title="Add aesthetic reaction (120+)"
             >
@@ -463,7 +660,7 @@ function MessageBubble({
         <button
           type="button"
           className="editor-tool hover:text-[#f59e0b] transition-colors"
-          onClick={() => { setMenuOpen(true); setShowEmojiPicker(true); }}
+          onClick={() => openMenu(false)}
           aria-label="React with emoji"
           title="React with aesthetic emoji"
         >
@@ -481,166 +678,12 @@ function MessageBubble({
         <button
           type="button"
           className="editor-tool"
-          onClick={() => { setShowEmojiPicker(false); setMenuOpen(true); }}
+          onClick={() => openMenu(false)}
           aria-label="Message actions"
+          title="More actions"
         >
           <MoreHorizontal size={15} />
         </button>
-
-        {menuOpen && typeof document !== "undefined" ? createPortal(
-          <div
-            className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Message options"
-            onKeyDown={(e) => { if (e.key === "Escape") { setMenuOpen(false); setShowEmojiPicker(false); } }}
-          >
-            {/* Ambient Backdrop */}
-            <div
-              className="absolute inset-0 bg-black/60 backdrop-blur-md transition-opacity"
-              onClick={() => { setMenuOpen(false); setShowEmojiPicker(false); }}
-            />
-
-            {/* Aesthetic Sacred Floating Card */}
-            <div
-              className="relative z-10 w-full max-w-sm overflow-hidden rounded-2xl border border-[rgba(201,152,58,0.4)] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.6)] animate-in zoom-in-95 slide-in-from-bottom-3 sm:slide-in-from-bottom-0 duration-200 max-h-[90vh] overflow-y-auto"
-              style={{
-                backgroundColor: "var(--surface-elevated, var(--surface, #1A1715))",
-                borderColor: "rgba(201,152,58,0.4)",
-                color: "var(--ink)"
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Quick Reactions Floating Pill */}
-              <div className="flex items-center justify-between gap-1 rounded-xl bg-[var(--surface-2)] border border-[var(--hairline)] p-2 mb-3 shadow-inner">
-                <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
-                  {QUICK_REACTIONS.map(emoji => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      className="text-2xl hover:scale-125 active:scale-90 transition-transform p-1.5 rounded-lg hover:bg-[rgba(201,152,58,0.15)] flex items-center justify-center shrink-0"
-                      onClick={() => { onReact(message, emoji); setMenuOpen(false); }}
-                      aria-label={`React ${emoji}`}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--hairline)] text-[#f59e0b] hover:bg-[#f59e0b]/20 hover:scale-110 transition-all shrink-0 ml-1"
-                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  aria-label="All 120+ Emojis"
-                  title="All 120+ aesthetic emojis"
-                >
-                  <Plus size={16} />
-                </button>
-              </div>
-
-              {/* Full Aesthetic Emoji Picker in Modal */}
-              {showEmojiPicker && (
-                <div className="mb-3 flex justify-center">
-                  <AestheticEmojiPicker
-                    onSelect={emoji => {
-                      onReact(message, emoji);
-                      setShowEmojiPicker(false);
-                      setMenuOpen(false);
-                    }}
-                    onClose={() => setShowEmojiPicker(false)}
-                    className="w-full"
-                  />
-                </div>
-              )}
-
-              {/* Action List */}
-              <div className="space-y-1">
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left font-ui text-sm font-semibold text-[var(--ink)] hover:bg-[rgba(201,152,58,0.12)] hover:text-[var(--gold)] transition-colors"
-                  onClick={() => { onReply(message); setMenuOpen(false); }}
-                >
-                  <CornerUpLeft size={16} className="text-[var(--gold)] shrink-0" />
-                  <span>Reply</span>
-                </button>
-
-                {message.body ? (
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left font-ui text-sm font-medium text-[var(--ink-soft)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)] transition-colors"
-                    onClick={() => {
-                      void navigator.clipboard?.writeText(message.body || "");
-                      setMenuOpen(false);
-                      toast.success("Text copied to clipboard");
-                    }}
-                  >
-                    <Copy size={16} className="text-[var(--ink-meta)] shrink-0" />
-                    <span>Copy Text</span>
-                  </button>
-                ) : null}
-
-                {/* Only display attachment actions if this message is an actual image/audio/file attachment */}
-                {message.mediaUrl && message.kind !== "TEXT" ? (
-                  <>
-                    <a
-                      href={mediaUrl(message)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left font-ui text-sm font-medium text-[var(--ink-soft)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)] transition-colors"
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      <ExternalLink size={16} className="text-emerald-400 shrink-0" />
-                      <span>Open Attachment</span>
-                    </a>
-                    <a
-                      href={downloadUrl(message)}
-                      download={message.mediaName || "attachment"}
-                      className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left font-ui text-sm font-medium text-[var(--ink-soft)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)] transition-colors"
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      <Download size={16} className="text-amber-400 shrink-0" />
-                      <span>Save / Download</span>
-                    </a>
-                  </>
-                ) : null}
-
-                {mine && message.kind === "TEXT" && !message.pending ? (
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left font-ui text-sm font-semibold text-[var(--gold)] hover:bg-[rgba(201,152,58,0.15)] transition-colors"
-                    onClick={() => { onEdit(message); setMenuOpen(false); }}
-                  >
-                    <Pencil size={16} className="text-[var(--gold)] shrink-0" />
-                    <span>Edit Message</span>
-                  </button>
-                ) : null}
-
-                {mine && !message.pending ? (
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left font-ui text-sm font-semibold text-rose-400 hover:bg-rose-500/15 transition-colors"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onUnsend(message);
-                    }}
-                  >
-                    <Trash2 size={16} className="text-rose-400 shrink-0" />
-                    <span>Unsend Message</span>
-                  </button>
-                ) : null}
-              </div>
-
-              {/* Close Button */}
-              <button
-                type="button"
-                className="mt-3 w-full rounded-xl border border-[var(--hairline)] py-2.5 text-center font-ui text-xs font-semibold text-[var(--ink-meta)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)] transition-colors"
-                onClick={() => setMenuOpen(false)}
-              >
-                Close
-              </button>
-            </div>
-          </div>,
-          document.body
-        ) : null}
       </div>
     </div>
   );
@@ -685,6 +728,35 @@ export default function ConversationPage() {
   const [busy, setBusy] = useState(true);
   const [showMembers, setShowMembers] = useState(false);
   const [showComposerEmoji, setShowComposerEmoji] = useState(false);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">("unsupported");
+  const [pushSupported, setPushSupported] = useState(false);
+  const [enablingPush, setEnablingPush] = useState(false);
+
+  useEffect(() => {
+    const support = describePushSupport();
+    setPushSupported(support.supported);
+    if (support.supported) {
+      setNotifPermission(currentPermission());
+    }
+  }, []);
+
+  const handleEnablePush = async () => {
+    setEnablingPush(true);
+    try {
+      const res = await enableNotifications();
+      if (res.ok) {
+        toast.success("Push notifications enabled! You will receive messages even when your browser is closed.");
+        setNotifPermission("granted");
+      } else {
+        toast.error(res.reason || "Could not enable push notifications");
+        setNotifPermission(currentPermission());
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to enable notifications");
+    } finally {
+      setEnablingPush(false);
+    }
+  };
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -1123,6 +1195,19 @@ export default function ConversationPage() {
               </div>
             </div>
           )}
+          {pushSupported && notifPermission === "default" && (
+            <button
+              type="button"
+              onClick={handleEnablePush}
+              disabled={enablingPush}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[rgba(201,152,58,0.15)] text-[var(--gold)] border border-[var(--border-gold)] hover:bg-[rgba(201,152,58,0.25)] hover:scale-105 active:scale-95 transition-all shadow-sm shrink-0"
+              title="Enable closed-browser push notifications for direct messages"
+              aria-label="Turn on notifications"
+            >
+              <BellRing size={13} className={enablingPush ? "animate-spin" : "animate-pulse"} />
+              <span className="hidden sm:inline">{enablingPush ? "Enabling…" : "Enable Push"}</span>
+            </button>
+          )}
           <button type="button" onClick={toggleMute} className="editor-tool" aria-label={details?.muted ? "Unmute" : "Mute"}>
             {details?.muted ? <BellOff size={15} /> : <Bell size={15} />}
           </button>
@@ -1229,6 +1314,9 @@ export default function ConversationPage() {
                     onReact={react}
                     onUnsend={unsend}
                     onEdit={startEdit}
+                    onTranscriptUpdate={(msg, t) => {
+                      setMessages(prev => prev.map(item => item.id === msg.id ? { ...item, body: t } : item));
+                    }}
                   />
                 </div>
               );

@@ -55,6 +55,13 @@ export function VoiceNotePlayer({
   const [serverTranslations, setServerTranslations] = useState<{ english?: string; hindi?: string; sanskrit?: string } | null>(null);
   const [transcribing, setTranscribing] = useState(false);
 
+  // Sync incoming transcript prop (e.g. from server poll or optimistic updates)
+  useEffect(() => {
+    if (transcript && transcript !== customTranscript) {
+      setCustomTranscript(transcript);
+    }
+  }, [transcript]);
+
   // Clean transcript
   const activeTranscript = customTranscript?.trim() || "";
   const hasValidTranscript = Boolean(activeTranscript);
@@ -332,7 +339,11 @@ export function VoiceNotePlayer({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setShowTranscript(!showTranscript);
+                  const next = !showTranscript;
+                  setShowTranscript(next);
+                  if (next && !hasValidTranscript && !transcribing && messageId) {
+                    void triggerTranscribe(e);
+                  }
                 }}
                 className={`flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
                   showTranscript

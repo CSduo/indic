@@ -700,36 +700,38 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
         });
       }
 
-      if (previous.status !== "PUBLISHED" && previous.userId) {
-        await notifyUser({
-          userId: previous.userId,
-          type: "SUBMISSION_STATUS",
-          message: `Your submission "${previous.title}" is now published.`,
-          href: "/account",
-          pushTitle: "Your work is published",
-          tag: `submission-${req.params.id}`,
-        });
+      if (previous.status !== "PUBLISHED") {
+        if (previous.userId) {
+          await notifyUser({
+            userId: previous.userId,
+            type: "SUBMISSION_STATUS",
+            message: `Your submission "${previous.title}" is now published.`,
+            href: "/account",
+            pushTitle: "Your work is published",
+            tag: `submission-${req.params.id}`,
+          });
 
-        /*
-          And everyone following this author hears about it — only on the
-          genuine first publish, so a repair pass over an already-published
-          submission never notifies the same people twice.
-        */
-        const readingHref = publication?.slug
-          ? `/${publication.kind === "paper" ? "papers" : "articles"}/${publication.slug}`
-          : "/browse";
-        await notifyFollowersOfNewWork({
-          authorId: previous.userId,
-          title: previous.title || "a new piece",
-          href: readingHref,
-          kind: publication?.kind === "paper" ? "paper" : "essay",
-        }).catch(err => req.log.warn({ err }, "Could not notify followers"));
+          /*
+            And everyone following this author hears about it — only on the
+            genuine first publish, so a repair pass over an already-published
+            submission never notifies the same people twice.
+          */
+          const readingHref = publication?.slug
+            ? `/${publication.kind === "paper" ? "papers" : "articles"}/${publication.slug}`
+            : "/browse";
+          await notifyFollowersOfNewWork({
+            authorId: previous.userId,
+            title: previous.title || "a new piece",
+            href: readingHref,
+            kind: publication?.kind === "paper" ? "paper" : "essay",
+          }).catch(err => req.log.warn({ err }, "Could not notify followers"));
+        }
 
         if (publication?.slug) {
           triggerPublicContentSeo({
             type: publication.kind === "paper" ? "paper" : "article",
             slug: publication.slug,
-            authorId: previous.userId,
+            authorId: previous.userId || undefined,
             title: previous.title || undefined,
           });
           notifyAllSubscribersOfNewArticle({

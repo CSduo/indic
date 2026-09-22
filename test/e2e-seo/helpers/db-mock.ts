@@ -70,6 +70,9 @@ export function createMockDb() {
         orderBy: (..._args: any[]) => {
           return builder;
         },
+        leftJoin: (..._args: any[]) => {
+          return builder;
+        },
         limit: (limit: number) => {
           limitCount = limit;
           return builder;

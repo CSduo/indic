@@ -97,14 +97,13 @@ export function NotificationInvite() {
           <BellRing size={15} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="mono-label">Stay in the conversation</p>
+          <p className="mono-label">Desktop & Device Notifications</p>
           <p className="mt-1.5 font-body text-sm leading-6 text-[var(--ink-body)]">
-            Get told when someone replies to your work or sends you a message. You can turn this off
-            at any time in your account.
+            Stay updated even when your browser is closed. Receive instant alerts for new messages, replies, and published articles.
           </p>
           <div className="mt-3 flex items-center gap-2">
             <button type="button" onClick={accept} disabled={busy} className="btn-terracotta">
-              {busy ? <><span className="spinner-editorial" aria-hidden="true" /> Enabling…</> : "Turn on"}
+              {busy ? <><span className="spinner-editorial" aria-hidden="true" /> Enabling…</> : "Enable Background Notifications"}
             </button>
             <button type="button" onClick={dismiss} className="btn-ink">Not now</button>
           </div>

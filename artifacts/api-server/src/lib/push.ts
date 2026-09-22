@@ -133,7 +133,11 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
           keys: { p256dh: subscription.p256dh, auth: subscription.auth },
         },
         body,
-        { TTL: 24 * 60 * 60 },
+        {
+          TTL: 24 * 60 * 60,
+          urgency: "high",
+          topic: payload.tag ? payload.tag.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 32) : undefined,
+        },
       );
       sent += 1;
     } catch (err: any) {
@@ -202,7 +206,11 @@ export async function broadcastPushNotification(payload: PushPayload): Promise<{
             keys: { p256dh: subscription.p256dh, auth: subscription.auth },
           },
           body,
-          { TTL: 24 * 60 * 60 },
+          {
+            TTL: 24 * 60 * 60,
+            urgency: "high",
+            topic: payload.tag ? payload.tag.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 32) : undefined,
+          },
         );
         sent += 1;
       } catch (err: any) {

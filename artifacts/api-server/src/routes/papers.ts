@@ -6,6 +6,7 @@ import { categorySlugCandidates, normalizeCategorySlug, slugify, syncSubmissionF
 import { ownsAuthoredWork, resolveViewer } from "../lib/viewer";
 import { countUnresolvedArticleImages, sanitizeArticleBody, MAX_BODY_CHARS } from "../lib/content";
 import { parsePagination, toLikePattern, PUBLIC_CONTENT_CACHE_CONTROL } from "../lib/request";
+import { triggerPublicContentSeo } from "../lib/seo-service";
 import { z } from "zod";
 
 const router = Router();
@@ -320,6 +321,15 @@ router.patch("/papers/:slug/edit", async (req, res) => {
 
     await syncSubmissionFromPublication(updated, "paper")
       .catch(err => console.warn("Submission back-sync after paper edit failed:", err));
+
+    if (updated.status === "PUBLISHED") {
+      triggerPublicContentSeo({
+        type: "paper",
+        slug: updated.slug,
+        title: updated.title,
+        tags: updated.tags || undefined,
+      }).catch(err => console.warn("SEO indexing after paper edit failed:", err));
+    }
 
     return res.json({
       success: true,

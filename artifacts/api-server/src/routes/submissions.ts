@@ -1,4 +1,4 @@
-﻿import { Router } from "express";
+import { Router } from "express";
 import { db } from "@workspace/db";
 import { submissionsTable, articlesTable, papersTable, usersTable } from "@workspace/db";
 import { eq, and, isNull, isNotNull, or, ilike, desc } from "drizzle-orm";
@@ -18,6 +18,7 @@ import { hasExpectedFileSignature } from "../lib/file-validation";
 import { persistUploadedFile, UPLOADS_DIR } from "../lib/storage";
 
 import { sendSubmissionNotification } from "../lib/notifier";
+import { triggerPublicContentSeo } from "../lib/seo-service";
 
 const router = Router();
 
@@ -811,6 +812,16 @@ async function updateSyntheticPublication(req: any, res: any, viewer: Viewer, id
   // author's edit with the older submission text.
   await syncSubmissionFromPublication(updated as any, isPaper ? "paper" : "article")
     .catch(err => req.log?.warn?.({ err }, "Submission back-sync after synthetic edit failed"));
+
+  if ((updated as any).status === "PUBLISHED") {
+    triggerPublicContentSeo({
+      type: isPaper ? "paper" : "article",
+      slug: (updated as any).slug,
+      title: (updated as any).title,
+      tags: (updated as any).tags || undefined,
+      authorId: (updated as any).authorId || undefined,
+    }).catch(err => req.log?.warn?.({ err }, "SEO indexing after synthetic edit failed"));
+  }
 
   return res.json({
     success: true,

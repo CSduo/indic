@@ -4,6 +4,7 @@ interface DocumentMetadata {
   title?: string;
   description?: string;
   keywords?: string | string[];
+  newsKeywords?: string | string[];
   canonicalPath?: string;
   image?: string | null;
   type?: "website" | "article" | "profile";
@@ -49,6 +50,7 @@ export function useDocumentMetadata({
   title,
   description,
   keywords,
+  newsKeywords,
   canonicalPath,
   image,
   type = "website",
@@ -56,6 +58,9 @@ export function useDocumentMetadata({
 }: DocumentMetadata) {
   const structuredDataJson = structuredData ? JSON.stringify(structuredData) : "";
   const keywordsStr = Array.isArray(keywords) ? keywords.filter(Boolean).join(", ") : (keywords || "").trim();
+  const newsKeywordsStr = Array.isArray(newsKeywords)
+    ? newsKeywords.filter(Boolean).join(", ")
+    : (newsKeywords || (keywordsStr ? keywordsStr.split(/,\s*/).slice(0, 10).join(", ") : "")).trim();
 
   useEffect(() => {
     if (!title) return;
@@ -94,6 +99,11 @@ export function useDocumentMetadata({
         );
       }
     }
+    if (newsKeywordsStr) {
+      restores.push(
+        setMeta('meta[name="news_keywords"]', { name: "news_keywords", content: newsKeywordsStr })
+      );
+    }
     if (imageUrl) {
       restores.push(
         setMeta('meta[property="og:image"]', { property: "og:image", content: imageUrl }),
@@ -118,5 +128,5 @@ export function useDocumentMetadata({
       else canonical.setAttribute("href", previousCanonical);
       schema?.remove();
     };
-  }, [canonicalPath, description, image, keywordsStr, structuredDataJson, title, type]);
+  }, [canonicalPath, description, image, keywordsStr, newsKeywordsStr, structuredDataJson, title, type]);
 }

@@ -32,10 +32,12 @@ self.addEventListener("push", (event) => {
     icon: iconUrl,
     badge: badgeUrl,
     image: payload.image || undefined,
-    // A tag collapses repeats, so ten replies to one thread do not become ten
-    // separate notifications on the lock screen.
-    tag: payload.tag || undefined,
-    renotify: Boolean(payload.tag),
+    // A tag collapses repeats, or generates unique tag so system tray shows it
+    tag: payload.tag || ("anvikshiki-" + Date.now()),
+    renotify: true,
+    requireInteraction: true, // Keeps notification active in Windows/Mac Action Center even when browser is closed
+    silent: false,
+    vibrate: [200, 100, 200],
     data: { url: payload.url || "/account/notifications" },
   };
 

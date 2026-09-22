@@ -66,14 +66,14 @@ export function NotificationSettings({ compact = false }: { compact?: boolean })
     <div className={compact ? "" : "confirm-card"}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="mono-label">Browser notifications</p>
+          <p className="mono-label">Browser & System notifications</p>
           <p className="mt-1.5 font-body text-sm leading-6 text-[var(--ink-body)]">
             {subscribed
-              ? "This browser will let you know when someone comments on your work, or when a submission changes status."
-              : "Be told when someone comments on your work, or when a submission changes status."}
+              ? "This browser is set up to deliver notifications even when closed for new messages, replies, and submissions."
+              : "Receive instant notifications for new messages, comments, and article updates even when your browser is closed."}
           </p>
           <p className="mt-1 font-ui text-[11px] text-[var(--muted)]">
-            Tied to your account — signing out stops them, signing back in resumes them.
+            Tied to your account — signing out stops them, signing back in resumes them. Delivers to Windows/Mac Action Center and mobile device trays.
           </p>
           {blocked ? (
             <p className="mt-2 font-ui text-[11px] text-[var(--state-error,#9B1C1C)]">

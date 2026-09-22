@@ -16,6 +16,13 @@ import { DEFAULT_INDEXNOW_KEY } from "./lib/indexnow";
 import { db, articlesTable, papersTable, usersTable, categoriesTable, submissionsTable, ensureDatabaseSchema, coreTablesExist } from "@workspace/db";
 import { eq, and, or, ilike, isNull } from "drizzle-orm";
 import { sanitizeArticleBody } from "./lib/content";
+import {
+  enrichKeywords,
+  enrichAuthorKeywords,
+  enrichDomainKeywords,
+  ABOUT_PAGE_KEYWORDS,
+  BROWSE_PAGE_KEYWORDS,
+} from "./lib/keywords";
 import fs from "fs";
 
 const app: Express = express();
@@ -590,6 +597,8 @@ export function sanitizeTemplateHead(html: string): string {
   return html
     .replace(/<title>.*?<\/title>/gis, "")
     .replace(/<meta\s+name=["']description["'][^>]*>/gi, "")
+    .replace(/<meta\s+name=["']keywords["'][^>]*>/gi, "")
+    .replace(/<meta\s+name=["']news_keywords["'][^>]*>/gi, "")
     .replace(/<meta\s+name=["']robots["'][^>]*>/gi, "")
     .replace(/<meta\s+name=["']author["'][^>]*>/gi, "")
     .replace(/<meta\s+property=["']article:[^"']*["'][^>]*>/gi, "")
@@ -1677,6 +1686,7 @@ app.get("/about/anvikshiki", (_req, res) => {
     <title>${escapeHtml(title)}</title>
     <meta name="description" content="${escapeHtml(description)}" />
     <meta name="keywords" content="anvikshiki meaning, anvikshiki meaning in english, meaning of anvikshiki, anvikshiki philosophy, ānvīkṣikī, kautilya anvikshiki, arthashastra anvikshiki, nyaya anvikshiki, indic philosophy, sanskrit inquiry" />
+    <meta name="news_keywords" content="Hindu article, Hindu philosophy, Indic research, Ānvīkṣikī, Sanskrit inquiry, Kautilya Arthashastra, Nyaya" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <meta property="og:site_name" content="Ānvīkṣikī Journal" />
     <meta property="og:title" content="${escapeHtml(title)}" />
@@ -1709,6 +1719,8 @@ app.get("/about", (_req, res) => {
   const metaTags = `
     <title>${escapeHtml(title)}</title>
     <meta name="description" content="${escapeHtml(description)}" />
+    <meta name="keywords" content="${escapeHtml(ABOUT_PAGE_KEYWORDS.keywordsStr)}" />
+    <meta name="news_keywords" content="${escapeHtml(ABOUT_PAGE_KEYWORDS.newsKeywordsStr)}" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <meta property="og:site_name" content="Ānvīkṣikī Journal" />
     <meta property="og:title" content="${escapeHtml(title)}" />
@@ -1759,6 +1771,8 @@ app.get("/browse", async (_req, res) => {
   const metaTags = `
     <title>${escapeHtml(title)}</title>
     <meta name="description" content="${escapeHtml(description)}" />
+    <meta name="keywords" content="${escapeHtml(BROWSE_PAGE_KEYWORDS.keywordsStr)}" />
+    <meta name="news_keywords" content="${escapeHtml(BROWSE_PAGE_KEYWORDS.newsKeywordsStr)}" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <meta property="og:site_name" content="Ānvīkṣikī Journal" />
     <meta property="og:title" content="${escapeHtml(title)}" />
@@ -1795,76 +1809,6 @@ app.get(/^\/submit(?:\/.*)?$/, (_req, res) => {
   return res.status(200).send(finalHtml);
 });
 
-const ARTICLE_TOPIC_KEYWORDS: Record<string, string[]> = {
-  "beyond-angkor-why-is-vietnam-frequently-excluded-from-the-history-of-hindu-influence-in-southeast-asia": [
-    "Champa civilization",
-    "Mỹ Sơn sanctuary",
-    "Hinduism in Vietnam",
-    "Southeast Asian Indic traditions",
-    "Sanskrit inscriptions of Champa",
-    "Śaivism in Champa",
-    "Greater India historiography",
-    "Indianized kingdoms"
-  ],
-  "beyond-angkor-why-is-vietnam-frequently-excluded-from-the-history-of-hindu-influence-in-southeast-asia-86ef8134": [
-    "Champa civilization",
-    "Mỹ Sơn sanctuary",
-    "Hinduism in Vietnam",
-    "Southeast Asian Indic traditions",
-    "Sanskrit inscriptions of Champa",
-    "Śaivism in Champa",
-    "Greater India historiography",
-    "Indianized kingdoms"
-  ],
-  "quantum-eternal": [
-    "Quantum physics and Vedanta",
-    "Indic philosophy and quantum mechanics",
-    "Schrödinger and Upanishads",
-    "Consciousness in Indian philosophy",
-    "Brahman and quantum reality",
-    "Eastern metaphysics"
-  ],
-  "arithmetic-betrayal": [
-    "Indian economic history",
-    "Colonial deindustrialization",
-    "Drain of wealth theory",
-    "Dadabhai Naoroji",
-    "Indic civilization economics"
-  ],
-  "triple-fragmentation": [
-    "Indic historiography",
-    "Civilizational memory",
-    "Colonial fragmentation of India",
-    "Indian intellectual history"
-  ],
-  "indo-fijians-overtook-indigenous-fijians-numerically-1940s": [
-    "Indo-Fijian history",
-    "Girmitiya indenture system",
-    "Indian diaspora in Fiji",
-    "Colonial migration",
-    "Fijian demographic history"
-  ],
-  "the-human-tapestry-of-the-slave-trade": [
-    "Indian Ocean slave trade",
-    "Historical slavery in South Asia",
-    "Colonial servitude",
-    "Maritime history of India"
-  ],
-  "why-this-website-exists-0fc91e71": [
-    "Ānvīkṣikī journal",
-    "Indic studies open access",
-    "Classical Indian philosophy",
-    "Sanskrit intellectual traditions",
-    "Critical rational inquiry"
-  ],
-  "why-this-website-exists": [
-    "Ānvīkṣikī journal",
-    "Indic studies open access",
-    "Classical Indian philosophy",
-    "Sanskrit intellectual traditions",
-    "Critical rational inquiry"
-  ]
-};
 
 // SSR Route Handlers for Articles and Research Papers
 app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
@@ -1975,13 +1919,17 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
       res.setHeader("X-Robots-Tag", "noindex, nofollow");
     }
 
-    // Resolve enriched topic keywords
-    const mappedKeywords = ARTICLE_TOPIC_KEYWORDS[item.slug] || ARTICLE_TOPIC_KEYWORDS[cleanSlug] || [];
-    const itemDbTags = Array.isArray(item.tags)
-      ? item.tags
-      : (typeof item.tags === "string" ? item.tags.split(/,\s*/).filter(Boolean) : []);
-    const mergedKeywords = Array.from(new Set([...itemDbTags, ...mappedKeywords]));
-    const keywordsStr = mergedKeywords.length > 0 ? mergedKeywords.join(", ") : undefined;
+    // Resolve enriched topic keywords using dynamic keyword engine
+    const enriched = enrichKeywords({
+      title: item.title,
+      slug: item.slug,
+      categorySlug: item.categorySlug,
+      dbTags: item.tags,
+      content: `${item.subtitle || ""} ${excerpt} ${item.body || item.content || ""}`,
+    });
+    const keywordsStr = enriched.keywordsStr;
+    const newsKeywordsStr = enriched.newsKeywordsStr;
+    const mergedKeywords = enriched.keywordsList;
 
     const authorSchema = isPaper || authors.length > 1
       ? authors.map((a: string) => ({
@@ -2031,7 +1979,7 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
       "image": imageUrl || undefined,
       "articleSection": domainDisplayName || undefined,
       "keywords": keywordsStr || undefined,
-      "about": mergedKeywords.length > 0 ? mergedKeywords.map(k => ({ "@type": "Thing", "name": k })) : undefined,
+      "about": enriched.aboutThings.length > 0 ? enriched.aboutThings : undefined,
     };
 
     if (isPaper && item.pdfUrl) {
@@ -2094,6 +2042,7 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
     <title>${cleanTitle} — Ānvīkṣikī</title>
     <meta name="description" content="${cleanExcerpt}" />
     ${keywordsStr ? `<meta name="keywords" content="${escapeHtml(keywordsStr)}" />` : ""}
+    ${newsKeywordsStr ? `<meta name="news_keywords" content="${escapeHtml(newsKeywordsStr)}" />` : ""}
     ${mergedKeywords.map(k => `<meta property="article:tag" content="${escapeHtml(k)}" />`).join("\n    ")}
     ${robotsDirective}
     ${scholarAuthorMeta}
@@ -2269,14 +2218,24 @@ app.get("/authors/:slug", async (req, res, next) => {
       : `https://anvikshikijournal.in/api/og/author/${encodeURIComponent(cleanSlug)}`;
 
     // Extract keywords and subject domains from author's publications
-    const authorKeywordsList = Array.from(new Set([
+    const rawAuthorTags = [
       ...authorArticles.flatMap(a => (a as any).tags || []),
       ...authorPapers.flatMap(p => (p as any).tags || []),
+    ];
+    const rawAuthorCategories = [
       ...authorArticles.map(a => a.categorySlug),
       ...authorPapers.map(p => p.categorySlug),
-      ...(authorData.institution ? [authorData.institution] : []),
-    ].filter(Boolean)));
-    const authorKeywords = authorKeywordsList.length > 0 ? authorKeywordsList.join(", ") : undefined;
+    ];
+    const authorEnriched = enrichAuthorKeywords({
+      name: authorData.name,
+      bio: authorData.bio,
+      institution: authorData.institution,
+      publicationTags: rawAuthorTags,
+      publicationCategories: rawAuthorCategories,
+    });
+    const authorKeywords = authorEnriched.keywordsStr;
+    const authorNewsKeywords = authorEnriched.newsKeywordsStr;
+    const knowsAboutList = authorEnriched.knowsAbout;
 
     const authorPersonJsonLd: any = {
       "@context": "https://schema.org",
@@ -2286,7 +2245,7 @@ app.get("/authors/:slug", async (req, res, next) => {
       "url": canonicalUrl,
       "description": authorData.bio || undefined,
       "keywords": authorKeywords || undefined,
-      "knowsAbout": authorKeywordsList.length > 0 ? authorKeywordsList : undefined,
+      "knowsAbout": knowsAboutList.length > 0 ? knowsAboutList : undefined,
       "worksFor": authorData.institution ? {
         "@type": "Organization",
         "name": authorData.institution,
@@ -2311,6 +2270,7 @@ app.get("/authors/:slug", async (req, res, next) => {
     <title>${cleanName} — Author Profile — Ānvīkṣikī</title>
     <meta name="description" content="${cleanBio}" />
     ${authorKeywords ? `<meta name="keywords" content="${escapeHtml(authorKeywords)}" />` : ""}
+    ${authorNewsKeywords ? `<meta name="news_keywords" content="${escapeHtml(authorNewsKeywords)}" />` : ""}
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <meta property="og:site_name" content="Ānvīkṣikī Journal" />
     <meta property="og:title" content="${cleanName} — Author Profile" />
@@ -2403,7 +2363,9 @@ app.get("/domains/:slug", async (req, res, next) => {
     const cleanUrl = escapeHtml(canonicalUrl);
     const cleanImage = `https://anvikshikijournal.in/api/og/domain/${encodeURIComponent(category.slug)}`;
 
-    const domainKeywords = `${cleanName}, Indic Studies, Philosophy, Research Archive, Ānvīkṣikī`;
+    const domainEnriched = enrichDomainKeywords(category.slug, category.name);
+    const domainKeywords = domainEnriched.keywordsStr;
+    const domainNewsKeywords = domainEnriched.newsKeywordsStr;
     const domainCollectionJsonLd = {
       "@context": "https://schema.org",
       "@type": "CollectionPage",
@@ -2412,6 +2374,7 @@ app.get("/domains/:slug", async (req, res, next) => {
       "name": `${cleanName} — Domain Archive — Ānvīkṣikī`,
       "description": cleanDesc,
       "keywords": domainKeywords,
+      "about": domainEnriched.aboutThings,
       "mainEntity": {
         "@type": "ItemList",
         "itemListElement": [
@@ -2435,7 +2398,8 @@ app.get("/domains/:slug", async (req, res, next) => {
     <!-- Dynamic Open Graph & Twitter Card Meta Tags for Domain Hub -->
     <title>${cleanName} — Domain Archive — Ānvīkṣikī</title>
     <meta name="description" content="${cleanDesc}" />
-    <meta name="keywords" content="${domainKeywords}" />
+    <meta name="keywords" content="${escapeHtml(domainKeywords)}" />
+    <meta name="news_keywords" content="${escapeHtml(domainNewsKeywords)}" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <meta property="og:site_name" content="Ānvīkṣikī Journal" />
     <meta property="og:title" content="${cleanName} — Domain Archive" />
