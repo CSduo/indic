@@ -107,7 +107,7 @@ export function AestheticEmojiPicker({
 
       {/* Category Tabs (if not searching) */}
       {!search && (
-        <div className="flex items-center justify-between border-b border-[#2d333b] bg-[#14171b] px-1 py-1">
+        <div className="flex items-center justify-between border-b border-[#2d333b] bg-[#14171b] px-1.5 py-1">
           {AESTHETIC_EMOJI_CATEGORIES.map((cat) => {
             const isActive = activeTab === cat.id;
             return (
@@ -116,13 +116,13 @@ export function AestheticEmojiPicker({
                 type="button"
                 onClick={() => setActiveTab(cat.id)}
                 title={cat.title}
-                className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-all ${
+                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs transition-all ${
                   isActive
                     ? "bg-[#d97706] text-white font-semibold shadow-sm"
                     : "text-[#9ca3af] hover:bg-[#232930] hover:text-[#f3f4f6]"
                 }`}
               >
-                <AestheticEmoji glyph={cat.icon} size={15} />
+                <AestheticEmoji glyph={cat.icon} size={17} />
                 <span className="hidden sm:inline text-[11px]">{cat.title.split(" ")[0]}</span>
               </button>
             );
@@ -131,7 +131,7 @@ export function AestheticEmojiPicker({
       )}
 
       {/* Emoji Grid Area */}
-      <div className="h-[230px] overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-[#3b434e] scrollbar-track-transparent">
+      <div className="h-[235px] overflow-y-auto p-2.5 scrollbar-thin scrollbar-thumb-[#3b434e] scrollbar-track-transparent">
         {filteredEmojis.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-4 text-[#9ca3af]">
             <p className="text-sm">No emojis found</p>
@@ -149,10 +149,10 @@ export function AestheticEmojiPicker({
                 }}
                 onMouseEnter={() => setHoveredEmoji(item)}
                 onMouseLeave={() => setHoveredEmoji(null)}
-                className="group flex h-10 w-10 items-center justify-center rounded-lg transition-all duration-100 hover:scale-125 hover:bg-[#2c333d] active:scale-95"
+                className="group flex h-10 w-10 items-center justify-center rounded-lg transition-all duration-100 hover:scale-130 hover:bg-[rgba(201,152,58,0.2)] hover:shadow-md active:scale-95"
                 title={item.name}
               >
-                <AestheticEmoji glyph={item.emoji} size={26} className="transform transition-transform group-hover:scale-110" />
+                <AestheticEmoji glyph={item.emoji} size={28} className="transform transition-transform group-hover:scale-110 drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]" />
               </button>
             ))}
           </div>
@@ -160,15 +160,15 @@ export function AestheticEmojiPicker({
       </div>
 
       {/* Bottom Status / Preview Bar */}
-      <div className="flex items-center justify-between border-t border-[#2d333b] bg-[#111317] px-3 py-1.5 text-[11px] text-[#9ca3af]">
+      <div className="flex items-center justify-between border-t border-[#2d333b] bg-[#111317] px-3 py-2 text-[11px] text-[#9ca3af]">
         {hoveredEmoji ? (
-          <div className="flex items-center gap-1.5 truncate">
-            <AestheticEmoji glyph={hoveredEmoji.emoji} size={18} />
-            <span className="font-medium text-[#f3f4f6] truncate">{hoveredEmoji.name}</span>
+          <div className="flex items-center gap-2 truncate">
+            <AestheticEmoji glyph={hoveredEmoji.emoji} size={20} />
+            <span className="font-semibold text-[#f3f4f6] truncate">{hoveredEmoji.name}</span>
           </div>
         ) : (
           <span className="text-[10px] uppercase font-mono tracking-wider text-[#6b7280]">
-            {filteredEmojis.length} emojis · click to send or react
+            {filteredEmojis.length} aesthetic emojis · click to react
           </span>
         )}
       </div>

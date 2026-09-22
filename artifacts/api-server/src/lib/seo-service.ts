@@ -3,6 +3,8 @@ import { importPKCS8, SignJWT } from "jose";
 import { logger } from "./logger";
 import { CANONICAL_HOST, CANONICAL_BASE_URL, submitIndexNow } from "./indexnow";
 
+export { CANONICAL_HOST, CANONICAL_BASE_URL };
+
 export interface SeoDispatchEvent {
   timestamp: string;
   reason: string;

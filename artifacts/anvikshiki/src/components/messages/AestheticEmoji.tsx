@@ -37,6 +37,7 @@ interface AestheticEmojiProps {
   size?: number;
   className?: string;
   alt?: string;
+  loading?: "eager" | "lazy";
 }
 
 /**
@@ -48,6 +49,7 @@ export const AestheticEmoji = React.memo(function AestheticEmoji({
   size = 24,
   className = "",
   alt,
+  loading = "eager",
 }: AestheticEmojiProps) {
   const [stage, setStage] = useState<"apple" | "twemoji" | "text">("apple");
 
@@ -77,14 +79,15 @@ export const AestheticEmoji = React.memo(function AestheticEmoji({
       alt={alt || glyph}
       width={size}
       height={size}
-      loading="lazy"
+      loading={loading}
       decoding="async"
       draggable={false}
-      className={`inline-block select-none object-contain pointer-events-none transition-transform ${className}`}
+      className={`inline-block select-none object-contain pointer-events-none transition-transform duration-100 ${className}`}
       style={{
         width: `${size}px`,
         height: `${size}px`,
-        verticalAlign: "-0.15em",
+        verticalAlign: "-0.18em",
+        imageRendering: "-webkit-optimize-contrast",
       }}
       onError={() => {
         if (stage === "apple") {

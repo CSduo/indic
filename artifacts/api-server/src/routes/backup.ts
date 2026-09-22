@@ -3,6 +3,9 @@ import { Router } from "express";
 import { getAdminAuth } from "../lib/auth";
 import { purgeDueAccounts, DELETION_GRACE_DAYS } from "../lib/account-deletion";
 import { backfillHandles } from "../lib/handles";
+import { pingSearchEngineSitemaps, triggerGoogleIndexing, submitUrlsToSearchEngines, CANONICAL_BASE_URL } from "../lib/seo-service";
+import { db, articlesTable } from "@workspace/db";
+import { desc, eq } from "drizzle-orm";
 
 const router = Router();
 
@@ -161,5 +164,57 @@ router.get("/admin/backups", requireAdmin, async (req: any, res) => {
     return res.status(502).json({ error: "Failed to fetch backup list" });
   }
 });
+
+/**
+ * GET /api/admin/seo-reindex — automated daily search engine re-indexing & sitemap ping.
+ * Triggered automatically by Vercel Cron or manual admin request.
+ */
+router.get("/admin/seo-reindex", async (req: any, res: any) => {
+  if (!isCronAuthorized(req.get("authorization"))) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  return runSeoReindex(req, res);
+});
+
+router.post("/admin/seo-reindex", requireAdmin, (req: any, res: any) => runSeoReindex(req, res));
+
+async function runSeoReindex(req: any, res: any) {
+  try {
+    const pings = await pingSearchEngineSitemaps();
+
+    let recentArticles: Array<{ slug: string }> = [];
+    try {
+      recentArticles = await db
+        .select({ slug: articlesTable.slug })
+        .from(articlesTable)
+        .where(eq(articlesTable.status, "PUBLISHED"))
+        .orderBy(desc(articlesTable.publishedAt))
+        .limit(25);
+    } catch {
+      recentArticles = [];
+    }
+
+    const urls = [
+      `${CANONICAL_BASE_URL}/sitemap.xml`,
+      `${CANONICAL_BASE_URL}/feed`,
+      ...recentArticles.map((a) => `${CANONICAL_BASE_URL}/articles/${a.slug}`),
+    ];
+
+    const googleResult = await triggerGoogleIndexing(urls, "URL_UPDATED");
+    const indexNowResult = await submitUrlsToSearchEngines(urls, "cron-daily-reindex");
+
+    req.log?.info({ pings, googleResult, indexNowResult }, "[SEO Cron] Daily reindex completed");
+    return res.json({
+      success: true,
+      pings,
+      googleResult,
+      indexNowResult,
+      urlsCount: urls.length,
+    });
+  } catch (err: any) {
+    req.log?.error({ err: err?.message }, "[SEO Cron] Error during scheduled reindex");
+    return res.status(500).json({ error: err?.message || "SEO reindex failed" });
+  }
+}
 
 export default router;

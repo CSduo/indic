@@ -18,7 +18,7 @@ import {
   enableNotifications,
 } from "@/lib/pushNotifications";
 
-const QUICK_REACTIONS = ["❤️", "😂", "😮", "😢", "🔥"];
+const QUICK_REACTIONS = ["❤️", "😂", "😮", "😢", "🙏", "🔥"];
 
 function formatBytes(bytes: number | null | undefined): string {
   if (!bytes || bytes < 0) return "";
@@ -423,20 +423,21 @@ function MessageBubble({
                 role="dialog"
                 aria-label="Message reactions and options"
               >
-                {/* 5 Top Instagram Reactions Pill */}
+                {/* 6 Top Instagram Reactions Pill */}
                 <div
-                  className="flex items-center gap-1 rounded-full px-2.5 py-1.5 border shadow-2xl backdrop-blur-md"
+                  className="flex items-center gap-1.5 rounded-full px-3 py-1.5 border shadow-2xl backdrop-blur-xl"
                   style={{
-                    backgroundColor: "var(--surface-elevated, #1c1d21)",
-                    borderColor: "rgba(201, 152, 58, 0.45)",
+                    backgroundColor: "rgba(20, 22, 26, 0.96)",
+                    borderColor: "rgba(201, 152, 58, 0.4)",
+                    boxShadow: "0 18px 40px -4px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08)",
                   }}
                 >
-                  <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 px-0.5">
+                  <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-0.5 px-0.5">
                     {QUICK_REACTIONS.map((emoji) => (
                       <button
                         key={emoji}
                         type="button"
-                        className="flex h-8 w-8 items-center justify-center rounded-full hover:scale-125 active:scale-95 transition-all p-1 hover:bg-[rgba(201,152,58,0.18)] shrink-0"
+                        className="group/btn relative flex h-10 w-10 items-center justify-center rounded-full hover:scale-135 active:scale-90 hover:-translate-y-1.5 transition-all duration-150 ease-out p-1 hover:bg-[rgba(201,152,58,0.22)] shrink-0"
                         onClick={() => {
                           onReact(message, emoji);
                           closeMenu();
@@ -444,23 +445,23 @@ function MessageBubble({
                         aria-label={`React ${emoji}`}
                         title={`React with ${emoji}`}
                       >
-                        <AestheticEmoji glyph={emoji} size={22} />
+                        <AestheticEmoji glyph={emoji} size={28} className="drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)] transition-transform group-hover/btn:drop-shadow-[0_4px_12px_rgba(245,158,11,0.5)]" />
                       </button>
                     ))}
                   </div>
 
-                  <div className="h-5 w-px mx-0.5 bg-[var(--hairline,rgba(255,255,255,0.18))]" />
+                  <div className="h-6 w-px mx-0.5 bg-white/20" />
 
                   <button
                     type="button"
-                    className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--hairline)] text-[#f59e0b] hover:bg-[#f59e0b]/20 hover:scale-110 active:scale-90 transition-all shrink-0"
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(201,152,58,0.35)] bg-white/5 text-[#f59e0b] hover:bg-[#f59e0b]/25 hover:border-[#f59e0b] hover:scale-115 active:scale-90 transition-all shrink-0 shadow-sm"
                     onClick={() => setShowEmojiPicker((prev) => !prev)}
                     aria-label="All 120+ Emojis"
-                    title="120+ aesthetic emojis"
+                    title="All 120+ aesthetic emojis"
                   >
                     <Plus
-                      size={16}
-                      className={showEmojiPicker ? "rotate-45 transition-transform duration-150" : "transition-transform duration-150"}
+                      size={18}
+                      className={showEmojiPicker ? "rotate-45 transition-transform duration-200" : "transition-transform duration-200"}
                     />
                   </button>
                 </div>
@@ -625,13 +626,13 @@ function MessageBubble({
         </div>
 
         {message.reactions.length > 0 ? (
-          <div className="mt-1 flex flex-wrap items-center gap-1">
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {message.reactions.map(r => (
               <button
                 key={r.emoji}
                 type="button"
                 onClick={() => onReact(message, r.emoji)}
-                className="rounded-full border px-2 py-0.5 font-ui text-[11px] flex items-center gap-1.5 hover:scale-105 transition-transform"
+                className="rounded-full border px-2.5 py-1 font-ui text-xs flex items-center gap-1.5 hover:scale-110 active:scale-95 transition-all shadow-sm backdrop-blur-sm"
                 style={{
                   borderColor: r.mine ? "var(--accent)" : "var(--hairline)",
                   background: r.mine ? "var(--accent-wash)" : "var(--surface)",
@@ -639,14 +640,14 @@ function MessageBubble({
                 }}
                 aria-label={`${r.emoji} ${r.count} reactions`}
               >
-                <AestheticEmoji glyph={r.emoji} size={15} />
-                <span className="font-semibold text-[11px]">{r.count}</span>
+                <AestheticEmoji glyph={r.emoji} size={18} />
+                <span className="font-bold text-xs">{r.count}</span>
               </button>
             ))}
             <button
               type="button"
               onClick={() => openMenu(true)}
-              className="rounded-full border border-dashed border-[var(--hairline)] hover:border-[#f59e0b] px-1.5 py-0.5 text-[11px] text-[var(--ink-muted)] hover:text-[#f59e0b] transition-colors"
+              className="rounded-full border border-dashed border-[var(--hairline)] hover:border-[#f59e0b] px-2 py-0.5 text-xs text-[var(--ink-muted)] hover:text-[#f59e0b] hover:scale-110 active:scale-95 transition-all"
               title="Add aesthetic reaction (120+)"
             >
               +
