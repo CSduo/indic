@@ -382,6 +382,183 @@ const CONTENT_TOPIC_RULES: TopicDetectionRule[] = [
   },
 ];
 
+const STOPWORDS = new Set([
+  "a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are", "aren't",
+  "as", "at", "be", "because", "been", "before", "being", "below", "between", "both", "but", "by", "can",
+  "can't", "cannot", "could", "couldn't", "did", "didn't", "do", "does", "doesn't", "doing", "don't",
+  "down", "during", "each", "few", "for", "from", "further", "had", "hadn't", "has", "hasn't", "have",
+  "haven't", "having", "he", "he'd", "he'll", "he's", "her", "here", "here's", "hers", "herself", "him",
+  "himself", "his", "how", "how's", "i", "i'd", "i'll", "i'm", "i've", "if", "in", "into", "is", "isn't",
+  "it", "it's", "its", "itself", "let's", "me", "more", "most", "mustn't", "my", "myself", "no", "nor",
+  "not", "of", "off", "on", "once", "only", "or", "other", "ought", "our", "ours", "ourselves", "out",
+  "over", "own", "same", "shan't", "she", "she'd", "she'll", "she's", "should", "shouldn't", "so", "some",
+  "such", "than", "that", "that's", "the", "their", "theirs", "them", "themselves", "then", "there",
+  "there's", "these", "they", "they'd", "they'll", "they're", "they've", "this", "those", "through", "to",
+  "too", "under", "until", "up", "very", "was", "wasn't", "we", "we'd", "we'll", "we're", "we've", "were",
+  "weren't", "what", "what's", "when", "when's", "where", "where's", "which", "while", "who", "who's",
+  "whom", "why", "why's", "with", "won't", "would", "wouldn't", "you", "you'd", "you'll", "you're", "you've",
+  "your", "yours", "yourself", "yourselves", "also", "however", "therefore", "thus", "hence", "furthermore",
+  "moreover", "although", "though", "nevertheless", "nonetheless", "rather", "instead", "whereas", "while",
+  "meanwhile", "first", "second", "third", "one", "two", "three", "many", "much", "several", "often", "always",
+  "sometimes", "perhaps", "maybe", "quite", "indeed", "especially", "particularly", "specifically",
+  "overall", "finally", "since", "within", "without", "between", "among", "across", "along", "behind",
+  "beyond", "upon", "towards", "toward", "whether", "either", "neither", "whose", "whom", "will", "shall",
+  "may", "might", "must", "well", "like", "even", "still", "yet", "just", "now", "then", "here", "there",
+  "article", "essay", "paper", "journal", "study", "research", "examines", "author", "published", "section",
+  "frequently", "frequent", "excluded", "exclude", "including", "included", "include", "represents", "represent",
+  "examines", "examine", "demonstrates", "demonstrate", "discusses", "discuss", "shows", "show", "centers",
+  "center", "dedicated", "dedicate", "makes", "make", "finds", "find", "century", "modern", "contemporary",
+  "broader", "magnificent", "profound", "sophisticated"
+]);
+
+const INDIC_KNOWN_TERMS = new Set([
+  "nyaya", "vaisheshika", "samkhya", "yoga", "mimamsa", "vedanta", "advaita", "vishishtadvaita", "dvaita",
+  "pramana", "pratyaksha", "anumana", "upamana", "shabda", "tarka", "hetu", "vyapti", "dharma", "artha",
+  "kama", "moksha", "brahman", "atman", "maya", "karma", "samsara", "upanishad", "vedas", "rigveda",
+  "yajurveda", "samaveda", "atharvaveda", "panini", "ashtadhyayi", "vyakarana", "dhatupatha", "kautilya",
+  "arthashastra", "rajadharma", "natyashastra", "rasa", "dhvani", "abhinavagupta", "charaka", "sushruta",
+  "ayurveda", "aryabhata", "brahmagupta", "madhava", "bhaskara", "sulba sutras", "champa", "angkor",
+  "khmer", "majapahit", "srivijaya", "my son", "mỹ sơn", "chola", "pallava", "gupta", "maurya", "kushan", "harappan",
+  "indus valley", "sarasvati", "itihasa", "puranas", "mahabharata", "ramayana", "bhagavad gita", "dhyana",
+  "samadhi", "pranayama", "chitta", "antahkarana", "purusha", "prakriti", "gunas", "sattva", "rajas", "tamas",
+  "sanatana dharma", "hindu", "indic", "sanskrit", "prakrit", "pali", "epigraphy", "shastra", "darshana",
+  "saivism", "śaivism", "vaishnavism", "shaktism", "tantra", "paninian grammar", "kavya", "temple architecture",
+  "southeast asia", "hindu influence", "khmer empire"
+]);
+
+function cleanText(raw: string): string {
+  if (!raw) return "";
+  return raw
+    .replace(/<[^>]+>/g, " ")
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/[#*`_~\[\]()\\\/]/g, " ")
+    .replace(/&[a-z]+;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Automatically extracts the most relevant search keywords and multi-word phrases directly
+ * out of the given article's body text, subtitle, and title.
+ */
+export function extractArticleKeywords(content: string, title: string = "", maxKeywords: number = 12): string[] {
+  const cleanContent = cleanText(content);
+  const cleanTitle = cleanText(title);
+  if (!cleanContent && !cleanTitle) return [];
+
+  const wordScores = new Map<string, number>();
+  const phraseScores = new Map<string, number>();
+
+  function addScore(map: Map<string, number>, term: string, score: number) {
+    const key = term.trim();
+    if (!key || key.length < 3) return;
+    const lower = key.toLowerCase();
+    if (STOPWORDS.has(lower)) return;
+    map.set(key, (map.get(key) || 0) + score);
+  }
+
+  // 1. Process Title with high weight
+  if (cleanTitle) {
+    for (const term of INDIC_KNOWN_TERMS) {
+      if (cleanTitle.toLowerCase().includes(term)) {
+        addScore(phraseScores, term, 10);
+      }
+    }
+
+    const titleWords = cleanTitle.split(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF]+/);
+    for (let i = 0; i < titleWords.length; i++) {
+      const w = titleWords[i];
+      if (w && w.length >= 3 && !STOPWORDS.has(w.toLowerCase())) {
+        const boost = INDIC_KNOWN_TERMS.has(w.toLowerCase()) ? 7 : 4;
+        addScore(wordScores, w, boost);
+      }
+      if (i < titleWords.length - 1) {
+        const w2 = titleWords[i + 1];
+        if (w2 && !STOPWORDS.has(w.toLowerCase()) && !STOPWORDS.has(w2.toLowerCase())) {
+          const phrase = `${w} ${w2}`;
+          addScore(phraseScores, phrase, 6);
+        }
+      }
+    }
+  }
+
+  // 2. Scan for Known Multi-Word Indic & Domain Terms in Content
+  const contentLower = cleanContent.toLowerCase();
+  for (const term of INDIC_KNOWN_TERMS) {
+    if (contentLower.includes(term)) {
+      const matches = contentLower.match(new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g"));
+      const count = matches ? matches.length : 0;
+      if (count > 0) {
+        addScore(phraseScores, term, 3 + count * 2);
+      }
+    }
+  }
+
+  // 3. Extract Capitalized Named Entities & Proper Noun Phrases
+  const capitalizedPhraseRegex = /\b([A-Z\u00C0-\u024F\u1E00-\u1EFF][a-z\u00C0-\u024F\u1E00-\u1EFF]+(?:\s+[A-Z\u00C0-\u024F\u1E00-\u1EFF][a-z\u00C0-\u024F\u1E00-\u1EFF]+){1,2})\b/g;
+  let match: RegExpExecArray | null;
+  while ((match = capitalizedPhraseRegex.exec(cleanContent)) !== null) {
+    const phrase = match[1].trim();
+    const parts = phrase.split(/\s+/);
+    if (parts.length >= 2 && parts.every((p) => !STOPWORDS.has(p.toLowerCase()) && p.length > 2)) {
+      const boost = INDIC_KNOWN_TERMS.has(phrase.toLowerCase()) ? 5 : 2.5;
+      addScore(phraseScores, phrase, boost);
+    }
+  }
+
+  // 4. Tokenize Content Words with Position & Indic Weighting
+  const words = cleanContent.split(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF]+/);
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    if (!w || w.length < 3) continue;
+    const lower = w.toLowerCase();
+    if (STOPWORDS.has(lower)) continue;
+
+    const positionWeight = i < 300 ? 1.5 : 1.0;
+    const indicBoost = INDIC_KNOWN_TERMS.has(lower) ? 3.0 : 1.0;
+    addScore(wordScores, w, positionWeight * indicBoost);
+  }
+
+  // 5. Combine and Rank Candidates
+  const allCandidates = new Map<string, number>();
+
+  for (const [phrase, score] of phraseScores.entries()) {
+    allCandidates.set(phrase, score * 1.8);
+  }
+
+  for (const [word, score] of wordScores.entries()) {
+    if (INDIC_KNOWN_TERMS.has(word.toLowerCase()) || score >= 3) {
+      allCandidates.set(word, score);
+    }
+  }
+
+  const sorted = Array.from(allCandidates.entries()).sort((a, b) => b[1] - a[1]);
+
+  const results: string[] = [];
+  const seenLower = new Set<string>();
+
+  for (const [term] of sorted) {
+    const lower = term.toLowerCase();
+    if (seenLower.has(lower)) continue;
+
+    const isSub = results.some(
+      (existing) => existing.toLowerCase().includes(lower) && existing.length > lower.length + 3
+    );
+    if (isSub && !INDIC_KNOWN_TERMS.has(lower)) continue;
+
+    const formatted = term
+      .split(/\s+/)
+      .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+      .join(" ");
+
+    seenLower.add(lower);
+    results.push(formatted);
+    if (results.length >= maxKeywords) break;
+  }
+
+  return results;
+}
+
 /**
  * Extract content-aware keywords based on text rules.
  */
@@ -407,7 +584,7 @@ export interface EnrichKeywordsOptions {
 /**
  * Dynamic keyword enrichment for articles and research papers.
  * Combines core universal search terms, domain clusters, slug overrides,
- * database tags, and content-derived concepts.
+ * database tags, and dynamically extracted keywords from the article content.
  */
 export function enrichKeywords({
   title = "",
@@ -429,25 +606,31 @@ export function enrichKeywords({
   // 2. Slug overrides
   const slugOverrideTerms = ARTICLE_SLUG_OVERRIDES[slug] || ARTICLE_SLUG_OVERRIDES[cleanSlug] || [];
 
-  // 3. Content & title detection
-  const combinedText = `${title} ${slug} ${content}`;
-  const contentTerms = extractContentKeywords(combinedText);
+  // 3. Dynamic content-aware keyword extraction from article text & title
+  const dynamicArticleTerms = extractArticleKeywords(content, title, 10);
 
-  // 4. Domain-specific cluster
+  // 4. Content topic rule detection
+  const combinedText = `${title} ${slug} ${content}`;
+  const contentRuleTerms = extractContentKeywords(combinedText);
+
+  // 5. Domain-specific cluster
   const domainCluster = DOMAIN_KEYWORD_CLUSTERS[canonicalCategory] || DOMAIN_KEYWORD_CLUSTERS.philosophy;
 
-  // 5. Universal Indic search terms
+  // 6. Universal Indic search terms
   // "Hindu article", "Hindu philosophy", "Indic research", "Sanatana Dharma scholarship", etc.
   const universalTerms = [...CORE_UNIVERSAL_TERMS];
 
-  // 6. Assemble in order of priority:
-  // - Specific slug overrides / detected specific terms
+  // 7. Assemble in order of priority:
+  // - Specific slug overrides (for flagship articles)
+  // - Dynamic keywords extracted directly from the article's own text!
+  // - Detected specific topic rule terms
   // - Specific database tags
   // - Domain cluster
-  // - Universal search terms
+  // - Universal search terms ("Hindu article", "Hindu philosophy")
   const rawList: string[] = [
     ...slugOverrideTerms,
-    ...contentTerms,
+    ...dynamicArticleTerms,
+    ...contentRuleTerms,
     ...parsedDbTags,
     ...domainCluster,
     ...universalTerms,
@@ -466,13 +649,14 @@ export function enrichKeywords({
   }
 
   // Google News keywords: top 8-10 highly relevant search terms
-  // Must prioritize: "Hindu article", "Hindu philosophy", primary topic keywords
+  // Must prioritize: "Hindu article", "Hindu philosophy", article-specific extracted keywords
   const newsTermsCandidates = [
     "Hindu article",
     "Hindu philosophy",
     "Indic research",
     ...slugOverrideTerms,
-    ...contentTerms.slice(0, 3),
+    ...dynamicArticleTerms.slice(0, 4),
+    ...contentRuleTerms.slice(0, 2),
     ...parsedDbTags.slice(0, 2),
     ...domainCluster.slice(0, 2),
     "Sanatana Dharma scholarship",

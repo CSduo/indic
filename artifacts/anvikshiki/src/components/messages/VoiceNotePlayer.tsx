@@ -341,7 +341,7 @@ export function VoiceNotePlayer({
                   e.stopPropagation();
                   const next = !showTranscript;
                   setShowTranscript(next);
-                  if (next && !hasValidTranscript && !transcribing && messageId) {
+                  if (next && (!hasValidTranscript || !serverTranslations) && !transcribing && messageId) {
                     void triggerTranscribe(e);
                   }
                 }}
@@ -372,7 +372,7 @@ export function VoiceNotePlayer({
             </span>
 
             <div className="flex items-center gap-2">
-              {!hasValidTranscript && (
+              {(!hasValidTranscript || (!serverTranslations && selectedLang !== "orig")) && (
                 <button
                   type="button"
                   onClick={triggerTranscribe}
@@ -380,7 +380,7 @@ export function VoiceNotePlayer({
                   className="inline-flex items-center gap-1 text-[#f59e0b] hover:underline font-semibold"
                 >
                   {transcribing ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
-                  <span>{transcribing ? "Transcribing…" : "Transcribe"}</span>
+                  <span>{transcribing ? "Translating…" : "Translate"}</span>
                 </button>
               )}
 
@@ -406,6 +406,9 @@ export function VoiceNotePlayer({
                 onClick={(e) => {
                   e.stopPropagation();
                   setSelectedLang(lang);
+                  if (lang !== "orig" && !serverTranslations && !transcribing && messageId) {
+                    void triggerTranscribe(e);
+                  }
                 }}
                 className={`rounded px-1.5 py-0.5 font-ui text-[10px] font-semibold transition-colors ${
                   selectedLang === lang
@@ -421,7 +424,12 @@ export function VoiceNotePlayer({
           {/* An absent translation says so. Showing the original under a
               "हिन्दी" tab, or an empty pair of quotation marks, would both read
               as a translation that had been produced. */}
-          {displayTranscript ? (
+          {transcribing ? (
+            <div className="flex items-center gap-1.5 py-2 text-[#f59e0b] font-body text-[12px]">
+              <Loader2 size={13} className="animate-spin" />
+              <span>Fetching {selectedLang === "hi" ? "Hindi" : selectedLang === "sa" ? "Sanskrit" : "English"} translation…</span>
+            </div>
+          ) : displayTranscript ? (
             <p className="font-body text-[13px] leading-relaxed italic text-[#e5e7eb] opacity-95">
               "{displayTranscript}"
             </p>
