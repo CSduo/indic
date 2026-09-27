@@ -13,6 +13,11 @@ import sitemapRouter from "./routes/sitemap";
 import rssRouter from "./routes/rss";
 import indexnowRouter from "./routes/indexnow";
 import { DEFAULT_INDEXNOW_KEY } from "./lib/indexnow";
+import {
+  parseGoogleServiceAccountCredentials,
+  getSeoDispatchLog,
+  CANONICAL_HOST,
+} from "./lib/seo-service";
 import { db, articlesTable, papersTable, usersTable, categoriesTable, submissionsTable, ensureDatabaseSchema, coreTablesExist } from "@workspace/db";
 import { eq, and, or, ilike, isNull } from "drizzle-orm";
 import { sanitizeArticleBody } from "./lib/content";
@@ -317,6 +322,44 @@ app.use(indexnowRouter);
 app.get(["/indexnow-key.txt", `/${DEFAULT_INDEXNOW_KEY}.txt`], (_req, res) => {
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
   return res.status(200).send(DEFAULT_INDEXNOW_KEY);
+});
+
+// Dynamic Google Search Console HTML verification file handler
+// Responds to any google<codeNumber>.html requested by Googlebot during domain ownership verification
+app.get(["/google:code.html", "/google-site-verification.html"], (req, res) => {
+  const code = req.params.code || process.env.GOOGLE_SITE_VERIFICATION || "";
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  return res.status(200).send(`google-site-verification: google${code}.html`);
+});
+
+// GET /api/seo/status - public SEO and search indexing health status
+app.get("/api/seo/status", async (_req, res) => {
+  try {
+    const creds = parseGoogleServiceAccountCredentials();
+    const dispatches = getSeoDispatchLog();
+    return res.status(200).json({
+      canonicalDomain: "https://anvikshikijournal.in",
+      sitemapUrl: "https://anvikshikijournal.in/sitemap.xml",
+      rssFeedUrl: "https://anvikshikijournal.in/feed",
+      indexNow: {
+        enabled: true,
+        host: CANONICAL_HOST,
+        keyUrl: "https://anvikshikijournal.in/indexnow-key.txt",
+      },
+      googleIndexing: {
+        configured: Boolean(creds),
+        clientEmail: creds?.client_email ? `${creds.client_email.slice(0, 8)}...` : null,
+      },
+      googleSiteVerification: {
+        htmlFileVerificationSupported: true,
+        metaConfigured: Boolean(process.env.GOOGLE_SITE_VERIFICATION),
+      },
+      dispatchesCount: dispatches.length,
+      recentDispatches: dispatches.slice(0, 10),
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: "Failed to read SEO status", message: err?.message });
+  }
 });
 
 export const CANONICAL_DOMAIN = "https://anvikshikijournal.in";
@@ -987,7 +1030,10 @@ export function injectSsrHtml(template: string, metaTags: string, ssrBody: strin
   const dataScript = initialData !== undefined
     ? `\n<script id="__ANVIKSHIKI_DATA__" type="application/json">${JSON.stringify(initialData).replace(/</g, "\\u003c")}</script>`
     : "";
-  const withMeta = cleanTemplate.replace(/<\/head>/i, `${SSR_CSS_STYLES}\n${metaTags}${dataScript}\n</head>`);
+  const googleVerificationMeta = process.env.GOOGLE_SITE_VERIFICATION
+    ? `\n    <meta name="google-site-verification" content="${process.env.GOOGLE_SITE_VERIFICATION}" />`
+    : "";
+  const withMeta = cleanTemplate.replace(/<\/head>/i, `${SSR_CSS_STYLES}${googleVerificationMeta}\n${metaTags}${dataScript}\n</head>`);
   if (withMeta.includes('<div id="root"></div>')) {
     return withMeta.replace('<div id="root"></div>', `<div id="root">${ssrBody}</div>`);
   }
@@ -998,11 +1044,15 @@ export function buildFallbackHtml(metaTags: string, ssrBody: string, initialData
   const dataScript = initialData !== undefined
     ? `\n<script id="__ANVIKSHIKI_DATA__" type="application/json">${JSON.stringify(initialData).replace(/</g, "\\u003c")}</script>`
     : "";
+  const googleVerificationMeta = process.env.GOOGLE_SITE_VERIFICATION
+    ? `\n    <meta name="google-site-verification" content="${process.env.GOOGLE_SITE_VERIFICATION}" />`
+    : "";
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    ${googleVerificationMeta}
     ${SSR_CSS_STYLES}
     ${metaTags}
     ${dataScript}

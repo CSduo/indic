@@ -448,3 +448,66 @@ export function triggerPublicContentSeo(payload: ContentPublicationPayload): Pro
   return task();
 }
 
+/**
+ * Triggers a comprehensive re-indexing pass across ALL published content in the journal.
+ * Dispatches to IndexNow (Bing, Yandex, Seznam, Naver), Google Indexing API, and sitemap pings.
+ */
+export async function reindexAllPublicContent(urlsOverride?: string[]): Promise<{
+  success: boolean;
+  totalUrls: number;
+  indexNow: { success: boolean; count: number; error?: string };
+  google: { success: boolean; submitted: number; failed: number; error?: string };
+  urls: string[];
+}> {
+  let urls = urlsOverride;
+  if (!urls || urls.length === 0) {
+    try {
+      const { getAllPublicUrls } = await import("../routes/sitemap");
+      urls = await getAllPublicUrls();
+    } catch (err: any) {
+      logger.warn({ err: err?.message }, "[SEO Engine] Failed to load public URLs from database; using static fallback");
+      urls = [
+        `${CANONICAL_BASE_URL}`,
+        `${CANONICAL_BASE_URL}/browse`,
+        `${CANONICAL_BASE_URL}/domains`,
+        `${CANONICAL_BASE_URL}/papers`,
+        `${CANONICAL_BASE_URL}/archive`,
+        `${CANONICAL_BASE_URL}/sitemap.xml`,
+      ];
+    }
+  }
+
+  const normalizedUrls = normalizeCanonicalUrls(urls);
+
+  // 1. Submit batch to IndexNow
+  const indexNowResult = await submitIndexNow(normalizedUrls);
+
+  // 2. Submit to Google Indexing API
+  const googleResult = await triggerGoogleIndexing(normalizedUrls, "URL_UPDATED").catch((err) => {
+    logger.warn({ err: err?.message }, "[Google Indexing] Batch submission notice");
+    return { success: false, submitted: 0, failed: normalizedUrls.length, error: err?.message };
+  });
+
+  // 3. Ping search engine sitemaps
+  pingSearchEngineSitemaps().catch(() => {});
+
+  recordDispatch({
+    timestamp: new Date().toISOString(),
+    reason: "batch-reindex-all",
+    urls: normalizedUrls,
+    success: indexNowResult.success || googleResult.success,
+    count: normalizedUrls.length,
+    engines: ["IndexNow", "Google Indexing API", "Google Sitemap Ping", "Bing Sitemap Ping"],
+    error: indexNowResult.error || googleResult.error,
+  });
+
+  return {
+    success: indexNowResult.success || googleResult.success,
+    totalUrls: normalizedUrls.length,
+    indexNow: indexNowResult,
+    google: googleResult,
+    urls: normalizedUrls,
+  };
+}
+
+

@@ -6,6 +6,82 @@ import { slugify } from "../app";
 
 const router = Router();
 
+export async function getAllPublicUrls(): Promise<string[]> {
+  const [articles, papers, categories, users] = await Promise.all([
+    db.select({ slug: articlesTable.slug, updatedAt: articlesTable.updatedAt, authorName: articlesTable.authorName })
+      .from(articlesTable)
+      .where(and(eq(articlesTable.status, "PUBLISHED"), isNull(articlesTable.deletedAt))),
+    db.select({ slug: papersTable.slug, updatedAt: papersTable.updatedAt, authorName: papersTable.authorName })
+      .from(papersTable)
+      .where(and(eq(papersTable.status, "PUBLISHED"), isNull(papersTable.deletedAt))),
+    db.select({ slug: categoriesTable.slug, updatedAt: categoriesTable.updatedAt })
+      .from(categoriesTable)
+      .where(eq(categoriesTable.visible, true)),
+    db.select({ handle: usersTable.handle, name: usersTable.name, updatedAt: usersTable.updatedAt })
+      .from(usersTable)
+      .where(isNull(usersTable.deletionRequestedAt)),
+  ]);
+
+  const baseUrl = 'https://anvikshikijournal.in';
+  const urls: string[] = [
+    baseUrl,
+    `${baseUrl}/about`,
+    `${baseUrl}/about/anvikshiki`,
+    `${baseUrl}/contact`,
+    `${baseUrl}/privacy`,
+    `${baseUrl}/terms`,
+    `${baseUrl}/browse`,
+    `${baseUrl}/domains`,
+    `${baseUrl}/archive`,
+    `${baseUrl}/papers`,
+    `${baseUrl}/community`,
+    `${baseUrl}/submit`,
+  ];
+
+  for (const article of articles) {
+    urls.push(`${baseUrl}/articles/${article.slug}`);
+  }
+
+  for (const paper of papers) {
+    urls.push(`${baseUrl}/papers/${paper.slug}`);
+  }
+
+  for (const cat of categories) {
+    urls.push(`${baseUrl}/domains/${encodeURIComponent(cat.slug)}`);
+  }
+
+  const authorMap = new Set<string>();
+  for (const u of users) {
+    if (u.handle) {
+      authorMap.add(u.handle);
+    } else if (u.name) {
+      const s = slugify(u.name);
+      if (s) authorMap.add(s);
+    }
+  }
+  for (const a of articles) {
+    if (a.authorName) {
+      const s = slugify(a.authorName);
+      if (s) authorMap.add(s);
+    }
+  }
+  for (const p of papers) {
+    if (p.authorName) {
+      const authors = p.authorName.split(/,\s*/);
+      for (const auth of authors) {
+        const s = slugify(auth);
+        if (s) authorMap.add(s);
+      }
+    }
+  }
+
+  for (const authorSlug of authorMap) {
+    urls.push(`${baseUrl}/authors/${encodeURIComponent(authorSlug)}`);
+  }
+
+  return urls;
+}
+
 router.get("/sitemap.xml", async (req, res) => {
   try {
     const [articles, papers, categories, users] = await Promise.all([

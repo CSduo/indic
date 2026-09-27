@@ -20,7 +20,13 @@ import {
 import { z } from "zod";
 import { notifyUser, notifyFollowersOfNewWork, notifyAllSubscribersOfNewArticle } from "../lib/notify";
 import { sanitizeArticleBody, MAX_BODY_CHARS } from "../lib/content";
-import { triggerPublicContentSeo } from "../lib/seo-service";
+import {
+  triggerPublicContentSeo,
+  reindexAllPublicContent,
+  getSeoDispatchLog,
+  parseGoogleServiceAccountCredentials,
+  CANONICAL_BASE_URL,
+} from "../lib/seo-service";
 import { extractArticleKeywords } from "../lib/keywords";
 
 const router = Router();
@@ -1181,6 +1187,58 @@ router.post("/admin/repair-schema", requireAdmin, requireAdminRole("ADMIN"), asy
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Schema repair failed" });
+  }
+});
+
+// Helper middleware to allow admin session OR x-seo-secret header matching ADMIN_SECRET / AUTH_SECRET
+const requireAdminOrSeoSecret = (req: any, res: any, next: any) => {
+  const secretHeader = req.headers["x-seo-secret"];
+  const validSecret = process.env.ADMIN_SECRET || process.env.AUTH_SECRET;
+  if (secretHeader && validSecret && secretHeader === validSecret) {
+    return next();
+  }
+  return requireAdmin(req, res, next);
+};
+
+// POST /api/admin/seo/reindex-all - Batch reindexes all public content across search engines
+router.post("/admin/seo/reindex-all", requireAdminOrSeoSecret, async (req, res) => {
+  try {
+    const urlsOverride = Array.isArray(req.body?.urls) ? req.body.urls : undefined;
+    const result = await reindexAllPublicContent(urlsOverride);
+    return res.status(200).json({
+      success: result.success,
+      message: `Batch re-indexing triggered for ${result.totalUrls} URLs`,
+      totalUrls: result.totalUrls,
+      indexNow: result.indexNow,
+      google: result.google,
+      urls: result.urls,
+    });
+  } catch (err: any) {
+    req.log?.error?.({ err }, "Batch reindex error");
+    return res.status(500).json({ error: "Failed to dispatch batch re-indexing", message: err?.message });
+  }
+});
+
+// GET /api/admin/seo/status - Administrative SEO health and dispatch history
+router.get("/admin/seo/status", requireAdminOrSeoSecret, async (_req, res) => {
+  try {
+    const creds = parseGoogleServiceAccountCredentials();
+    const dispatches = getSeoDispatchLog();
+    return res.status(200).json({
+      canonicalDomain: CANONICAL_BASE_URL,
+      googleIndexing: {
+        configured: Boolean(creds),
+        clientEmail: creds?.client_email ? `${creds.client_email.slice(0, 8)}...` : null,
+      },
+      indexNow: {
+        enabled: true,
+        endpoint: "https://api.indexnow.org/indexnow",
+      },
+      dispatchesCount: dispatches.length,
+      recentDispatches: dispatches.slice(0, 15),
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: "Failed to read SEO status", message: err?.message });
   }
 });
 
