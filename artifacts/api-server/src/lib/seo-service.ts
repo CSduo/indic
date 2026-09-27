@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import * as crypto from "crypto";
 import { importPKCS8, SignJWT } from "jose";
 import { logger } from "./logger";
 import { CANONICAL_HOST, CANONICAL_BASE_URL, submitIndexNow } from "./indexnow";
@@ -105,48 +106,250 @@ export function normalizeCanonicalUrls(urls: string[]): string[] {
   return Array.from(normalized);
 }
 
+/**
+ * Normalizes, strips quotes, replaces escaped line breaks, and standardizes RSA/PKCS8 PEM keys
+ * so that both Node.js crypto and jose importPKCS8 can parse them reliably without formatting errors.
+ */
+export function sanitizePrivateKey(rawKey: string): string {
+  if (!rawKey || typeof rawKey !== "string") return "";
+  let key = rawKey.trim();
+
+  // Strip wrapping single or double quotes
+  if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
+    key = key.slice(1, -1).trim();
+  }
+
+  // Normalize all forms of escaped newlines and CRLF
+  key = key.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").replace(/\r\n/g, "\n");
+
+  try {
+    const keyObj = crypto.createPrivateKey(key);
+    return keyObj.export({ type: "pkcs8", format: "pem" }).toString();
+  } catch {
+    // If standard parsing fails (e.g. malformed headers or single-line PEM),
+    // attempt fallback reconstruction if the string contains a private key payload
+    if (key.includes("PRIVATE KEY")) {
+      const clean = key
+        .replace(/-----BEGIN[ A-Z_-]+-----/g, "")
+        .replace(/-----END[ A-Z_-]+-----/g, "")
+        .replace(/\s+/g, "");
+
+      if (/^[A-Za-z0-9+/=]+$/.test(clean) && clean.length > 50) {
+        const chunked = clean.match(/.{1,64}/g)?.join("\n") || clean;
+        const reconstructed = `-----BEGIN PRIVATE KEY-----\n${chunked}\n-----END PRIVATE KEY-----\n`;
+        try {
+          const retryKey = crypto.createPrivateKey(reconstructed);
+          return retryKey.export({ type: "pkcs8", format: "pem" }).toString();
+        } catch {
+          return reconstructed;
+        }
+      }
+    }
+    return key;
+  }
+}
+
+function unwrapCredentialsObject(obj: any): any {
+  if (!obj || typeof obj !== "object") return null;
+  // If wrapped in envelope like { credentials: { ... } } or { service_account: { ... } }
+  if (obj.credentials && typeof obj.credentials === "object") {
+    return unwrapCredentialsObject(obj.credentials);
+  }
+  if (obj.service_account && typeof obj.service_account === "object") {
+    return unwrapCredentialsObject(obj.service_account);
+  }
+  return obj;
+}
+
+function tryParseServiceAccountJson(raw: string): any | null {
+  if (!raw || typeof raw !== "string") return null;
+  let text = raw.trim();
+
+  // Strip wrapping quotes
+  if ((text.startsWith('"') && text.endsWith('"')) || (text.startsWith("'") && text.endsWith("'"))) {
+    text = text.slice(1, -1).trim();
+  }
+
+  // 1. Direct JSON parse
+  try {
+    let parsed = JSON.parse(text);
+    if (typeof parsed === "string") {
+      try {
+        parsed = JSON.parse(parsed);
+      } catch {}
+    }
+    if (parsed && typeof parsed === "object") {
+      return unwrapCredentialsObject(parsed);
+    }
+  } catch {}
+
+  // 2. Unescape escaped quotes (e.g. {\"type\": ...})
+  try {
+    const unescaped = text.replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+    let parsed = JSON.parse(unescaped);
+    if (typeof parsed === "string") {
+      try {
+        parsed = JSON.parse(parsed);
+      } catch {}
+    }
+    if (parsed && typeof parsed === "object") {
+      return unwrapCredentialsObject(parsed);
+    }
+  } catch {}
+
+  // 3. Base64 encoded JSON
+  try {
+    const cleanB64 = text.replace(/\s+/g, "");
+    const decoded = Buffer.from(cleanB64, "base64").toString("utf-8").trim();
+    if (decoded.startsWith("{") && decoded.endsWith("}")) {
+      let parsed = JSON.parse(decoded);
+      if (typeof parsed === "string") {
+        try {
+          parsed = JSON.parse(parsed);
+        } catch {}
+      }
+      if (parsed && typeof parsed === "object") {
+        return unwrapCredentialsObject(parsed);
+      }
+    }
+  } catch {}
+
+  // 4. File path on disk
+  try {
+    if (fs.existsSync(text)) {
+      const fileContent = fs.readFileSync(text, "utf-8").trim();
+      return tryParseServiceAccountJson(fileContent);
+    }
+  } catch {}
+
+  return null;
+}
+
 export interface GoogleServiceAccountKey {
   client_email: string;
   private_key: string;
   project_id?: string;
   token_uri?: string;
+  source?: string;
 }
 
+export interface GoogleServiceAccountStatus {
+  configured: boolean;
+  source: string | null;
+  clientEmail: string | null;
+  projectId: string | null;
+  validKey: boolean;
+  keyError?: string;
+  lastApiError?: string | null;
+}
+
+let lastGoogleApiError: string | null = null;
+
 export function parseGoogleServiceAccountCredentials(): GoogleServiceAccountKey | null {
-  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY || process.env.GOOGLE_APPLICATION_CREDENTIALS;
-  if (!raw) return null;
+  // 1. Check all candidate JSON / file environment variables
+  const jsonCandidates: { env: string; val: string | undefined }[] = [
+    { env: "GOOGLE_SERVICE_ACCOUNT_KEY", val: process.env.GOOGLE_SERVICE_ACCOUNT_KEY },
+    { env: "GOOGLE_SERVICE_ACCOUNT_JSON", val: process.env.GOOGLE_SERVICE_ACCOUNT_JSON },
+    { env: "GOOGLE_APPLICATION_CREDENTIALS", val: process.env.GOOGLE_APPLICATION_CREDENTIALS },
+    { env: "GOOGLE_CREDENTIALS", val: process.env.GOOGLE_CREDENTIALS },
+    { env: "GCP_SERVICE_ACCOUNT_KEY", val: process.env.GCP_SERVICE_ACCOUNT_KEY },
+    { env: "GCP_CREDENTIALS", val: process.env.GCP_CREDENTIALS },
+  ];
+
+  for (const { env, val } of jsonCandidates) {
+    if (!val || typeof val !== "string" || !val.trim()) continue;
+    try {
+      const parsed = tryParseServiceAccountJson(val);
+      if (parsed && parsed.client_email && parsed.private_key) {
+        return {
+          client_email: String(parsed.client_email).trim(),
+          private_key: sanitizePrivateKey(String(parsed.private_key)),
+          project_id: parsed.project_id ? String(parsed.project_id).trim() : undefined,
+          token_uri: parsed.token_uri ? String(parsed.token_uri).trim() : "https://oauth2.googleapis.com/token",
+          source: env,
+        };
+      }
+    } catch (err: any) {
+      logger.warn({ env, err: err?.message }, "[Google Indexing] Failed parsing candidate credentials env var");
+    }
+  }
+
+  // 2. Check individual environment variables
+  const clientEmail = (
+    process.env.GOOGLE_CLIENT_EMAIL ||
+    process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ||
+    process.env.GCP_CLIENT_EMAIL
+  )?.trim();
+
+  const privateKey = (
+    process.env.GOOGLE_PRIVATE_KEY ||
+    process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ||
+    process.env.GCP_PRIVATE_KEY
+  )?.trim();
+
+  if (clientEmail && privateKey) {
+    return {
+      client_email: clientEmail,
+      private_key: sanitizePrivateKey(privateKey),
+      project_id: (process.env.GOOGLE_PROJECT_ID || process.env.GCP_PROJECT_ID)?.trim() || undefined,
+      token_uri: process.env.GOOGLE_TOKEN_URI?.trim() || "https://oauth2.googleapis.com/token",
+      source: "GOOGLE_CLIENT_EMAIL + GOOGLE_PRIVATE_KEY",
+    };
+  }
+
+  return null;
+}
+
+export function getGoogleServiceAccountStatus(): GoogleServiceAccountStatus {
+  const creds = parseGoogleServiceAccountCredentials();
+  if (!creds) {
+    return {
+      configured: false,
+      source: null,
+      clientEmail: null,
+      projectId: null,
+      validKey: false,
+      lastApiError: lastGoogleApiError,
+    };
+  }
+
+  let validKey = false;
+  let keyError: string | undefined;
 
   try {
-    const trimmed = raw.trim();
-    if (trimmed.startsWith("{")) {
-      return JSON.parse(trimmed);
-    }
-    // Base64 encoded JSON
-    if (trimmed.startsWith("ey")) {
-      try {
-        const decoded = Buffer.from(trimmed, "base64").toString("utf-8");
-        if (decoded.trim().startsWith("{")) {
-          return JSON.parse(decoded);
-        }
-      } catch {
-        // ignore
-      }
-    }
-    // File path
-    if (fs.existsSync(trimmed)) {
-      const content = fs.readFileSync(trimmed, "utf-8");
-      return JSON.parse(content);
-    }
+    const keyPem = sanitizePrivateKey(creds.private_key);
+    const keyObj = crypto.createPrivateKey(keyPem);
+    validKey = Boolean(keyObj);
   } catch (err: any) {
-    logger.warn({ err: err?.message }, "[Google Indexing] Failed to parse service account credentials");
+    validKey = false;
+    keyError = err?.message || "Invalid RSA/PKCS8 private key";
   }
-  return null;
+
+  // Mask client email for security: e.g. "my-servic...iam.gserviceaccount.com"
+  const rawEmail = creds.client_email;
+  let maskedEmail = rawEmail;
+  if (rawEmail && rawEmail.includes("@")) {
+    const [user, domain] = rawEmail.split("@");
+    const maskedUser = user.length > 6 ? `${user.slice(0, 4)}...${user.slice(-2)}` : user;
+    maskedEmail = `${maskedUser}@${domain}`;
+  }
+
+  return {
+    configured: true,
+    source: creds.source || "unknown",
+    clientEmail: maskedEmail,
+    projectId: creds.project_id || null,
+    validKey,
+    keyError,
+    lastApiError: lastGoogleApiError,
+  };
 }
 
 let cachedGoogleToken: { token: string; expiresAt: number } | null = null;
 
 export function resetGoogleTokenCache() {
   cachedGoogleToken = null;
+  lastGoogleApiError = null;
 }
 
 export async function getGoogleOAuth2AccessToken(creds?: GoogleServiceAccountKey | null): Promise<string | null> {
@@ -161,11 +364,7 @@ export async function getGoogleOAuth2AccessToken(creds?: GoogleServiceAccountKey
   }
 
   try {
-    let privateKeyPem = credentials.private_key;
-    if (!privateKeyPem.includes("\n") && privateKeyPem.includes("\\n")) {
-      privateKeyPem = privateKeyPem.replace(/\\n/g, "\n");
-    }
-
+    const privateKeyPem = sanitizePrivateKey(credentials.private_key);
     const privateKey = await importPKCS8(privateKeyPem, "RS256");
 
     const jwt = await new SignJWT({
@@ -180,7 +379,7 @@ export async function getGoogleOAuth2AccessToken(creds?: GoogleServiceAccountKey
       .sign(privateKey);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
     const tokenRes = await fetch(credentials.token_uri || "https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -198,6 +397,7 @@ export async function getGoogleOAuth2AccessToken(creds?: GoogleServiceAccountKey
 
     if (!tokenRes.ok) {
       const errText = await tokenRes.text().catch(() => "");
+      lastGoogleApiError = `OAuth token exchange failed (HTTP ${tokenRes.status}): ${errText}`;
       logger.warn({ status: tokenRes.status, errText }, "[Google Indexing] OAuth token exchange failed");
       return null;
     }
@@ -208,8 +408,10 @@ export async function getGoogleOAuth2AccessToken(creds?: GoogleServiceAccountKey
       token: tokenData.access_token,
       expiresAt: now + expiresIn,
     };
+    lastGoogleApiError = null;
     return tokenData.access_token;
   } catch (err: any) {
+    lastGoogleApiError = `Token generation error: ${err?.message}`;
     logger.warn({ err: err?.message }, "[Google Indexing] Token generation error");
     return null;
   }
@@ -251,7 +453,7 @@ export async function triggerGoogleIndexing(
       success: false,
       submitted: 0,
       failed: urls.length,
-      error: "OAuth2 token acquisition failed; fell back to sitemap ping",
+      error: lastGoogleApiError || "OAuth2 token acquisition failed; fell back to sitemap ping",
     };
   }
 
@@ -259,41 +461,54 @@ export async function triggerGoogleIndexing(
   let failed = 0;
   const errors: string[] = [];
 
-  for (const url of urls) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+  // Concurrently submit in chunks of 5 for optimal performance in serverless functions
+  const CONCURRENCY = 5;
+  for (let i = 0; i < urls.length; i += CONCURRENCY) {
+    const chunk = urls.slice(i, i + CONCURRENCY);
+    await Promise.all(
+      chunk.map(async (url) => {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-      const res = await fetch("https://indexing.googleapis.com/v3/urlNotifications:publish", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          url,
-          type: action,
-        }),
-        signal: controller.signal,
-      });
+          const res = await fetch("https://indexing.googleapis.com/v3/urlNotifications:publish", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              url,
+              type: action,
+            }),
+            signal: controller.signal,
+          });
 
-      clearTimeout(timeoutId);
+          clearTimeout(timeoutId);
 
-      if (res.ok || res.status === 200) {
-        submitted++;
-        logger.info({ url, action }, "[Google Indexing] URL notification submitted successfully");
-      } else {
-        failed++;
-        const errJson = (await res.json().catch(() => null)) as any;
-        const errMsg = errJson?.error?.message || (typeof errJson?.error === "string" ? errJson.error : "") || `HTTP ${res.status}`;
-        errors.push(`${url}: ${errMsg}`);
-        logger.warn({ url, status: res.status, errMsg }, "[Google Indexing] Google API rejected URL notification");
-      }
-    } catch (err: any) {
-      failed++;
-      errors.push(`${url}: ${err?.message || "Network error"}`);
-      logger.warn({ url, err: err?.message }, "[Google Indexing] Network error submitting URL to Google");
-    }
+          if (res.ok || res.status === 200) {
+            submitted++;
+            logger.info({ url, action }, "[Google Indexing] URL notification submitted successfully");
+          } else {
+            failed++;
+            const errJson = (await res.json().catch(() => null)) as any;
+            let errMsg = errJson?.error?.message || (typeof errJson?.error === "string" ? errJson.error : "") || `HTTP ${res.status}`;
+            if (res.status === 403) {
+              errMsg = `Search Console permission denied. Ensure service account '${creds.client_email}' is added as Owner in Google Search Console for '${CANONICAL_BASE_URL}'. Details: ${errMsg}`;
+            }
+            errors.push(`${url}: ${errMsg}`);
+            lastGoogleApiError = errMsg;
+            logger.warn({ url, status: res.status, errMsg }, "[Google Indexing] Google API rejected URL notification");
+          }
+        } catch (err: any) {
+          failed++;
+          const msg = `${url}: ${err?.message || "Network error"}`;
+          errors.push(msg);
+          lastGoogleApiError = err?.message || "Network error";
+          logger.warn({ url, err: err?.message }, "[Google Indexing] Network error submitting URL to Google");
+        }
+      })
+    );
   }
 
   // If any submissions failed (e.g. quota or permission), trigger fallback sitemap ping

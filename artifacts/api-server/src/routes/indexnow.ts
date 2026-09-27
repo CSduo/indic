@@ -1,13 +1,13 @@
 import { Router, type Request, type Response } from "express";
 import { DEFAULT_INDEXNOW_KEY, CANONICAL_HOST, isAllowedHost, submitIndexNow } from "../lib/indexnow";
-import { parseGoogleServiceAccountCredentials, getSeoDispatchLog } from "../lib/seo-service";
+import { getGoogleServiceAccountStatus, getSeoDispatchLog } from "../lib/seo-service";
 
 const router = Router();
 
 // GET /api/seo/status - public SEO and search indexing health status
 router.get("/seo/status", async (_req: Request, res: Response) => {
   try {
-    const creds = parseGoogleServiceAccountCredentials();
+    const googleStatus = getGoogleServiceAccountStatus();
     const dispatches = getSeoDispatchLog();
     return res.status(200).json({
       canonicalDomain: "https://" + CANONICAL_HOST,
@@ -18,10 +18,7 @@ router.get("/seo/status", async (_req: Request, res: Response) => {
         host: CANONICAL_HOST,
         keyUrl: `https://${CANONICAL_HOST}/indexnow-key.txt`,
       },
-      googleIndexing: {
-        configured: Boolean(creds),
-        clientEmail: creds?.client_email ? `${creds.client_email.slice(0, 8)}...` : null,
-      },
+      googleIndexing: googleStatus,
       googleSiteVerification: {
         htmlFileVerificationSupported: true,
         metaConfigured: Boolean(process.env.GOOGLE_SITE_VERIFICATION),

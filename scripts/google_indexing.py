@@ -147,33 +147,114 @@ def ping_search_engines(sitemap_url: str = DEFAULT_SITEMAP_URL, dry_run: bool = 
     return results
 
 
+def parse_service_account_dict(raw: str) -> dict | None:
+    if not raw or not isinstance(raw, str):
+        return None
+    text = raw.strip()
+    if (text.startswith('"') and text.endswith('"')) or (text.startswith("'") and text.endswith("'")):
+        text = text[1:-1].strip()
+
+    # 1. Direct JSON parse
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, str):
+            parsed = json.loads(parsed)
+        if isinstance(parsed, dict):
+            return parsed
+    except Exception:
+        pass
+
+    # 2. Unescape escaped quotes
+    try:
+        unescaped = text.replace('\\"', '"').replace('\\\\', '\\')
+        parsed = json.loads(unescaped)
+        if isinstance(parsed, str):
+            parsed = json.loads(parsed)
+        if isinstance(parsed, dict):
+            return parsed
+    except Exception:
+        pass
+
+    # 3. Base64 decode
+    try:
+        import base64
+        clean_b64 = text.replace(" ", "").replace("\n", "").replace("\r", "")
+        decoded = base64.b64decode(clean_b64).decode("utf-8").strip()
+        if decoded.startswith("{") and decoded.endswith("}"):
+            parsed = json.loads(decoded)
+            if isinstance(parsed, str):
+                parsed = json.loads(parsed)
+            if isinstance(parsed, dict):
+                return parsed
+    except Exception:
+        pass
+
+    # 4. File on disk
+    if os.path.exists(text):
+        try:
+            with open(text, "r", encoding="utf-8") as f:
+                return parse_service_account_dict(f.read())
+        except Exception:
+            pass
+
+    return None
+
+
 def get_google_access_token(credentials_path: str | None) -> str | None:
     """
     Retrieves a Google OAuth2 Bearer token with indexing scope using the service account credentials.
+    Supports file paths, raw JSON, base64-encoded strings, and individual env vars.
     """
-    creds_path = credentials_path or os.environ.get("GOOGLE_SERVICE_ACCOUNT_KEY") or os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-    if not creds_path:
-        return None
-
     if not GOOGLE_AUTH_AVAILABLE:
         print("[!] 'google-auth' is not installed in the current Python environment.", file=sys.stderr)
         print("    Install it via: pip install google-auth", file=sys.stderr)
         return None
 
-    try:
-        if os.path.exists(creds_path):
-            creds = service_account.Credentials.from_service_account_file(
-                creds_path,
-                scopes=["https://www.googleapis.com/auth/indexing"]
-            )
-        else:
-            # Attempt to parse as raw JSON string
-            key_data = json.loads(creds_path)
-            creds = service_account.Credentials.from_service_account_info(
-                key_data,
-                scopes=["https://www.googleapis.com/auth/indexing"]
-            )
+    key_data = None
 
+    if credentials_path:
+        key_data = parse_service_account_dict(credentials_path)
+
+    if not key_data:
+        for env_name in [
+            "GOOGLE_SERVICE_ACCOUNT_KEY",
+            "GOOGLE_SERVICE_ACCOUNT_JSON",
+            "GOOGLE_APPLICATION_CREDENTIALS",
+            "GOOGLE_CREDENTIALS",
+            "GCP_SERVICE_ACCOUNT_KEY",
+        ]:
+            val = os.environ.get(env_name)
+            if val:
+                key_data = parse_service_account_dict(val)
+                if key_data:
+                    break
+
+    if not key_data:
+        client_email = os.environ.get("GOOGLE_CLIENT_EMAIL") or os.environ.get("GOOGLE_SERVICE_ACCOUNT_EMAIL")
+        private_key = os.environ.get("GOOGLE_PRIVATE_KEY") or os.environ.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY")
+        if client_email and private_key:
+            clean_key = private_key.replace("\\r\\n", "\n").replace("\\n", "\n").replace("\r\n", "\n").strip()
+            if (clean_key.startswith('"') and clean_key.endswith('"')) or (clean_key.startswith("'") and clean_key.endswith("'")):
+                clean_key = clean_key[1:-1].strip()
+            key_data = {
+                "client_email": client_email.strip(),
+                "private_key": clean_key,
+                "project_id": os.environ.get("GOOGLE_PROJECT_ID", "anvikshiki-journal"),
+                "token_uri": os.environ.get("GOOGLE_TOKEN_URI", "https://oauth2.googleapis.com/token"),
+            }
+
+    if not key_data or "client_email" not in key_data or "private_key" not in key_data:
+        return None
+
+    try:
+        pk = key_data.get("private_key", "")
+        if "\\n" in pk and "\n" not in pk:
+            key_data["private_key"] = pk.replace("\\n", "\n")
+
+        creds = service_account.Credentials.from_service_account_info(
+            key_data,
+            scopes=["https://www.googleapis.com/auth/indexing"]
+        )
         auth_req = GoogleAuthRequest()
         creds.refresh(auth_req)
         return creds.token

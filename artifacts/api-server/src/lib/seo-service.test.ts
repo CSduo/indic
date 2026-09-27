@@ -8,6 +8,9 @@ import {
   triggerGoogleIndexing,
   resetGoogleTokenCache,
   getSeoDispatchLog,
+  sanitizePrivateKey,
+  parseGoogleServiceAccountCredentials,
+  getGoogleServiceAccountStatus,
 } from "./seo-service";
 import { CANONICAL_BASE_URL } from "./indexnow";
 
@@ -25,15 +28,31 @@ const mockCredentials = {
   token_uri: "https://oauth2.googleapis.com/token",
 };
 
+const ENV_VARS_TO_CLEAR = [
+  "GOOGLE_SERVICE_ACCOUNT_KEY",
+  "GOOGLE_SERVICE_ACCOUNT_JSON",
+  "GOOGLE_APPLICATION_CREDENTIALS",
+  "GOOGLE_CREDENTIALS",
+  "GCP_SERVICE_ACCOUNT_KEY",
+  "GCP_CREDENTIALS",
+  "GOOGLE_CLIENT_EMAIL",
+  "GOOGLE_PRIVATE_KEY",
+  "GOOGLE_PROJECT_ID",
+  "GOOGLE_TOKEN_URI",
+];
+
 describe("Automated SEO Service", () => {
-  const originalEnv = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+  const savedEnvs: Record<string, string | undefined> = {};
   let fetchSpy: any;
   const publishedUrls: { url: string; type: string }[] = [];
 
   beforeEach(() => {
     resetGoogleTokenCache();
     publishedUrls.length = 0;
-    delete process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+    for (const k of ENV_VARS_TO_CLEAR) {
+      savedEnvs[k] = process.env[k];
+      delete process.env[k];
+    }
 
     fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input: any, init?: any) => {
       const urlStr = typeof input === "string" ? input : input.url || input.toString();
@@ -80,10 +99,12 @@ describe("Automated SEO Service", () => {
 
   afterEach(() => {
     fetchSpy.mockRestore();
-    if (originalEnv !== undefined) {
-      process.env.GOOGLE_SERVICE_ACCOUNT_KEY = originalEnv;
-    } else {
-      delete process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+    for (const k of ENV_VARS_TO_CLEAR) {
+      if (savedEnvs[k] !== undefined) {
+        process.env[k] = savedEnvs[k];
+      } else {
+        delete process.env[k];
+      }
     }
   });
 
@@ -251,6 +272,121 @@ describe("Automated SEO Service", () => {
         call[0].includes("google.com/ping") || call[0].includes("bing.com/ping")
       );
       expect(hasPingCall).toBe(true);
+    });
+  });
+
+  describe("sanitizePrivateKey", () => {
+    it("handles keys with escaped \\n characters", () => {
+      const escaped = mockCredentials.private_key.replace(/\n/g, "\\n");
+      const cleaned = sanitizePrivateKey(escaped);
+      expect(cleaned).toContain("-----BEGIN PRIVATE KEY-----");
+      expect(cleaned).toContain("-----END PRIVATE KEY-----");
+      expect(cleaned.includes("\\n")).toBe(false);
+    });
+
+    it("handles keys wrapped in outer quotes", () => {
+      const wrapped = `"${mockCredentials.private_key.replace(/\n/g, "\\n")}"`;
+      const cleaned = sanitizePrivateKey(wrapped);
+      expect(cleaned.startsWith("-----BEGIN PRIVATE KEY-----")).toBe(true);
+    });
+
+    it("handles single-line keys where newlines were collapsed to spaces", () => {
+      const singleLine = mockCredentials.private_key.replace(/\r?\n/g, " ");
+      const cleaned = sanitizePrivateKey(singleLine);
+      expect(cleaned).toContain("-----BEGIN PRIVATE KEY-----");
+      expect(cleaned).toContain("-----END PRIVATE KEY-----");
+      expect(cleaned.split("\n").length).toBeGreaterThan(5);
+    });
+
+    it("converts PKCS#1 RSA private keys to standard PKCS#8 format", () => {
+      const pkcs1Pair = crypto.generateKeyPairSync("rsa", {
+        modulusLength: 2048,
+        publicKeyEncoding: { type: "spki", format: "pem" },
+        privateKeyEncoding: { type: "pkcs1", format: "pem" },
+      });
+      const converted = sanitizePrivateKey(pkcs1Pair.privateKey);
+      expect(converted).toContain("-----BEGIN PRIVATE KEY-----");
+      expect(converted).not.toContain("BEGIN RSA PRIVATE KEY");
+    });
+  });
+
+  describe("parseGoogleServiceAccountCredentials (Vercel Resilient Parsing)", () => {
+    it("parses valid JSON from GOOGLE_SERVICE_ACCOUNT_KEY", () => {
+      process.env.GOOGLE_SERVICE_ACCOUNT_KEY = JSON.stringify(mockCredentials);
+      const creds = parseGoogleServiceAccountCredentials();
+      expect(creds).not.toBeNull();
+      expect(creds?.client_email).toBe(mockCredentials.client_email);
+      expect(creds?.private_key).toContain("-----BEGIN PRIVATE KEY-----");
+      expect(creds?.source).toBe("GOOGLE_SERVICE_ACCOUNT_KEY");
+    });
+
+    it("parses base64-encoded JSON from GOOGLE_SERVICE_ACCOUNT_KEY", () => {
+      const b64 = Buffer.from(JSON.stringify(mockCredentials)).toString("base64");
+      process.env.GOOGLE_SERVICE_ACCOUNT_KEY = b64;
+      const creds = parseGoogleServiceAccountCredentials();
+      expect(creds).not.toBeNull();
+      expect(creds?.client_email).toBe(mockCredentials.client_email);
+    });
+
+    it("parses double-stringified JSON (e.g. pasted into Vercel UI with escaped quotes)", () => {
+      process.env.GOOGLE_SERVICE_ACCOUNT_KEY = JSON.stringify(JSON.stringify(mockCredentials));
+      const creds = parseGoogleServiceAccountCredentials();
+      expect(creds).not.toBeNull();
+      expect(creds?.client_email).toBe(mockCredentials.client_email);
+    });
+
+    it("parses credentials from GOOGLE_SERVICE_ACCOUNT_JSON fallback alias", () => {
+      process.env.GOOGLE_SERVICE_ACCOUNT_JSON = JSON.stringify(mockCredentials);
+      const creds = parseGoogleServiceAccountCredentials();
+      expect(creds).not.toBeNull();
+      expect(creds?.source).toBe("GOOGLE_SERVICE_ACCOUNT_JSON");
+    });
+
+    it("parses individual environment variables GOOGLE_CLIENT_EMAIL + GOOGLE_PRIVATE_KEY", () => {
+      process.env.GOOGLE_CLIENT_EMAIL = mockCredentials.client_email;
+      process.env.GOOGLE_PRIVATE_KEY = mockCredentials.private_key;
+      process.env.GOOGLE_PROJECT_ID = "custom-project";
+
+      const creds = parseGoogleServiceAccountCredentials();
+      expect(creds).not.toBeNull();
+      expect(creds?.client_email).toBe(mockCredentials.client_email);
+      expect(creds?.project_id).toBe("custom-project");
+      expect(creds?.source).toBe("GOOGLE_CLIENT_EMAIL + GOOGLE_PRIVATE_KEY");
+    });
+
+    it("returns null when no credentials environment variables are set", () => {
+      const creds = parseGoogleServiceAccountCredentials();
+      expect(creds).toBeNull();
+    });
+  });
+
+  describe("getGoogleServiceAccountStatus", () => {
+    it("reports configured=false when no env vars exist", () => {
+      const status = getGoogleServiceAccountStatus();
+      expect(status.configured).toBe(false);
+      expect(status.clientEmail).toBeNull();
+      expect(status.validKey).toBe(false);
+    });
+
+    it("reports configured=true, validKey=true, and masked client email when configured", () => {
+      process.env.GOOGLE_SERVICE_ACCOUNT_KEY = JSON.stringify(mockCredentials);
+      const status = getGoogleServiceAccountStatus();
+      expect(status.configured).toBe(true);
+      expect(status.validKey).toBe(true);
+      expect(status.clientEmail).toContain("test");
+      expect(status.clientEmail).toContain("gserviceaccount.com");
+      expect(status.source).toBe("GOOGLE_SERVICE_ACCOUNT_KEY");
+    });
+
+    it("detects malformed/invalid private keys with validKey=false", () => {
+      process.env.GOOGLE_SERVICE_ACCOUNT_KEY = JSON.stringify({
+        client_email: "test@domain.com",
+        private_key: "not-a-valid-pem-key",
+      });
+      const status = getGoogleServiceAccountStatus();
+      expect(status.configured).toBe(true);
+      expect(status.validKey).toBe(false);
+      expect(status.keyError).toBeDefined();
     });
   });
 });
