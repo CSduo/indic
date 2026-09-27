@@ -1,7 +1,38 @@
 import { Router, type Request, type Response } from "express";
 import { DEFAULT_INDEXNOW_KEY, CANONICAL_HOST, isAllowedHost, submitIndexNow } from "../lib/indexnow";
+import { parseGoogleServiceAccountCredentials, getSeoDispatchLog } from "../lib/seo-service";
 
 const router = Router();
+
+// GET /api/seo/status - public SEO and search indexing health status
+router.get("/seo/status", async (_req: Request, res: Response) => {
+  try {
+    const creds = parseGoogleServiceAccountCredentials();
+    const dispatches = getSeoDispatchLog();
+    return res.status(200).json({
+      canonicalDomain: "https://" + CANONICAL_HOST,
+      sitemapUrl: `https://${CANONICAL_HOST}/sitemap.xml`,
+      rssFeedUrl: `https://${CANONICAL_HOST}/feed`,
+      indexNow: {
+        enabled: true,
+        host: CANONICAL_HOST,
+        keyUrl: `https://${CANONICAL_HOST}/indexnow-key.txt`,
+      },
+      googleIndexing: {
+        configured: Boolean(creds),
+        clientEmail: creds?.client_email ? `${creds.client_email.slice(0, 8)}...` : null,
+      },
+      googleSiteVerification: {
+        htmlFileVerificationSupported: true,
+        metaConfigured: Boolean(process.env.GOOGLE_SITE_VERIFICATION),
+      },
+      dispatchesCount: dispatches.length,
+      recentDispatches: dispatches.slice(0, 10),
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: "Failed to read SEO status", message: err?.message });
+  }
+});
 
 // POST /api/indexnow/notify
 router.post("/indexnow/notify", async (req: Request, res: Response) => {

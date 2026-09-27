@@ -103,6 +103,14 @@
       "destination": "/api/index"
     },
     {
+      "source": "/google:code([a-zA-Z0-9_-]+).html",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/google-site-verification.html",
+      "destination": "/api/index"
+    },
+    {
       "source": "/about/anvikshiki",
       "destination": "/api/index"
     },

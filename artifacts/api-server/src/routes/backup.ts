@@ -3,7 +3,13 @@ import { Router } from "express";
 import { getAdminAuth } from "../lib/auth";
 import { purgeDueAccounts, DELETION_GRACE_DAYS } from "../lib/account-deletion";
 import { backfillHandles } from "../lib/handles";
-import { pingSearchEngineSitemaps, triggerGoogleIndexing, submitUrlsToSearchEngines, CANONICAL_BASE_URL } from "../lib/seo-service";
+import {
+  pingSearchEngineSitemaps,
+  triggerGoogleIndexing,
+  submitUrlsToSearchEngines,
+  reindexAllPublicContent,
+  CANONICAL_BASE_URL,
+} from "../lib/seo-service";
 import { db, articlesTable } from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
 
@@ -180,36 +186,14 @@ router.post("/admin/seo-reindex", requireAdmin, (req: any, res: any) => runSeoRe
 
 async function runSeoReindex(req: any, res: any) {
   try {
-    const pings = await pingSearchEngineSitemaps();
-
-    let recentArticles: Array<{ slug: string }> = [];
-    try {
-      recentArticles = await db
-        .select({ slug: articlesTable.slug })
-        .from(articlesTable)
-        .where(eq(articlesTable.status, "PUBLISHED"))
-        .orderBy(desc(articlesTable.publishedAt))
-        .limit(25);
-    } catch {
-      recentArticles = [];
-    }
-
-    const urls = [
-      `${CANONICAL_BASE_URL}/sitemap.xml`,
-      `${CANONICAL_BASE_URL}/feed`,
-      ...recentArticles.map((a) => `${CANONICAL_BASE_URL}/articles/${a.slug}`),
-    ];
-
-    const googleResult = await triggerGoogleIndexing(urls, "URL_UPDATED");
-    const indexNowResult = await submitUrlsToSearchEngines(urls, "cron-daily-reindex");
-
-    req.log?.info({ pings, googleResult, indexNowResult }, "[SEO Cron] Daily reindex completed");
+    const result = await reindexAllPublicContent();
+    req.log?.info({ totalUrls: result.totalUrls, indexNow: result.indexNow, google: result.google }, "[SEO Cron] Daily reindex completed");
     return res.json({
-      success: true,
-      pings,
-      googleResult,
-      indexNowResult,
-      urlsCount: urls.length,
+      success: result.success,
+      message: `Full journal reindex completed for ${result.totalUrls} URLs`,
+      totalUrls: result.totalUrls,
+      indexNow: result.indexNow,
+      google: result.google,
     });
   } catch (err: any) {
     req.log?.error({ err: err?.message }, "[SEO Cron] Error during scheduled reindex");
