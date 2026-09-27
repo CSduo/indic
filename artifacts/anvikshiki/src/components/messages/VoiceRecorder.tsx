@@ -20,7 +20,7 @@ import { toast } from "sonner";
  * and it should never be showing one when nobody is recording.
  */
 
-const MAX_SECONDS = 10 * 60;
+const MAX_SECONDS = 10 * 60; // 10 minutes limit
 
 function pickMimeType(): string | undefined {
   const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
@@ -38,6 +38,13 @@ function clock(seconds: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
+interface PreparedNote {
+  file: File;
+  transcript?: string;
+  duration: number;
+  audioUrl: string;
+}
+
 export function VoiceRecorder({
   onSend,
   onCancel,
@@ -52,6 +59,13 @@ export function VoiceRecorder({
   const [level, setLevel] = useState(0);
   const [starting, setStarting] = useState(true);
   const [liveTranscript, setLiveTranscript] = useState("");
+  const [preparedNote, setPreparedNote] = useState<PreparedNote | null>(null);
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+  const [isSendingPrepared, setIsSendingPrepared] = useState(false);
+
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const secondsRef = useRef(0);
+  secondsRef.current = seconds;
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
@@ -97,7 +111,16 @@ export function VoiceRecorder({
         if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
 
         streamRef.current = stream;
-        const recorder = new MediaRecorder(stream, { mimeType });
+
+        // Set audioBitsPerSecond to 32 kbps (32000). A 10-minute speech recording
+        // at 32 kbps produces ~2.4 MB, which easily stays within Vercel's 4.5 MB request limit!
+        let recorder: MediaRecorder;
+        try {
+          recorder = new MediaRecorder(stream, { mimeType, audioBitsPerSecond: 32000 });
+        } catch {
+          recorder = new MediaRecorder(stream, { mimeType });
+        }
+
         recorderRef.current = recorder;
         chunksRef.current = [];
 
@@ -106,10 +129,29 @@ export function VoiceRecorder({
           const blob = new Blob(chunksRef.current, { type: mimeType });
           const finalTranscript = transcriptRef.current.trim() || undefined;
           releaseEverything();
-          if (!sendOnStopRef.current || blob.size === 0) return;
+
+          if (blob.size === 0) {
+            onCancel();
+            return;
+          }
+
           const file = new File([blob], `voice-note.${extensionFor(mimeType)}`, { type: mimeType });
-          await onSend(file, finalTranscript);
-          onCancel();
+
+          if (sendOnStopRef.current) {
+            // Direct send while recording
+            await onSend(file, finalTranscript);
+            onCancel();
+            return;
+          }
+
+          // Stopped automatically or explicitly for review: do NOT discard!
+          const audioUrl = URL.createObjectURL(blob);
+          setPreparedNote({
+            file,
+            transcript: finalTranscript,
+            duration: Math.max(secondsRef.current, 1),
+            audioUrl,
+          });
         };
 
         recorder.start(250);
@@ -123,7 +165,7 @@ export function VoiceRecorder({
             rec.continuous = true;
             rec.interimResults = true;
             rec.maxAlternatives = 1;
-            rec.lang = navigator.language || "en-US";
+            rec.lang = navigator.language || "en-IN";
 
             let accumulatedBeforeRestart = "";
 
@@ -140,7 +182,6 @@ export function VoiceRecorder({
             };
 
             rec.onerror = (e: any) => {
-              // Non-fatal error; ignore no-speech
               if (e.error === "no-speech") return;
             };
 
@@ -164,12 +205,17 @@ export function VoiceRecorder({
 
         tickRef.current = window.setInterval(() => {
           setSeconds(value => {
-            if (value + 1 >= MAX_SECONDS) {
+            const next = value + 1;
+            if (next >= MAX_SECONDS) {
+              window.clearInterval(tickRef.current);
               sendOnStopRef.current = false;
-              if (recorder.state !== "inactive") recorder.stop();
-              toast.info("Ten minutes reached — recording stopped.");
+              const rec = recorderRef.current;
+              if (rec && rec.state !== "inactive") {
+                rec.stop();
+              }
+              toast.info("10-minute limit reached. Review your recording and tap Send.");
             }
-            return value + 1;
+            return next;
           });
         }, 1000);
 
@@ -252,6 +298,128 @@ export function VoiceRecorder({
     if (recorder.state === "paused") recorder.resume();
     recorder.stop();
   };
+
+  const discardPrepared = () => {
+    if (preparedNote?.audioUrl) {
+      URL.revokeObjectURL(preparedNote.audioUrl);
+    }
+    setPreparedNote(null);
+    onCancel();
+  };
+
+  const sendPrepared = async () => {
+    if (!preparedNote) return;
+    setIsSendingPrepared(true);
+    try {
+      await onSend(preparedNote.file, preparedNote.transcript);
+      if (preparedNote.audioUrl) {
+        URL.revokeObjectURL(preparedNote.audioUrl);
+      }
+      onCancel();
+    } catch {
+      setIsSendingPrepared(false);
+    }
+  };
+
+  const togglePreview = () => {
+    const audio = previewAudioRef.current;
+    if (!audio) return;
+    if (isPreviewPlaying) {
+      audio.pause();
+      setIsPreviewPlaying(false);
+    } else {
+      audio.play().then(() => setIsPreviewPlaying(true)).catch(() => setIsPreviewPlaying(false));
+    }
+  };
+
+  // If a note has been stopped and prepared for review (e.g. 10-minute limit reached):
+  if (preparedNote) {
+    return (
+      <div
+        className="flex flex-col gap-2 rounded-[4px] border px-3 py-2.5 animate-in fade-in duration-150"
+        style={{ borderColor: "var(--hairline)", background: "var(--surface)" }}
+        role="group"
+        aria-label="Review voice note"
+      >
+        <audio
+          ref={previewAudioRef}
+          src={preparedNote.audioUrl}
+          onEnded={() => setIsPreviewPlaying(false)}
+          onPause={() => setIsPreviewPlaying(false)}
+          onPlay={() => setIsPreviewPlaying(true)}
+        />
+
+        <div className="flex items-center justify-between gap-2">
+          {/* Discard button */}
+          <button
+            type="button"
+            onClick={discardPrepared}
+            className="composer-tool shrink-0 rounded-[2px] border hover:bg-rose-500/10 transition-colors"
+            style={{ borderColor: "var(--hairline)", color: "var(--state-error)" }}
+            aria-label="Discard recording"
+            disabled={busy || isSendingPrepared}
+            title="Discard recording"
+          >
+            <Trash2 size={15} />
+          </button>
+
+          {/* Preview Play/Pause button + Duration label */}
+          <div className="flex min-w-0 flex-1 items-center gap-2.5">
+            <button
+              type="button"
+              onClick={togglePreview}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-[#d97706] text-white hover:bg-[#b45309] transition-all active:scale-95 shadow-sm shrink-0"
+              aria-label={isPreviewPlaying ? "Pause preview" : "Play preview"}
+              title="Preview recording"
+            >
+              {isPreviewPlaying ? <Pause size={14} className="fill-current" /> : <Play size={14} className="ml-0.5 fill-current" />}
+            </button>
+
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-[12px] font-semibold tabular-nums text-[var(--ink)]">
+                  {clock(preparedNote.duration)}
+                </span>
+                <span className="rounded bg-[#f59e0b]/20 px-1.5 py-0.2 font-ui text-[10px] font-bold text-[#f59e0b]">
+                  {preparedNote.duration >= MAX_SECONDS ? "10:00 (Max Limit)" : "Ready to send"}
+                </span>
+              </div>
+              <span className="font-ui text-[10px] text-[var(--ink-muted)]">
+                Review your audio before sending
+              </span>
+            </div>
+          </div>
+
+          {/* Send button */}
+          <button
+            type="button"
+            onClick={sendPrepared}
+            className="btn-terracotta shrink-0 flex items-center gap-1.5 px-3 py-1.5 font-ui text-xs font-semibold shadow-sm"
+            aria-label="Send voice note"
+            disabled={busy || isSendingPrepared}
+          >
+            {busy || isSendingPrepared ? (
+              <span className="spinner-editorial" aria-hidden="true" />
+            ) : (
+              <>
+                <Send size={14} />
+                <span>Send</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {preparedNote.transcript && (
+          <div className="flex items-center gap-1.5 px-1 pt-1.5 border-t border-[var(--hairline)]">
+            <span className="font-ui text-[10px] uppercase font-bold text-[#d97706] tracking-wider shrink-0">Captured:</span>
+            <p className="font-body text-[12px] italic text-[var(--ink-body)] truncate" title={preparedNote.transcript}>
+              "{preparedNote.transcript}"
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div

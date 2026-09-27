@@ -21,6 +21,7 @@ import { z } from "zod";
 import { notifyUser, notifyFollowersOfNewWork, notifyAllSubscribersOfNewArticle } from "../lib/notify";
 import { sanitizeArticleBody, MAX_BODY_CHARS } from "../lib/content";
 import { triggerPublicContentSeo } from "../lib/seo-service";
+import { extractArticleKeywords } from "../lib/keywords";
 
 const router = Router();
 
@@ -231,6 +232,10 @@ router.post("/admin/articles", requireAdmin, requireAdminRole("ADMIN", "EDITOR")
     const [existing] = await db.select().from(articlesTable).where(eq(articlesTable.slug, slug)).limit(1);
     if (existing) slug = `${slug}-${Date.now()}`;
 
+    const effectiveTags = Array.isArray(data.tags) && data.tags.length > 0
+      ? data.tags
+      : extractArticleKeywords(`${data.title} ${data.excerpt || ""} ${data.body || ""}`, data.title, 8);
+
     const [article] = await db.insert(articlesTable).values({
       slug,
       title: data.title,
@@ -238,7 +243,7 @@ router.post("/admin/articles", requireAdmin, requireAdminRole("ADMIN", "EDITOR")
       excerpt: data.excerpt,
       body: sanitizeArticleBody(data.body || ""),
       categorySlug: normalizeCategorySlug(data.categorySlug),
-      tags: data.tags,
+      tags: effectiveTags,
       authorName: data.authorName,
       heroImageUrl: data.heroImageUrl || null,
       heroImageAlt: data.heroImageAlt,
@@ -286,6 +291,9 @@ router.patch("/admin/articles/:id", requireAdmin, requireAdminRole("ADMIN", "EDI
     if (updates.heroImageUrl === "") updates.heroImageUrl = null;
     if (updates.audioUrl === "") updates.audioUrl = null;
     if (updates.publishedAt) updates.publishedAt = new Date(updates.publishedAt);
+    if (updates.tags !== undefined && (!Array.isArray(updates.tags) || updates.tags.length === 0)) {
+      updates.tags = extractArticleKeywords(`${updates.title || ""} ${updates.excerpt || ""} ${updates.body || ""}`, updates.title, 8);
+    }
 
     const [article] = await db.update(articlesTable).set(updates)
       .where(and(eq(articlesTable.id, req.params.id), isNull(articlesTable.deletedAt))).returning();

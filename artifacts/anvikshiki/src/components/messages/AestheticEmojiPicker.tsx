@@ -16,28 +16,27 @@ export function AestheticEmojiPicker({
   align = "right",
   className = "",
 }: AestheticEmojiPickerProps) {
-  const [activeTab, setActiveTab] = useState<string>("wit");
+  const [activeTab, setActiveTab] = useState<string>("faces");
   const [search, setSearch] = useState<string>("");
   const [hoveredEmoji, setHoveredEmoji] = useState<EmojiItem | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Close on outside click
+  // Close on outside click or touch
   useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
+    const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         onClose();
       }
     };
     document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("touchstart", handleOutsideClick, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("touchstart", handleOutsideClick);
+    };
   }, [onClose]);
-
-  // Focus search input on open
-  useEffect(() => {
-    searchInputRef.current?.focus();
-  }, []);
 
   const filteredEmojis = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -68,10 +67,7 @@ export function AestheticEmojiPicker({
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-[#f59e0b]">
             <Sparkles size={14} className="text-[#f59e0b]" />
-            <span className="tracking-wide">Aesthetic Emojis</span>
-            <span className="rounded-full bg-[#f59e0b]/20 px-1.5 py-0.2 font-mono text-[10px] text-[#f59e0b]">
-              120+
-            </span>
+            <span className="tracking-wide">Aesthetic Reactions</span>
           </div>
           <button
             type="button"
@@ -168,7 +164,7 @@ export function AestheticEmojiPicker({
           </div>
         ) : (
           <span className="text-[10px] uppercase font-mono tracking-wider text-[#6b7280]">
-            {filteredEmojis.length} aesthetic emojis · click to react
+            Tap an emoji to react
           </span>
         )}
       </div>

@@ -209,7 +209,9 @@ function MessageBubble({
   const openMenu = (withPicker = false) => {
     if (bubbleRef.current) {
       const rect = bubbleRef.current.getBoundingClientRect();
-      setOpenAbove(rect.top >= 220);
+      const spaceAbove = rect.top;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setOpenAbove(spaceAbove >= 340 || spaceAbove >= spaceBelow);
     }
     setShowEmojiPicker(withPicker);
     setMenuOpen(true);
@@ -218,6 +220,14 @@ function MessageBubble({
   const closeMenu = () => {
     setMenuOpen(false);
     setShowEmojiPicker(false);
+  };
+
+  const toggleMenu = (withPicker = false) => {
+    if (menuOpen) {
+      closeMenu();
+    } else {
+      openMenu(withPicker);
+    }
   };
 
   useEffect(() => {
@@ -232,12 +242,12 @@ function MessageBubble({
         closeMenu();
       }
     };
-    document.addEventListener("mousedown", handleOutsideClick);
-    document.addEventListener("touchstart", handleOutsideClick);
+    document.addEventListener("mousedown", handleOutsideClick, true);
+    document.addEventListener("touchstart", handleOutsideClick, { passive: true, capture: true });
     window.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.removeEventListener("mousedown", handleOutsideClick);
-      document.removeEventListener("touchstart", handleOutsideClick);
+      document.removeEventListener("mousedown", handleOutsideClick, true);
+      document.removeEventListener("touchstart", handleOutsideClick, true);
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [menuOpen]);
@@ -251,6 +261,7 @@ function MessageBubble({
   const cancelPress = () => window.clearTimeout(pressTimer.current);
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    if (menuOpen) return;
     if (e.touches.length > 0) {
       touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
       startPress();
@@ -396,8 +407,12 @@ function MessageBubble({
             <>
               {/* Transparent click-away backdrop: captures outside clicks with zero screen takeover/darkening */}
               <div
-                className="fixed inset-0 z-40 bg-transparent cursor-default"
+                className="fixed inset-0 z-40 bg-black/10 sm:bg-transparent cursor-default"
                 onClick={(e) => {
+                  e.stopPropagation();
+                  closeMenu();
+                }}
+                onTouchStart={(e) => {
                   e.stopPropagation();
                   closeMenu();
                 }}
@@ -456,8 +471,8 @@ function MessageBubble({
                     type="button"
                     className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(201,152,58,0.35)] bg-white/5 text-[#f59e0b] hover:bg-[#f59e0b]/25 hover:border-[#f59e0b] hover:scale-115 active:scale-90 transition-all shrink-0 shadow-sm"
                     onClick={() => setShowEmojiPicker((prev) => !prev)}
-                    aria-label="All 120+ Emojis"
-                    title="All 120+ aesthetic emojis"
+                    aria-label="All Reactions"
+                    title="Aesthetic reactions"
                   >
                     <Plus
                       size={18}
@@ -527,7 +542,7 @@ function MessageBubble({
                         closeMenu();
                       }}
                       onClose={() => {
-                        setShowEmojiPicker(false);
+                        closeMenu();
                       }}
                       align={mine ? "right" : "left"}
                       className="w-full max-w-[calc(100vw-2rem)] sm:w-[340px]"
@@ -646,9 +661,9 @@ function MessageBubble({
             ))}
             <button
               type="button"
-              onClick={() => openMenu(true)}
+              onClick={() => toggleMenu(true)}
               className="rounded-full border border-dashed border-[var(--hairline)] hover:border-[#f59e0b] px-2 py-0.5 text-xs text-[var(--ink-muted)] hover:text-[#f59e0b] hover:scale-110 active:scale-95 transition-all"
-              title="Add aesthetic reaction (120+)"
+              title="Add aesthetic reaction"
             >
               +
             </button>
@@ -661,7 +676,7 @@ function MessageBubble({
         <button
           type="button"
           className="editor-tool hover:text-[#f59e0b] transition-colors"
-          onClick={() => openMenu(false)}
+          onClick={() => toggleMenu(true)}
           aria-label="React with emoji"
           title="React with aesthetic emoji"
         >
@@ -679,7 +694,7 @@ function MessageBubble({
         <button
           type="button"
           className="editor-tool"
-          onClick={() => openMenu(false)}
+          onClick={() => toggleMenu(false)}
           aria-label="Message actions"
           title="More actions"
         >

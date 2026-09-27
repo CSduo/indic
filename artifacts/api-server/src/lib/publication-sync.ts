@@ -9,6 +9,8 @@ import {
 } from "@workspace/db";
 import { sanitizeArticleBody } from "./content";
 import { submitIndexNow } from "./indexnow";
+import { triggerPublicContentSeo } from "./seo-service";
+import { extractArticleKeywords } from "./keywords";
 
 type PublicationKind = "article" | "paper";
 
@@ -281,24 +283,41 @@ export async function ensurePublicPublicationForSubmission(
       const body = sanitizeArticleBody(submission.body || submission.abstract || submission.title || "No body content provided.");
       const authorName = submission.submitterName || "Anonymous Scholar";
       const coverImageUrl = getSubmissionCoverImage(submission) || "/images/provided/home-falcon-city-panorama-hero.jpg";
+      const extractedTags = extractArticleKeywords(
+        `${submission.title || ""} ${submission.abstract || ""} ${body}`,
+        submission.title || undefined,
+        8
+      );
+      const updateData: any = {
+        title: submission.title || "Untitled Paper",
+        abstract: submission.abstract || "",
+        body,
+        categorySlug,
+        authorName,
+        pdfUrl: submission.manuscriptUrl || (submission as any).fileUrl || null,
+        coverImageUrl,
+        status: "PUBLISHED",
+        publishedAt,
+        deletedAt: null,
+        sourceSubmissionId: submission.id,
+        updatedAt: new Date(),
+      };
+      if (extractedTags.length > 0) {
+        updateData.tags = extractedTags;
+      }
       await db
         .update(papersTable)
-        .set({
-          title: submission.title || "Untitled Paper",
-          abstract: submission.abstract || "",
-          body,
-          categorySlug,
-          authorName,
-          pdfUrl: submission.manuscriptUrl || (submission as any).fileUrl || null,
-          coverImageUrl,
-          status: "PUBLISHED",
-          publishedAt,
-          deletedAt: null,
-          sourceSubmissionId: submission.id,
-          updatedAt: new Date(),
-        })
+        .set(updateData)
         .where(eq(papersTable.id, existing.id));
       submitIndexNow([`https://anvikshikijournal.in/papers/${existing.slug}`]).catch(() => {});
+      triggerPublicContentSeo({
+        type: "paper",
+        slug: existing.slug,
+        title: submission.title || "Untitled Paper",
+        authorSlug: slugify(authorName),
+        authorId: submission.userId,
+        tags: extractedTags,
+      }).catch(() => {});
       return {
         kind,
         status: restoredFromTrash ? "restored" : "existing",
@@ -319,6 +338,11 @@ export async function ensurePublicPublicationForSubmission(
     const body = sanitizeArticleBody(submission.body || submission.abstract || submission.title || "No body content provided.");
     const authorName = submission.submitterName || "Anonymous Scholar";
     const coverImageUrl = getSubmissionCoverImage(submission) || "/images/provided/home-falcon-city-panorama-hero.jpg";
+    const extractedTags = extractArticleKeywords(
+      `${submission.title || ""} ${submission.abstract || ""} ${body}`,
+      submission.title || undefined,
+      8
+    );
     let candidateSlug = await uniquePaperSlug(baseSlug, submission.id);
     let lastInsertError: unknown = null;
 
@@ -332,7 +356,7 @@ export async function ensurePublicPublicationForSubmission(
             abstract: submission.abstract || "",
             body,
             categorySlug,
-            tags: [],
+            tags: extractedTags,
             authorName,
             pdfUrl: submission.manuscriptUrl || (submission as any).fileUrl || null,
             coverImageUrl,
@@ -347,6 +371,14 @@ export async function ensurePublicPublicationForSubmission(
 
         if (paper) {
           submitIndexNow([`https://anvikshikijournal.in/papers/${paper.slug}`]).catch(() => {});
+          triggerPublicContentSeo({
+            type: "paper",
+            slug: paper.slug,
+            title: submission.title || "Untitled Paper",
+            authorSlug: slugify(authorName),
+            authorId: submission.userId,
+            tags: extractedTags,
+          }).catch(() => {});
           return { kind, status: "created", id: paper.id, slug: paper.slug };
         }
       } catch (insertErr: any) {
@@ -416,25 +448,42 @@ export async function ensurePublicPublicationForSubmission(
     const body = sanitizeArticleBody(submission.body || submission.abstract || submission.title || "No body content provided.");
     const authorName = submission.submitterName || "Anonymous Scholar";
     const coverImageUrl = getSubmissionCoverImage(submission) || "/images/provided/home-falcon-city-panorama-hero.jpg";
+    const extractedTags = extractArticleKeywords(
+      `${submission.title || ""} ${submission.abstract || ""} ${body}`,
+      submission.title || undefined,
+      8
+    );
+    const articleUpdateData: any = {
+      title: submission.title || "Untitled Article",
+      excerpt: submission.abstract || submission.title || "Article excerpt",
+      body,
+      categorySlug,
+      authorName,
+      heroImageUrl: coverImageUrl,
+      heroImageAlt: submission.title || "Article Cover",
+      audioUrl: (submission as any).audioUrl || null,
+      status: "PUBLISHED",
+      publishedAt,
+      deletedAt: null,
+      sourceSubmissionId: submission.id,
+      updatedAt: new Date(),
+    };
+    if (extractedTags.length > 0) {
+      articleUpdateData.tags = extractedTags;
+    }
     await db
       .update(articlesTable)
-      .set({
-        title: submission.title || "Untitled Article",
-        excerpt: submission.abstract || submission.title || "Article excerpt",
-        body,
-        categorySlug,
-        authorName,
-        heroImageUrl: coverImageUrl,
-        heroImageAlt: submission.title || "Article Cover",
-        audioUrl: (submission as any).audioUrl || null,
-        status: "PUBLISHED",
-        publishedAt,
-        deletedAt: null,
-        sourceSubmissionId: submission.id,
-        updatedAt: new Date(),
-      })
+      .set(articleUpdateData)
       .where(eq(articlesTable.id, existing.id));
     submitIndexNow([`https://anvikshikijournal.in/articles/${existing.slug}`]).catch(() => {});
+    triggerPublicContentSeo({
+      type: "article",
+      slug: existing.slug,
+      title: submission.title || "Untitled Article",
+      authorSlug: slugify(authorName),
+      authorId: submission.userId,
+      tags: extractedTags,
+    }).catch(() => {});
     return {
       kind,
       status: restoredFromTrash ? "restored" : "existing",
@@ -455,6 +504,11 @@ export async function ensurePublicPublicationForSubmission(
   const body = sanitizeArticleBody(submission.body || submission.abstract || submission.title || "No body content provided.");
   const authorName = submission.submitterName || "Anonymous Scholar";
   const coverImageUrl = getSubmissionCoverImage(submission) || "/images/provided/home-falcon-city-panorama-hero.jpg";
+  const extractedTags = extractArticleKeywords(
+    `${submission.title || ""} ${submission.abstract || ""} ${body}`,
+    submission.title || undefined,
+    8
+  );
   let candidateSlug = await uniqueArticleSlug(baseSlug, submission.id);
   let lastInsertError: unknown = null;
 
@@ -469,7 +523,7 @@ export async function ensurePublicPublicationForSubmission(
           excerpt: submission.abstract || submission.title || "Article excerpt",
           body,
           categorySlug,
-          tags: [],
+          tags: extractedTags,
           authorName,
           heroImageUrl: coverImageUrl,
           heroImageAlt: submission.title || "Article Cover",
@@ -484,6 +538,14 @@ export async function ensurePublicPublicationForSubmission(
 
       if (article) {
         submitIndexNow([`https://anvikshikijournal.in/articles/${article.slug}`]).catch(() => {});
+        triggerPublicContentSeo({
+          type: "article",
+          slug: article.slug,
+          title: submission.title || "Untitled Article",
+          authorSlug: slugify(authorName),
+          authorId: submission.userId,
+          tags: extractedTags,
+        }).catch(() => {});
         return { kind, status: "created", id: article.id, slug: article.slug };
       }
     } catch (insertErr: any) {
