@@ -34,6 +34,47 @@ router.get("/seo/status", async (_req: Request, res: Response) => {
   }
 });
 
+let lastPublicReindex = 0;
+const REINDEX_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes cooldown for unauthenticated requests
+
+// POST /api/seo/reindex - Trigger full journal reindexing sweep across search engines
+router.post("/seo/reindex", async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const isCron = authHeader && process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`;
+    const isAdmin = Boolean((req as any).adminAuth);
+    const seoSecret = req.headers["x-seo-secret"];
+    const hasSecret = seoSecret && (seoSecret === process.env.ADMIN_SECRET || seoSecret === process.env.AUTH_SECRET);
+    const now = Date.now();
+
+    if (!isCron && !isAdmin && !hasSecret) {
+      if (now - lastPublicReindex < REINDEX_COOLDOWN_MS) {
+        const remainingSec = Math.ceil((REINDEX_COOLDOWN_MS - (now - lastPublicReindex)) / 1000);
+        return res.status(429).json({
+          error: `Reindex was triggered recently. Please wait ${remainingSec}s before retrying.`,
+          retryAfter: remainingSec,
+        });
+      }
+    }
+
+    lastPublicReindex = now;
+    const { reindexAllPublicContent } = await import("../lib/seo-service");
+    const urlsOverride = Array.isArray(req.body?.urls) ? req.body.urls : undefined;
+    const result = await reindexAllPublicContent(urlsOverride);
+
+    return res.status(200).json({
+      success: result.success,
+      message: `Re-indexing completed for ${result.totalUrls} URLs`,
+      totalUrls: result.totalUrls,
+      indexNow: result.indexNow,
+      google: result.google,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: "Reindexing failed", message: err?.message });
+  }
+});
+
+
 // POST /api/indexnow/notify
 router.post("/indexnow/notify", async (req: Request, res: Response) => {
   const { urlList } = req.body || {};

@@ -102,7 +102,7 @@ def submit_batch_reindex(base_url: str, secret: str = "", dry_run: bool = False)
         print("  [DRY-RUN] Full batch reindex simulated successfully.")
         return True
 
-    endpoint = f"{base_url.rstrip('/')}/api/admin/seo/reindex-all"
+    endpoint = f"{base_url.rstrip('/')}/api/seo/reindex"
     headers = {
         "Content-Type": "application/json",
         "User-Agent": DEFAULT_USER_AGENT,
@@ -110,7 +110,7 @@ def submit_batch_reindex(base_url: str, secret: str = "", dry_run: bool = False)
     if secret:
         headers["X-SEO-Secret"] = secret
 
-    req = urllib.request.Request(endpoint, data=json.dumps({}).encode("utf-8"), headers=headers, method="POST")
+    req = urllib.request.Request(endpoint, data=json.dumps({"urls": []}).encode("utf-8"), headers=headers, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
             data = json.loads(resp.read().decode("utf-8"))
@@ -148,12 +148,11 @@ def main():
     for idx, u in enumerate(urls, start=1):
         print(f"  [{idx:2d}/{len(urls)}] {u}")
 
-    # 1. IndexNow
+    # 1. IndexNow direct submission
     submit_indexnow(args.host, urls, dry_run=args.dry_run)
 
-    # 2. Batch Reindex
-    if args.secret:
-        submit_batch_reindex(args.host, secret=args.secret, dry_run=args.dry_run)
+    # 2. Full journal reindex pass (Google Indexing API + IndexNow + sitemap pings)
+    submit_batch_reindex(args.host, secret=args.secret, dry_run=args.dry_run)
 
     print("\n" + "=" * 65)
     print("[+] Re-indexing sweep complete.")
