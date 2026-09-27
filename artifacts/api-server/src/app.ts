@@ -362,6 +362,23 @@ app.get("/api/seo/status", async (_req, res) => {
   }
 });
 
+// POST /api/seo/reindex - trigger full reindex pass directly
+app.post(["/api/seo/reindex", "/seo/reindex"], async (_req, res) => {
+  try {
+    const { reindexAllPublicContent } = await import("./lib/seo-service");
+    const result = await reindexAllPublicContent();
+    return res.status(200).json({
+      success: result.success,
+      message: `Batch re-indexing completed for ${result.totalUrls} URLs`,
+      totalUrls: result.totalUrls,
+      indexNow: result.indexNow,
+      google: result.google,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: "Reindexing failed", message: err?.message });
+  }
+});
+
 export const CANONICAL_DOMAIN = "https://anvikshikijournal.in";
 
 export function buildCanonicalUrl(pathname: string, query?: Record<string, any> | string): string {
