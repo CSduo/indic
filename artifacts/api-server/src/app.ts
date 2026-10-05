@@ -157,7 +157,10 @@ app.use((req, res, next) => {
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Permissions-Policy", "camera=(), geolocation=(), microphone=(self)");
-  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  // Same value as vercel.json. Every page, /login included, is now answered
+  // by this app, and Google Identity Services' sign-in popup needs
+  // same-origin-allow-popups; plain same-origin severs it from the opener.
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
 
   const isUploadOrStatic =
     req.path === "/api/uploads" ||

@@ -334,6 +334,25 @@ describe("deployment routing", () => {
     expect(spaHeaders?.headers).toContainEqual({ key: "X-Robots-Tag", value: "noindex, nofollow" });
   });
 
+  // Pages that used to be the static shell (/login among them) now come from
+  // Express, so any security header both layers set must agree. A mismatch
+  // left Express sending COOP same-origin, which breaks Google sign-in's popup.
+  it("sends the same security headers from Express as vercel.json does", async () => {
+    const siteWide = (vercel.headers as Array<{ source: string; headers: Array<{ key: string; value: string }> }>)
+      .find((h) => h.source === "/(.*)")!.headers;
+    const res = await request(app).get("/login");
+    expect(res.status).toBe(200);
+    for (const { key, value } of siteWide) {
+      const own = res.headers[key.toLowerCase()];
+      if (own !== undefined) expect(own, key).toBe(value);
+    }
+    expect(res.headers["cross-origin-opener-policy"]).toBe("same-origin-allow-popups");
+    const csp = siteWide.find((h) => h.key === "Content-Security-Policy")!.value;
+    expect(csp).toMatch(/style-src [^;]*https:\/\/accounts\.google\.com\/gsi\/style/);
+    expect(csp).toMatch(/script-src [^;]*https:\/\/accounts\.google\.com/);
+    expect(csp).toMatch(/frame-src [^;]*https:\/\/accounts\.google\.com/);
+  });
+
   it("keeps a static index.html from shadowing the home page", () => {
     const viteConfig = fs.readFileSync(path.resolve(__dirname, "../../anvikshiki/vite.config.ts"), "utf8");
     expect(viteConfig).toContain('fileName: "spa.html"');
