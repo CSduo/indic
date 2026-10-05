@@ -17,8 +17,10 @@ const basePath = process.env.BASE_PATH || "/";
   The built SPA shell is written as spa.html, not index.html. On Vercel a
   static file wins over a rewrite, so an index.html in the output directory
   would answer "/" with the empty shell and the server-rendered home page
-  (vercel.json rewrites "/" to the API function) would never run. Every other
-  client-only route is rewritten to /spa.html. The dev server is unaffected.
+  (vercel.json rewrites every non-file request to the API function) would
+  never run. The API function serves spa.html itself: with 200 for the
+  client-only routes and 404 for unknown paths (api-server lib/spa-routes.ts).
+  The dev server is unaffected.
 */
 function spaShellFileName(): Plugin {
   return {

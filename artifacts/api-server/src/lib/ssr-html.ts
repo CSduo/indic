@@ -8,6 +8,7 @@ import fs from "fs";
 import path from "path";
 import { sanitizeArticleBody } from "./content";
 import { slugify } from "./slug";
+import { demoteBodyHeadings } from "./seo-text";
 
 export const CANONICAL_DOMAIN = "https://anvikshikijournal.in";
 
@@ -333,13 +334,9 @@ export function renderTags(tags: unknown, label = "Topics & Tags"): string {
   </section>`;
 }
 
-/**
- * The page title is the only H1. Imported manuscripts often mark their section
- * headings as H1; inside the body those become H2.
- */
-export function demoteBodyHeadings(html: string): string {
-  return html.replace(/<h1(?=[\s>])/gi, "<h2").replace(/<\/h1\s*>/gi, "</h2>");
-}
+// The page title is the only H1; body headings are shifted down a level when
+// the body uses H1 (see lib/seo-text.ts).
+export { demoteBodyHeadings };
 
 export function renderBodyHtml(body: unknown, fallbackExcerpt?: string): string {
   if (typeof body === "string" && body.trim().length > 0) {
@@ -952,4 +949,16 @@ export function renderSsrDocument(
   return template
     ? injectSsrHtml(template, metaTags, ssrBody, initialData, chrome)
     : buildFallbackHtml(metaTags, ssrBody, initialData, chrome);
+}
+
+/**
+ * The bare app shell for a route only the client renders: the SPA template
+ * with its site-wide title, description, Open Graph tags, canonical and JSON-LD
+ * removed and the given head tags (title, robots) put in their place. The root
+ * element stays empty so the client renders the route from scratch.
+ */
+export function renderSpaShell(metaTags: string): string {
+  const template = getHtmlTemplate();
+  if (!template) return buildFallbackHtml(metaTags, "");
+  return sanitizeTemplateHead(template).replace(/<\/head>/i, () => `${metaTags}\n</head>`);
 }

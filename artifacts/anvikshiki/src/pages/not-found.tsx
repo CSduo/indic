@@ -19,6 +19,29 @@ function isInvisiblePath(path: string): boolean {
 export default function NotFound() {
   const [location, navigate] = useLocation();
 
+  // Never indexable, whichever way the visitor got here (the server already
+  // answers unknown URLs with a 404 and noindex; this covers client-side
+  // navigation to a missing route). The previous values come back on leaving.
+  useEffect(() => {
+    const previousTitle = document.title;
+    let robots = document.head.querySelector<HTMLMetaElement>('meta[name="robots"]');
+    const created = !robots;
+    if (!robots) {
+      robots = document.createElement("meta");
+      robots.name = "robots";
+      document.head.appendChild(robots);
+    }
+    const previousRobots = robots.getAttribute("content");
+    robots.setAttribute("content", "noindex");
+    document.title = "Page not found — Ānvīkṣikī";
+    return () => {
+      document.title = previousTitle;
+      if (created) robots?.remove();
+      else if (previousRobots === null) robots?.removeAttribute("content");
+      else robots?.setAttribute("content", previousRobots);
+    };
+  }, []);
+
   // Auto-redirect to home if the path is only invisible characters
   useEffect(() => {
     if (isInvisiblePath(location)) {

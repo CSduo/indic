@@ -303,18 +303,35 @@ describe("deployment routing", () => {
   const vercel = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../../../vercel.json"), "utf8"));
   const rewrites: Array<{ source: string; destination: string }> = vercel.rewrites;
 
-  it("sends every server-rendered page to the API function before the SPA fallback", () => {
-    const fallback = rewrites.findIndex((r) => r.source === "/:path*");
-    expect(rewrites[fallback].destination).toBe("/spa.html");
-    for (const source of ["/", "/archive", "/contact", "/privacy", "/terms", "/community", "/submit", "/about", "/browse"]) {
-      const index = rewrites.findIndex((r) => r.source === source);
-      expect(index, source).toBeGreaterThanOrEqual(0);
-      expect(index).toBeLessThan(fallback);
-      expect(rewrites[index].destination).toBe("/api/index");
+  // Changed deliberately: there is no longer a whitelist of server-rendered
+  // paths with a "/:path*" -> /spa.html fallback (which answered every unknown
+  // URL with a 200 soft 404). Every request that is not a static file reaches
+  // Express, which serves the shell with 200 only for known client routes
+  // (lib/spa-routes.ts) and a 404 otherwise.
+  it("sends every non-file request to the API function and none to the static shell", () => {
+    expect(rewrites).toEqual([{ source: "/(.*)", destination: "/api/index" }]);
+    expect(rewrites.some((r) => r.destination === "/spa.html")).toBe(false);
+  });
+
+  it("lets Vercel serve static files before any rewrite", () => {
+    // `rewrites` run after the filesystem check; legacy `routes` would not.
+    expect(vercel.routes).toBeUndefined();
+    expect(vercel.cleanUrls).not.toBe(true);
+    const redirects: Array<{ source: string }> = vercel.redirects || [];
+    for (const file of ["/assets/index-abc.js", "/favicon.ico", "/manifest.json", "/theme-init.js", "/opengraph.jpg", "/og-default.jpg", "/robots.txt"]) {
+      expect(redirects.some((r) => new RegExp(`^${r.source}$`).test(file)), file).toBe(false);
     }
-    // /domains and /papers are covered by the zero-or-more segment rewrites.
-    expect(rewrites.some((r) => r.source === "/domains/:slug*" && r.destination === "/api/index")).toBe(true);
-    expect(rewrites.some((r) => r.source === "/papers/:slug*" && r.destination === "/api/index")).toBe(true);
+    const publicDir = path.resolve(__dirname, "../../anvikshiki/public");
+    for (const file of ["favicon.ico", "manifest.json", "theme-init.js", "opengraph.jpg", "og-default.jpg", "robots.txt"]) {
+      expect(fs.existsSync(path.join(publicDir, file)), file).toBe(true);
+    }
+  });
+
+  it("drops trailing slashes at the edge and keeps the raw shell out of the index", () => {
+    expect(vercel.trailingSlash).toBe(false);
+    const spaHeaders = (vercel.headers as Array<{ source: string; headers: Array<{ key: string; value: string }> }>)
+      .find((h) => h.source === "/spa.html");
+    expect(spaHeaders?.headers).toContainEqual({ key: "X-Robots-Tag", value: "noindex, nofollow" });
   });
 
   it("keeps a static index.html from shadowing the home page", () => {

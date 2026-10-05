@@ -267,8 +267,12 @@ function Router() {
           <Redirect to="/browse" replace />
         </Route>
         <Route path="/essays/:slug"            component={RouteEssayRedirect} />
+        {/* No /articles index: the archive lists every essay (as on the server). */}
         <Route path="/essays">
-          <Redirect to="/articles" replace />
+          <Redirect to="/archive" replace />
+        </Route>
+        <Route path="/articles">
+          <Redirect to="/archive" replace />
         </Route>
         <Route path="/papers"                  component={RoutePapers} />
         <Route path="/papers/:slug"            component={RoutePaperDetail} />

@@ -15,7 +15,7 @@ import indexnowRouter from "./routes/indexnow";
 import publicPagesRouter, { sendUnavailable } from "./routes/public-pages";
 import { DEFAULT_INDEXNOW_KEY } from "./lib/indexnow";
 import { db, articlesTable, papersTable, usersTable, categoriesTable, submissionsTable, ensureDatabaseSchema, coreTablesExist } from "@workspace/db";
-import { eq, and, or, ilike, isNull } from "drizzle-orm";
+import { eq, and, or, isNull } from "drizzle-orm";
 import { slugify } from "./lib/slug";
 import { articleTopicTags } from "./lib/keywords";
 import { ROBOTS_TXT } from "./lib/robots";
@@ -44,10 +44,23 @@ import {
   injectSsrHtml,
   buildFallbackHtml,
   renderSsrDocument,
+  renderSpaShell,
   PUBLIC_HTML_CACHE_CONTROL,
 } from "./lib/ssr-html";
-import { hasPublishedPapers, listPublishedWorks, listVisibleCategories, type WorkSummary } from "./lib/public-content";
+import { hasPublishedPapers, listPublishedWorks, listVisibleCategories, loadAuthorUsers, type WorkSummary } from "./lib/public-content";
 import { PAGE_META } from "./lib/page-meta";
+import { looksLikeFile, matchClientOnlyRoute, normalizedPagePath, type ClientOnlyRoute } from "./lib/spa-routes";
+import {
+  findAuthorProfile,
+  findPublicationBySlug,
+  findPublishedSlugRedirect,
+  findSubmissionOwner,
+  listAuthorHubWorks,
+  type AuthorHubArticle,
+  type AuthorHubPaper,
+} from "./lib/publication-lookup";
+import { makeAuthorResolver, resolveAuthorRequest, workAuthorSegments } from "./lib/author-identity";
+import { cleanTitle, deriveDescription } from "./lib/seo-text";
 
 export * from "./lib/ssr-html";
 
@@ -207,6 +220,39 @@ app.use(cookieParser());
 // Liveness and readiness probes must remain available when the database is
 // missing or unhealthy.
 app.use("/api", healthRouter);
+
+// URL normalisation and the client-only app shell. Neither needs the
+// database, so both run before it is touched.
+//
+// - /about/ -> /about and /About -> /about (308; vercel.json's
+//   "trailingSlash": false does the first at the edge as well).
+// - Routes only the client renders (sign-in, account, admin, search, community
+//   subpages; lib/spa-routes.ts) get the app shell with 200 and noindex.
+//   Every other unknown path ends at the 404 handler at the bottom.
+app.use((req, res, next) => {
+  if (req.method !== "GET" && req.method !== "HEAD") return next();
+  const target = normalizedPagePath(req.path);
+  if (target) {
+    const index = req.originalUrl.indexOf("?");
+    const query = index >= 0 ? req.originalUrl.slice(index) : "";
+    return res.redirect(308, `${target}${query}`);
+  }
+  const clientRoute = matchClientOnlyRoute(req.path);
+  if (clientRoute) return sendClientShell(res, clientRoute);
+  return next();
+});
+
+function sendClientShell(res: import("express").Response, route: ClientOnlyRoute) {
+  const robots = route.private ? "noindex, nofollow" : "noindex, follow";
+  res.setHeader("X-Robots-Tag", robots);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  // The shell carries no user data and only changes with a deploy.
+  res.setHeader("Cache-Control", PUBLIC_HTML_CACHE_CONTROL);
+  const metaTags = `
+    <title>${escapeHtml(SITE_NAME)}</title>
+    <meta name="robots" content="${robots}" />`;
+  return res.status(200).send(renderSpaShell(metaTags));
+}
 
 app.use((req, res, next) => {
   if (!process.env.DATABASE_URL) {
@@ -378,35 +424,56 @@ app.get(["/indexnow-key.txt", `/${DEFAULT_INDEXNOW_KEY}.txt`], (_req, res) => {
 // lib/ssr-html.ts and are re-exported here for existing importers.
 
 /**
- * The /authors/<segment> for an article's author: the submitting account's
- * handle when there is one (the canonical author URL, as used in the sitemap),
- * otherwise a slug of the display name.
+ * The /authors/<segment> for each name in a work's byline, by the same rule as
+ * the sitemap and the /authors/:slug route (lib/author-identity.ts): the
+ * submitting account's handle when there is one, otherwise a slug of the name.
+ * A name only gets a URL when that route serves it, so the byline and the
+ * JSON-LD never point at a 404.
  */
-async function resolveArticleAuthorSegment(authorName: string, sourceSubmissionId?: string | null): Promise<string> {
-  const nameSlug = slugify(authorName);
+async function loadBylineSegments(
+  kind: "article" | "paper",
+  authorName: string | null | undefined,
+  sourceSubmissionId: string | null | undefined,
+): Promise<(displayNames: string[]) => Map<string, string>> {
   try {
-    if (sourceSubmissionId) {
-      const [row] = await db
-        .select({ handle: usersTable.handle, deletionRequestedAt: usersTable.deletionRequestedAt })
-        .from(submissionsTable)
-        .leftJoin(usersTable, eq(submissionsTable.userId, usersTable.id))
-        .where(eq(submissionsTable.id, sourceSubmissionId))
-        .limit(1);
-      if (row?.handle && !row.deletionRequestedAt) return row.handle;
-    }
-    if (authorName.trim()) {
-      const matches = await db
-        .select({ handle: usersTable.handle, name: usersTable.name })
-        .from(usersTable)
-        .where(and(ilike(usersTable.name, authorName.trim()), isNull(usersTable.deletionRequestedAt)))
-        .limit(2);
-      const exact = matches.filter((m: any) => m?.handle && slugify(m.name || "") === nameSlug);
-      if (exact.length === 1) return exact[0].handle as string;
-    }
+    const [users, ownerId] = await Promise.all([loadAuthorUsers(), findSubmissionOwner(sourceSubmissionId)]);
+    const resolve = makeAuthorResolver(users);
+    const served = new Set(workAuthorSegments({ kind, authorName, authorId: ownerId }, resolve));
+    return (displayNames) => {
+      const segments = new Map<string, string>();
+      for (const name of displayNames) {
+        const segment = resolve(name, ownerId, displayNames.length === 1);
+        if (segment && served.has(segment)) segments.set(name, segment);
+      }
+      return segments;
+    };
   } catch {
-    // Fall back to the name slug; the author route resolves both.
+    // Without the account list a real single name falls back to its slug; the
+    // author route redirects that to the handle when there is one.
+    return (displayNames) => {
+      const segments = new Map<string, string>();
+      const segment = displayNames.length === 1 && (authorName || "").trim() ? slugify(displayNames[0]) : "";
+      if (segment) segments.set(displayNames[0], segment);
+      return segments;
+    };
   }
-  return nameSlug;
+}
+
+/**
+ * The request's query string without parameters a rewrite copied from the
+ * path. Older Vercel rewrites ("/essays/:slug*") appended ?slug=<slug>, which
+ * then leaked into redirect locations.
+ */
+function forwardedQuery(req: import("express").Request): string {
+  const index = req.originalUrl.indexOf("?");
+  if (index < 0) return "";
+  const params = new URLSearchParams(req.originalUrl.slice(index + 1));
+  for (const [key, value] of Object.entries(req.params || {})) {
+    const values = params.getAll(key);
+    if (values.length > 0 && values.every((v) => v === String(value))) params.delete(key);
+  }
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
 }
 
 export function renderErrorPage(statusCode: 404 | 410, resourceType: string, slug: string): string {
@@ -454,9 +521,15 @@ export function send410(res: import("express").Response, resourceType: string, s
   return res.status(410).send(html);
 }
 
-export function generateArticleSsrHtml(article: any, domainDisplayName: string, authorSegment?: string): string {
+/**
+ * `authorSegment` is the canonical /authors/<segment> for the byline; null
+ * means the author route serves no page for this name, so the byline is not
+ * linked. When it is omitted, the name slug is used.
+ */
+export function generateArticleSsrHtml(article: any, domainDisplayName: string, authorSegment?: string | null): string {
   const author = article.authorName || "Ānvīkṣikī Editorial Collective";
-  const authorSlug = authorSegment || slugify(author);
+  const authorSlug = authorSegment === undefined ? slugify(author) : authorSegment;
+  const authorHref = authorSlug ? `/authors/${escapeHtml(encodeURIComponent(authorSlug))}` : null;
   const isoPublished = formatIsoDate(article.publishedAt);
   const formattedPublished = formatDate(article.publishedAt);
   const isoUpdated = formatIsoDate(article.updatedAt);
@@ -489,9 +562,9 @@ export function generateArticleSsrHtml(article: any, domainDisplayName: string, 
     <div class="ssr-byline-bar">
       <div class="ssr-author" itemprop="author" itemscope itemtype="https://schema.org/Person">
         <span>By </span>
-        <a itemprop="url" href="/authors/${escapeHtml(authorSlug)}" class="ssr-author-link">
+        ${authorHref ? `<a itemprop="url" href="${authorHref}" class="ssr-author-link">
           <span itemprop="name">${escapeHtml(author)}</span>
-        </a>
+        </a>` : `<span itemprop="name">${escapeHtml(author)}</span>`}
       </div>
 
       <div class="ssr-metadata-items">
@@ -535,7 +608,7 @@ export function generateArticleSsrHtml(article: any, domainDisplayName: string, 
   <footer class="ssr-article-footer">
     <div class="ssr-author-bio-card">
       <h3>About the Author</h3>
-      <p><strong><a href="/authors/${escapeHtml(authorSlug)}">${escapeHtml(author)}</a></strong> is a contributor to Ānvīkṣikī Journal.</p>
+      <p><strong>${authorHref ? `<a href="${authorHref}">${escapeHtml(author)}</a>` : escapeHtml(author)}</strong> is a contributor to Ānvīkṣikī Journal.</p>
     </div>
     <section class="ssr-section ssr-citation-details">
       <h2>Citation &amp; Scholarly Attribution</h2>
@@ -566,7 +639,7 @@ export function generateArticleSsrHtml(article: any, domainDisplayName: string, 
 </article>`;
 }
 
-export function generatePaperSsrHtml(paper: any, domainDisplayName: string): string {
+export function generatePaperSsrHtml(paper: any, domainDisplayName: string, authorSegments?: Map<string, string>): string {
   const author = paper.authorName || "Anonymous Scholar";
   const authorsList = author.split(/,\s*/);
   const year = paper.year || (paper.publishedAt ? new Date(paper.publishedAt).getFullYear() : new Date().getFullYear());
@@ -595,12 +668,13 @@ export function generatePaperSsrHtml(paper: any, domainDisplayName: string): str
   url={https://anvikshikijournal.in/papers/${paper.slug}}${paper.doi ? `,\n  doi={${paper.doi}}` : ""}
 }`;
 
+  // Each name links to its canonical author page when the route serves one
+  // (authorSegments from the caller); without the map, to the name slug.
   const authorsHtml = authorsList.map((auth: string) => {
-    const aSlug = slugify(auth);
+    const aSlug = authorSegments ? authorSegments.get(auth) : slugify(auth);
+    const name = `<span itemprop="name">${escapeHtml(auth.trim())}</span>`;
     return `<span class="ssr-author" itemprop="author" itemscope itemtype="https://schema.org/Person">
-      <a itemprop="url" href="/authors/${escapeHtml(aSlug)}" class="ssr-author-link">
-        <span itemprop="name">${escapeHtml(auth.trim())}</span>
-      </a>
+      ${aSlug ? `<a itemprop="url" href="/authors/${escapeHtml(encodeURIComponent(aSlug))}" class="ssr-author-link">${name}</a>` : name}
     </span>`;
   }).join(", ");
 
@@ -851,38 +925,20 @@ export function generateDomainHubSsrHtml(
 }
 
 
-// HTTP 301 Permanent Redirects for legacy routes
-app.get("/essays/:slug", (req, res) => {
-  let rawSlug = "";
-  try {
-    rawSlug = decodeURIComponent(String(req.params.slug || ""));
-  } catch {
-    return res.status(400).json({ error: "Invalid percent-encoded character sequence", code: "BAD_REQUEST" });
-  }
-  const cleanSlug = rawSlug.replace(/\/+$/, "");
-  const qs = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
-  return res.redirect(301, `/articles/${encodeURIComponent(cleanSlug)}${qs}`);
+// HTTP 301 Permanent Redirects for legacy routes. Locations are built from the
+// path only (plus any genuine query parameters), never from parameters a
+// rewrite injected.
+app.get(["/essays/:slug", "/categories/:slug"], (req, res) => {
+  const slug = String(req.params.slug || "").trim();
+  const section = req.path.startsWith("/essays/") ? "articles" : "domains";
+  if (!slug) return res.redirect(301, section === "articles" ? "/archive" : "/domains");
+  return res.redirect(301, `/${section}/${encodeURIComponent(slug)}${forwardedQuery(req)}`);
 });
-app.get("/essays", (req, res) => {
-  const qs = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
-  return res.redirect(301, `/articles${qs}`);
-});
-
-app.get("/categories/:slug", (req, res) => {
-  let rawSlug = "";
-  try {
-    rawSlug = decodeURIComponent(String(req.params.slug || ""));
-  } catch {
-    return res.status(400).json({ error: "Invalid percent-encoded character sequence", code: "BAD_REQUEST" });
-  }
-  const cleanSlug = rawSlug.replace(/\/+$/, "");
-  const qs = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
-  return res.redirect(301, `/domains/${encodeURIComponent(cleanSlug)}${qs}`);
-});
-app.get("/categories", (req, res) => {
-  const qs = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
-  return res.redirect(301, `/domains${qs}`);
-});
+// There is no /articles index: the archive lists every essay. /authors has no
+// index either; the SPA sends it to /browse.
+app.get(["/essays", "/articles"], (req, res) => res.redirect(301, `/archive${forwardedQuery(req)}`));
+app.get("/categories", (req, res) => res.redirect(301, `/domains${forwardedQuery(req)}`));
+app.get("/authors", (req, res) => res.redirect(301, `/browse${forwardedQuery(req)}`));
 
 export function generateAboutAnvikshikiSsrHtml(): string {
   const breadcrumbsHtml = renderBreadcrumbs([
@@ -1159,26 +1215,10 @@ app.get("/browse", async (req, res) => {
   }, { showPapers: papers.length > 0 }));
 });
 
-// The drafting and upload screens under /submit/ are private: robots.txt
-// Disallow plus noindex. On Vercel they are served as the SPA shell; this
-// handler covers other hosts. The public /submit guidelines page is in
+// The drafting and upload screens under /submit/ are client-only routes; the
+// shell middleware near the top serves them with noindex, nofollow (see
+// lib/spa-routes.ts). The public /submit guidelines page is in
 // routes/public-pages.ts.
-app.get(/^\/submit\/.+$/, (_req, res) => {
-  res.setHeader("X-Robots-Tag", "noindex, nofollow");
-  res.setHeader("Cache-Control", "no-store");
-  const metaTags = `
-    <title>${escapeHtml(PAGE_META.submit.title)}</title>
-    <meta name="robots" content="noindex, nofollow" />
-    <link rel="canonical" href="${CANONICAL_DOMAIN}/submit" />
-  `;
-  const ssrHtml = `<main class="ssr-content ssr-submit-landing">
-    <h1>Submit to Ānvīkṣikī</h1>
-    <p>Sign in to write or upload a submission. The <a href="/submit">submission guidelines</a> explain what to include.</p>
-  </main>`;
-  res.setHeader("Content-Type", "text/html; charset=utf-8");
-  return res.status(200).send(renderSsrDocument(metaTags, ssrHtml));
-});
-
 
 // SSR Route Handlers for Articles and Research Papers
 app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
@@ -1190,42 +1230,21 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
       res.status(400).json({ error: "Invalid percent-encoded character sequence", code: "BAD_REQUEST" });
       return;
     }
-    const cleanSlug = rawSlug.replace(/-[a-f0-9]{4,8}$/, "");
     const isPaper = req.path.startsWith("/papers");
+    const kind = isPaper ? "paper" : "article";
     const resourceType = isPaper ? "research paper" : "article";
+    const section = isPaper ? "papers" : "articles";
 
-    let item: any = null;
-    if (isPaper) {
-      let [paper] = await db
-        .select()
-        .from(papersTable)
-        .where(eq(papersTable.slug, rawSlug))
-        .limit(1);
-      if (!paper && cleanSlug !== rawSlug) {
-        [paper] = await db
-          .select()
-          .from(papersTable)
-          .where(eq(papersTable.slug, cleanSlug))
-          .limit(1);
-      }
-      item = paper;
-    } else {
-      let [article] = await db
-        .select()
-        .from(articlesTable)
-        .where(eq(articlesTable.slug, rawSlug))
-        .limit(1);
-      if (!article && cleanSlug !== rawSlug) {
-        [article] = await db
-          .select()
-          .from(articlesTable)
-          .where(eq(articlesTable.slug, cleanSlug))
-          .limit(1);
-      }
-      item = article;
-    }
+    const item: any = await findPublicationBySlug(kind, rawSlug);
 
     if (!item) {
+      // An old or truncated URL (for example the slug before a hash suffix was
+      // added) permanently redirects to the one published work it names.
+      const target = await findPublishedSlugRedirect(kind, rawSlug);
+      if (target) {
+        res.redirect(301, `/${section}/${encodeURIComponent(target)}`);
+        return;
+      }
       send404(res, resourceType, rawSlug);
       return;
     }
@@ -1254,8 +1273,17 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
       }
     } catch {}
 
-    const title = item.title;
-    const excerpt = isPaper ? (item.abstract || item.title) : (item.excerpt || item.subtitle || item.title);
+    // <title>, og:title and twitter:title: the editor's SEO title when set,
+    // otherwise the title, without a dangling ":" / "-" / "—". The description
+    // is the editor's SEO description when set, otherwise a 120–160 character
+    // one built from whole sentences of the excerpt or abstract and the body.
+    const title = cleanTitle(typeof item.seoTitle === "string" && item.seoTitle.trim() ? item.seoTitle : item.title);
+    const headline = cleanTitle(item.title);
+    const description = deriveDescription({
+      seoDescription: item.seoDescription,
+      summaries: isPaper ? [item.abstract] : [item.excerpt, item.subtitle],
+      body: item.body,
+    }) || headline;
     const canonicalPath = isPaper ? `/papers/${item.slug}` : `/articles/${item.slug}`;
     const canonicalUrl = buildCanonicalUrl(canonicalPath);
 
@@ -1266,8 +1294,8 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
       ? (heroImage.trim().startsWith("/") ? `${CANONICAL_DOMAIN}${heroImage.trim()}` : heroImage.trim())
       : DEFAULT_SOCIAL_IMAGE.url;
 
-    const cleanTitle = escapeHtml(title);
-    const plainDescription = stripHtml(excerpt).slice(0, 300);
+    const titleHtml = escapeHtml(title);
+    const plainDescription = description;
     const cleanExcerpt = escapeHtml(plainDescription);
     const cleanUrl = escapeHtml(canonicalUrl);
     const isoPublished = formatIsoDate(item.publishedAt);
@@ -1292,27 +1320,25 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
     const topicTags = articleTopicTags(item.tags);
     const topicTagsStr = topicTags.join(", ");
 
-    // One canonical author URL: the account handle when the work came from a
-    // signed-in submission (single-author articles), otherwise the name slug.
-    const singleAuthorSegment = !isPaper && authors.length === 1
-      ? await resolveArticleAuthorSegment(authorRaw, item.sourceSubmissionId)
-      : null;
-    const authorUrl = (name: string) =>
-      `${CANONICAL_DOMAIN}/authors/${encodeURIComponent(singleAuthorSegment ?? slugify(name))}`;
-    const authorNodes = authors.map((a: string) => ({
-      "@type": "Person",
-      "@id": `${authorUrl(a)}#person`,
-      "name": a,
-      "url": authorUrl(a),
-    }));
+    // One canonical author URL per name, the same one the sitemap lists and
+    // /authors/:slug serves; names that route does not serve get no URL.
+    const bylineSegmentsFor = await loadBylineSegments(kind, item.authorName, item.sourceSubmissionId);
+    const bylineSegments = bylineSegmentsFor(authors);
+    const authorNodes = authors.map((a: string) => {
+      const segment = bylineSegments.get(a);
+      if (!segment) return { "@type": "Person", "name": a };
+      const url = `${CANONICAL_DOMAIN}/authors/${encodeURIComponent(segment)}`;
+      return { "@type": "Person", "@id": `${url}#person`, "name": a, "url": url };
+    });
+    const singleAuthorSegment = authors.length === 1 ? bylineSegments.get(authors[0]) ?? null : null;
 
     const workNode: Record<string, unknown> = {
       // Essays are Articles. ScholarlyArticle is reserved for the separate
       // research-paper format at /papers/*.
       "@type": isPaper ? "ScholarlyArticle" : "Article",
       "@id": `${canonicalUrl}#${isPaper ? "scholarlyarticle" : "article"}`,
-      "headline": item.title,
-      "name": item.title,
+      "headline": headline,
+      "name": headline,
       "description": plainDescription || undefined,
       "url": canonicalUrl,
       "mainEntityOfPage": { "@type": "WebPage", "@id": canonicalUrl },
@@ -1359,13 +1385,13 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
           "name": domainDisplayName,
           "item": { "@type": "WebPage", "@id": `${CANONICAL_DOMAIN}/domains/${item.categorySlug || "philosophy"}`, "name": domainDisplayName },
         },
-        { "@type": "ListItem", "position": 4, "name": item.title, "item": { "@type": "WebPage", "@id": canonicalUrl, "name": item.title } },
+        { "@type": "ListItem", "position": 4, "name": headline, "item": { "@type": "WebPage", "@id": canonicalUrl, "name": headline } },
       ],
     };
 
     const ogTags = `
     <!-- Dynamic Open Graph & Twitter Card Meta Tags -->
-    <title>${cleanTitle} — Ānvīkṣikī</title>
+    <title>${titleHtml} — Ānvīkṣikī</title>
     <meta name="description" content="${cleanExcerpt}" />
     ${topicTagsStr ? `<meta name="keywords" content="${escapeHtml(topicTagsStr)}" />` : ""}
     ${topicTags.map(k => `<meta property="article:tag" content="${escapeHtml(k)}" />`).join("\n    ")}
@@ -1376,18 +1402,18 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
     ${domainDisplayName ? `<meta property="article:section" content="${escapeHtml(domainDisplayName)}" />` : ""}
     <meta property="og:site_name" content="${SITE_NAME}" />
     <meta property="og:locale" content="en_IN" />
-    <meta property="og:title" content="${cleanTitle}" />
+    <meta property="og:title" content="${titleHtml}" />
     <meta property="og:description" content="${cleanExcerpt}" />
     <meta property="og:type" content="article" />
     <meta property="og:url" content="${cleanUrl}" />
     ${socialImageMetaTags(image, title)}
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="${cleanTitle}" />
+    <meta name="twitter:title" content="${titleHtml}" />
     <meta name="twitter:description" content="${cleanExcerpt}" />
     <link rel="canonical" href="${cleanUrl}" />
     ${jsonLdGraphScript([workNode, breadcrumbNode])}
     <!-- Google Scholar Highwire Metadata -->
-    <meta name="citation_title" content="${cleanTitle}" />
+    <meta name="citation_title" content="${escapeHtml(headline)}" />
     ${scholarCitationAuthorTags}
     ${formatScholarDate(item.publishedAt)}
     <meta name="citation_journal_title" content="Ānvīkṣikī: An Open Journal of Indic Philosophy &amp; Intellectual Traditions" />
@@ -1398,13 +1424,15 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
     `;
 
     const ssrHtml = isPaper
-      ? generatePaperSsrHtml(item, domainDisplayName)
-      : generateArticleSsrHtml(item, domainDisplayName, singleAuthorSegment ?? undefined);
+      ? generatePaperSsrHtml(item, domainDisplayName, bylineSegmentsFor((item.authorName || "Anonymous Scholar").split(/,\s*/)))
+      : generateArticleSsrHtml(item, domainDisplayName, singleAuthorSegment);
 
     const finalHtml = renderSsrDocument(
       ogTags,
       ssrHtml,
-      { route: isPaper ? "paper" : "article", path: req.path, data: item },
+      // authorHandle: the canonical author segment, which the client uses for
+      // its own byline links.
+      { route: isPaper ? "paper" : "article", path: req.path, data: { ...item, authorHandle: singleAuthorSegment } },
       { showPapers: isPaper || (await hasPublishedPapers()) },
     );
 
@@ -1415,8 +1443,9 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
     res.status(200).send(finalHtml);
     return;
   } catch (err) {
+    // A failed lookup is an outage, not a missing page: 503, never cached.
     req.log?.error({ err }, "Publication SSR error");
-    next();
+    sendUnavailable(req, res, err);
     return;
   }
 });
@@ -1431,103 +1460,42 @@ app.get("/authors/:slug", async (req, res, next) => {
       res.status(400).json({ error: "Invalid percent-encoded character sequence", code: "BAD_REQUEST" });
       return;
     }
-    const cleanSlug = rawSlug.trim().replace(/\/+$/, "");
-    const cleanHandle = cleanSlug.replace(/^@/, "").toLowerCase();
-    const namePattern = cleanSlug.replace(/[-_]/g, " ");
-
-    let [user] = await db
-      .select()
-      .from(usersTable)
-      .where(
-        or(
-          eq(usersTable.id, cleanSlug),
-          eq(usersTable.handle, cleanSlug),
-          eq(usersTable.handle, cleanHandle),
-          ilike(usersTable.name, namePattern),
-          ilike(usersTable.name, `%${namePattern}%`)
-        )
-      )
-      .limit(1);
-
-    // If cleanSlug is user ID, or user has handle and URL is ID or @handle, 301 redirect to canonical handle
-    if (user?.handle && (cleanSlug === user.id || cleanSlug === `@${user.handle}`)) {
-      return res.redirect(301, `/authors/${encodeURIComponent(user.handle)}`);
+    // Exact handle, id or name slug only (lib/author-identity.ts). Other
+    // spellings of a known author permanently redirect to the canonical URL;
+    // anything else is a 404.
+    const [users, hubWorks] = await Promise.all([loadAuthorUsers(), listAuthorHubWorks()]);
+    const resolution = resolveAuthorRequest<AuthorHubArticle | AuthorHubPaper>(
+      rawSlug,
+      users,
+      [...hubWorks.articles, ...hubWorks.papers],
+    );
+    if (resolution.kind === "redirect") {
+      res.redirect(301, `/authors/${encodeURIComponent(resolution.segment)}`);
+      return;
     }
-
-    const [allArticles, allPapers] = await Promise.all([
-      db.select({
-        id: articlesTable.id,
-        slug: articlesTable.slug,
-        title: articlesTable.title,
-        subtitle: articlesTable.subtitle,
-        excerpt: articlesTable.excerpt,
-        categorySlug: articlesTable.categorySlug,
-        authorName: articlesTable.authorName,
-        readingMinutes: articlesTable.readingMinutes,
-        heroImageUrl: articlesTable.heroImageUrl,
-        publishedAt: articlesTable.publishedAt,
-        authorId: submissionsTable.userId,
-      }).from(articlesTable)
-        .leftJoin(submissionsTable, eq(articlesTable.sourceSubmissionId, submissionsTable.id))
-        .where(and(eq(articlesTable.status, "PUBLISHED"), isNull(articlesTable.deletedAt))),
-      db.select({
-        id: papersTable.id,
-        slug: papersTable.slug,
-        title: papersTable.title,
-        abstract: papersTable.abstract,
-        categorySlug: papersTable.categorySlug,
-        authorName: papersTable.authorName,
-        readingMinutes: papersTable.readingMinutes,
-        coverImageUrl: papersTable.coverImageUrl,
-        publishedAt: papersTable.publishedAt,
-        year: papersTable.year,
-        doi: papersTable.doi,
-        authorId: submissionsTable.userId,
-      }).from(papersTable)
-        .leftJoin(submissionsTable, eq(papersTable.sourceSubmissionId, submissionsTable.id))
-        .where(and(eq(papersTable.status, "PUBLISHED"), isNull(papersTable.deletedAt))),
-    ]);
-
-    const userNameSlug = user && user.name ? slugify(user.name) : "";
-    const userCleanName = user && user.name ? user.name.replace(/^(dr|prof|vidwan|acharya)\.?\s+/i, "").trim().toLowerCase() : "";
-
-    const authorArticles = allArticles.filter((a: any) => {
-      if (user && a.authorId === user.id) return true;
-      const aSlug = slugify(a.authorName || "");
-      if (aSlug && (aSlug === cleanSlug || aSlug === cleanHandle)) return true;
-      if (userNameSlug && aSlug === userNameSlug) return true;
-      if (userCleanName && a.authorName && a.authorName.toLowerCase().includes(userCleanName)) return true;
-      return false;
-    });
-
-    const authorPapers = allPapers.filter((p: any) => {
-      if (user && p.authorId === user.id) return true;
-      const pAuthors = (p.authorName || "").split(/,\s*/);
-      return pAuthors.some((pa: string) => {
-        const paSlug = slugify(pa);
-        if (paSlug && (paSlug === cleanSlug || paSlug === cleanHandle)) return true;
-        if (userNameSlug && paSlug === userNameSlug) return true;
-        if (userCleanName && pa.toLowerCase().includes(userCleanName)) return true;
-        return false;
-      });
-    });
-
-    if (!user && authorArticles.length === 0 && authorPapers.length === 0) {
-      send404(res, "author profile", cleanSlug);
+    if (resolution.kind === "not-found") {
+      send404(res, "author profile", rawSlug.trim());
       return;
     }
 
-    const displayName = user?.name || authorArticles[0]?.authorName || (authorPapers[0]?.authorName ? authorPapers[0].authorName.split(/,\s*/)[0] : cleanSlug);
+    const cleanSlug = resolution.segment;
+    const user = resolution.user;
+    const profile = user ? await findAuthorProfile(user.id) : null;
+    const authorArticles = resolution.works.filter((w): w is AuthorHubArticle => w.kind === "article");
+    const authorPapers = resolution.works.filter((w): w is AuthorHubPaper => w.kind === "paper");
+    const allPapers = hubWorks.papers;
+
+    const displayName = resolution.displayName;
     // The person's own bio, or nothing. No boilerplate "contributing scholar"
     // line and no invented expertise.
-    const realBio = typeof user?.bio === "string" && user.bio.trim() ? user.bio.trim() : null;
+    const realBio = typeof profile?.bio === "string" && profile.bio.trim() ? profile.bio.trim() : null;
     const authorData = {
       id: user?.id,
       name: displayName,
       handle: user?.handle || cleanSlug,
       bio: realBio,
-      institution: user?.institution || (authorPapers[0] as any)?.institution || null,
-      avatarUrl: user?.avatarUrl || null,
+      institution: profile?.institution || null,
+      avatarUrl: profile?.avatarUrl || null,
       articleCount: authorArticles.length,
       paperCount: authorPapers.length,
     };
@@ -1535,12 +1503,12 @@ app.get("/authors/:slug", async (req, res, next) => {
     const workCount = authorArticles.length + authorPapers.length;
     const hasPublishedWork = workCount > 0;
     const factualSummary = hasPublishedWork
-      ? `${displayName} on Ānvīkṣikī: ${workCount} published ${workCount === 1 ? "work" : "works"}${authorArticles[0]?.title ? `, including “${authorArticles[0].title}”` : ""}.`
+      ? `${displayName} on Ānvīkṣikī: ${workCount} published ${workCount === 1 ? "work" : "works"}${authorArticles[0]?.title ? `, including “${cleanTitle(authorArticles[0].title)}”` : ""}.`
       : `Author profile for ${displayName} on Ānvīkṣikī.`;
 
     const cleanName = escapeHtml(authorData.name);
     const cleanBio = escapeHtml(stripHtml(realBio || factualSummary).slice(0, 300));
-    const canonicalUrl = buildCanonicalUrl(`/authors/${cleanSlug}`);
+    const canonicalUrl = buildCanonicalUrl(`/authors/${encodeURIComponent(cleanSlug)}`);
     const cleanUrl = escapeHtml(canonicalUrl);
     const image = authorData.avatarUrl ? socialImage(authorData.avatarUrl) : DEFAULT_SOCIAL_IMAGE;
 
@@ -1602,8 +1570,9 @@ app.get("/authors/:slug", async (req, res, next) => {
     res.status(200).send(finalHtml);
     return;
   } catch (err) {
+    // A failed lookup is an outage, not a missing page: 503, never cached.
     req.log?.error({ err }, "Author Hub SSR error");
-    next();
+    sendUnavailable(req, res, err);
     return;
   }
 });
@@ -1732,8 +1701,9 @@ app.get("/domains/:slug", async (req, res, next) => {
     res.status(200).send(finalHtml);
     return;
   } catch (err) {
+    // A failed lookup is an outage, not a missing page: 503, never cached.
     req.log?.error({ err }, "Domain Hub SSR error");
-    next();
+    sendUnavailable(req, res, err);
     return;
   }
 });
@@ -1746,40 +1716,58 @@ app.get("/robots.txt", (_req, res) => {
   return res.status(200).send(ROBOTS_TXT);
 });
 
-// Canonical SSR redirection and pre-rendering for Profile URLs
-app.get(["/profile/:userId", "/profile/@:handle"], async (req, res, next) => {
+// Legacy /profile/<id or @handle> URLs: 301 to the canonical author page, or
+// 404 when there is no such account (never a redirect into a 404).
+app.get(["/profile/:userId", "/profile/@:handle"], async (req, res) => {
   try {
     const rawParam = req.params.handle || req.params.userId || "";
     const rawId = (Array.isArray(rawParam) ? rawParam[0] : String(rawParam || "")).trim();
-    if (!rawId) return next();
     const cleanHandle = rawId.replace(/^@/, "").toLowerCase();
 
-    const [user] = await db
-      .select()
-      .from(usersTable)
-      .where(
-        or(
-          eq(usersTable.id, rawId),
-          eq(usersTable.handle, cleanHandle),
-          eq(usersTable.handle, rawId)
+    const [user] = rawId
+      ? await db
+        .select({ id: usersTable.id, handle: usersTable.handle })
+        .from(usersTable)
+        .where(
+          and(
+            or(eq(usersTable.id, rawId), eq(usersTable.handle, cleanHandle), eq(usersTable.handle, rawId)),
+            isNull(usersTable.deletionRequestedAt),
+          ),
         )
-      )
-      .limit(1);
+        .limit(1)
+      : [];
 
-    if (user?.handle) {
-      return res.redirect(301, `/authors/${encodeURIComponent(user.handle)}`);
+    if (!user) {
+      send404(res, "author profile", rawId);
+      return;
     }
-
-    if (user?.id) {
-      return res.redirect(301, `/authors/${encodeURIComponent(user.id)}`);
-    }
-
-    return res.redirect(301, `/authors/${encodeURIComponent(rawId)}`);
+    return res.redirect(301, `/authors/${encodeURIComponent(user.handle || user.id)}`);
   } catch (err) {
+    // A failed lookup is an outage, not a missing page: 503, never cached.
     req.log?.error({ err }, "Profile redirect error");
-    next();
+    sendUnavailable(req, res, err);
     return;
   }
+});
+
+// Everything no route above answered. Client-only SPA routes were already
+// served by the shell middleware near the top, so a page URL that reaches this
+// point does not exist: a real 404 (with the app shell, so the client can show
+// its own not-found screen) instead of a 200 soft 404. Missing files get a
+// plain 404 rather than an HTML page, and unknown API paths a JSON one.
+app.use((req, res, next) => {
+  if (req.method !== "GET" && req.method !== "HEAD") return next();
+  if (req.path === "/api" || req.path.startsWith("/api/")) {
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(404).json({ error: "Not found" });
+  }
+  if (looksLikeFile(req.path)) {
+    res.setHeader("X-Robots-Tag", "noindex");
+    res.setHeader("Cache-Control", "public, max-age=0, s-maxage=300");
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    return res.status(404).send("Not found");
+  }
+  return send404(res, "page", req.path);
 });
 
 const errorHandler: ErrorRequestHandler = (err: any, req, res, _next) => {
