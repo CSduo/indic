@@ -20,7 +20,9 @@ router.get("/seo/status", async (_req: Request, res: Response) => {
       },
       googleIndexing: googleStatus,
       googleSiteVerification: {
-        htmlFileVerificationSupported: true,
+        // Ownership is proven through the DNS-verified Domain property. No
+        // wildcard google<token>.html responder exists any more.
+        htmlFileVerificationSupported: false,
         metaConfigured: Boolean(process.env.GOOGLE_SITE_VERIFICATION),
       },
       dispatchesCount: dispatches.length,

@@ -324,13 +324,20 @@ app.get(["/indexnow-key.txt", `/${DEFAULT_INDEXNOW_KEY}.txt`], (_req, res) => {
   return res.status(200).send(DEFAULT_INDEXNOW_KEY);
 });
 
-// Dynamic Google Search Console HTML verification file handler
-// Responds to any google<codeNumber>.html requested by Googlebot during domain ownership verification
-app.get(["/google:code.html", "/google-site-verification.html"], (req, res) => {
-  const code = req.params.code || process.env.GOOGLE_SITE_VERIFICATION || "";
-  res.setHeader("Content-Type", "text/html; charset=utf-8");
-  return res.status(200).send(`google-site-verification: google${code}.html`);
-});
+/*
+  Google Search Console verification.
+
+  There is deliberately no google<token>.html responder here. The one that used
+  to sit here echoed back whatever token was requested, which let any Google
+  account verify itself as an owner of this site. The journal's Search Console
+  property is a Domain property verified through DNS, which needs no file.
+
+  If an HTML-file verification is ever genuinely required, commit the exact file
+  Google issues (for example `google0123456789abcdef.html`) to
+  artifacts/anvikshiki/public/ so the CDN serves that one filename and nothing
+  else. The optional meta-tag method is handled by GOOGLE_SITE_VERIFICATION in
+  injectSsrHtml/buildFallbackHtml below.
+*/
 
 // GET /api/seo/status - public SEO and search indexing health status
 app.get("/api/seo/status", async (_req, res) => {
@@ -351,7 +358,7 @@ app.get("/api/seo/status", async (_req, res) => {
         clientEmail: creds?.client_email ? `${creds.client_email.slice(0, 8)}...` : null,
       },
       googleSiteVerification: {
-        htmlFileVerificationSupported: true,
+        htmlFileVerificationSupported: false,
         metaConfigured: Boolean(process.env.GOOGLE_SITE_VERIFICATION),
       },
       dispatchesCount: dispatches.length,
@@ -1042,14 +1049,20 @@ export const SSR_CSS_STYLES = `<style id="anvikshiki-ssr-styles">
   }
 </style>`;
 
+/** The owner's own Search Console meta token, when one is configured. */
+function googleSiteVerificationMeta(): string {
+  const token = process.env.GOOGLE_SITE_VERIFICATION?.trim();
+  return token
+    ? `\n    <meta name="google-site-verification" content="${escapeHtml(token)}" />`
+    : "";
+}
+
 export function injectSsrHtml(template: string, metaTags: string, ssrBody: string, initialData?: unknown): string {
   const cleanTemplate = sanitizeTemplateHead(template);
   const dataScript = initialData !== undefined
     ? `\n<script id="__ANVIKSHIKI_DATA__" type="application/json">${JSON.stringify(initialData).replace(/</g, "\\u003c")}</script>`
     : "";
-  const googleVerificationMeta = process.env.GOOGLE_SITE_VERIFICATION
-    ? `\n    <meta name="google-site-verification" content="${process.env.GOOGLE_SITE_VERIFICATION}" />`
-    : "";
+  const googleVerificationMeta = googleSiteVerificationMeta();
   const withMeta = cleanTemplate.replace(/<\/head>/i, `${SSR_CSS_STYLES}${googleVerificationMeta}\n${metaTags}${dataScript}\n</head>`);
   if (withMeta.includes('<div id="root"></div>')) {
     return withMeta.replace('<div id="root"></div>', `<div id="root">${ssrBody}</div>`);
@@ -1061,9 +1074,7 @@ export function buildFallbackHtml(metaTags: string, ssrBody: string, initialData
   const dataScript = initialData !== undefined
     ? `\n<script id="__ANVIKSHIKI_DATA__" type="application/json">${JSON.stringify(initialData).replace(/</g, "\\u003c")}</script>`
     : "";
-  const googleVerificationMeta = process.env.GOOGLE_SITE_VERIFICATION
-    ? `\n    <meta name="google-site-verification" content="${process.env.GOOGLE_SITE_VERIFICATION}" />`
-    : "";
+  const googleVerificationMeta = googleSiteVerificationMeta();
   return `<!DOCTYPE html>
 <html lang="en">
   <head>

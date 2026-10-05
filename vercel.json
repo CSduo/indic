@@ -103,10 +103,6 @@
       "destination": "/api/index"
     },
     {
-      "source": "/google:path*",
-      "destination": "/api/index"
-    },
-    {
       "source": "/about/anvikshiki",
       "destination": "/api/index"
     },
