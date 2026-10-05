@@ -21,6 +21,7 @@ import {
 import { db, articlesTable, papersTable, usersTable, categoriesTable, submissionsTable, ensureDatabaseSchema, coreTablesExist } from "@workspace/db";
 import { eq, and, or, ilike, isNull } from "drizzle-orm";
 import { sanitizeArticleBody } from "./lib/content";
+import { slugify } from "./lib/slug";
 import {
   enrichKeywords,
   enrichAuthorKeywords,
@@ -311,6 +312,13 @@ app.use("/api/uploads", express.static(UPLOADS_DIR, {
   },
 }));
 
+// One sitemap only. The old duplicate at /api/sitemap.xml was declared in
+// robots.txt alongside /sitemap.xml; send anything still asking for it to the
+// canonical location. (vercel.json carries the same redirect at the edge.)
+app.get("/api/sitemap.xml", (_req, res) => {
+  res.redirect(301, "/sitemap.xml");
+});
+
 app.use("/api", router);
 
 // Direct root protocol endpoints
@@ -520,15 +528,7 @@ export function formatScholarDate(date: Date | string | number | null | undefine
   return `<meta name="citation_publication_date" content="${yyyy}/${mm}/${dd}" />`;
 }
 
-export function slugify(text: string): string {
-  return String(text || "")
-    .toLowerCase()
-    .trim()
-    .replace(/^(dr|prof|vidwan|acharya|pandit|shri|smt)\.?\s+/i, "")
-    .replace(/[^\p{L}\p{N}\s-]/gu, "")
-    .replace(/[\s_-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
+export { slugify };
 
 export interface BreadcrumbItem {
   name: string;

@@ -36,3 +36,31 @@ describe("Search Console verification cannot be claimed by third parties (ANV-CR
     expect(sources.some((s: string) => s.startsWith("/google"))).toBe(false);
   });
 });
+
+describe("One truthful sitemap (ANV-CRAWL-04/05/19)", () => {
+  it("permanently redirects the old /api/sitemap.xml to /sitemap.xml", async () => {
+    const res = await request(app).get("/api/sitemap.xml");
+
+    expect(res.status).toBe(301);
+    expect(res.headers.location).toBe("/sitemap.xml");
+  });
+
+  it("serves /sitemap.xml without boilerplate, form-only or broken URLs", async () => {
+    const res = await request(app).get("/sitemap.xml");
+
+    expect(res.status).toBe(200);
+    expect(res.text).not.toContain("<changefreq>");
+    for (const path of ["/privacy", "/terms", "/submit", "/community", "/domains"]) {
+      expect(res.text).not.toContain(`<loc>https://anvikshikijournal.in${path}</loc>`);
+    }
+    expect(res.text).toContain("<loc>https://anvikshikijournal.in/authors/arya-ambadi</loc>");
+  });
+
+  it("dates static pages with a fixed content date rather than the request time", async () => {
+    const res = await request(app).get("/sitemap.xml");
+    const about = res.text.match(/<loc>https:\/\/anvikshikijournal\.in\/about<\/loc>\s*<lastmod>([^<]+)<\/lastmod>/);
+
+    expect(about).not.toBeNull();
+    expect(Date.now() - new Date(about![1]).getTime()).toBeGreaterThan(60_000);
+  });
+});

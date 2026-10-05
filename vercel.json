@@ -45,6 +45,13 @@
       ]
     }
   ],
+  "redirects": [
+    {
+      "source": "/api/sitemap.xml",
+      "destination": "/sitemap.xml",
+      "statusCode": 301
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/:path*",
