@@ -134,7 +134,12 @@ let cachedHtmlTemplate: string | null = null;
 export function getHtmlTemplate(): string {
   if (cachedHtmlTemplate) return cachedHtmlTemplate;
 
+  // The production build names the shell spa.html (see the anvikshiki Vite
+  // config) so that "/" is not shadowed by a static index.html on Vercel.
   const possiblePaths = [
+    path.join(process.cwd(), "artifacts", "anvikshiki", "dist", "public", "spa.html"),
+    path.join(process.cwd(), "dist", "public", "spa.html"),
+    path.join(__dirname, "..", "..", "anvikshiki", "dist", "public", "spa.html"),
     path.join(process.cwd(), "artifacts", "anvikshiki", "dist", "public", "index.html"),
     path.join(process.cwd(), "dist", "public", "index.html"),
     path.join(__dirname, "..", "..", "anvikshiki", "dist", "public", "index.html"),
@@ -328,6 +333,14 @@ export function renderTags(tags: unknown, label = "Topics & Tags"): string {
   </section>`;
 }
 
+/**
+ * The page title is the only H1. Imported manuscripts often mark their section
+ * headings as H1; inside the body those become H2.
+ */
+export function demoteBodyHeadings(html: string): string {
+  return html.replace(/<h1(?=[\s>])/gi, "<h2").replace(/<\/h1\s*>/gi, "</h2>");
+}
+
 export function renderBodyHtml(body: unknown, fallbackExcerpt?: string): string {
   if (typeof body === "string" && body.trim().length > 0) {
     const raw = body.trim();
@@ -336,7 +349,7 @@ export function renderBodyHtml(body: unknown, fallbackExcerpt?: string): string 
       ? raw
       : raw.split(/\n{2,}/).map(p => `<p>${escapeHtml(p.trim())}</p>`).join("\n");
     const sanitized = sanitizeArticleBody(contentToSanitize);
-    return sanitized.replace(/<img(?![^>]*\bloading=)/gi, '<img loading="lazy" decoding="async"');
+    return demoteBodyHeadings(sanitized).replace(/<img(?![^>]*\bloading=)/gi, '<img loading="lazy" decoding="async"');
   }
 
   if (fallbackExcerpt && fallbackExcerpt.trim().length > 0) {
@@ -735,6 +748,42 @@ export const SSR_CSS_STYLES = `<style id="anvikshiki-ssr-styles">
     gap: 2rem;
     margin-top: 1.5rem;
   }
+  .ssr-site-header, .ssr-site-footer {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 1rem 1.25rem;
+    box-sizing: border-box;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1.5rem;
+    font-size: 0.85rem;
+  }
+  .ssr-site-header { border-bottom: 1px solid var(--ssr-border); }
+  .ssr-site-footer { border-top: 1px solid var(--ssr-border); margin-top: 3rem; }
+  .ssr-site-brand {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--ssr-ink);
+    text-decoration: none;
+  }
+  .ssr-site-header ul, .ssr-site-footer ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.25rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .ssr-site-header a, .ssr-site-footer a { color: var(--ssr-ink); text-decoration: none; }
+  .ssr-site-header a:hover, .ssr-site-footer a:hover { color: var(--ssr-gold); text-decoration: underline; }
+  .ssr-work-list { list-style: none; padding: 0; margin: 0; }
+  .ssr-work-item { padding: 1rem 0; border-bottom: 1px solid var(--ssr-border); }
+  .ssr-work-item h3 { margin: 0 0 0.35rem 0; font-size: 1.15rem; }
+  .ssr-work-item h3 a { color: var(--ssr-ink); }
+  .ssr-pagination { display: flex; gap: 1rem; justify-content: space-between; margin-top: 2rem; }
 </style>`;
 
 /** The owner's own Search Console meta token, when one is configured. */
@@ -745,23 +794,128 @@ function googleSiteVerificationMeta(): string {
     : "";
 }
 
-export function injectSsrHtml(template: string, metaTags: string, ssrBody: string, initialData?: unknown): string {
-  const cleanTemplate = sanitizeTemplateHead(template);
-  const dataScript = initialData !== undefined
-    ? `\n<script id="__ANVIKSHIKI_DATA__" type="application/json">${JSON.stringify(initialData).replace(/</g, "\\u003c")}</script>`
-    : "";
-  const googleVerificationMeta = googleSiteVerificationMeta();
-  const withMeta = cleanTemplate.replace(/<\/head>/i, `${SSR_CSS_STYLES}${googleVerificationMeta}\n${metaTags}${dataScript}\n</head>`);
-  if (withMeta.includes('<div id="root"></div>')) {
-    return withMeta.replace('<div id="root"></div>', `<div id="root">${ssrBody}</div>`);
-  }
-  return withMeta.replace(/<div id=["']root["']>[\s\S]*?<\/div>/i, `<div id="root">${ssrBody}</div>`);
+/**
+ * Cache policy for public server-rendered HTML: the CDN may serve a copy for
+ * five minutes and keep serving a stale one for a day while it revalidates.
+ */
+export const PUBLIC_HTML_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=86400";
+
+/**
+ * The data a server-rendered page was built from, embedded so the client can
+ * render the same content first instead of starting from an empty state.
+ * `route` names the page type and `path` the URL path it belongs to; the
+ * client only uses the payload while it is on that path.
+ */
+export interface InitialData {
+  route: string;
+  path: string;
+  data: unknown;
+  /**
+   * Site-wide facts for the client's own header and footer, so they link to
+   * the same sections as the server-rendered nav. Filled in from
+   * SiteChromeOptions by the document renderer.
+   */
+  site?: { papers: boolean };
 }
 
-export function buildFallbackHtml(metaTags: string, ssrBody: string, initialData?: unknown): string {
-  const dataScript = initialData !== undefined
-    ? `\n<script id="__ANVIKSHIKI_DATA__" type="application/json">${JSON.stringify(initialData).replace(/</g, "\\u003c")}</script>`
-    : "";
+/**
+ * JSON that is safe inside a <script> element: "<", ">" and "&" cannot open or
+ * close markup, and U+2028/U+2029 (valid in JSON, line terminators in older
+ * JavaScript parsers) are escaped as well.
+ */
+export function serializeInitialData(value: unknown): string {
+  return JSON.stringify(value ?? null)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
+/** A non-executable JSON data block; allowed by a CSP without 'unsafe-inline'. */
+export function initialDataScript(initialData: InitialData): string {
+  return `<script id="__INITIAL_DATA__" type="application/json">${serializeInitialData(initialData)}</script>`;
+}
+
+export interface SiteChromeOptions {
+  /** Show the Papers link; only when at least one paper is published. */
+  showPapers?: boolean;
+}
+
+/** The primary sections, in nav order. */
+function primaryNav(options: SiteChromeOptions): Array<[string, string]> {
+  return [
+    ["Home", "/"],
+    ["Browse", "/browse"],
+    ["Archive", "/archive"],
+    ["Domains", "/domains"],
+    ...(options.showPapers ? [["Papers", "/papers"] as [string, string]] : []),
+    ["About", "/about"],
+    ["Submit", "/submit"],
+    ["Contact", "/contact"],
+  ];
+}
+
+/**
+ * Plain-link site header for the server-rendered HTML. The React app replaces
+ * it with its own header on mount; until then (and for crawlers that do not run
+ * JavaScript) every page links to the main sections.
+ */
+export function renderSiteHeader(options: SiteChromeOptions = {}): string {
+  const links = primaryNav(options)
+    .map(([label, href]) => `<li><a href="${href}">${label}</a></li>`)
+    .join("");
+  return `<header class="ssr-site-header">
+  <a class="ssr-site-brand" href="/">Ānvīkṣikī</a>
+  <nav aria-label="Main"><ul>${links}</ul></nav>
+</header>`;
+}
+
+export function renderSiteFooter(options: SiteChromeOptions = {}): string {
+  const links = primaryNav(options)
+    .map(([label, href]) => `<li><a href="${href}">${label}</a></li>`)
+    .join("");
+  return `<footer class="ssr-site-footer">
+  <nav aria-label="Footer"><ul>${links}<li><a href="/about/anvikshiki">Meaning of Ānvīkṣikī</a></li><li><a href="/privacy">Privacy</a></li><li><a href="/terms">Terms</a></li><li><a href="/rss.xml">RSS</a></li></ul></nav>
+</footer>`;
+}
+
+function withSiteFacts(initialData: InitialData, chrome: SiteChromeOptions): InitialData {
+  return { ...initialData, site: { papers: chrome.showPapers === true } };
+}
+
+function withSiteChrome(ssrBody: string, chrome: SiteChromeOptions): string {
+  return `${renderSiteHeader(chrome)}\n${ssrBody}\n${renderSiteFooter(chrome)}`;
+}
+
+export function injectSsrHtml(
+  template: string,
+  metaTags: string,
+  ssrBody: string,
+  initialData?: InitialData,
+  chrome: SiteChromeOptions = {},
+): string {
+  const cleanTemplate = sanitizeTemplateHead(template);
+  const dataScript = initialData ? `\n${initialDataScript(withSiteFacts(initialData, chrome))}` : "";
+  const googleVerificationMeta = googleSiteVerificationMeta();
+  const head = `${SSR_CSS_STYLES}${googleVerificationMeta}\n${metaTags}${dataScript}\n</head>`;
+  const root = `<div id="root">${withSiteChrome(ssrBody, chrome)}</div>`;
+  // Function replacements: page text may contain "$&" or "$'", which a string
+  // replacement would expand.
+  const withMeta = cleanTemplate.replace(/<\/head>/i, () => head);
+  if (withMeta.includes('<div id="root"></div>')) {
+    return withMeta.replace('<div id="root"></div>', () => root);
+  }
+  return withMeta.replace(/<div id=["']root["']>[\s\S]*?<\/div>/i, () => root);
+}
+
+export function buildFallbackHtml(
+  metaTags: string,
+  ssrBody: string,
+  initialData?: InitialData,
+  chrome: SiteChromeOptions = {},
+): string {
+  const dataScript = initialData ? initialDataScript(withSiteFacts(initialData, chrome)) : "";
   const googleVerificationMeta = googleSiteVerificationMeta();
   return `<!DOCTYPE html>
 <html lang="en">
@@ -781,8 +935,21 @@ export function buildFallbackHtml(metaTags: string, ssrBody: string, initialData
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   </head>
   <body>
-    <div id="root">${ssrBody}</div>
+    <div id="root">${withSiteChrome(ssrBody, chrome)}</div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>`;
+}
+
+/** The full document for a server-rendered page, from the SPA template when available. */
+export function renderSsrDocument(
+  metaTags: string,
+  ssrBody: string,
+  initialData?: InitialData,
+  chrome: SiteChromeOptions = {},
+): string {
+  const template = getHtmlTemplate();
+  return template
+    ? injectSsrHtml(template, metaTags, ssrBody, initialData, chrome)
+    : buildFallbackHtml(metaTags, ssrBody, initialData, chrome);
 }

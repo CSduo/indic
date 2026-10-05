@@ -16,8 +16,8 @@ import { slugify } from "./slug";
  * URLs we tell search engines about is defined in exactly one place.
  *
  * What goes in: only URLs that return 200, are self-canonical and are worth
- * indexing today. What stays out: legal boilerplate (/privacy, /terms), flows
- * that end at a login form (/submit, /community), listing pages that are empty
+ * indexing today. What stays out: legal boilerplate (/privacy, /terms), the
+ * noindexed community area (/community), listing pages that are empty
  * (/papers with no papers, domain hubs with no published work) and author pages
  * for members who have not published anything.
  *
@@ -32,7 +32,7 @@ import { slugify } from "./slug";
 export const SITE_URL = "https://anvikshikijournal.in";
 
 /**
- * When the copy of the static pages (/about, /about/anvikshiki, /contact) last
+ * When the copy of the static pages (/about, /about/anvikshiki, /contact, /submit) last
  * changed. Update this by hand in the same commit that edits that copy.
  */
 export const STATIC_PAGES_LASTMOD = "2026-10-05T00:00:00.000Z";
@@ -129,7 +129,9 @@ export function buildSitemapEntries(source: SitemapSource): SitemapEntry[] {
     { loc: `${SITE_URL}/about/anvikshiki`, lastmod: iso(staticTime) },
     { loc: `${SITE_URL}/browse`, lastmod: iso(newest(staticTime, latestWork)) },
     { loc: `${SITE_URL}/archive`, lastmod: iso(newest(staticTime, latestWork)) },
+    { loc: `${SITE_URL}/domains`, lastmod: iso(newest(staticTime, latestWork)) },
     { loc: `${SITE_URL}/contact`, lastmod: iso(staticTime) },
+    { loc: `${SITE_URL}/submit`, lastmod: iso(staticTime) },
   ];
 
   if (source.papers.length > 0) {

@@ -45,13 +45,15 @@ describe("buildSitemapEntries", () => {
     vi.useRealTimers();
   });
 
-  it("lists the indexable static pages and nothing that ends at a form or boilerplate", () => {
+  // /submit (now a public guidelines page) and /domains (now a server-rendered
+  // index) return 200 with a self-canonical, so they are listed.
+  it("lists the indexable static pages and leaves out boilerplate and the noindexed community", () => {
     const urls = locs(source());
 
-    for (const path of ["/", "/about", "/about/anvikshiki", "/browse", "/archive", "/contact"]) {
+    for (const path of ["/", "/about", "/about/anvikshiki", "/browse", "/archive", "/domains", "/contact", "/submit"]) {
       expect(urls).toContain(`${SITE_URL}${path}`);
     }
-    for (const path of ["/privacy", "/terms", "/submit", "/community", "/domains"]) {
+    for (const path of ["/privacy", "/terms", "/community"]) {
       expect(urls).not.toContain(`${SITE_URL}${path}`);
     }
   });

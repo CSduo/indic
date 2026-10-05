@@ -12,6 +12,7 @@ import healthRouter from "./routes/health";
 import sitemapRouter from "./routes/sitemap";
 import rssRouter from "./routes/rss";
 import indexnowRouter from "./routes/indexnow";
+import publicPagesRouter, { sendUnavailable } from "./routes/public-pages";
 import { DEFAULT_INDEXNOW_KEY } from "./lib/indexnow";
 import { db, articlesTable, papersTable, usersTable, categoriesTable, submissionsTable, ensureDatabaseSchema, coreTablesExist } from "@workspace/db";
 import { eq, and, or, ilike, isNull } from "drizzle-orm";
@@ -42,7 +43,11 @@ import {
   renderBodyHtml,
   injectSsrHtml,
   buildFallbackHtml,
+  renderSsrDocument,
+  PUBLIC_HTML_CACHE_CONTROL,
 } from "./lib/ssr-html";
+import { hasPublishedPapers, listPublishedWorks, listVisibleCategories, type WorkSummary } from "./lib/public-content";
+import { PAGE_META } from "./lib/page-meta";
 
 export * from "./lib/ssr-html";
 
@@ -340,6 +345,9 @@ app.use("/api", router);
 app.use(sitemapRouter);
 app.use(rssRouter);
 app.use(indexnowRouter);
+// Server-rendered /, /archive, /domains, /papers, /contact, /privacy, /terms,
+// /community and /submit (see routes/public-pages.ts).
+app.use(publicPagesRouter);
 
 // Serve IndexNow verification key file at root
 app.get(["/indexnow-key.txt", `/${DEFAULT_INDEXNOW_KEY}.txt`], (_req, res) => {
@@ -524,6 +532,7 @@ export function generateArticleSsrHtml(article: any, domainDisplayName: string, 
   ${tagsHtml}
   ${referencesHtml}
 
+  <footer class="ssr-article-footer">
     <div class="ssr-author-bio-card">
       <h3>About the Author</h3>
       <p><strong><a href="/authors/${escapeHtml(authorSlug)}">${escapeHtml(author)}</a></strong> is a contributor to Ānvīkṣikī Journal.</p>
@@ -773,6 +782,14 @@ export function generateAuthorHubSsrHtml(
 </main>`;
 }
 
+/** A linked author byline for a listed work, using its canonical author hub when known. */
+function listedAuthorByline(work: Pick<WorkSummary, "authorName" | "authorPath">): string {
+  if (!work.authorName) return "";
+  return work.authorPath
+    ? `<p class="ssr-byline">By <a href="${escapeHtml(work.authorPath)}">${escapeHtml(work.authorName)}</a></p>`
+    : `<p class="ssr-byline">By ${escapeHtml(work.authorName)}</p>`;
+}
+
 export function generateDomainHubSsrHtml(
   category: {
     slug: string;
@@ -780,82 +797,59 @@ export function generateDomainHubSsrHtml(
     description?: string | null;
     icon?: string | null;
   },
-  articles: Array<any>,
-  papers: Array<any>
+  articles: WorkSummary[],
+  papers: WorkSummary[]
 ): string {
   const totalWorks = articles.length + papers.length;
 
   const breadcrumbsHtml = renderBreadcrumbs([
     { name: "Home", url: "/" },
-    { name: "Explore", url: "/browse" },
+    { name: "Domains", url: "/domains" },
     { name: category.name },
   ]);
+
+  const workItem = (work: WorkSummary) => `
+              <li class="ssr-work-item">
+                <article>
+                  <h3><a href="/${work.kind === "paper" ? "papers" : "articles"}/${escapeHtml(work.slug)}">${escapeHtml(work.title)}</a></h3>
+                  ${listedAuthorByline(work)}
+                  ${work.excerpt ? `<p class="ssr-work-excerpt">${escapeHtml(work.excerpt.slice(0, 280))}${work.excerpt.length > 280 ? "…" : ""}</p>` : ""}
+                  ${work.publishedAt ? `<time datetime="${formatIsoDate(work.publishedAt)}">${escapeHtml(formatDate(work.publishedAt))}</time>` : ""}
+                </article>
+              </li>`;
 
   return `<main class="ssr-content ssr-domain-hub" itemscope itemtype="https://schema.org/CollectionPage">
   ${breadcrumbsHtml}
 
   <header class="ssr-domain-header">
-    <span class="ssr-domain-label">Discipline</span>
+    <span class="ssr-domain-label">Domain</span>
     <h1 class="ssr-title" itemprop="name">${escapeHtml(category.name)}</h1>
     ${category.description ? `<p class="ssr-description" itemprop="description">${escapeHtml(category.description)}</p>` : ""}
     <div class="ssr-domain-stats">
-      <span><strong>${articles.length}</strong> Essays</span> · <span><strong>${papers.length}</strong> Papers</span>
+      <span><strong>${articles.length}</strong> ${articles.length === 1 ? "essay" : "essays"}</span>${papers.length > 0 ? ` · <span><strong>${papers.length}</strong> ${papers.length === 1 ? "paper" : "papers"}</span>` : ""}
     </div>
   </header>
 
   <section class="ssr-section ssr-domain-publications">
-    <h2>Published Works in ${escapeHtml(category.name)}</h2>
+    <h2>Published work in ${escapeHtml(category.name)}</h2>
 
     ${totalWorks === 0 ? `
       <div class="ssr-empty-box">
-        <p>The first folio for this domain is being compiled. Essays and research papers in ${escapeHtml(category.name)} are actively invited.</p>
-        <p><a href="/submit" class="ssr-btn-submit">Submit a Manuscript in ${escapeHtml(category.name)}</a></p>
+        <p>Nothing has been published in ${escapeHtml(category.name)} yet.</p>
+        <p><a href="/submit" class="ssr-btn-submit">Submit work in ${escapeHtml(category.name)}</a> · <a href="/domains">Other domains</a></p>
       </div>
     ` : `
-      <div class="ssr-columns-container">
-        ${articles.length > 0 ? `
-        <div class="ssr-column">
-          <h3>Essays &amp; Articles (${articles.length})</h3>
-          <ul class="ssr-work-list">
-            ${articles.map(art => `
-              <li class="ssr-work-item">
-                <article>
-                  <h4><a href="/articles/${escapeHtml(art.slug)}">${escapeHtml(art.title)}</a></h4>
-                  ${art.authorName ? `<p class="ssr-byline">By <a href="/authors/${slugify(art.authorName)}">${escapeHtml(art.authorName)}</a></p>` : ""}
-                  ${art.excerpt ? `<p class="ssr-work-excerpt">${escapeHtml(art.excerpt)}</p>` : ""}
-                  ${art.publishedAt ? `<time datetime="${formatIsoDate(art.publishedAt)}">${escapeHtml(formatDate(art.publishedAt))}</time>` : ""}
-                </article>
-              </li>
-            `).join("\n")}
-          </ul>
-        </div>
-        ` : ""}
-
-        ${papers.length > 0 ? `
-        <div class="ssr-column">
-          <h3>Research Papers (${papers.length})</h3>
-          <ul class="ssr-work-list">
-            ${papers.map(p => `
-              <li class="ssr-work-item">
-                <article>
-                  <h4><a href="/papers/${escapeHtml(p.slug)}">${escapeHtml(p.title)}</a></h4>
-                  ${p.authorName ? `<p class="ssr-byline">By <a href="/authors/${slugify(p.authorName)}">${escapeHtml(p.authorName)}</a></p>` : ""}
-                  ${p.abstract ? `<p class="ssr-work-excerpt">${escapeHtml(stripHtml(p.abstract).slice(0, 220))}...</p>` : ""}
-                  <div class="ssr-work-meta">
-                    ${p.year ? `<span>Year: ${escapeHtml(p.year)}</span>` : ""}
-                    ${p.doi ? `<span>DOI: ${escapeHtml(p.doi)}</span>` : ""}
-                  </div>
-                </article>
-              </li>
-            `).join("\n")}
-          </ul>
-        </div>
-        ` : ""}
-      </div>
+      ${articles.length > 0 ? `<ul class="ssr-work-list">${articles.map(workItem).join("\n")}
+      </ul>` : ""}
+      ${papers.length > 0 ? `<h2>Research papers</h2>
+      <ul class="ssr-work-list">${papers.map(workItem).join("\n")}
+      </ul>` : ""}
+      <p><a href="/domains">All domains</a> · <a href="/archive">The full archive</a></p>
     `}
   </section>
 </main>`;
 }
+
 
 // HTTP 301 Permanent Redirects for legacy routes
 app.get("/essays/:slug", (req, res) => {
@@ -959,14 +953,24 @@ export function generateAboutAnvikshikiSsrHtml(): string {
 export const BROWSE_DESCRIPTION = "Every article and paper published on Ānvīkṣikī, grouped by discipline: Indic philosophy, Sanskrit traditions, history and civilizational thought.";
 
 export function generateBrowseSsrHtml(
-  articles: Array<any>,
-  papers: Array<any>,
-  categories: Array<any>
+  articles: WorkSummary[],
+  papers: WorkSummary[],
+  categories: Array<{ slug: string; name: string }>
 ): string {
   const breadcrumbsHtml = renderBreadcrumbs([
     { name: "Home", url: "/" },
-    { name: "Browse Archive" },
+    { name: "Browse" },
   ]);
+
+  const workItem = (work: WorkSummary) => `
+            <li class="ssr-work-item">
+              <article>
+                <h3><a href="/${work.kind === "paper" ? "papers" : "articles"}/${escapeHtml(work.slug)}">${escapeHtml(work.title)}</a></h3>
+                ${listedAuthorByline(work)}
+                ${work.excerpt ? `<p class="ssr-work-excerpt">${escapeHtml(work.excerpt.slice(0, 280))}${work.excerpt.length > 280 ? "…" : ""}</p>` : ""}
+                ${work.publishedAt ? `<time datetime="${formatIsoDate(work.publishedAt)}">${escapeHtml(formatDate(work.publishedAt))}</time>` : ""}
+              </article>
+            </li>`;
 
   return `<main class="ssr-content ssr-browse-hub" itemscope itemtype="https://schema.org/CollectionPage">
   ${breadcrumbsHtml}
@@ -992,51 +996,56 @@ export function generateBrowseSsrHtml(
   </section>
 
   <section class="ssr-section ssr-publications">
-    <h2>Published Research &amp; Essays</h2>
-    <div class="ssr-columns-container">
-      <div class="ssr-column">
-        <h3>Recent Articles &amp; Monographs (${articles.length})</h3>
-        <ul class="ssr-work-list">
-          ${articles.map(art => `
-            <li class="ssr-work-item">
-              <article>
-                <h4><a href="/articles/${escapeHtml(art.slug)}">${escapeHtml(art.title)}</a></h4>
-                ${art.authorName ? `<p class="ssr-byline">By <a href="/authors/${slugify(art.authorName)}">${escapeHtml(art.authorName)}</a></p>` : ""}
-                ${art.excerpt ? `<p class="ssr-work-excerpt">${escapeHtml(art.excerpt)}</p>` : ""}
-                ${art.publishedAt ? `<time datetime="${formatIsoDate(art.publishedAt)}">${escapeHtml(formatDate(art.publishedAt))}</time>` : ""}
-              </article>
-            </li>
-          `).join("\n")}
-        </ul>
-      </div>
-
-      ${papers.length > 0 ? `
-      <div class="ssr-column">
-        <h3>Research Papers (${papers.length})</h3>
-        <ul class="ssr-work-list">
-          ${papers.map(p => `
-            <li class="ssr-work-item">
-              <article>
-                <h4><a href="/papers/${escapeHtml(p.slug)}">${escapeHtml(p.title)}</a></h4>
-                ${p.authorName ? `<p class="ssr-byline">By <a href="/authors/${slugify(p.authorName)}">${escapeHtml(p.authorName)}</a></p>` : ""}
-                ${p.abstract ? `<p class="ssr-work-excerpt">${escapeHtml(stripHtml(p.abstract).slice(0, 220))}...</p>` : ""}
-              </article>
-            </li>
-          `).join("\n")}
-        </ul>
-      </div>
-      ` : ""}
-    </div>
+    <h2>Published Essays &amp; Articles (${articles.length})</h2>
+    <ul class="ssr-work-list">
+      ${articles.map(workItem).join("\n")}
+    </ul>
+    ${papers.length > 0 ? `
+    <h2>Research Papers (${papers.length})</h2>
+    <ul class="ssr-work-list">
+      ${papers.map(workItem).join("\n")}
+    </ul>
+    ` : ""}
   </section>
 </main>`;
 }
 
+function staticPageHead(
+  key: "about" | "aboutAnvikshiki",
+  canonicalUrl: string,
+  ogType: "website" | "article",
+  jsonLdNode: Record<string, unknown>,
+): string {
+  const { title, description } = PAGE_META[key];
+  return `
+    <title>${escapeHtml(title)}</title>
+    <meta name="description" content="${escapeHtml(description)}" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta property="og:site_name" content="${SITE_NAME}" />
+    <meta property="og:locale" content="en_IN" />
+    <meta property="og:title" content="${escapeHtml(title)}" />
+    <meta property="og:description" content="${escapeHtml(description)}" />
+    <meta property="og:type" content="${ogType}" />
+    <meta property="og:url" content="${canonicalUrl}" />
+    ${socialImageMetaTags(DEFAULT_SOCIAL_IMAGE, "Ānvīkṣikī")}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${escapeHtml(title)}" />
+    <meta name="twitter:description" content="${escapeHtml(description)}" />
+    <link rel="canonical" href="${canonicalUrl}" />
+    ${jsonLdGraphScript([jsonLdNode])}
+  `;
+}
+
+function sendPublicHtml(res: import("express").Response, html: string) {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", PUBLIC_HTML_CACHE_CONTROL);
+  return res.status(200).send(html);
+}
+
 // SSR for /about/anvikshiki (Meaning of Ānvīkṣikī Canonical Hub)
-app.get("/about/anvikshiki", (_req, res) => {
-  const template = getHtmlTemplate();
+app.get("/about/anvikshiki", async (_req, res) => {
   const canonicalUrl = `${CANONICAL_DOMAIN}/about/anvikshiki`;
-  const title = "Meaning of Ānvīkṣikī: Etymology, Philosophy & Classical Heritage — Ānvīkṣikī";
-  const description = "Explore the profound meaning of Ānvīkṣikī (आन्वीक्षिकी): the Sanskrit etymology, Kautilya's Arthaśāstra doctrine of the foundational science, and Nyāya rational inquiry.";
+  const { title, description } = PAGE_META.aboutAnvikshiki;
   const aboutPageNode = {
     "@type": "AboutPage",
     "@id": `${canonicalUrl}#webpage`,
@@ -1055,37 +1064,18 @@ app.get("/about/anvikshiki", (_req, res) => {
       "inDefinedTermSet": `${CANONICAL_DOMAIN}/domains/philosophy`,
     },
   };
-
-  const metaTags = `
-    <title>${escapeHtml(title)}</title>
-    <meta name="description" content="${escapeHtml(description)}" />
-    <meta name="robots" content="index, follow, max-image-preview:large" />
-    <meta property="og:site_name" content="${SITE_NAME}" />
-    <meta property="og:locale" content="en_IN" />
-    <meta property="og:title" content="${escapeHtml(title)}" />
-    <meta property="og:description" content="${escapeHtml(description)}" />
-    <meta property="og:type" content="article" />
-    <meta property="og:url" content="${canonicalUrl}" />
-    ${socialImageMetaTags(DEFAULT_SOCIAL_IMAGE, "Ānvīkṣikī")}
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="${escapeHtml(title)}" />
-    <meta name="twitter:description" content="${escapeHtml(description)}" />
-    <link rel="canonical" href="${canonicalUrl}" />
-    ${jsonLdGraphScript([aboutPageNode])}
-  `;
-
-  const ssrHtml = generateAboutAnvikshikiSsrHtml();
-  const finalHtml = template ? injectSsrHtml(template, metaTags, ssrHtml) : buildFallbackHtml(metaTags, ssrHtml);
-  res.setHeader("Content-Type", "text/html; charset=utf-8");
-  return res.status(200).send(finalHtml);
+  const metaTags = staticPageHead("aboutAnvikshiki", canonicalUrl, "article", aboutPageNode);
+  return sendPublicHtml(res, renderSsrDocument(metaTags, generateAboutAnvikshikiSsrHtml(), {
+    route: "about-anvikshiki",
+    path: "/about/anvikshiki",
+    data: null,
+  }, { showPapers: await hasPublishedPapers() }));
 });
 
 // SSR for /about
-app.get("/about", (_req, res) => {
-  const template = getHtmlTemplate();
+app.get("/about", async (_req, res) => {
   const canonicalUrl = `${CANONICAL_DOMAIN}/about`;
-  const title = "About Ānvīkṣikī: An Open Journal of Indic Philosophy & Civilizational Thought";
-  const description = "Ānvīkṣikī is an open-access journal and living archive dedicated to rigorous scholarship in Indic philosophy, Sanskrit traditions, history, and civilizational inquiry.";
+  const { title, description } = PAGE_META.about;
   const aboutPageNode = {
     "@type": "AboutPage",
     "@id": `${canonicalUrl}#webpage`,
@@ -1096,59 +1086,35 @@ app.get("/about", (_req, res) => {
     "isPartOf": { "@type": "WebSite", "@id": `${CANONICAL_DOMAIN}/#website` },
     "publisher": publisherNode(),
   };
-  const metaTags = `
-    <title>${escapeHtml(title)}</title>
-    <meta name="description" content="${escapeHtml(description)}" />
-    <meta name="robots" content="index, follow, max-image-preview:large" />
-    <meta property="og:site_name" content="${SITE_NAME}" />
-    <meta property="og:locale" content="en_IN" />
-    <meta property="og:title" content="${escapeHtml(title)}" />
-    <meta property="og:description" content="${escapeHtml(description)}" />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="${canonicalUrl}" />
-    ${socialImageMetaTags(DEFAULT_SOCIAL_IMAGE, "Ānvīkṣikī")}
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="${escapeHtml(title)}" />
-    <meta name="twitter:description" content="${escapeHtml(description)}" />
-    <link rel="canonical" href="${canonicalUrl}" />
-    ${jsonLdGraphScript([aboutPageNode])}
-  `;
+  const metaTags = staticPageHead("about", canonicalUrl, "website", aboutPageNode);
   const ssrHtml = `<main class="ssr-content ssr-about">
     <h1>About Ānvīkṣikī</h1>
     <p>An open journal and research platform for rigorous inquiry, civilizational memory, and beautiful long-form scholarship.</p>
-    <p>We publish essays, research papers, translations, and commentary across philosophy, history, psychology, sociology, science, geopolitics, civilizational thought, and the Sanskrit tradition.</p>
+    <p>We accept essays, research papers, translations and commentary across philosophy, history, psychology, sociology, science, geopolitics, civilizational thought and the Sanskrit tradition. The work published so far is essays, mostly on history, philosophy and politics.</p>
     <p><strong><a href="/about/anvikshiki">Read the complete treatise on the Meaning of Ānvīkṣikī</a></strong></p>
-    <p><a href="/browse">Browse Published Works</a> · <a href="/submit">Submit Your Work</a></p>
+    <p><a href="/archive">Browse Published Works</a> · <a href="/domains">Domains</a> · <a href="/submit">Submit Your Work</a> · <a href="/contact">Contact</a></p>
   </main>`;
-  const finalHtml = template ? injectSsrHtml(template, metaTags, ssrHtml) : buildFallbackHtml(metaTags, ssrHtml);
-  res.setHeader("Content-Type", "text/html; charset=utf-8");
-  return res.status(200).send(finalHtml);
+  return sendPublicHtml(res, renderSsrDocument(metaTags, ssrHtml, { route: "about", path: "/about", data: null }, { showPapers: await hasPublishedPapers() }));
 });
 
 // SSR for /browse
-app.get("/browse", async (_req, res) => {
-  const template = getHtmlTemplate();
+app.get("/browse", async (req, res) => {
   const canonicalUrl = `${CANONICAL_DOMAIN}/browse`;
-  const title = "Browse Published Articles & Papers — Ānvīkṣikī";
-  const description = BROWSE_DESCRIPTION;
+  const { title, description } = PAGE_META.browse;
 
-  let articles: any[] = [];
-  let papers: any[] = [];
-  let categories: any[] = [];
-
+  let articles: WorkSummary[];
+  let papers: WorkSummary[];
+  let categories: Array<{ slug: string; name: string; description: string | null }>;
   try {
-    [articles, papers, categories] = await Promise.all([
-      db.select({ slug: articlesTable.slug, title: articlesTable.title, excerpt: articlesTable.excerpt, authorName: articlesTable.authorName, categorySlug: articlesTable.categorySlug, publishedAt: articlesTable.publishedAt })
-        .from(articlesTable)
-        .where(and(eq(articlesTable.status, "PUBLISHED"), isNull(articlesTable.deletedAt)))
-        .limit(30),
-      db.select({ slug: papersTable.slug, title: papersTable.title, abstract: papersTable.abstract, authorName: papersTable.authorName, categorySlug: papersTable.categorySlug, publishedAt: papersTable.publishedAt })
-        .from(papersTable)
-        .where(and(eq(papersTable.status, "PUBLISHED"), isNull(papersTable.deletedAt)))
-        .limit(30),
-      db.select().from(categoriesTable).where(eq(categoriesTable.visible, true)),
-    ]);
-  } catch {}
+    const [works, visible] = await Promise.all([listPublishedWorks(), listVisibleCategories()]);
+    articles = works.articles;
+    papers = works.papers;
+    categories = visible;
+  } catch (err) {
+    // Never cache an empty listing for a database hiccup.
+    sendUnavailable(req, res, err);
+    return;
+  }
 
   const browseNode = {
     "@type": "CollectionPage",
@@ -1162,8 +1128,8 @@ app.get("/browse", async (_req, res) => {
     "mainEntity": {
       "@type": "ItemList",
       "itemListElement": [
-        ...articles.map((a: any, i: number) => ({ "@type": "ListItem", "position": i + 1, "url": `${CANONICAL_DOMAIN}/articles/${a.slug}`, "name": a.title })),
-        ...papers.map((p: any, i: number) => ({ "@type": "ListItem", "position": articles.length + i + 1, "url": `${CANONICAL_DOMAIN}/papers/${p.slug}`, "name": p.title })),
+        ...articles.map((a, i) => ({ "@type": "ListItem", "position": i + 1, "url": `${CANONICAL_DOMAIN}/articles/${a.slug}`, "name": a.title })),
+        ...papers.map((p, i) => ({ "@type": "ListItem", "position": articles.length + i + 1, "url": `${CANONICAL_DOMAIN}/papers/${p.slug}`, "name": p.title })),
       ],
     },
   };
@@ -1186,32 +1152,31 @@ app.get("/browse", async (_req, res) => {
   `;
 
   const ssrHtml = generateBrowseSsrHtml(articles, papers, categories);
-  const finalHtml = template ? injectSsrHtml(template, metaTags, ssrHtml) : buildFallbackHtml(metaTags, ssrHtml);
-  res.setHeader("Content-Type", "text/html; charset=utf-8");
-  return res.status(200).send(finalHtml);
+  return sendPublicHtml(res, renderSsrDocument(metaTags, ssrHtml, {
+    route: "browse",
+    path: "/browse",
+    data: { articles, papers, domains: categories },
+  }, { showPapers: papers.length > 0 }));
 });
 
-// SSR / Landing Route Handlers for Submissions
-app.get(/^\/submit(?:\/.*)?$/, (req, res) => {
-  const template = getHtmlTemplate();
-  // Only the /submit landing is indexable; the drafting and upload screens
-  // under /submit/ are private (robots.txt Disallow + X-Robots-Tag noindex).
-  const isLanding = req.path.replace(/\/+$/, "") === "/submit";
-  if (!isLanding) res.setHeader("X-Robots-Tag", "noindex, nofollow");
+// The drafting and upload screens under /submit/ are private: robots.txt
+// Disallow plus noindex. On Vercel they are served as the SPA shell; this
+// handler covers other hosts. The public /submit guidelines page is in
+// routes/public-pages.ts.
+app.get(/^\/submit\/.+$/, (_req, res) => {
+  res.setHeader("X-Robots-Tag", "noindex, nofollow");
+  res.setHeader("Cache-Control", "no-store");
   const metaTags = `
-    <title>Submit Research &amp; Essays — Ānvīkṣikī Journal</title>
-    <meta name="description" content="Submit your research paper, translation, essay, or review to Ānvīkṣikī. Open journal and research platform for Indic philosophy and civilizational inquiry." />
-    <meta name="robots" content="${isLanding ? "index, follow" : "noindex, nofollow"}" />
-    <link rel="canonical" href="https://anvikshikijournal.in/submit" />
+    <title>${escapeHtml(PAGE_META.submit.title)}</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="canonical" href="${CANONICAL_DOMAIN}/submit" />
   `;
   const ssrHtml = `<main class="ssr-content ssr-submit-landing">
     <h1>Submit to Ānvīkṣikī</h1>
-    <p>Ānvīkṣikī welcomes submissions of scholarly research papers, monographs, philosophical essays, and translations in Indic studies.</p>
-    <p><a href="/submit/write">Open Writing Panel</a> or <a href="/submit/upload">Upload Manuscript</a></p>
+    <p>Sign in to write or upload a submission. The <a href="/submit">submission guidelines</a> explain what to include.</p>
   </main>`;
-  const finalHtml = template ? injectSsrHtml(template, metaTags, ssrHtml) : buildFallbackHtml(metaTags, ssrHtml);
   res.setHeader("Content-Type", "text/html; charset=utf-8");
-  return res.status(200).send(finalHtml);
+  return res.status(200).send(renderSsrDocument(metaTags, ssrHtml));
 });
 
 
@@ -1436,13 +1401,17 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
       ? generatePaperSsrHtml(item, domainDisplayName)
       : generateArticleSsrHtml(item, domainDisplayName, singleAuthorSegment ?? undefined);
 
-    const template = getHtmlTemplate();
-    const finalHtml = template
-      ? injectSsrHtml(template, ogTags, ssrHtml, item)
-      : buildFallbackHtml(ogTags, ssrHtml, item);
+    const finalHtml = renderSsrDocument(
+      ogTags,
+      ssrHtml,
+      { route: isPaper ? "paper" : "article", path: req.path, data: item },
+      { showPapers: isPaper || (await hasPublishedPapers()) },
+    );
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
+    // A draft is only rendered for a signed-in editor; it must never be cached
+    // by the CDN and served to the next visitor.
+    res.setHeader("Cache-Control", isDraft ? "private, no-store" : PUBLIC_HTML_CACHE_CONTROL);
     res.status(200).send(finalHtml);
     return;
   } catch (err) {
@@ -1621,13 +1590,15 @@ app.get("/authors/:slug", async (req, res, next) => {
     `;
 
     const ssrHtml = generateAuthorHubSsrHtml(authorData, authorArticles, authorPapers);
-    const template = getHtmlTemplate();
-    const finalHtml = template
-      ? injectSsrHtml(template, ogTags, ssrHtml, authorData)
-      : buildFallbackHtml(ogTags, ssrHtml, authorData);
+    const finalHtml = renderSsrDocument(
+      ogTags,
+      ssrHtml,
+      { route: "author", path: req.path, data: authorData },
+      { showPapers: allPapers.length > 0 },
+    );
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
+    res.setHeader("Cache-Control", PUBLIC_HTML_CACHE_CONTROL);
     res.status(200).send(finalHtml);
     return;
   } catch (err) {
@@ -1675,16 +1646,12 @@ app.get("/domains/:slug", async (req, res, next) => {
       return;
     }
 
-    const [allArticles, allPapers] = await Promise.all([
-      db.select().from(articlesTable).where(and(eq(articlesTable.categorySlug, category.slug), eq(articlesTable.status, "PUBLISHED"), isNull(articlesTable.deletedAt))),
-      db.select().from(papersTable).where(and(eq(papersTable.categorySlug, category.slug), eq(papersTable.status, "PUBLISHED"), isNull(papersTable.deletedAt))),
-    ]);
-
-    const domainArticles = allArticles.filter((a: any) => a.categorySlug === category.slug);
-    const domainPapers = allPapers.filter((p: any) => p.categorySlug === category.slug);
+    const works = await listPublishedWorks();
+    const domainArticles = works.articles.filter((a) => a.categorySlug === category.slug);
+    const domainPapers = works.papers.filter((p) => p.categorySlug === category.slug);
 
     const cleanName = escapeHtml(category.name);
-    const descRaw = category.description || `Explore essays, research papers, and critical monographs in ${category.name} on Ānvīkṣikī.`;
+    const descRaw = category.description || `Work published on Ānvīkṣikī in ${category.name}.`;
     const cleanDesc = escapeHtml(stripHtml(descRaw).slice(0, 300));
     const canonicalUrl = buildCanonicalUrl(`/domains/${category.slug}`);
     const cleanUrl = escapeHtml(canonicalUrl);
@@ -1745,13 +1712,23 @@ app.get("/domains/:slug", async (req, res, next) => {
     `;
 
     const ssrHtml = generateDomainHubSsrHtml(category, domainArticles, domainPapers);
-    const template = getHtmlTemplate();
-    const finalHtml = template
-      ? injectSsrHtml(template, ogTags, ssrHtml, category)
-      : buildFallbackHtml(ogTags, ssrHtml, category);
+    const finalHtml = renderSsrDocument(
+      ogTags,
+      ssrHtml,
+      {
+        route: "domain",
+        path: req.path,
+        data: {
+          category: { slug: category.slug, name: category.name, description: category.description ?? null },
+          articles: domainArticles,
+          papers: domainPapers,
+        },
+      },
+      { showPapers: works.papers.length > 0 },
+    );
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
+    res.setHeader("Cache-Control", PUBLIC_HTML_CACHE_CONTROL);
     res.status(200).send(finalHtml);
     return;
   } catch (err) {

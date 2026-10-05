@@ -134,7 +134,8 @@ describe("static SSR pages", () => {
   it("keeps /submit indexable but noindexes the drafting screens", async () => {
     const landing = await request(app).get("/submit");
     expect(landing.headers["x-robots-tag"]).toBeUndefined();
-    expect(landing.text).toContain('<meta name="robots" content="index, follow" />');
+    // Same robots value as every other indexable SSR page (was "index, follow").
+    expect(landing.text).toContain('<meta name="robots" content="index, follow, max-image-preview:large" />');
 
     const write = await request(app).get("/submit/write");
     expect(write.headers["x-robots-tag"]).toBe("noindex, nofollow");

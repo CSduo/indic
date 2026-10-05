@@ -75,6 +75,12 @@
       ]
     },
     {
+      "source": "/spa.html",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+      ]
+    },
+    {
       "source": "/(.*)",
       "headers": [
         { "key": "X-Content-Type-Options", "value": "nosniff" },
@@ -164,8 +170,36 @@
       "destination": "/api/index"
     },
     {
+      "source": "/",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/archive",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/contact",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/privacy",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/terms",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/community",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/submit",
+      "destination": "/api/index"
+    },
+    {
       "source": "/:path*",
-      "destination": "/index.html"
+      "destination": "/spa.html"
     }
   ]
 }

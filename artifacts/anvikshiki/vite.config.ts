@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
@@ -13,10 +13,32 @@ if (Number.isNaN(port) || port <= 0) {
 
 const basePath = process.env.BASE_PATH || "/";
 
+/*
+  The built SPA shell is written as spa.html, not index.html. On Vercel a
+  static file wins over a rewrite, so an index.html in the output directory
+  would answer "/" with the empty shell and the server-rendered home page
+  (vercel.json rewrites "/" to the API function) would never run. Every other
+  client-only route is rewritten to /spa.html. The dev server is unaffected.
+*/
+function spaShellFileName(): Plugin {
+  return {
+    name: "anvikshiki-spa-shell-file-name",
+    apply: "build",
+    enforce: "post",
+    generateBundle(_options, bundle) {
+      const shell = bundle["index.html"];
+      if (!shell || shell.type !== "asset") return;
+      delete bundle["index.html"];
+      this.emitFile({ type: "asset", fileName: "spa.html", source: shell.source });
+    },
+  };
+}
+
 export default defineConfig({
   base: basePath,
   plugins: [
     react(),
+    spaShellFileName(),
     tailwindcss(),
     runtimeErrorOverlay(),
     ...(process.env.NODE_ENV !== "production" &&
