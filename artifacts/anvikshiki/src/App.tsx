@@ -2,6 +2,7 @@ import { Suspense, lazy } from "react";
 import { Switch, Route, Redirect, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
+import { Analytics, type BeforeSendEvent } from "@vercel/analytics/react";
 import { useState, useEffect } from "react";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { withContentVersion } from "@/lib/contentVersion";
@@ -343,6 +344,23 @@ if (typeof window !== "undefined") {
   });
 }
 
+/*
+  Vercel Web Analytics (cookieless; enabled in the Vercel project). The script
+  and its beacon are same-origin (/_vercel/insights/*), so the CSP needs no
+  change. Query strings are dropped before sending so search terms and
+  one-time tokens in links never reach the analytics store.
+*/
+function stripQuery(event: BeforeSendEvent): BeforeSendEvent {
+  try {
+    const url = new URL(event.url);
+    url.search = "";
+    url.hash = "";
+    return { ...event, url: url.toString() };
+  } catch {
+    return event;
+  }
+}
+
 function App() {
   const [loading, setLoading] = useState(() => {
     try {
@@ -360,6 +378,7 @@ function App() {
             <Router />
           </WouterRouter>
           <NotificationInvite />
+          <Analytics mode={import.meta.env.DEV ? "development" : "production"} beforeSend={stripQuery} />
           <Toaster
             position="top-center"
             toastOptions={{
