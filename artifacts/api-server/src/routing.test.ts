@@ -24,6 +24,8 @@ const state = vi.hoisted(() => ({
   rows: new Map<string, any>(),
   /** Published slugs the redirect lookup can choose from. */
   publishedSlugs: [] as string[],
+  /** The account findSubmissionOwner reports for any submission. */
+  owner: null as string | null,
 }));
 
 vi.mock("./lib/public-content", async (importOriginal) => ({
@@ -37,13 +39,14 @@ vi.mock("./lib/publication-lookup", async (importOriginal) => {
     ...original,
     findPublicationBySlug: async (_kind: string, slug: string) => state.rows.get(slug) ?? null,
     findPublishedSlugRedirect: async (_kind: string, slug: string) => original.pickSlugRedirect(slug, state.publishedSlugs),
-    findSubmissionOwner: async () => null,
+    findSubmissionOwner: async (id: string | null | undefined) => (id ? state.owner : null),
     listAuthorHubWorks: async () => ({ articles: state.articles, papers: state.papers }),
     findAuthorProfile: async () => ({ bio: null, institution: null, avatarUrl: null }),
   };
 });
 
 import app from "./app";
+import { createUserToken } from "./lib/auth";
 
 const originalDatabaseUrl = process.env.DATABASE_URL;
 beforeAll(() => {
@@ -87,6 +90,7 @@ beforeEach(() => {
   state.papers = [];
   state.rows = new Map();
   state.publishedSlugs = [];
+  state.owner = null;
 });
 
 function robotsMeta(html: string): string | null {
@@ -275,6 +279,45 @@ describe("article pages", () => {
     const legacySrc = `/images/legacy/${slug}/01.jpg`;
     expect(initialDataBody(res.text)).toContain(legacySrc);
     expect(res.text.replace(/<script id="__INITIAL_DATA__"[\s\S]*?<\/script>/, "")).toContain(`src="${legacySrc}"`);
+  });
+});
+
+describe("unpublished works", () => {
+  function draftRow() {
+    return {
+      id: "d1", slug: "a-draft", title: "A Draft", subtitle: null, excerpt: "Not yet published.", seoTitle: null,
+      seoDescription: null, body: "<p>Unpublished text.</p>", authorName: "Xiyato Saanvi", status: "DRAFT", deletedAt: null,
+      publishedAt: null, updatedAt: "2026-08-02T00:00:00.000Z", categorySlug: null, tags: [], sourceSubmissionId: "s1",
+    };
+  }
+
+  it("is a 404 for anonymous visitors and for a forged session cookie", async () => {
+    state.rows.set("a-draft", draftRow());
+    for (const cookie of [undefined, "user_session=forged", "admin_session=forged"]) {
+      const req = request(app).get("/articles/a-draft");
+      const res = cookie ? await req.set("Cookie", cookie) : await req;
+      expect(res.status, cookie ?? "anonymous").toBe(404);
+      expect(res.text).not.toContain("Unpublished text.");
+    }
+  });
+
+  it("is a 404 for a signed-in account that did not submit it", async () => {
+    state.rows.set("a-draft", draftRow());
+    state.owner = "u1";
+    const token = await createUserToken("u2", "reader@example.com");
+    const res = await request(app).get("/articles/a-draft").set("Cookie", `user_session=${token}`);
+    expect(res.status).toBe(404);
+  });
+
+  it("renders for the account that submitted it, noindex and uncached", async () => {
+    state.rows.set("a-draft", draftRow());
+    state.owner = "u1";
+    const token = await createUserToken("u1", "author@example.com");
+    const res = await request(app).get("/articles/a-draft").set("Cookie", `user_session=${token}`);
+    expect(res.status).toBe(200);
+    expect(res.text).toContain("Unpublished text.");
+    expect(res.headers["x-robots-tag"]).toBe("noindex, nofollow");
+    expect(res.headers["cache-control"]).toBe("private, no-store");
   });
 });
 

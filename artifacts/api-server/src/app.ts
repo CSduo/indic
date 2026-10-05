@@ -62,6 +62,7 @@ import {
 import { makeAuthorResolver, resolveAuthorRequest, workAuthorSegments } from "./lib/author-identity";
 import { cleanTitle, deriveDescription } from "./lib/seo-text";
 import { sanitizeArticleBody } from "./lib/content";
+import { getAdminAuth, getUserAuth } from "./lib/auth";
 import { recoverLegacyInlineImages } from "./lib/legacy-content";
 
 export * from "./lib/ssr-html";
@@ -440,6 +441,23 @@ app.get(["/indexnow-key.txt", `/${DEFAULT_INDEXNOW_KEY}.txt`], (_req, res) => {
  * A name only gets a URL when that route serves it, so the byline and the
  * JSON-LD never point at a 404.
  */
+/**
+ * Whether this request may see an unpublished work: a verified administrator
+ * session, or the verified account that submitted it. The mere presence of a
+ * session cookie is not enough; it can be forged, and the page embeds the
+ * full text.
+ */
+async function canPreviewDraft(
+  req: import("express").Request,
+  sourceSubmissionId: string | null | undefined,
+): Promise<boolean> {
+  if (await getAdminAuth(req).catch(() => null)) return true;
+  const user = await getUserAuth(req).catch(() => null);
+  if (!user?.userId) return false;
+  const owner = await findSubmissionOwner(sourceSubmissionId).catch(() => null);
+  return Boolean(owner && owner === user.userId);
+}
+
 async function loadBylineSegments(
   kind: "article" | "paper",
   authorName: string | null | undefined,
@@ -1263,7 +1281,7 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
       return;
     }
     const isDraft = item.status !== "PUBLISHED";
-    if (isDraft && !hasSessionCookie(req)) {
+    if (isDraft && !(await canPreviewDraft(req, item.sourceSubmissionId))) {
       send404(res, resourceType, rawSlug);
       return;
     }
