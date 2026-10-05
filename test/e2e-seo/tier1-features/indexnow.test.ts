@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import app from "../../../artifacts/api-server/src/app";
 
@@ -8,11 +8,35 @@ import app from "../../../artifacts/api-server/src/app";
  * Integrate server-side IndexNow notifications on publication, update, or unpublishing events,
  * restricted strictly to https://anvikshikijournal.in/.
  */
+// The notify endpoint now requires the cron secret or an admin session (audit
+// finding ANV-CRAWL-18), so host and payload validation is exercised with it.
+const CRON_SECRET = "test-cron-secret-for-indexnow-suite";
+let savedCronSecret: string | undefined;
+
 describe("Tier 1 - Feature 8: IndexNow Protocol Integration (R6)", () => {
+  beforeAll(() => {
+    savedCronSecret = process.env.CRON_SECRET;
+    process.env.CRON_SECRET = CRON_SECRET;
+  });
+
+  afterAll(() => {
+    if (savedCronSecret === undefined) delete process.env.CRON_SECRET;
+    else process.env.CRON_SECRET = savedCronSecret;
+  });
+
+  it("refuses unauthenticated IndexNow notifications", async () => {
+    const res = await request(app)
+      .post("/api/indexnow/notify")
+      .send({ urlList: ["https://anvikshikijournal.in/articles/nyaya-epistemology-pramana-theory"] });
+
+    expect(res.status).toBe(401);
+  });
+
   it("restricts IndexNow notifications strictly to anvikshikijournal.in host", async () => {
     // Attempt submitting URLs through IndexNow notification endpoint
     const res = await request(app)
       .post("/api/indexnow/notify")
+      .set("Authorization", `Bearer ${CRON_SECRET}`)
       .send({
         urlList: ["https://evil-spam.com/phishing"],
       });
@@ -41,6 +65,7 @@ describe("Tier 1 - Feature 8: IndexNow Protocol Integration (R6)", () => {
   it("rejects malformed IndexNow request payloads lacking URL lists", async () => {
     const res = await request(app)
       .post("/api/indexnow/notify")
+      .set("Authorization", `Bearer ${CRON_SECRET}`)
       .send({
         urlList: "not-an-array",
       });

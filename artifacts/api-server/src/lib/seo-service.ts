@@ -2,9 +2,27 @@ import * as fs from "fs";
 import * as crypto from "crypto";
 import { importPKCS8, SignJWT } from "jose";
 import { logger } from "./logger";
-import { CANONICAL_HOST, CANONICAL_BASE_URL, submitIndexNow } from "./indexnow";
+import { CANONICAL_HOST, CANONICAL_BASE_URL, submitIndexNow, type IndexNowResult } from "./indexnow";
 
 export { CANONICAL_HOST, CANONICAL_BASE_URL };
+
+/*
+  Search-engine notification for Ānvīkṣikī.
+
+  What this does, and deliberately does not do:
+
+  - IndexNow (Bing, Yandex, Seznam, Naver) is told about URLs that actually
+    changed: the work just published or updated, its author page, and — for the
+    daily job — sitemap entries whose lastmod moved since the previous run.
+  - The Google Indexing API is NOT used for journal pages. Google permits it only
+    for pages with JobPosting or BroadcastEvent (livestream) structured data;
+    articles, papers, author and domain pages are none of those. The client code
+    is kept below behind an explicit content-type guard so it cannot be pointed
+    at ordinary pages by accident. Google discovers our pages through
+    /sitemap.xml, which is submitted once in Search Console.
+  - Sitemap "ping" URLs are not called: Google retired its ping endpoint in 2023
+    and Bing's ping is likewise deprecated in favour of IndexNow.
+*/
 
 export interface SeoDispatchEvent {
   timestamp: string;
@@ -31,51 +49,13 @@ export function getSeoDispatchLog(): SeoDispatchEvent[] {
   return [...recentDispatches];
 }
 
-/**
- * Ping search engines with the updated sitemap URL.
- * Even when engines crawl on their own schedule, submitting sitemap pings
- * prompts search engine crawlers to immediately queue an update pass.
- */
-export async function pingSearchEngineSitemaps(sitemapUrl: string = `${CANONICAL_BASE_URL}/sitemap.xml`): Promise<{ google: boolean; bing: boolean }> {
-  const results = { google: false, bing: false };
-  const encodedSitemap = encodeURIComponent(sitemapUrl);
-
-  const pings = [
-    {
-      engine: "google" as const,
-      url: `https://www.google.com/ping?sitemap=${encodedSitemap}`,
-    },
-    {
-      engine: "bing" as const,
-      url: `https://www.bing.com/ping?sitemap=${encodedSitemap}`,
-    },
-  ];
-
-  await Promise.all(
-    pings.map(async ({ engine, url }) => {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
-        const res = await fetch(url, {
-          method: "GET",
-          headers: { "User-Agent": "AnvikshikiJournal-SEO-Notifier/1.0" },
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-        // Any 2xx or 3xx or 404 (if deprecated) is safe and non-fatal
-        results[engine] = res.ok || res.status < 500;
-      } catch (err: any) {
-        logger.debug({ engine, err: err?.message }, "Search engine sitemap ping non-fatal notice");
-        results[engine] = false;
-      }
-    })
-  );
-
-  return results;
-}
+const CANONICAL_HOSTS = new Set([CANONICAL_HOST, `www.${CANONICAL_HOST}`]);
 
 /**
- * Normalizes input URLs to ensure absolute canonical URLs for the journal domain.
+ * Turn paths and our own absolute URLs into canonical apex URLs.
+ *
+ * Anything on another host is dropped, never passed through: these URLs are
+ * submitted under the site's IndexNow key.
  */
 export function normalizeCanonicalUrls(urls: string[]): string[] {
   const normalized = new Set<string>();
@@ -86,17 +66,13 @@ export function normalizeCanonicalUrls(urls: string[]): string[] {
     if (!trimmed) continue;
 
     try {
-      if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+      if (/^https?:\/\//i.test(trimmed)) {
         const parsed = new URL(trimmed);
-        // Replace host with CANONICAL_HOST if it belongs to anvikshiki variants
-        if (parsed.hostname.includes("anvikshiki") || parsed.hostname.includes("vercel.app")) {
-          normalized.add(`${CANONICAL_BASE_URL}${parsed.pathname}${parsed.search}`);
-        } else {
-          normalized.add(trimmed);
-        }
-      } else {
+        if (!CANONICAL_HOSTS.has(parsed.hostname.toLowerCase())) continue;
+        normalized.add(`${CANONICAL_BASE_URL}${parsed.pathname}${parsed.search}`);
+      } else if (!trimmed.includes("://")) {
         const cleanPath = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
-        normalized.add(`${CANONICAL_BASE_URL}${cleanPath}`);
+        normalized.add(new URL(cleanPath, CANONICAL_BASE_URL).href);
       }
     } catch {
       // Ignore unparseable strings
@@ -418,14 +394,33 @@ export async function getGoogleOAuth2AccessToken(creds?: GoogleServiceAccountKey
 }
 
 /**
- * Triggers Google Indexing API (https://indexing.googleapis.com/v3/urlNotifications:publish)
- * for one or more URLs.
- * If credentials are not present or errors occur, gracefully falls back to sitemap ping.
+ * Page types for which Google allows the Indexing API.
+ * https://developers.google.com/search/apis/indexing-api/v3/quickstart
+ */
+export type GoogleIndexingContentType = "JobPosting" | "BroadcastEvent";
+const GOOGLE_INDEXING_ALLOWED_TYPES = new Set<string>(["JobPosting", "BroadcastEvent"]);
+
+export interface GoogleIndexingResult {
+  success: boolean;
+  submitted: number;
+  failed: number;
+  skipped?: number;
+  error?: string;
+}
+
+/**
+ * Google Indexing API client — DISABLED for journal content.
+ *
+ * Only runs when the caller states that the URLs are JobPosting or
+ * BroadcastEvent pages. No route in this codebase does, so in practice this
+ * returns without any network call. Kept (rather than deleted) so the decision
+ * is visible and the credential tooling keeps working for status reporting.
  */
 export async function triggerGoogleIndexing(
   urlOrUrls: string | string[],
-  action: "URL_UPDATED" | "URL_DELETED" = "URL_UPDATED"
-): Promise<{ success: boolean; submitted: number; failed: number; error?: string }> {
+  action: "URL_UPDATED" | "URL_DELETED" = "URL_UPDATED",
+  options: { contentType?: GoogleIndexingContentType } = {},
+): Promise<GoogleIndexingResult> {
   const rawList = Array.isArray(urlOrUrls) ? urlOrUrls : [urlOrUrls];
   const urls = normalizeCanonicalUrls(rawList);
 
@@ -433,27 +428,33 @@ export async function triggerGoogleIndexing(
     return { success: true, submitted: 0, failed: 0 };
   }
 
-  const creds = parseGoogleServiceAccountCredentials();
-  if (!creds) {
-    logger.info("[Google Indexing] No Google Service Account key provided, triggering sitemap ping fallback");
-    pingSearchEngineSitemaps().catch(() => {});
+  if (!options.contentType || !GOOGLE_INDEXING_ALLOWED_TYPES.has(options.contentType)) {
     return {
       success: true,
       submitted: 0,
       failed: 0,
-      error: "Google Service Account not configured; fell back to sitemap ping",
+      skipped: urls.length,
+      error: "Google Indexing API is only permitted for JobPosting and BroadcastEvent pages; not submitted",
+    };
+  }
+
+  const creds = parseGoogleServiceAccountCredentials();
+  if (!creds) {
+    return {
+      success: true,
+      submitted: 0,
+      failed: 0,
+      error: "Google Service Account not configured",
     };
   }
 
   const token = await getGoogleOAuth2AccessToken(creds);
   if (!token) {
-    logger.warn("[Google Indexing] Unable to acquire OAuth2 token, triggering sitemap ping fallback");
-    pingSearchEngineSitemaps().catch(() => {});
     return {
       success: false,
       submitted: 0,
       failed: urls.length,
-      error: lastGoogleApiError || "OAuth2 token acquisition failed; fell back to sitemap ping",
+      error: lastGoogleApiError || "OAuth2 token acquisition failed",
     };
   }
 
@@ -511,11 +512,6 @@ export async function triggerGoogleIndexing(
     );
   }
 
-  // If any submissions failed (e.g. quota or permission), trigger fallback sitemap ping
-  if (failed > 0) {
-    pingSearchEngineSitemaps().catch(() => {});
-  }
-
   const success = submitted > 0 || failed === 0;
   const error = errors.length > 0 ? errors.join("; ") : undefined;
 
@@ -533,64 +529,37 @@ export async function triggerGoogleIndexing(
 }
 
 /**
- * Submits URLs to search engines (IndexNow + Google Indexing + Sitemap pings) in a fire-and-forget
- * background task that never throws or blocks the caller.
+ * Tell IndexNow about URLs that changed. Never throws, never blocks the caller
+ * on failure, and never submits anything outside the canonical host.
  */
 export async function submitUrlsToSearchEngines(
   rawUrls: string[],
   reason: string = "content-update"
-): Promise<{ success: boolean; count: number; error?: string }> {
+): Promise<IndexNowResult> {
   const urls = normalizeCanonicalUrls(rawUrls);
   if (urls.length === 0) {
     return { success: true, count: 0 };
   }
 
   try {
-    // 1. Submit to IndexNow (Bing, Yandex, Seznam, Naver)
     const indexNowResult = await submitIndexNow(urls);
 
-    // 2. Submit to Google Indexing API
-    const googleResult = await triggerGoogleIndexing(urls, "URL_UPDATED").catch((err) => {
-      logger.warn({ err: err?.message }, "[Google Indexing] Non-fatal indexing trigger error");
-      return { success: false, submitted: 0, failed: urls.length, error: err?.message };
-    });
-
-    // 3. Ping sitemap updates to Google & Bing
-    const sitemapUrl = `${CANONICAL_BASE_URL}/sitemap.xml`;
-    pingSearchEngineSitemaps(sitemapUrl).catch(() => {});
-
-    const dispatchEvent: SeoDispatchEvent = {
+    recordDispatch({
       timestamp: new Date().toISOString(),
       reason,
       urls,
-      success: indexNowResult.success || googleResult.success,
-      count: Math.max(indexNowResult.count || 0, googleResult.submitted || 0, urls.length),
-      engines: [
-        "IndexNow (Bing/Yandex/Naver)",
-        "Google Indexing API",
-        "Google Sitemap Ping",
-        "Bing Sitemap Ping",
-      ],
-      error: indexNowResult.error || googleResult.error,
-    };
-
-    recordDispatch(dispatchEvent);
+      success: indexNowResult.success,
+      count: indexNowResult.count,
+      engines: ["IndexNow (Bing/Yandex/Seznam/Naver)"],
+      error: indexNowResult.error,
+    });
 
     logger.info(
-      {
-        count: urls.length,
-        reason,
-        indexNowSuccess: indexNowResult.success,
-        googleSubmitted: googleResult.submitted,
-      },
-      "[SEO Engine] Automated search engine notification completed"
+      { count: urls.length, reason, indexNowSuccess: indexNowResult.success, skipped: indexNowResult.skipped },
+      "[SEO Engine] IndexNow notification completed"
     );
 
-    return {
-      success: indexNowResult.success || googleResult.success,
-      count: urls.length,
-      error: indexNowResult.error || googleResult.error,
-    };
+    return indexNowResult;
   } catch (err: any) {
     logger.warn({ err: err?.message, urls }, "[SEO Engine] Failed to dispatch SEO notification");
     recordDispatch({
@@ -599,7 +568,7 @@ export async function submitUrlsToSearchEngines(
       urls,
       success: false,
       count: 0,
-      engines: ["IndexNow", "Google Indexing API", "Google Sitemap Ping"],
+      engines: ["IndexNow"],
       error: err?.message || "Unknown error",
     });
     return { success: false, count: 0, error: err?.message };
@@ -616,10 +585,17 @@ export interface ContentPublicationPayload {
 }
 
 /**
- * Triggers an automated SEO update pass whenever public content is uploaded or updated.
- * Dispatches asynchronously in the background so callers (HTTP endpoints) respond instantly.
+ * Called when public content is published or updated. Notifies IndexNow about
+ * the changed page itself, in the background so HTTP handlers respond at once.
+ *
+ * Listing pages that change as a result (the author page, the domain hub, the
+ * home page) are left to the daily changed-URL pass, which takes them from the
+ * sitemap at their canonical URLs; the authorSlug a caller has to hand is a slug
+ * of the display name and may not be the canonical handle URL. Profile edits are
+ * not pushed for the same reason. Sitemap and feed URLs are never submitted:
+ * IndexNow is for pages, and /profile/<id> is a redirect.
  */
-export function triggerPublicContentSeo(payload: ContentPublicationPayload): Promise<any> {
+export function triggerPublicContentSeo(payload: ContentPublicationPayload): Promise<IndexNowResult | null> {
   const task = async () => {
     try {
       const urls: string[] = [];
@@ -630,29 +606,10 @@ export function triggerPublicContentSeo(payload: ContentPublicationPayload): Pro
         urls.push(`${CANONICAL_BASE_URL}/papers/${encodeURIComponent(payload.slug)}`);
       } else if (payload.type === "category") {
         urls.push(`${CANONICAL_BASE_URL}/domains/${encodeURIComponent(payload.slug)}`);
-      } else if (payload.type === "profile") {
-        urls.push(`${CANONICAL_BASE_URL}/authors/${encodeURIComponent(payload.slug)}`);
+      } else {
+        return null;
       }
 
-      if (payload.authorSlug) {
-        urls.push(`${CANONICAL_BASE_URL}/authors/${encodeURIComponent(payload.authorSlug)}`);
-      } else if (payload.authorId) {
-        urls.push(`${CANONICAL_BASE_URL}/profile/${encodeURIComponent(payload.authorId)}`);
-      }
-
-      // Always include dynamic sitemap and RSS feed so crawlers pick up the new entry immediately
-      urls.push(`${CANONICAL_BASE_URL}/sitemap.xml`);
-      urls.push(`${CANONICAL_BASE_URL}/feed`);
-
-      // 1. Submit primary URL to Google Indexing API directly
-      const primaryUrl = urls[0];
-      if (primaryUrl) {
-        triggerGoogleIndexing(primaryUrl, "URL_UPDATED").catch((err) => {
-          logger.warn({ err: err?.message, primaryUrl }, "[SEO Engine] Background Google Indexing trigger non-fatal notice");
-        });
-      }
-
-      // 2. Submit all associated URLs to search engines (IndexNow + Google Indexing + Sitemap pings)
       return await submitUrlsToSearchEngines(urls, `publish-${payload.type}:${payload.slug}`);
     } catch (err: any) {
       logger.warn({ err: err?.message, payload }, "[SEO Engine] Background publication trigger caught error");
@@ -663,66 +620,72 @@ export function triggerPublicContentSeo(payload: ContentPublicationPayload): Pro
   return task();
 }
 
-/**
- * Triggers a comprehensive re-indexing pass across ALL published content in the journal.
- * Dispatches to IndexNow (Bing, Yandex, Seznam, Naver), Google Indexing API, and sitemap pings.
- */
-export async function reindexAllPublicContent(urlsOverride?: string[]): Promise<{
+/** Default look-back for the daily job: a day plus slack for scheduling drift. */
+export const DEFAULT_REINDEX_WINDOW_HOURS = 26;
+
+export interface ReindexOptions {
+  /**
+   * "changed" (default): only sitemap URLs whose lastmod falls inside the
+   * window. "all": every sitemap URL — for a one-off resubmission after a
+   * site-wide change, triggered by an administrator.
+   */
+  scope?: "changed" | "all";
+  sinceHours?: number;
+  now?: Date;
+}
+
+export interface ReindexResult {
   success: boolean;
+  scope: "changed" | "all";
   totalUrls: number;
-  indexNow: { success: boolean; count: number; error?: string };
-  google: { success: boolean; submitted: number; failed: number; error?: string };
+  indexNow: IndexNowResult;
   urls: string[];
-}> {
-  let urls = urlsOverride;
-  if (!urls || urls.length === 0) {
-    try {
-      const { getAllPublicUrls } = await import("../routes/sitemap");
-      urls = await getAllPublicUrls();
-    } catch (err: any) {
-      logger.warn({ err: err?.message }, "[SEO Engine] Failed to load public URLs from database; using static fallback");
-      urls = [
-        `${CANONICAL_BASE_URL}`,
-        `${CANONICAL_BASE_URL}/browse`,
-        `${CANONICAL_BASE_URL}/domains`,
-        `${CANONICAL_BASE_URL}/papers`,
-        `${CANONICAL_BASE_URL}/archive`,
-        `${CANONICAL_BASE_URL}/sitemap.xml`,
-      ];
-    }
-  }
+}
 
-  const normalizedUrls = normalizeCanonicalUrls(urls);
+/**
+ * IndexNow sweep over the sitemap. URLs always come from the sitemap generator,
+ * never from the caller, so only canonical, indexable pages are submitted.
+ */
+export async function reindexAllPublicContent(options: ReindexOptions = {}): Promise<ReindexResult> {
+  const scope = options.scope === "all" ? "all" : "changed";
+  const windowHours = Math.min(Math.max(Number(options.sinceHours) || DEFAULT_REINDEX_WINDOW_HOURS, 1), 24 * 30);
+  const cutoff = (options.now ?? new Date()).getTime() - windowHours * 60 * 60 * 1000;
 
-  // 1. Submit batch to IndexNow
-  const indexNowResult = await submitIndexNow(normalizedUrls);
+  const { getSitemapEntries } = await import("./sitemap-entries");
+  const entries = await getSitemapEntries();
+  const selected = scope === "all"
+    ? entries
+    : entries.filter(entry => entry.lastmod && new Date(entry.lastmod).getTime() >= cutoff);
+  const urls = normalizeCanonicalUrls(selected.map(entry => entry.loc));
 
-  // 2. Submit to Google Indexing API
-  const googleResult = await triggerGoogleIndexing(normalizedUrls, "URL_UPDATED").catch((err) => {
-    logger.warn({ err: err?.message }, "[Google Indexing] Batch submission notice");
-    return { success: false, submitted: 0, failed: normalizedUrls.length, error: err?.message };
-  });
-
-  // 3. Ping search engine sitemaps
-  pingSearchEngineSitemaps().catch(() => {});
+  const indexNow: IndexNowResult = urls.length > 0
+    ? await submitIndexNow(urls)
+    : { success: true, count: 0 };
 
   recordDispatch({
     timestamp: new Date().toISOString(),
-    reason: "batch-reindex-all",
-    urls: normalizedUrls,
-    success: indexNowResult.success || googleResult.success,
-    count: normalizedUrls.length,
-    engines: ["IndexNow", "Google Indexing API", "Google Sitemap Ping", "Bing Sitemap Ping"],
-    error: indexNowResult.error || googleResult.error,
+    reason: scope === "all" ? "reindex-all" : `reindex-changed-${windowHours}h`,
+    urls,
+    success: indexNow.success,
+    count: indexNow.count,
+    engines: ["IndexNow (Bing/Yandex/Seznam/Naver)"],
+    error: indexNow.error,
   });
 
   return {
-    success: indexNowResult.success || googleResult.success,
-    totalUrls: normalizedUrls.length,
-    indexNow: indexNowResult,
-    google: googleResult,
-    urls: normalizedUrls,
+    success: indexNow.success,
+    scope,
+    totalUrls: urls.length,
+    indexNow,
+    urls,
   };
 }
 
-
+/** Parse the optional `{ scope, sinceHours }` an administrator may send. */
+export function parseReindexOptions(body: unknown): ReindexOptions {
+  const input = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
+  return {
+    scope: input.scope === "all" ? "all" : "changed",
+    sinceHours: typeof input.sinceHours === "number" ? input.sinceHours : undefined,
+  };
+}

@@ -1,96 +1,78 @@
 import { Router, type Request, type Response } from "express";
-import { DEFAULT_INDEXNOW_KEY, CANONICAL_HOST, isAllowedHost, submitIndexNow } from "../lib/indexnow";
-import { getGoogleServiceAccountStatus, getSeoDispatchLog } from "../lib/seo-service";
+import { DEFAULT_INDEXNOW_KEY, CANONICAL_HOST, isAllowedHost, isIndexNowEnabled, submitIndexNow } from "../lib/indexnow";
+import { requireCronOrAdmin } from "../lib/automation-auth";
+import { parseReindexOptions, reindexAllPublicContent } from "../lib/seo-service";
 
+/**
+ * Search-engine notification endpoints.
+ *
+ * This router is mounted both under /api and at the site root (app.ts), so every
+ * route here is reachable at two paths. Anything that makes the site contact a
+ * search engine requires the cron secret or an admin session; the public status
+ * route reveals configuration flags only, never dispatch history or keys.
+ */
 const router = Router();
 
-// GET /api/seo/status - public SEO and search indexing health status
-router.get("/seo/status", async (_req: Request, res: Response) => {
-  try {
-    const googleStatus = getGoogleServiceAccountStatus();
-    const dispatches = getSeoDispatchLog();
-    return res.status(200).json({
-      canonicalDomain: "https://" + CANONICAL_HOST,
-      sitemapUrl: `https://${CANONICAL_HOST}/sitemap.xml`,
-      rssFeedUrl: `https://${CANONICAL_HOST}/feed`,
-      indexNow: {
-        enabled: true,
-        host: CANONICAL_HOST,
-        keyUrl: `https://${CANONICAL_HOST}/indexnow-key.txt`,
-      },
-      googleIndexing: googleStatus,
-      googleSiteVerification: {
-        // Ownership is proven through the DNS-verified Domain property. No
-        // wildcard google<token>.html responder exists any more.
-        htmlFileVerificationSupported: false,
-        metaConfigured: Boolean(process.env.GOOGLE_SITE_VERIFICATION),
-      },
-      dispatchesCount: dispatches.length,
-      recentDispatches: dispatches.slice(0, 10),
-    });
-  } catch (err: any) {
-    return res.status(500).json({ error: "Failed to read SEO status", message: err?.message });
-  }
+// GET /api/seo/status - public, non-sensitive indexing configuration
+router.get("/seo/status", (_req: Request, res: Response) => {
+  return res.status(200).json({
+    canonicalDomain: "https://" + CANONICAL_HOST,
+    sitemapUrl: `https://${CANONICAL_HOST}/sitemap.xml`,
+    rssFeedUrl: `https://${CANONICAL_HOST}/feed`,
+    indexNow: {
+      enabled: isIndexNowEnabled(),
+      host: CANONICAL_HOST,
+      keyUrl: `https://${CANONICAL_HOST}/indexnow-key.txt`,
+    },
+    googleIndexingApi: {
+      // Google allows the Indexing API only for JobPosting/BroadcastEvent pages.
+      usedForJournalPages: false,
+    },
+    googleSiteVerification: {
+      // Ownership is proven through the DNS-verified Domain property. No
+      // wildcard google<token>.html responder exists any more.
+      htmlFileVerificationSupported: false,
+      metaConfigured: Boolean(process.env.GOOGLE_SITE_VERIFICATION),
+    },
+  });
 });
 
-let lastPublicReindex = 0;
-const REINDEX_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes cooldown for unauthenticated requests
-
-// POST /api/seo/reindex - Trigger full journal reindexing sweep across search engines
-router.post("/seo/reindex", async (req: Request, res: Response) => {
+// POST /api/seo/reindex - IndexNow sweep over sitemap URLs (cron or admin only)
+// Body (optional): { "scope": "changed" | "all", "sinceHours": number }.
+// URLs are never taken from the request.
+router.post("/seo/reindex", requireCronOrAdmin, async (req: Request, res: Response) => {
   try {
-    const authHeader = req.headers.authorization;
-    const isCron = authHeader && process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`;
-    const isAdmin = Boolean((req as any).adminAuth);
-    const seoSecret = req.headers["x-seo-secret"];
-    const hasSecret = seoSecret && (seoSecret === process.env.ADMIN_SECRET || seoSecret === process.env.AUTH_SECRET);
-    const now = Date.now();
-
-    if (!isCron && !isAdmin && !hasSecret) {
-      if (now - lastPublicReindex < REINDEX_COOLDOWN_MS) {
-        const remainingSec = Math.ceil((REINDEX_COOLDOWN_MS - (now - lastPublicReindex)) / 1000);
-        return res.status(429).json({
-          error: `Reindex was triggered recently. Please wait ${remainingSec}s before retrying.`,
-          retryAfter: remainingSec,
-        });
-      }
-    }
-
-    lastPublicReindex = now;
-    const { reindexAllPublicContent } = await import("../lib/seo-service");
-    const urlsOverride = Array.isArray(req.body?.urls) ? req.body.urls : undefined;
-    const result = await reindexAllPublicContent(urlsOverride);
-
+    const result = await reindexAllPublicContent(parseReindexOptions(req.body));
     return res.status(200).json({
       success: result.success,
-      message: `Re-indexing completed for ${result.totalUrls} URLs`,
+      message: `IndexNow ${result.scope === "all" ? "full" : "changed-URL"} sweep covered ${result.totalUrls} URLs`,
+      scope: result.scope,
       totalUrls: result.totalUrls,
       indexNow: result.indexNow,
-      google: result.google,
     });
   } catch (err: any) {
-    return res.status(500).json({ error: "Reindexing failed", message: err?.message });
+    req.log?.error?.({ err }, "Reindexing failed");
+    return res.status(500).json({ error: "Reindexing failed" });
   }
 });
 
-
-// POST /api/indexnow/notify
-router.post("/indexnow/notify", async (req: Request, res: Response) => {
+// POST /api/indexnow/notify - submit specific changed URLs (cron or admin only)
+router.post("/indexnow/notify", requireCronOrAdmin, async (req: Request, res: Response) => {
   const { urlList } = req.body || {};
 
-  if (!urlList || !Array.isArray(urlList) || urlList.length === 0) {
+  if (!urlList || !Array.isArray(urlList) || urlList.length === 0 || urlList.length > 10_000) {
     return res.status(400).json({
       error: "Invalid payload: urlList must be a non-empty array of URL strings",
       code: "BAD_REQUEST",
     });
   }
 
-  // Strictly enforce that all URLs belong to anvikshikijournal.in host
+  // Strictly enforce that all URLs belong to the canonical apex host
   const foreignUrls = urlList.filter(u => typeof u !== "string" || !isAllowedHost(u));
   if (foreignUrls.length > 0) {
     return res.status(400).json({
-      error: "Invalid URLs: all submitted URLs must strictly belong to " + CANONICAL_HOST,
-      rejectedUrls: foreignUrls,
+      error: "Invalid URLs: all submitted URLs must strictly belong to https://" + CANONICAL_HOST,
+      rejectedUrls: foreignUrls.slice(0, 20),
       code: "INVALID_HOST",
     });
   }
@@ -98,28 +80,27 @@ router.post("/indexnow/notify", async (req: Request, res: Response) => {
   try {
     const result = await submitIndexNow(urlList);
     return res.status(200).json({
-      success: true,
+      success: result.success,
       submitted: result.count,
+      skipped: Boolean(result.skipped),
       engine: "IndexNow",
     });
   } catch (err: any) {
-    return res.status(500).json({
-      error: "Failed to dispatch IndexNow notification",
-      message: err?.message,
-    });
+    req.log?.error?.({ err }, "IndexNow notification failed");
+    return res.status(500).json({ error: "Failed to dispatch IndexNow notification" });
   }
 });
 
 // GET /api/indexnow/status - never leaks secret keys
 router.get("/indexnow/status", (_req: Request, res: Response) => {
   return res.status(200).json({
-    enabled: true,
+    enabled: isIndexNowEnabled(),
     host: CANONICAL_HOST,
     engine: "https://api.indexnow.org/indexnow",
   });
 });
 
-// GET /indexnow-key.txt or /api/indexnow-key.txt
+// GET /indexnow-key.txt or /api/indexnow-key.txt — the exact IndexNow key file
 router.get(["/indexnow-key.txt", "/api/indexnow-key.txt"], (_req: Request, res: Response) => {
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
   return res.status(200).send(DEFAULT_INDEXNOW_KEY);

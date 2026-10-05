@@ -2,6 +2,10 @@
 """
 scripts/google_indexing.py
 
+DISABLED except for --dry-run: the Google Indexing API is only permitted for
+JobPosting and BroadcastEvent pages, and the sitemap ping endpoints are retired.
+See the note in main(). Use Search Console (sitemap) and scripts/reindex_all.py.
+
 Automated Google Search Indexing CLI for Ānvīkṣikī Journal.
 Supports:
   - Submitting single URL or all sitemap URLs to Google Indexing API
@@ -376,6 +380,23 @@ Examples:
     )
 
     args = parser.parse_args()
+
+    # DISABLED for journal pages (October 2026 SEO audit). Google permits the
+    # Indexing API only for pages with JobPosting or BroadcastEvent structured
+    # data; Ānvīkṣikī's articles, papers, author and domain pages are neither.
+    # The sitemap ping endpoints this script also calls were retired by Google
+    # (2023) and deprecated by Bing. Google finds journal pages through the
+    # sitemap submitted in Search Console; Bing/Yandex are notified via IndexNow
+    # (scripts/reindex_all.py). --dry-run still works for inspecting URLs.
+    if not args.dry_run:
+        print(
+            "[!] Live submission is disabled: the Google Indexing API is only permitted for\n"
+            "    JobPosting and BroadcastEvent pages, which this journal does not publish.\n"
+            "    Submit https://anvikshikijournal.in/sitemap.xml in Search Console instead, and\n"
+            "    use scripts/reindex_all.py for IndexNow (Bing/Yandex).",
+            file=sys.stderr,
+        )
+        return 2
 
     print("=" * 65)
     print(" Ānvīkṣikī Journal — Automated Google Search Indexing")

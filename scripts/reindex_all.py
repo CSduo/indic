@@ -2,23 +2,32 @@
 """
 scripts/reindex_all.py
 
-Batch Search Engine Re-indexing Runner for Ānvīkṣikī Journal.
-Submits all public URLs to:
-  1. IndexNow API (Bing, Yandex, Seznam, Naver)
-  2. Google Indexing API (via production batch endpoint)
-  3. Search Engine Sitemap Pings
+IndexNow sweep runner for Ānvīkṣikī Journal.
+
+Asks the production site to submit sitemap URLs to IndexNow (Bing, Yandex,
+Seznam, Naver). The URL list is always built server-side from /sitemap.xml, so
+only canonical, indexable pages are ever submitted.
+
+  --scope changed   (default) URLs whose sitemap lastmod changed in the window
+  --scope all       every sitemap URL; use once after a site-wide change
+
+Google is not contacted: the Google Indexing API is only permitted for
+JobPosting and BroadcastEvent pages, and Google discovers journal pages through
+the sitemap submitted in Search Console.
+
+The endpoint requires the site's CRON_SECRET (sent as a Bearer token).
 
 Usage:
-  python scripts/reindex_all.py
+  python scripts/reindex_all.py --secret "$CRON_SECRET"
+  python scripts/reindex_all.py --secret "$CRON_SECRET" --scope all
   python scripts/reindex_all.py --dry-run
-  python scripts/reindex_all.py --host https://anvikshikijournal.in
 """
 
 import argparse
 import json
+import os
 import sys
 import urllib.error
-import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 
@@ -31,7 +40,7 @@ if hasattr(sys.stdout, "reconfigure"):
         pass
 
 DEFAULT_HOST = "https://anvikshikijournal.in"
-DEFAULT_USER_AGENT = "AnvikshikiJournal-BatchReindexer/1.0"
+DEFAULT_USER_AGENT = "AnvikshikiJournal-BatchReindexer/2.0"
 
 
 def fetch_sitemap_urls(base_url: str) -> list[str]:
@@ -64,100 +73,66 @@ def fetch_sitemap_urls(base_url: str) -> list[str]:
     return list(dict.fromkeys(urls))
 
 
-def submit_indexnow(base_url: str, urls: list[str], dry_run: bool = False) -> bool:
-    print(f"\n[*] Submitting {len(urls)} URLs to IndexNow (Bing / Yandex / Naver)...")
+def request_reindex(base_url: str, secret: str, scope: str, dry_run: bool = False) -> bool:
+    endpoint = f"{base_url.rstrip('/')}/api/seo/reindex"
+    print(f"\n[*] Requesting IndexNow sweep (scope={scope}) from {endpoint}...")
     if dry_run:
-        print("  [DRY-RUN] IndexNow submission simulated successfully.")
+        print("  [DRY-RUN] Reindex request not sent.")
         return True
+    if not secret:
+        print("[!] --secret (the site's CRON_SECRET) is required; the endpoint rejects anonymous calls.", file=sys.stderr)
+        return False
 
-    notify_url = f"{base_url.rstrip('/')}/api/indexnow/notify"
-    payload = json.dumps({"urlList": urls}).encode("utf-8")
     req = urllib.request.Request(
-        notify_url,
-        data=payload,
+        endpoint,
+        data=json.dumps({"scope": scope}).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
             "User-Agent": DEFAULT_USER_AGENT,
+            "Authorization": f"Bearer {secret}",
         },
         method="POST",
     )
-
     try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
+        with urllib.request.urlopen(req, timeout=60) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-            print(f"  [+] IndexNow Success: {data.get('submitted', len(urls))} URLs submitted!")
-            return True
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace")
-        print(f"  [!] IndexNow HTTP {e.code}: {body}", file=sys.stderr)
-        return False
-    except Exception as e:
-        print(f"  [!] IndexNow network error: {e}", file=sys.stderr)
-        return False
-
-
-def submit_batch_reindex(base_url: str, secret: str = "", dry_run: bool = False) -> bool:
-    print(f"\n[*] Calling full batch reindexing endpoint on {base_url}...")
-    if dry_run:
-        print("  [DRY-RUN] Full batch reindex simulated successfully.")
-        return True
-
-    endpoint = f"{base_url.rstrip('/')}/api/seo/reindex"
-    headers = {
-        "Content-Type": "application/json",
-        "User-Agent": DEFAULT_USER_AGENT,
-    }
-    if secret:
-        headers["X-SEO-Secret"] = secret
-
-    req = urllib.request.Request(endpoint, data=json.dumps({"urls": []}).encode("utf-8"), headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            print(f"  [+] Batch Reindex Success: {data.get('message', 'Completed')}")
-            print(f"      Total URLs: {data.get('totalUrls', 0)}")
+            print(f"  [+] {data.get('message', 'Completed')}")
             print(f"      IndexNow: {data.get('indexNow', {})}")
-            print(f"      Google: {data.get('google', {})}")
             return True
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")
-        print(f"  [~] Batch reindex endpoint status {e.code}: {body}")
+        print(f"  [!] Reindex endpoint returned HTTP {e.code}: {body}", file=sys.stderr)
         return False
     except Exception as e:
-        print(f"  [~] Batch reindex notice: {e}")
+        print(f"  [!] Reindex request failed: {e}", file=sys.stderr)
         return False
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Ānvīkṣikī Journal Batch Search Engine Reindexer")
-    parser.add_argument("--host", default=DEFAULT_HOST, help="Base host URL (default: https://anvikshikijournal.in)")
-    parser.add_argument("--secret", default="", help="Admin or SEO secret token for protected reindex endpoint")
-    parser.add_argument("--dry-run", action="store_true", help="Simulate submissions without making mutating requests")
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Ānvīkṣikī Journal IndexNow sweep runner")
+    parser.add_argument("--host", default=DEFAULT_HOST, help="Base URL (default: https://anvikshikijournal.in)")
+    parser.add_argument(
+        "--secret",
+        default=os.environ.get("CRON_SECRET", ""),
+        help="The site's CRON_SECRET (defaults to the CRON_SECRET environment variable)",
+    )
+    parser.add_argument("--scope", choices=["changed", "all"], default="changed", help="Which sitemap URLs to submit")
+    parser.add_argument("--dry-run", action="store_true", help="List sitemap URLs without requesting a sweep")
     args = parser.parse_args()
 
     print("=" * 65)
-    print(" Ānvīkṣikī Journal — Batch Search Engine Re-indexing Runner")
+    print(" Ānvīkṣikī Journal — IndexNow sweep")
     print("=" * 65)
 
     urls = fetch_sitemap_urls(args.host)
-    if not urls:
-        print("[!] No URLs extracted from sitemap. Exiting.", file=sys.stderr)
-        sys.exit(1)
+    if urls:
+        print(f"[+] The sitemap currently lists {len(urls)} URLs:")
+        for idx, u in enumerate(urls, start=1):
+            print(f"  [{idx:2d}/{len(urls)}] {u}")
 
-    print(f"[+] Discovered {len(urls)} published URLs across the journal:")
-    for idx, u in enumerate(urls, start=1):
-        print(f"  [{idx:2d}/{len(urls)}] {u}")
-
-    # 1. IndexNow direct submission
-    submit_indexnow(args.host, urls, dry_run=args.dry_run)
-
-    # 2. Full journal reindex pass (Google Indexing API + IndexNow + sitemap pings)
-    submit_batch_reindex(args.host, secret=args.secret, dry_run=args.dry_run)
-
-    print("\n" + "=" * 65)
-    print("[+] Re-indexing sweep complete.")
-    print("=" * 65)
+    ok = request_reindex(args.host, args.secret, args.scope, dry_run=args.dry_run)
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

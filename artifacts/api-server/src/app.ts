@@ -13,11 +13,6 @@ import sitemapRouter from "./routes/sitemap";
 import rssRouter from "./routes/rss";
 import indexnowRouter from "./routes/indexnow";
 import { DEFAULT_INDEXNOW_KEY } from "./lib/indexnow";
-import {
-  parseGoogleServiceAccountCredentials,
-  getSeoDispatchLog,
-  CANONICAL_HOST,
-} from "./lib/seo-service";
 import { db, articlesTable, papersTable, usersTable, categoriesTable, submissionsTable, ensureDatabaseSchema, coreTablesExist } from "@workspace/db";
 import { eq, and, or, ilike, isNull } from "drizzle-orm";
 import { sanitizeArticleBody } from "./lib/content";
@@ -347,52 +342,9 @@ app.get(["/indexnow-key.txt", `/${DEFAULT_INDEXNOW_KEY}.txt`], (_req, res) => {
   injectSsrHtml/buildFallbackHtml below.
 */
 
-// GET /api/seo/status - public SEO and search indexing health status
-app.get("/api/seo/status", async (_req, res) => {
-  try {
-    const creds = parseGoogleServiceAccountCredentials();
-    const dispatches = getSeoDispatchLog();
-    return res.status(200).json({
-      canonicalDomain: "https://anvikshikijournal.in",
-      sitemapUrl: "https://anvikshikijournal.in/sitemap.xml",
-      rssFeedUrl: "https://anvikshikijournal.in/feed",
-      indexNow: {
-        enabled: true,
-        host: CANONICAL_HOST,
-        keyUrl: "https://anvikshikijournal.in/indexnow-key.txt",
-      },
-      googleIndexing: {
-        configured: Boolean(creds),
-        clientEmail: creds?.client_email ? `${creds.client_email.slice(0, 8)}...` : null,
-      },
-      googleSiteVerification: {
-        htmlFileVerificationSupported: false,
-        metaConfigured: Boolean(process.env.GOOGLE_SITE_VERIFICATION),
-      },
-      dispatchesCount: dispatches.length,
-      recentDispatches: dispatches.slice(0, 10),
-    });
-  } catch (err: any) {
-    return res.status(500).json({ error: "Failed to read SEO status", message: err?.message });
-  }
-});
-
-// POST /api/seo/reindex - trigger full reindex pass directly
-app.post(["/api/seo/reindex", "/seo/reindex"], async (_req, res) => {
-  try {
-    const { reindexAllPublicContent } = await import("./lib/seo-service");
-    const result = await reindexAllPublicContent();
-    return res.status(200).json({
-      success: result.success,
-      message: `Batch re-indexing completed for ${result.totalUrls} URLs`,
-      totalUrls: result.totalUrls,
-      indexNow: result.indexNow,
-      google: result.google,
-    });
-  } catch (err: any) {
-    return res.status(500).json({ error: "Reindexing failed", message: err?.message });
-  }
-});
+// /api/seo/status, POST /api/seo/reindex and POST /api/indexnow/notify live in
+// routes/indexnow.ts (mounted under /api and at the root). The duplicates that
+// used to follow here were unreachable and unauthenticated; they are gone.
 
 export const CANONICAL_DOMAIN = "https://anvikshikijournal.in";
 

@@ -8,7 +8,6 @@ import {
   type Submission,
 } from "@workspace/db";
 import { sanitizeArticleBody } from "./content";
-import { submitIndexNow } from "./indexnow";
 import { triggerPublicContentSeo } from "./seo-service";
 import { extractArticleKeywords } from "./keywords";
 
@@ -309,7 +308,6 @@ export async function ensurePublicPublicationForSubmission(
         .update(papersTable)
         .set(updateData)
         .where(eq(papersTable.id, existing.id));
-      submitIndexNow([`https://anvikshikijournal.in/papers/${existing.slug}`]).catch(() => {});
       triggerPublicContentSeo({
         type: "paper",
         slug: existing.slug,
@@ -370,7 +368,6 @@ export async function ensurePublicPublicationForSubmission(
           .returning({ id: papersTable.id, slug: papersTable.slug });
 
         if (paper) {
-          submitIndexNow([`https://anvikshikijournal.in/papers/${paper.slug}`]).catch(() => {});
           triggerPublicContentSeo({
             type: "paper",
             slug: paper.slug,
@@ -475,7 +472,6 @@ export async function ensurePublicPublicationForSubmission(
       .update(articlesTable)
       .set(articleUpdateData)
       .where(eq(articlesTable.id, existing.id));
-    submitIndexNow([`https://anvikshikijournal.in/articles/${existing.slug}`]).catch(() => {});
     triggerPublicContentSeo({
       type: "article",
       slug: existing.slug,
@@ -537,7 +533,6 @@ export async function ensurePublicPublicationForSubmission(
         .returning({ id: articlesTable.id, slug: articlesTable.slug });
 
       if (article) {
-        submitIndexNow([`https://anvikshikijournal.in/articles/${article.slug}`]).catch(() => {});
         triggerPublicContentSeo({
           type: "article",
           slug: article.slug,

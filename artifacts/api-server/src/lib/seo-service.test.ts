@@ -3,9 +3,9 @@ import crypto from "crypto";
 import {
   normalizeCanonicalUrls,
   submitUrlsToSearchEngines,
-  pingSearchEngineSitemaps,
   triggerPublicContentSeo,
   triggerGoogleIndexing,
+  reindexAllPublicContent,
   resetGoogleTokenCache,
   getSeoDispatchLog,
   sanitizePrivateKey,
@@ -13,6 +13,15 @@ import {
   getGoogleServiceAccountStatus,
 } from "./seo-service";
 import { CANONICAL_BASE_URL } from "./indexnow";
+
+// The reindex sweep reads its URLs from the sitemap generator; stub it so these
+// tests need no database.
+const sitemap = vi.hoisted(() => ({
+  entries: [] as Array<{ loc: string; lastmod?: string }>,
+}));
+vi.mock("./sitemap-entries", () => ({
+  getSitemapEntries: async () => sitemap.entries,
+}));
 
 // Generate genuine PKCS8 key for test mock
 const testKeyPair = crypto.generateKeyPairSync("rsa", {
@@ -39,20 +48,28 @@ const ENV_VARS_TO_CLEAR = [
   "GOOGLE_PRIVATE_KEY",
   "GOOGLE_PROJECT_ID",
   "GOOGLE_TOKEN_URI",
+  "INDEXNOW_ENABLED",
 ];
 
 describe("Automated SEO Service", () => {
   const savedEnvs: Record<string, string | undefined> = {};
   let fetchSpy: any;
   const publishedUrls: { url: string; type: string }[] = [];
+  const indexNowPayloads: Array<{ urlList: string[] }> = [];
+
+  const calledHosts = () => fetchSpy.mock.calls.map((call: any[]) => String(call[0]));
 
   beforeEach(() => {
     resetGoogleTokenCache();
     publishedUrls.length = 0;
+    indexNowPayloads.length = 0;
+    sitemap.entries = [];
     for (const k of ENV_VARS_TO_CLEAR) {
       savedEnvs[k] = process.env[k];
       delete process.env[k];
     }
+    // IndexNow only runs in production; force it on so submissions are exercised.
+    process.env.INDEXNOW_ENABLED = "true";
 
     fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input: any, init?: any) => {
       const urlStr = typeof input === "string" ? input : input.url || input.toString();
@@ -82,15 +99,11 @@ describe("Automated SEO Service", () => {
 
       // IndexNow API
       if (urlStr.includes("api.indexnow.org")) {
+        indexNowPayloads.push(init?.body ? JSON.parse(init.body) : {});
         return new Response(JSON.stringify({ success: true }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
-      }
-
-      // Sitemap pings (Google & Bing)
-      if (urlStr.includes("google.com/ping") || urlStr.includes("bing.com/ping")) {
-        return new Response("OK", { status: 200 });
       }
 
       return new Response("Not Found", { status: 404 });
@@ -108,23 +121,27 @@ describe("Automated SEO Service", () => {
     }
   });
 
-  it("normalizes relative paths and variant URLs to canonical host", () => {
+  it("normalizes paths and www URLs to the canonical apex, dropping every other host", () => {
     const raw = [
       "/articles/nyaya-epistemology",
       "papers/kavya-alamkara",
-      "https://anvikshiki.com/articles/vedanta",
+      "https://www.anvikshikijournal.in/articles/vedanta",
       "https://anvikshikijournal.in/authors/xiyatosaanvi",
+      "https://anvikshiki.com/articles/elsewhere",
+      "https://anvikshikijournal.com/aboutjournal.aspx",
+      "https://evil.example/phish",
       "",
       "   ",
     ];
 
     const normalized = normalizeCanonicalUrls(raw);
 
-    expect(normalized).toContain(`${CANONICAL_BASE_URL}/articles/nyaya-epistemology`);
-    expect(normalized).toContain(`${CANONICAL_BASE_URL}/papers/kavya-alamkara`);
-    expect(normalized).toContain(`${CANONICAL_BASE_URL}/articles/vedanta`);
-    expect(normalized).toContain(`${CANONICAL_BASE_URL}/authors/xiyatosaanvi`);
-    expect(normalized.length).toBe(4);
+    expect(normalized).toEqual([
+      `${CANONICAL_BASE_URL}/articles/nyaya-epistemology`,
+      `${CANONICAL_BASE_URL}/papers/kavya-alamkara`,
+      `${CANONICAL_BASE_URL}/articles/vedanta`,
+      `${CANONICAL_BASE_URL}/authors/xiyatosaanvi`,
+    ]);
   });
 
   it("handles empty URL arrays gracefully", async () => {
@@ -133,30 +150,36 @@ describe("Automated SEO Service", () => {
     expect(res.count).toBe(0);
   });
 
-  it("pings search engine sitemaps without throwing errors", async () => {
-    const result = await pingSearchEngineSitemaps();
-    expect(result).toBeDefined();
-    expect(result.google).toBe(true);
-    expect(result.bing).toBe(true);
-  });
-
-  it("submits URLs to IndexNow and records in recent dispatch logs", async () => {
+  it("submits URLs to IndexNow only, and records them in the dispatch log", async () => {
     const testUrls = [`${CANONICAL_BASE_URL}/articles/test-seo-article`];
     const res = await submitUrlsToSearchEngines(testUrls, "test-suite-run");
 
-    expect(res).toBeDefined();
     expect(res.success).toBe(true);
+    expect(res.count).toBe(1);
+    expect(indexNowPayloads[0].urlList).toEqual(testUrls);
+    expect(calledHosts().some((u: string) => u.includes("google"))).toBe(false);
+    expect(calledHosts().some((u: string) => u.includes("bing.com/ping"))).toBe(false);
+
     const logs = getSeoDispatchLog();
-    expect(logs.length).toBeGreaterThan(0);
     expect(logs[0].reason).toBe("test-suite-run");
     expect(logs[0].urls).toContain(`${CANONICAL_BASE_URL}/articles/test-seo-article`);
   });
 
-  it("triggers background SEO updates for published content", async () => {
+  it("does not submit anything to IndexNow outside production", async () => {
+    delete process.env.INDEXNOW_ENABLED;
+    const res = await submitUrlsToSearchEngines([`${CANONICAL_BASE_URL}/articles/x`], "preview-run");
+
+    expect(res.skipped).toBe(true);
+    expect(res.count).toBe(0);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("notifies IndexNow about a published work only, never sitemap/feed/profile URLs or Google", async () => {
     await triggerPublicContentSeo({
       type: "article",
       slug: "test-bg-article",
       authorSlug: "test-scholar",
+      authorId: "user-123",
       title: "Test Article Title",
       tags: ["Nyaya", "Epistemology"],
     });
@@ -164,33 +187,79 @@ describe("Automated SEO Service", () => {
     const logs = getSeoDispatchLog();
     const found = logs.find(l => l.reason.includes("publish-article:test-bg-article"));
     expect(found).toBeDefined();
-    expect(found?.urls).toContain(`${CANONICAL_BASE_URL}/articles/test-bg-article`);
-    expect(found?.urls).toContain(`${CANONICAL_BASE_URL}/authors/test-scholar`);
-    expect(found?.urls).toContain(`${CANONICAL_BASE_URL}/sitemap.xml`);
+    expect(found?.urls).toEqual([`${CANONICAL_BASE_URL}/articles/test-bg-article`]);
+    expect(publishedUrls.length).toBe(0);
+    expect(calledHosts().some((u: string) => u.includes("google"))).toBe(false);
   });
 
-  describe("Google Indexing API (triggerGoogleIndexing)", () => {
-    it("gracefully falls back to sitemap ping when service account credentials are not configured", async () => {
-      delete process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+  it("does not push profile edits", async () => {
+    const result = await triggerPublicContentSeo({ type: "profile", slug: "someone", authorId: "user-1" });
 
-      const result = await triggerGoogleIndexing(`${CANONICAL_BASE_URL}/articles/fallback-test`);
-      expect(result.success).toBe(true);
-      expect(result.submitted).toBe(0);
-      expect(result.failed).toBe(0);
-      expect(result.error).toContain("sitemap ping");
+    expect(result).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
 
-      // Verify ping was triggered
-      const hasPingCall = fetchSpy.mock.calls.some((call: any[]) =>
-        call[0].includes("google.com/ping") || call[0].includes("bing.com/ping")
-      );
-      expect(hasPingCall).toBe(true);
+  describe("reindexAllPublicContent (IndexNow sweep over the sitemap)", () => {
+    const now = new Date("2026-10-05T04:00:00.000Z");
+
+    beforeEach(() => {
+      sitemap.entries = [
+        { loc: `${CANONICAL_BASE_URL}/articles/fresh`, lastmod: "2026-10-04T20:00:00.000Z" },
+        { loc: `${CANONICAL_BASE_URL}/articles/old`, lastmod: "2026-08-21T11:21:00.000Z" },
+        { loc: `${CANONICAL_BASE_URL}/about`, lastmod: "2026-09-01T00:00:00.000Z" },
+      ];
     });
 
-    it("successfully exchanges JWT and submits single URL to Google Indexing API", async () => {
+    it("submits only URLs whose lastmod changed inside the window by default", async () => {
+      const result = await reindexAllPublicContent({ now });
+
+      expect(result.scope).toBe("changed");
+      expect(result.urls).toEqual([`${CANONICAL_BASE_URL}/articles/fresh`]);
+      expect(indexNowPayloads[0].urlList).toEqual([`${CANONICAL_BASE_URL}/articles/fresh`]);
+      expect(publishedUrls.length).toBe(0);
+    });
+
+    it("submits every sitemap URL when an administrator asks for scope=all", async () => {
+      const result = await reindexAllPublicContent({ scope: "all", now });
+
+      expect(result.totalUrls).toBe(3);
+      expect(indexNowPayloads[0].urlList).toHaveLength(3);
+    });
+
+    it("makes no IndexNow call when nothing changed", async () => {
+      const result = await reindexAllPublicContent({ now: new Date("2027-01-01T00:00:00.000Z") });
+
+      expect(result.totalUrls).toBe(0);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Google Indexing API (triggerGoogleIndexing) — disabled for journal pages", () => {
+    it("never submits article or other journal URLs, even with credentials configured", async () => {
       process.env.GOOGLE_SERVICE_ACCOUNT_KEY = JSON.stringify(mockCredentials);
 
-      const testUrl = `${CANONICAL_BASE_URL}/articles/nyaya-epistemology-pramana-theory`;
-      const result = await triggerGoogleIndexing(testUrl, "URL_UPDATED");
+      const result = await triggerGoogleIndexing(`${CANONICAL_BASE_URL}/articles/nyaya-epistemology-pramana-theory`);
+
+      expect(result.submitted).toBe(0);
+      expect(result.skipped).toBe(1);
+      expect(result.error).toContain("JobPosting");
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it("reports a missing service account without pinging anything", async () => {
+      const result = await triggerGoogleIndexing(`${CANONICAL_BASE_URL}/jobs/example`, "URL_UPDATED", { contentType: "JobPosting" });
+
+      expect(result.success).toBe(true);
+      expect(result.submitted).toBe(0);
+      expect(result.error).toContain("not configured");
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it("exchanges a JWT and submits a URL explicitly declared as a JobPosting page", async () => {
+      process.env.GOOGLE_SERVICE_ACCOUNT_KEY = JSON.stringify(mockCredentials);
+
+      const testUrl = `${CANONICAL_BASE_URL}/jobs/editorial-assistant`;
+      const result = await triggerGoogleIndexing(testUrl, "URL_UPDATED", { contentType: "JobPosting" });
 
       expect(result.success).toBe(true);
       expect(result.submitted).toBe(1);
@@ -200,41 +269,36 @@ describe("Automated SEO Service", () => {
       expect(publishedUrls[0].type).toBe("URL_UPDATED");
     });
 
-    it("supports URL_DELETED action type", async () => {
+    it("supports URL_DELETED for permitted page types", async () => {
       process.env.GOOGLE_SERVICE_ACCOUNT_KEY = JSON.stringify(mockCredentials);
 
-      const testUrl = `${CANONICAL_BASE_URL}/articles/retracted-paper`;
-      const result = await triggerGoogleIndexing(testUrl, "URL_DELETED");
+      const testUrl = `${CANONICAL_BASE_URL}/live/closed-broadcast`;
+      const result = await triggerGoogleIndexing(testUrl, "URL_DELETED", { contentType: "BroadcastEvent" });
 
       expect(result.success).toBe(true);
       expect(result.submitted).toBe(1);
-      expect(publishedUrls.length).toBe(1);
       expect(publishedUrls[0].type).toBe("URL_DELETED");
     });
 
-    it("submits multiple URLs in batch and normalizes them", async () => {
+    it("normalizes a batch and drops foreign hosts before submitting", async () => {
       process.env.GOOGLE_SERVICE_ACCOUNT_KEY = JSON.stringify(mockCredentials);
 
       const batch = [
-        "/articles/batch-1",
-        "/papers/batch-2",
-        "https://anvikshikijournal.in/domains/darshana",
+        "/jobs/batch-1",
+        "https://www.anvikshikijournal.in/jobs/batch-2",
+        "https://evil.example/jobs/batch-3",
       ];
 
-      const result = await triggerGoogleIndexing(batch);
+      const result = await triggerGoogleIndexing(batch, "URL_UPDATED", { contentType: "JobPosting" });
 
-      expect(result.success).toBe(true);
-      expect(result.submitted).toBe(3);
-      expect(result.failed).toBe(0);
-      expect(publishedUrls.length).toBe(3);
+      expect(result.submitted).toBe(2);
       expect(publishedUrls.map(p => p.url)).toEqual([
-        `${CANONICAL_BASE_URL}/articles/batch-1`,
-        `${CANONICAL_BASE_URL}/papers/batch-2`,
-        `${CANONICAL_BASE_URL}/domains/darshana`,
+        `${CANONICAL_BASE_URL}/jobs/batch-1`,
+        `${CANONICAL_BASE_URL}/jobs/batch-2`,
       ]);
     });
 
-    it("handles Google API errors defensively by triggering sitemap ping fallback", async () => {
+    it("reports Google API errors without falling back to sitemap pings", async () => {
       process.env.GOOGLE_SERVICE_ACCOUNT_KEY = JSON.stringify(mockCredentials);
 
       // Re-mock indexing endpoint to simulate 403 Forbidden (ownership not verified)
@@ -260,18 +324,13 @@ describe("Automated SEO Service", () => {
         return new Response("OK", { status: 200 });
       });
 
-      const result = await triggerGoogleIndexing(`${CANONICAL_BASE_URL}/articles/unverified-site`);
+      const result = await triggerGoogleIndexing(`${CANONICAL_BASE_URL}/jobs/unverified-site`, "URL_UPDATED", { contentType: "JobPosting" });
 
       expect(result.success).toBe(false);
       expect(result.submitted).toBe(0);
       expect(result.failed).toBe(1);
       expect(result.error).toContain("Permission denied");
-
-      // Verify sitemap ping was triggered as fallback
-      const hasPingCall = fetchSpy.mock.calls.some((call: any[]) =>
-        call[0].includes("google.com/ping") || call[0].includes("bing.com/ping")
-      );
-      expect(hasPingCall).toBe(true);
+      expect(calledHosts().some((u: string) => u.includes("/ping"))).toBe(false);
     });
   });
 

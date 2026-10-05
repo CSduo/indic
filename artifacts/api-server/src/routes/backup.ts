@@ -1,17 +1,9 @@
-import { timingSafeEqual } from "node:crypto";
 import { Router } from "express";
 import { getAdminAuth } from "../lib/auth";
+import { isCronAuthorized } from "../lib/automation-auth";
 import { purgeDueAccounts, DELETION_GRACE_DAYS } from "../lib/account-deletion";
 import { backfillHandles } from "../lib/handles";
-import {
-  pingSearchEngineSitemaps,
-  triggerGoogleIndexing,
-  submitUrlsToSearchEngines,
-  reindexAllPublicContent,
-  CANONICAL_BASE_URL,
-} from "../lib/seo-service";
-import { db, articlesTable } from "@workspace/db";
-import { desc, eq } from "drizzle-orm";
+import { parseReindexOptions, reindexAllPublicContent } from "../lib/seo-service";
 
 const router = Router();
 
@@ -30,14 +22,6 @@ async function requireAdmin(req: any, res: any, next: any) {
   if (!auth) return res.status(401).json({ error: "Unauthorized" });
   req.adminAuth = auth;
   next();
-}
-
-function isCronAuthorized(authorization: string | undefined): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || !authorization) return false;
-  const expected = Buffer.from(`Bearer ${secret}`);
-  const actual = Buffer.from(authorization);
-  return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
 async function createBackup(req: any, res: any) {
@@ -172,32 +156,35 @@ router.get("/admin/backups", requireAdmin, async (req: any, res) => {
 });
 
 /**
- * GET /api/admin/seo-reindex — automated daily search engine re-indexing & sitemap ping.
- * Triggered automatically by Vercel Cron or manual admin request.
+ * GET /api/admin/seo-reindex — daily IndexNow pass (Vercel Cron, Bearer CRON_SECRET).
+ *
+ * Submits only sitemap URLs whose lastmod changed in the last 26 hours. An
+ * administrator may POST { "scope": "all" } once after a site-wide change.
+ * Google is not contacted: the Indexing API is not permitted for these pages.
  */
 router.get("/admin/seo-reindex", async (req: any, res: any) => {
   if (!isCronAuthorized(req.get("authorization"))) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  return runSeoReindex(req, res);
+  return runSeoReindex(req, res, {});
 });
 
-router.post("/admin/seo-reindex", requireAdmin, (req: any, res: any) => runSeoReindex(req, res));
+router.post("/admin/seo-reindex", requireAdmin, (req: any, res: any) => runSeoReindex(req, res, req.body));
 
-async function runSeoReindex(req: any, res: any) {
+async function runSeoReindex(req: any, res: any, body: unknown) {
   try {
-    const result = await reindexAllPublicContent();
-    req.log?.info({ totalUrls: result.totalUrls, indexNow: result.indexNow, google: result.google }, "[SEO Cron] Daily reindex completed");
+    const result = await reindexAllPublicContent(parseReindexOptions(body));
+    req.log?.info({ scope: result.scope, totalUrls: result.totalUrls, indexNow: result.indexNow }, "[SEO Cron] IndexNow pass completed");
     return res.json({
       success: result.success,
-      message: `Full journal reindex completed for ${result.totalUrls} URLs`,
+      message: `IndexNow ${result.scope === "all" ? "full" : "changed-URL"} pass covered ${result.totalUrls} URLs`,
+      scope: result.scope,
       totalUrls: result.totalUrls,
       indexNow: result.indexNow,
-      google: result.google,
     });
   } catch (err: any) {
     req.log?.error({ err: err?.message }, "[SEO Cron] Error during scheduled reindex");
-    return res.status(500).json({ error: err?.message || "SEO reindex failed" });
+    return res.status(500).json({ error: "SEO reindex failed" });
   }
 }
 
