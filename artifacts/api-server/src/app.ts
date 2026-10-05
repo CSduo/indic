@@ -565,7 +565,7 @@ export function generateArticleSsrHtml(article: any, domainDisplayName: string, 
       <a href="/domains/${escapeHtml(article.categorySlug)}" class="ssr-badge">${escapeHtml(domainDisplayName)}</a>
     </div>
 
-    <h1 class="ssr-title" itemprop="headline">${escapeHtml(article.title)}</h1>
+    <h1 class="ssr-title" itemprop="headline">${escapeHtml(cleanTitle(article.title))}</h1>
 
     ${article.subtitle ? `<p class="ssr-subtitle" itemprop="alternativeHeadline">${escapeHtml(article.subtitle)}</p>` : ""}
 
@@ -699,7 +699,7 @@ export function generatePaperSsrHtml(paper: any, domainDisplayName: string, auth
       <a href="/domains/${escapeHtml(paper.categorySlug)}" class="ssr-badge ssr-badge-domain">${escapeHtml(domainDisplayName)}</a>
     </div>
 
-    <h1 class="ssr-title" itemprop="headline">${escapeHtml(paper.title)}</h1>
+    <h1 class="ssr-title" itemprop="headline">${escapeHtml(cleanTitle(paper.title))}</h1>
 
     <div class="ssr-byline-bar">
       <div class="ssr-authors-wrap">

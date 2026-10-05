@@ -502,7 +502,7 @@ export default function ArticlePage() {
           <div className="flex justify-center">
             <GlyphTag domain={domain} />
           </div>
-          <h1 className="font-display text-[clamp(2.2rem,5vw,4.2rem)] leading-[1.08] text-[var(--ink)] max-w-4xl mx-auto">{article.title}</h1>
+          <h1 className="font-display text-[clamp(2.2rem,5vw,4.2rem)] leading-[1.08] text-[var(--ink)] max-w-4xl mx-auto">{cleanTitle(article.title)}</h1>
           {article.excerpt ? (
             <div className="max-w-2xl mx-auto space-y-1">
               <p className="font-ui text-[10px] uppercase tracking-[0.18em] text-[var(--ink-faint)] opacity-80">Abstract</p>

@@ -139,7 +139,7 @@ export default function PaperDetailPage() {
               ))
             ) : null}
           </div>
-          <h1 className="font-display text-[clamp(2.1rem,5vw,4.2rem)] leading-[1.08] text-[var(--ink)]">{paper.title}</h1>
+          <h1 className="font-display text-[clamp(2.1rem,5vw,4.2rem)] leading-[1.08] text-[var(--ink)]">{cleanTitle(paper.title)}</h1>
           {paper.doi && (
             <a href={`https://doi.org/${paper.doi}`} target="_blank" rel="noreferrer" className="doi-badge inline-flex items-center gap-1 mt-3 font-ui text-xs px-2.5 py-1 rounded-md bg-[var(--surface-soft)] text-[var(--ink-soft)] hover:bg-[var(--surface-elevated)] border border-[var(--border-subtle)] transition-colors">
               <ExternalLink size={12} className="text-[var(--gold)]" /> DOI: {paper.doi}

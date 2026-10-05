@@ -236,6 +236,8 @@ describe("article pages", () => {
     expect(description.startsWith("Champa was a polity")).toBe(true);
 
     expect(res.text.match(/<h1[\s>]/g)?.length).toBe(1);
+    // The visible headline matches the cleaned JSON-LD headline.
+    expect(res.text.match(/<h1[^>]*>([^<]*)<\/h1>/)?.[1]).toBe("Beyond Angkor: Why is Vietnam Frequently Excluded from the History of Hindu Influence in Southeast Asia");
     expect(res.text).toContain("<h2>Introduction</h2>");
     expect(res.text).toContain("<h3>Sources</h3>");
   });
