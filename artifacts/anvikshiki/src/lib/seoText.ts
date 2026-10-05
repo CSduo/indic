@@ -7,13 +7,21 @@
  */
 
 /**
+ * A trailing " — Ānvīkṣikī" (or " | Anvikshiki Journal", ...): the name after a
+ * spaced separator. "Nyāya-Ānvīkṣikī" or "Inquiry: Ānvīkṣikī" are left alone.
+ */
+const SITE_NAME_SUFFIX = /\s+[|\-–—]\s*(?:ānvīkṣikī|anvikshiki|anviksiki)(?:\s+journal)?\s*$/iu;
+
+/**
  * A title as used in <title>, og:title and structured data: trailing ":", "-",
- * "–" or "—" (left behind when a subtitle was split off) are removed. A title
- * made only of those characters is returned unchanged.
+ * "–" or "—" (left behind when a subtitle was split off) are removed, and so is
+ * a site-name suffix an editor typed into an SEO title, because the page
+ * template appends " — Ānvīkṣikī" itself. A title made only of those
+ * characters is returned unchanged.
  */
 export function cleanTitle(value: unknown): string {
-  const raw = String(value ?? "").replace(/\s+/g, " ").trim();
-  const cleaned = raw.replace(/[\s:\-–—]+$/u, "").trim();
+  const raw = String(value ?? "").normalize("NFC").replace(/\s+/g, " ").trim();
+  const cleaned = raw.replace(SITE_NAME_SUFFIX, "").replace(/[\s:\-–—]+$/u, "").trim();
   return cleaned || raw;
 }
 

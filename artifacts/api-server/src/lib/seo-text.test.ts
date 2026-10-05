@@ -17,6 +17,18 @@ describe("cleanTitle", () => {
     expect(cleanTitle("—")).toBe("—");
     expect(cleanTitle(null)).toBe("");
   });
+
+  it("drops a site-name suffix the page template would repeat", () => {
+    expect(cleanTitle("Nyāya Epistemology: Pramāṇa Theory Explained — Ānvīkṣikī")).toBe("Nyāya Epistemology: Pramāṇa Theory Explained");
+    expect(cleanTitle("Beyond Angkor | Anvikshiki Journal")).toBe("Beyond Angkor");
+    expect(cleanTitle("Beyond Angkor - ANVIKSHIKI")).toBe("Beyond Angkor");
+    expect(cleanTitle("Beyond Angkor — Ānvīkṣikī")).toBe("Beyond Angkor");
+    // The name inside a title, without a separator, stays.
+    expect(cleanTitle("The Meaning of Ānvīkṣikī")).toBe("The Meaning of Ānvīkṣikī");
+    expect(cleanTitle("Ānvīkṣikī")).toBe("Ānvīkṣikī");
+    expect(cleanTitle("Nyāya-Ānvīkṣikī")).toBe("Nyāya-Ānvīkṣikī");
+    expect(cleanTitle("The Science of Inquiry: Ānvīkṣikī")).toBe("The Science of Inquiry: Ānvīkṣikī");
+  });
 });
 
 describe("deriveDescription", () => {
@@ -71,7 +83,7 @@ describe("client copy", () => {
       { seoDescription: "Own text.", summaries: [], body: "" },
     ];
     for (const input of inputs) expect(client.deriveDescription(input)).toBe(server.deriveDescription(input));
-    for (const title of ["A:", "B —", "C: D"]) expect(client.cleanTitle(title)).toBe(server.cleanTitle(title));
+    for (const title of ["A:", "B —", "C: D", "E — Ānvīkṣikī", "F | Anvikshiki Journal", "The Meaning of Ānvīkṣikī"]) expect(client.cleanTitle(title)).toBe(server.cleanTitle(title));
     expect(client.demoteBodyHeadings("<h1>A</h1><h2>B</h2>")).toBe(server.demoteBodyHeadings("<h1>A</h1><h2>B</h2>"));
   });
 });
