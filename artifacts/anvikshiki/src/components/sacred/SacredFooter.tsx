@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { LotusIcon } from "@/components/sacred/LotusIcon";
+import { usePapersPublished } from "@/hooks/usePapersPublished";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -75,6 +76,14 @@ function FooterNewsletter() {
 
 export function SacredFooter() {
   const year = new Date().getFullYear();
+  const papersPublished = usePapersPublished();
+  const exploreLinks = [
+    ["Browse", "/browse"],
+    ["Archive", "/archive"],
+    ["Domains", "/domains"],
+    ...(papersPublished ? [["Papers", "/papers"]] : []),
+    ["Search", "/search"],
+  ];
 
   return (
     <footer className="relative border-t border-[var(--border)] bg-[var(--bg)] overflow-hidden" role="contentinfo">
@@ -95,7 +104,7 @@ export function SacredFooter() {
           <section>
             <h2 className="type-section-label mb-3 text-[var(--ink)] font-extrabold uppercase tracking-wider text-xs md:text-sm">Explore</h2>
             <ul className="space-y-2 font-ui text-xs md:text-sm text-[var(--ink)] font-medium">
-              {[["Browse", "/browse"], ["Archive", "/archive"], ["Papers", "/papers"], ["Search", "/search"]].map(([label, href]) => (
+              {exploreLinks.map(([label, href]) => (
                 <li key={href}><Link href={href} className="text-[var(--ink)] hover:text-[var(--gold)] font-bold">{label}</Link></li>
               ))}
             </ul>
@@ -104,7 +113,7 @@ export function SacredFooter() {
           <section>
             <h2 className="type-section-label mb-3 text-[var(--ink)] font-extrabold uppercase tracking-wider text-xs md:text-sm">Community</h2>
             <ul className="space-y-2 font-ui text-xs md:text-sm text-[var(--ink)] font-medium">
-              {[["About", "/about"], ["Submit Work", "/submit"], ["Community", "/community"], ["Account", "/account"]].map(([label, href]) => (
+              {[["About", "/about"], ["Submit Work", "/submit"], ["Contact", "/contact"], ["Community", "/community"], ["Account", "/account"]].map(([label, href]) => (
                 <li key={href}><Link href={href} className="text-[var(--ink)] hover:text-[var(--gold)] font-bold">{label}</Link></li>
               ))}
             </ul>

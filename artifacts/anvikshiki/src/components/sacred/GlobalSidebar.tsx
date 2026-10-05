@@ -5,6 +5,7 @@ import {
   Users, Info, Mail, User, BookMarked, MessageSquare, ShieldCheck, X, Sun, Moon,
 } from "lucide-react";
 import { PUBLIC_NAV_LINKS, ACCOUNT_NAV_LINKS, ADMIN_NAV_LINK } from "@/lib/navigation";
+import { usePapersPublished } from "@/hooks/usePapersPublished";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { messagesApi } from "@/lib/messagesApi";
 import { useTheme } from "@/components/providers/ThemeProvider";
@@ -38,6 +39,7 @@ export function GlobalSidebar({ open, onClose }: GlobalSidebarProps) {
   const [loc, setLoc] = useLocation();
   const { user } = useAuthContext();
   const { resolvedTheme, toggleTheme } = useTheme();
+  const papersPublished = usePapersPublished();
   const drawerRef = useRef<HTMLElement>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -183,7 +185,7 @@ export function GlobalSidebar({ open, onClose }: GlobalSidebarProps) {
           {/* Search is deliberately not repeated here — the field at the top of
               this menu already does it, and two ways to reach the same page in
               one panel is just clutter. */}
-          {PUBLIC_NAV_LINKS.filter(link => link.href !== "/search").map((link) => {
+          {PUBLIC_NAV_LINKS.filter(link => link.href !== "/search" && (papersPublished || link.href !== "/papers")).map((link) => {
             const active = isActive(link.href);
             const Icon = ICON_MAP[link.href] || Home;
             return (

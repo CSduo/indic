@@ -6,6 +6,7 @@ import { GlobalSidebar } from "@/components/sacred/GlobalSidebar";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Emblem } from "@/components/brand/Emblem";
 import { createPoller, messagesApi } from "@/lib/messagesApi";
+import { usePapersPublished } from "@/hooks/usePapersPublished";
 
 export function SacredHeader() {
   const [loc, navigate] = useLocation();
@@ -14,6 +15,8 @@ export function SacredHeader() {
   const [scrolled, setScrolled] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const { user, logout } = useAuthContext();
+  // Same sections as the server-rendered nav; Papers only once one exists.
+  const papersPublished = usePapersPublished();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -173,17 +176,22 @@ export function SacredHeader() {
             <Link href="/archive" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/archive" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
               Archive
             </Link>
-            <Link href="/papers" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/papers" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
-              Papers
+            <Link href="/domains" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/domains" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
+              Domains
             </Link>
+            {papersPublished && (
+              <Link href="/papers" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/papers" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
+                Papers
+              </Link>
+            )}
             <Link href="/about" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/about" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
               About
             </Link>
             <Link href="/submit" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/submit" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
               Submit Work
             </Link>
-            <Link href="/community" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/community" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
-              Community
+            <Link href="/contact" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/contact" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
+              Contact
             </Link>
           </nav>
         </div>
