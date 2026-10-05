@@ -7,21 +7,59 @@ import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { EmptyState } from "@/components/sacred/EmptyState";
 import { AmbientPetals, FloralCorner } from "@/components/sacred/FloralDecor";
+import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
+import { readInitialData } from "@/lib/initialData";
+import { PAGE_META } from "@/lib/pageMeta";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
 
 const DISCIPLINES = ["All", "Philosophy", "History", "Psychology", "Sociology", "Science", "Geopolitics", "Sanskrit Studies", "Political Theory"];
 
+type ServerPaper = {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string | null;
+  authorName: string | null;
+  categorySlug: string | null;
+  publishedAt: string | null;
+  heroImageUrl: string | null;
+};
+
+/** The papers the server rendered into this page, in the /api/papers shape. */
+function serverPapers(): any[] | undefined {
+  const fromServer = readInitialData<{ papers: ServerPaper[] }>("papers");
+  if (!fromServer || !Array.isArray(fromServer.papers)) return undefined;
+  return fromServer.papers.map((paper) => ({
+    id: paper.id,
+    slug: paper.slug,
+    title: paper.title,
+    abstract: paper.excerpt,
+    authorName: paper.authorName,
+    categorySlug: paper.categorySlug,
+    publishedAt: paper.publishedAt,
+    coverImageUrl: paper.heroImageUrl,
+  }));
+}
+
 export default function PapersPage() {
-  const [papers, setPapers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Same title and description as the server-rendered page.
+  useDocumentMetadata({ ...PAGE_META.papers, canonicalPath: "/papers" });
+
+  // Start from the server's list; a failed or blocked request keeps it.
+  const [initialPapers] = useState(() => (typeof window === "undefined" ? undefined : serverPapers()));
+  const [papers, setPapers] = useState<any[]>(initialPapers ?? []);
+  const [loading, setLoading] = useState(initialPapers === undefined);
   const [discipline, setDiscipline] = useState("All");
   const [query, setQuery] = useState("");
 
   useEffect(() => {
     fetch(`${base()}/api/papers?limit=50`)
-      .then((response) => response.json())
+      .then((response) => {
+        if (!response.ok) throw new Error(`Request failed (${response.status})`);
+        return response.json();
+      })
       .then((data) => {
         setPapers(data.papers || []);
         setLoading(false);

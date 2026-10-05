@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, useEffect } from "react";
+import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { ArrowRight, BookOpen, ChevronLeft, ChevronRight, Clock3, Compass, Feather, Globe, Layers, Send, Users, FileText, Grid3X3 } from "lucide-react";
@@ -8,6 +8,8 @@ import { PrismaticBurst, YantraPattern } from "@/components/sacred/ColorfulDecor
 import { DOMAIN_META, DOMAIN_ORDER } from "@/lib/domainMeta";
 import { withContentVersion } from "@/lib/contentVersion";
 import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
+import { readInitialData } from "@/lib/initialData";
+import { PAGE_META } from "@/lib/pageMeta";
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (p: string) => `${base}${p.startsWith("/") ? p : `/${p}`}`;
@@ -138,10 +140,65 @@ const HOME_STALE_TIME = 1000 * 60;
 /** Public listing URL, bypassing the edge cache only after this browser publishes. */
 const publicContentUrl = (url: string) => withContentVersion(url);
 
+/**
+ * A listing request. An error response throws instead of resolving to an
+ * error body, so react-query keeps the data it already has (the server's
+ * listing) rather than replacing it with an empty list.
+ */
+const fetchListing = async (url: string) => {
+  const response = await fetch(publicContentUrl(url));
+  if (!response.ok) throw new Error(`Request failed (${response.status})`);
+  return response.json();
+};
+
+/** One work as the server-rendered home page embeds it (__INITIAL_DATA__). */
+type ServerWork = {
+  kind: "article" | "paper";
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string | null;
+  authorName: string | null;
+  categorySlug: string | null;
+  publishedAt: string | null;
+  readingMinutes: number | null;
+  heroImageUrl: string | null;
+};
+
+type ServerHome = {
+  articles: ServerWork[];
+  papers: ServerWork[];
+  articleTotal: number;
+  paperTotal: number;
+};
+
+/** The server's listings in the shape the /api/articles and /api/papers responses use. */
+function serverListings(home: ServerHome) {
+  const common = (work: ServerWork) => ({
+    id: work.id,
+    slug: work.slug,
+    title: work.title,
+    authorName: work.authorName,
+    categorySlug: work.categorySlug,
+    publishedAt: work.publishedAt,
+    readingMinutes: work.readingMinutes,
+  });
+  return {
+    articles: {
+      articles: home.articles.map((work) => ({ ...common(work), excerpt: work.excerpt, heroImageUrl: work.heroImageUrl })),
+      total: home.articleTotal,
+    },
+    papers: {
+      papers: home.papers.map((work) => ({ ...common(work), abstract: work.excerpt, coverImageUrl: work.heroImageUrl })),
+      total: home.paperTotal,
+    },
+  };
+}
+
 export default function HomePage() {
+  // Same title and description as the server-rendered home page.
   useDocumentMetadata({
-    title: "Ānvīkṣikī — Indic Philosophy, History & Civilizational Thought",
-    description: "An open journal and research platform for Indic philosophy, Sanskrit studies, ancient Indian history, science, and civilizational inquiry.",
+    ...PAGE_META.home,
     canonicalPath: "/",
     image: "https://anvikshikijournal.in/og-default.jpg",
   });
@@ -159,9 +216,18 @@ export default function HomePage() {
   // from the front page for the rest of the editor's session.
   // Published articles and papers are public. Sending the session cookie with
   // them gained nothing and only made these responses look per-user to caches.
+  // The listings the server rendered into this page, when the visit started
+  // here. They are shown first and refreshed in the background
+  // (initialDataUpdatedAt 0 marks them stale); if that request fails or is
+  // blocked, they stay on screen.
+  const fromServer = useMemo(() => {
+    const home = readInitialData<ServerHome>("home");
+    return home ? serverListings(home) : undefined;
+  }, []);
+
   const { data: featuredData } = useQuery({
     queryKey: ["home-featured"],
-    queryFn: () => fetch(publicContentUrl(`${base}/api/articles?featured=true&limit=4`)).then(r => r.json()),
+    queryFn: () => fetchListing(`${base}/api/articles?featured=true&limit=4`),
     staleTime: HOME_STALE_TIME,
     placeholderData: { articles: [] },
   });
@@ -172,8 +238,10 @@ export default function HomePage() {
     isPlaceholderData: articlesArePlaceholder,
   } = useQuery({
     queryKey: ["home-articles"],
-    queryFn: () => fetch(publicContentUrl(`${base}/api/articles?limit=24`)).then(r => r.json()),
+    queryFn: () => fetchListing(`${base}/api/articles?limit=24`),
     staleTime: HOME_STALE_TIME,
+    initialData: fromServer?.articles,
+    initialDataUpdatedAt: 0,
     placeholderData: { articles: [], total: 0 },
   });
 
@@ -183,8 +251,10 @@ export default function HomePage() {
     isPlaceholderData: papersArePlaceholder,
   } = useQuery({
     queryKey: ["home-papers"],
-    queryFn: () => fetch(publicContentUrl(`${base}/api/papers?limit=24`)).then(r => r.json()),
+    queryFn: () => fetchListing(`${base}/api/papers?limit=24`),
     staleTime: HOME_STALE_TIME,
+    initialData: fromServer?.papers,
+    initialDataUpdatedAt: 0,
     placeholderData: { papers: [], total: 0 },
   });
 
@@ -267,9 +337,9 @@ export default function HomePage() {
   const recentPublications = mergedPublications;
 
   // Re-fetch when content changes (e.g. after publish/delete from admin)
-  const { refetch: refetchArticles } = useQuery({ queryKey: ["home-articles"], queryFn: () => fetch(publicContentUrl(`${base}/api/articles?limit=24`)).then(r => r.json()), enabled: false });
-  const { refetch: refetchPapers }   = useQuery({ queryKey: ["home-papers"],   queryFn: () => fetch(publicContentUrl(`${base}/api/papers?limit=24`)).then(r => r.json()), enabled: false });
-  const { refetch: refetchFeatured } = useQuery({ queryKey: ["home-featured"], queryFn: () => fetch(publicContentUrl(`${base}/api/articles?featured=true&limit=4`)).then(r => r.json()), enabled: false });
+  const { refetch: refetchArticles } = useQuery({ queryKey: ["home-articles"], queryFn: () => fetchListing(`${base}/api/articles?limit=24`), enabled: false });
+  const { refetch: refetchPapers }   = useQuery({ queryKey: ["home-papers"],   queryFn: () => fetchListing(`${base}/api/papers?limit=24`), enabled: false });
+  const { refetch: refetchFeatured } = useQuery({ queryKey: ["home-featured"], queryFn: () => fetchListing(`${base}/api/articles?featured=true&limit=4`), enabled: false });
 
   useEffect(() => {
     const onContentChanged = () => { void refetchArticles(); void refetchPapers(); void refetchFeatured(); };

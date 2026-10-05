@@ -6,16 +6,13 @@ import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { AmbientPetals, FloralBorder, FloralCorner } from "@/components/sacred/FloralDecor";
 import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
+import { PAGE_META } from "@/lib/pageMeta";
 
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
 
 export default function AnvikshikiMeaningPage() {
-  useDocumentMetadata({
-    title: "Meaning of Ānvīkṣikī: Etymology, Philosophy & Classical Heritage — Ānvīkṣikī",
-    description: "Explore the profound meaning of Ānvīkṣikī (आन्वीक्षिकी): the Sanskrit etymology, Kautilya's Arthaśāstra doctrine of the foundational science, and Nyāya rational inquiry.",
-    canonicalPath: "/about/anvikshiki",
-    type: "article",
-  });
+  // Same title and description as the server-rendered page.
+  useDocumentMetadata({ ...PAGE_META.aboutAnvikshiki, canonicalPath: "/about/anvikshiki", type: "article" });
 
   return (
     <div className="relative bg-[var(--bg)] overflow-hidden">

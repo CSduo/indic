@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { isServerRenderedPath } from "@/lib/initialData";
 
 interface DocumentMetadata {
   title?: string;
@@ -20,6 +21,12 @@ interface DocumentMetadata {
   - Overwriting the server's canonical / og:url. Server-rendered pages already
     carry the correct canonical; the client used to replace it with a URL
     built from VITE_PUBLIC_SITE_URL, which pointed at the www host.
+  - Touching a server-rendered page's head at all. While the visitor is on the
+    path the server rendered (it embedded __INITIAL_DATA__ for that path), its
+    title, description, Open Graph tags, canonical and JSON-LD are the
+    authoritative values and the client leaves every one of them alone. Pages
+    pass the same title and description the server uses (lib/pageMeta.ts), so
+    after client-side navigation the values still agree.
 */
 
 export const DEFAULT_SITE_URL = "https://anvikshikijournal.in";
@@ -120,6 +127,7 @@ export function useDocumentMetadata({
 }: DocumentMetadata) {
   useEffect(() => {
     if (!title) return;
+    if (isServerRenderedPath()) return;
     const previousTitle = document.title;
     const imageUrl = image ? absoluteUrl(image) : "";
     const cleanDescription = (description || "Ānvīkṣikī journal and research platform.").trim().slice(0, 300);

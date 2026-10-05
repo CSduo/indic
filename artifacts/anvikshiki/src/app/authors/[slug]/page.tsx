@@ -18,6 +18,7 @@ import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { EmptyState } from "@/components/sacred/EmptyState";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
+import { readInitialData } from "@/lib/initialData";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -62,13 +63,9 @@ export default function AuthorHubPage() {
   const [author, setAuthor] = useState<AuthorData | null>(() => {
     if (typeof window !== "undefined") {
       try {
-        const el = document.getElementById("__ANVIKSHIKI_DATA__");
-        if (el && el.textContent) {
-          const parsed = JSON.parse(el.textContent);
-          if (parsed && (parsed.handle === slug || parsed.id === slug || !slug)) {
-            return parsed;
-          }
-        }
+        // The server embeds the record it rendered; render it first.
+        const fromServer = readInitialData<any>("author");
+        if (fromServer) return fromServer;
       } catch {}
     }
     return null;
@@ -224,7 +221,8 @@ export default function AuthorHubPage() {
           id: resolvedUser?.id,
           name: resolvedUser?.name || fallbackName,
           handle: resolvedUser?.handle || slug,
-          bio: resolvedUser?.bio || `${resolvedUser?.name || fallbackName} is a contributing scholar and researcher on Ānvīkṣikī Journal.`,
+          // The person's own bio or nothing, as on the server-rendered page.
+          bio: resolvedUser?.bio || undefined,
           institution: resolvedUser?.institution,
           avatarUrl: resolvedUser?.avatarUrl,
           website: resolvedUser?.website,
@@ -307,7 +305,9 @@ export default function AuthorHubPage() {
     );
   }
 
-  if (error || !author) {
+  // A profile already on screen (from the server) is never replaced by
+  // "not found" because a later request failed or was blocked.
+  if (!author) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center bg-[var(--bg)] px-4">
         <EmptyState

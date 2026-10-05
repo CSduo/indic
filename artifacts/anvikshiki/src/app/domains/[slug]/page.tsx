@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useRoute } from "wouter";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
@@ -9,6 +9,7 @@ import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { EmptyState } from "@/components/sacred/EmptyState";
 import { DOMAIN_META, getDomainMeta, normalizeDomainKey } from "@/lib/domainMeta";
 import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
+import { readInitialData } from "@/lib/initialData";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
@@ -23,17 +24,58 @@ type PublicWork = {
   publishedAt?: string;
 };
 
+type ServerWork = {
+  kind: "article" | "paper";
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string | null;
+  authorName: string | null;
+  publishedAt: string | null;
+};
+
+type ServerDomain = {
+  category: { slug: string; name: string; description: string | null };
+  articles: ServerWork[];
+  papers: ServerWork[];
+};
+
+function fromServerWorks(data: ServerDomain): PublicWork[] {
+  return [...data.articles, ...data.papers]
+    .map((work) => ({
+      id: work.id,
+      kind: work.kind,
+      slug: work.slug,
+      title: work.title,
+      summary: work.excerpt || undefined,
+      authorName: work.authorName || undefined,
+      publishedAt: work.publishedAt || undefined,
+    }))
+    .sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime());
+}
+
 export default function DomainPage() {
   const [, params] = useRoute("/domains/:slug");
   const [, legacyParams] = useRoute("/categories/:slug");
   const slug = (params?.slug || legacyParams?.slug || "").toLowerCase();
+  // The hub the server rendered (any category in the database, including ones
+  // the client's built-in list does not know). It wins over the built-in list.
+  // Re-read per slug: after client-side navigation to another hub the payload
+  // no longer applies and readInitialData returns undefined.
+  const serverDomain = useMemo(() => readInitialData<ServerDomain>("domain"), [slug]);
+  const [apiCategory, setApiCategory] = useState<{ name: string; description: string | null } | null>(null);
+  const category = serverDomain?.category ?? apiCategory;
   const key = normalizeDomainKey(slug);
-  const meta = getDomainMeta(key);
-  const known = Boolean(slug && (slug in DOMAIN_META || slug === "civilizations" || slug === "civilisation"));
-  const [publications, setPublications] = useState<PublicWork[]>(() => {
+  const builtIn = slug in DOMAIN_META;
+  const baseMeta = getDomainMeta(key);
+  const meta = category
+    ? { ...baseMeta, label: category.name, description: category.description || baseMeta.description }
+    : baseMeta;
+  const initialPublications = (): PublicWork[] => {
+    if (serverDomain) return fromServerWorks(serverDomain);
     if (typeof window !== "undefined") {
       try {
-        const cached = sessionStorage.getItem(`anv_domain_${key}`);
+        const cached = sessionStorage.getItem(`anv_domain_${slug}`);
         if (cached) {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -41,29 +83,50 @@ export default function DomainPage() {
       } catch {}
     }
     return [];
-  });
-  const [loading, setLoading] = useState(() => publications.length === 0);
+  };
+  const [publications, setPublications] = useState<PublicWork[]>(initialPublications);
+  const [loading, setLoading] = useState(() => !serverDomain && publications.length === 0);
   const [error, setError] = useState(false);
+  // Only a definite 404 from the API makes a hub "not found"; a failed or
+  // blocked request never does.
+  const [notFound, setNotFound] = useState(false);
 
+  // Same title and description as the server-rendered hub.
+  const metaDescription = (category?.description || (category ? `Work published on Ānvīkṣikī in ${category.name}.` : meta.description) || "").slice(0, 300);
   useDocumentMetadata({
     title: `${meta.label} — Domain Archive — Ānvīkṣikī`,
-    description: meta.description || `Essays and research papers in ${meta.label} published in Ānvīkṣikī Journal.`,
+    description: metaDescription,
     canonicalPath: `/domains/${encodeURIComponent(slug)}`,
     type: "website",
   });
 
   useEffect(() => {
     if (!slug) return;
-    if (publications.length === 0) {
-      setLoading(true);
-    }
+    // Start each hub from its own data (the page component is reused when
+    // navigating from one hub to another).
+    const startingPublications = initialPublications();
+    setPublications(startingPublications);
+    setApiCategory(null);
+    setNotFound(false);
+    setLoading(startingPublications.length === 0 && !serverDomain);
     setError(false);
-    fetch(`${base()}/api/categories/${encodeURIComponent(key)}`)
+    fetch(`${base()}/api/categories/${encodeURIComponent(slug)}`)
       .then(async (response) => {
+        if (response.status === 404) {
+          setNotFound(true);
+          return null;
+        }
         if (!response.ok) throw new Error("Could not load domain");
         return response.json();
       })
       .then((data) => {
+        if (!data) {
+          setLoading(false);
+          return;
+        }
+        if (data.category?.name) {
+          setApiCategory({ name: data.category.name, description: data.category.description ?? null });
+        }
         const articles: PublicWork[] = (data.articles || []).map((article: any) => ({
           id: article.id,
           kind: "article",
@@ -87,23 +150,24 @@ export default function DomainPage() {
         );
         setPublications(sorted);
         try {
-          sessionStorage.setItem(`anv_domain_${key}`, JSON.stringify(sorted));
+          sessionStorage.setItem(`anv_domain_${slug}`, JSON.stringify(sorted));
         } catch {}
         setLoading(false);
       })
       .catch(() => {
+        // Keep whatever is already on screen; only say so when there is nothing.
         setError(true);
         setLoading(false);
       });
-  }, [key, slug]);
+  }, [slug]);
 
-  if (!known && !loading) {
+  if (!serverDomain && !apiCategory && !builtIn && notFound && !loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center bg-[var(--bg)] px-4">
         <EmptyState
           title="Domain not found"
           description={`"${slug}" is not a known domain. Return to the atlas to continue browsing.`}
-          action={<Link href="/browse" className="btn-terracotta">Back to Explore</Link>}
+          action={<Link href="/domains" className="btn-terracotta">All Domains</Link>}
         />
       </div>
     );
@@ -140,7 +204,7 @@ export default function DomainPage() {
               Essays and papers in this field will collect here as the archive grows.
             </p>
           </div>
-          <Link href="/browse" className="btn-ink w-fit">
+          <Link href="/domains" className="btn-ink w-fit">
             All Domains
           </Link>
         </div>
@@ -151,7 +215,7 @@ export default function DomainPage() {
           <div className="grid gap-4 md:grid-cols-3">
             {[0, 1, 2].map((item) => <div key={item} className="h-48 animate-pulse rounded-[8px] bg-[var(--ink-wash-strong)]" />)}
           </div>
-        ) : error ? (
+        ) : error && publications.length === 0 ? (
           <EmptyState
             title="Could not load content"
             description="There was an error loading articles for this domain. Please try again."

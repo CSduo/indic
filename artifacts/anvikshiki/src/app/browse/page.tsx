@@ -8,16 +8,14 @@ import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { AmbientPetals, FloralBorder, FloralCorner } from "@/components/sacred/FloralDecor";
 import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
+import { PAGE_META } from "@/lib/pageMeta";
 import { DOMAIN_ORDER, DOMAIN_META, type DomainKey } from "@/lib/domainMeta";
 
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
 
 export default function BrowsePage() {
-  useDocumentMetadata({
-    title: "Browse Published Articles & Papers — Ānvīkṣikī",
-    description: "Every article and paper published on Ānvīkṣikī, grouped by discipline: Indic philosophy, Sanskrit traditions, history and civilizational thought.",
-    canonicalPath: "/browse",
-  });
+  // Same title and description as the server-rendered page.
+  useDocumentMetadata({ ...PAGE_META.browse, canonicalPath: "/browse" });
 
   const [view, setView] = useState<"grid" | "list">("grid");
   const domains = DOMAIN_ORDER.filter((key: DomainKey) => key !== "philosophy");

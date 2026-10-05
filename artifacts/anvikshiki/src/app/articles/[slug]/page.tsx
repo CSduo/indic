@@ -24,6 +24,7 @@ const textSummary = (value: unknown, maxLength = 220) => String(value || "")
 
 import { FileText, BookOpen } from "lucide-react";
 import { CitationModal } from "@/components/CitationModal";
+import { readInitialData } from "@/lib/initialData";
 
 export function getArticleStats(bodyHtmlOrText?: string, excerpt?: string) {
   const content = bodyHtmlOrText || excerpt || "";
@@ -88,13 +89,9 @@ export default function ArticlePage() {
   const [article, setArticle] = useState<any>(() => {
     if (typeof window !== "undefined") {
       try {
-        const el = document.getElementById("__ANVIKSHIKI_DATA__");
-        if (el && el.textContent) {
-          const parsed = JSON.parse(el.textContent);
-          if (parsed && (parsed.slug === slug || !slug)) {
-            return parsed;
-          }
-        }
+        // The server embeds the record it rendered; render it first.
+        const fromServer = readInitialData<any>("article");
+        if (fromServer) return fromServer;
         const cached = sessionStorage.getItem(`anv_article_${slug}`);
         if (cached) {
           const parsed = JSON.parse(cached);
@@ -469,7 +466,9 @@ export default function ArticlePage() {
     );
   }
 
-  if (error || !article) {
+  // Content already on screen (from the server or the cache) is never
+  // replaced by "not found" because a later request failed.
+  if (!article) {
     return (
       <div className="grid min-h-[60vh] place-items-center bg-[var(--bg)] px-4">
         <EmptyState title="Article not found" description="This essay may have been removed or is not yet published." action={<Link href="/browse" className="btn-terracotta">Browse Essays</Link>} />

@@ -1,4 +1,9 @@
+import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
+import { PAGE_META } from "@/lib/pageMeta";
+
 export default function TermsPage() {
+  // Same title and description as the server-rendered page.
+  useDocumentMetadata({ ...PAGE_META.terms, canonicalPath: "/terms" });
   return (
     <div className="min-h-[100dvh] pb-24" style={{ background: "var(--bg)" }}>
       <div className="container-anv py-8 max-w-2xl">

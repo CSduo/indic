@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useLocation } from "wouter";
+import { useState } from "react";
+import { Link, useLocation } from "wouter";
 import { ArrowRight, BookOpen, FileText, Languages, MessageSquare, PenLine, Upload } from "lucide-react";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
 import { HeroPanel } from "@/components/manuscript/HeroPanel";
@@ -7,6 +7,9 @@ import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { SubmissionStepper } from "@/components/manuscript/SubmissionStepper";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
+import { readInitialData } from "@/lib/initialData";
+import { PAGE_META } from "@/lib/pageMeta";
 
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
 
@@ -17,18 +20,79 @@ const TYPES = [
   { id: "book-review", label: "Book Review", icon: BookOpen, domain: "history", desc: "Review of a published book, manuscript, or archive source." },
 ] as const;
 
+/*
+  /submit is the public call for submissions: anyone (and any crawler) sees the
+  guidelines below, the same text the server renders. Only the drafting and
+  upload screens under /submit/ need an account; signed-in members get the
+  type picker that starts them.
+*/
+function SubmissionGuidelines() {
+  const [domains] = useState<Array<{ name: string }>>(() =>
+    (typeof window === "undefined" ? undefined : readInitialData<{ domains: Array<{ name: string }> }>("submit")?.domains) ?? [],
+  );
+  return (
+    <div className="bg-[var(--bg)]">
+      <section className="container-anv py-6 md:py-10">
+        <HeroPanel
+          image={asset("/images/provided/submit-falcon-city-hero.jpg")}
+          imageAlt="Illustrated figure with falcon and lantern overlooking a scholarly city"
+          eyebrow="Call for submissions"
+          title="Submit your work to Ānvīkṣikī"
+          description="Ānvīkṣikī accepts essays, research papers, reviews and commentary, book reviews and translations. Published work is free to read, and authors keep ownership of their work."
+          glyph="submit"
+          focal="center"
+          ctaPrimary={{ label: "Sign in to submit", href: "/login" }}
+          ctaSecondary={{ label: "Contact the editor", href: "/contact" }}
+        />
+      </section>
+      <section className="container-anv pb-14">
+        <ParchmentCard className="p-5 md:p-7">
+          <div className="prose-anv">
+            <h2>What to send</h2>
+            <ul>
+              <li>Original work that you wrote, or have permission to submit.</li>
+              <li>A short abstract or summary of the piece.</li>
+              <li>References and citations for quotations, figures and other sources.</li>
+            </ul>
+            {domains.length > 0 && (
+              <>
+                <h2>Subjects</h2>
+                <p>
+                  Work is filed under one of these domains: {domains.map((d) => d.name).join(", ")}. See the{" "}
+                  <Link href="/domains">domains page</Link> for what has been published in each.
+                </p>
+              </>
+            )}
+            <h2>How to submit</h2>
+            <p>
+              Submitting needs an account. <Link href="/login">Sign in or create an account</Link>, then either write the
+              piece in the browser editor or upload a PDF, Word (.doc or .docx) or plain-text file together with its details.
+            </p>
+            <h2>What happens next</h2>
+            <p>
+              Each submission is read by the editor, who may accept it, ask for revisions or decline it. Nothing is
+              published without the editor's decision. You can follow the status of your submissions from your account.
+            </p>
+            <p>
+              Questions about a submission? <Link href="/contact">Contact the editor</Link>. The{" "}
+              <Link href="/terms">terms</Link> cover ownership of submitted work.
+            </p>
+          </div>
+        </ParchmentCard>
+      </section>
+    </div>
+  );
+}
+
 export default function SubmitLandingPage() {
+  // Same title and description as the server-rendered guidelines page.
+  useDocumentMetadata({ ...PAGE_META.submit, canonicalPath: "/submit" });
   const [, navigate] = useLocation();
-  const { user, loading } = useAuthContext();
+  const { user } = useAuthContext();
   const [selectedType, setSelectedType] = useState("essay");
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate("/login");
-    }
-  }, [user, loading, navigate]);
-
-  if (loading || !user) return null;
+  // Signed out, or while the session is still being checked: the guidelines.
+  if (!user) return <SubmissionGuidelines />;
 
   const proceed = (method: "write" | "upload") => {
     sessionStorage.setItem("anvikshiki_submit_type", selectedType);

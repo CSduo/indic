@@ -9,11 +9,15 @@ import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { EmptyState } from "@/components/sacred/EmptyState";
 import { RecentMessages } from "@/components/community/RecentMessages";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
+import { PAGE_META } from "@/lib/pageMeta";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
 
 export default function CommunityPage() {
+  // Same title and description as the server-rendered page.
+  useDocumentMetadata({ ...PAGE_META.community, canonicalPath: "/community" });
   const { user } = useAuthContext();
   const [email, setEmail] = useState(user?.email || "");
   const [name, setName] = useState(user?.name || "");

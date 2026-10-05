@@ -12,6 +12,7 @@ import { ThemeToggle } from "@/components/brand/ThemeToggle";
 import { DocumentViewer } from "@/components/manuscript/DocumentViewer";
 import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
 import { CitationModal } from "@/components/CitationModal";
+import { readInitialData } from "@/lib/initialData";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const textSummary = (value: unknown, maxLength = 220) => String(value || "")
@@ -26,13 +27,9 @@ export default function PaperDetailPage() {
   const [paper, setPaper] = useState<any>(() => {
     if (typeof window !== "undefined") {
       try {
-        const el = document.getElementById("__ANVIKSHIKI_DATA__");
-        if (el && el.textContent) {
-          const parsed = JSON.parse(el.textContent);
-          if (parsed && (parsed.slug === slug || !slug)) {
-            return parsed;
-          }
-        }
+        // The server embeds the record it rendered; render it first.
+        const fromServer = readInitialData<any>("paper");
+        if (fromServer) return fromServer;
         const cached = sessionStorage.getItem(`anv_paper_${slug}`);
         if (cached) {
           const parsed = JSON.parse(cached);
@@ -97,7 +94,7 @@ export default function PaperDetailPage() {
     toast.success("BibTeX citation copied to clipboard");
   };
 
-  if (loading) {
+  if (loading && !paper) {
     return (
       <div className="grid min-h-[60vh] place-items-center bg-[var(--bg)]">
         <div className="h-10 w-10 rounded-full border-2 border-[var(--border-gold)] border-t-[var(--gold)]" style={{ animation: "rotateSlow .8s linear infinite" }} role="status" aria-label="Loading" />
@@ -105,7 +102,9 @@ export default function PaperDetailPage() {
     );
   }
 
-  if (error || !paper) {
+  // Content already on screen is never replaced by "not found" because a
+  // later request failed or was blocked.
+  if (!paper) {
     return (
       <div className="grid min-h-[60vh] place-items-center bg-[var(--bg)] px-4">
         <EmptyState title="Paper not found" action={<Link href="/papers" className="btn-terracotta">Back to Papers</Link>} />

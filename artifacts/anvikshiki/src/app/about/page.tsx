@@ -6,10 +6,14 @@ import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { AmbientPetals, FloralBorder, FloralCorner } from "@/components/sacred/FloralDecor";
 import { DOMAIN_ORDER } from "@/lib/domainMeta";
+import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
+import { PAGE_META } from "@/lib/pageMeta";
 
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
 
 export default function AboutPage() {
+  // Same title and description as the server-rendered page.
+  useDocumentMetadata({ ...PAGE_META.about, canonicalPath: "/about" });
   return (
     <div className="relative bg-[var(--bg)] overflow-hidden">
       <AmbientPetals />
@@ -41,7 +45,7 @@ export default function AboutPage() {
                   Anvikshiki is a journal dedicated to the rigorous and beautiful study of ideas.
                 </p>
                 <p>
-                  We publish essays, research papers, translations, and commentary across philosophy, history, psychology, sociology, science, geopolitics, civilizational thought, and the Sanskrit tradition.
+                  We accept essays, research papers, translations and commentary across philosophy, history, psychology, sociology, science, geopolitics, civilizational thought and the Sanskrit tradition. The work published so far is essays, mostly on history, philosophy and politics.
                 </p>
                 <blockquote>
                   The ancient word Ānvīkṣikī (आन्वीक्षिकी) means the philosophical examination of truth: the disciplined habit of questioning, comparing, and seeing clearly.

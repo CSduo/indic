@@ -4,12 +4,70 @@ import { Search, ChevronLeft, ChevronRight, Filter, X, LayoutGrid, List as ListI
 import { AmbientPetals, FloralCorner } from "@/components/sacred/FloralDecor";
 import { DOMAIN_ORDER, DOMAIN_META, DomainKey } from "@/lib/domainMeta";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
+import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
+import { readInitialData } from "@/lib/initialData";
+import { PAGE_META } from "@/lib/pageMeta";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
+/** The archive page as the server rendered it (__INITIAL_DATA__). */
+type ServerArchive = {
+  page: number;
+  works: Array<{
+    kind: "article" | "paper";
+    id: string;
+    slug: string;
+    title: string;
+    excerpt: string | null;
+    authorName: string | null;
+    categorySlug: string | null;
+    publishedAt: string | null;
+    readingMinutes: number | null;
+    heroImageUrl: string | null;
+  }>;
+  domains: Array<{ slug: string; name: string }>;
+};
+
+/** The works the server rendered for this URL, in the list item shape below. */
+function serverArchiveItems(): any[] {
+  const archive = readInitialData<ServerArchive>("archive");
+  if (!archive || !Array.isArray(archive.works)) return [];
+  const requestedPage = Number(new URLSearchParams(window.location.search).get("page") || "1");
+  if (archive.page !== requestedPage) return [];
+  const names = new Map((archive.domains || []).map((d) => [d.slug, d.name]));
+  return archive.works.map((work) => ({
+    id: work.id,
+    kind: work.kind,
+    slug: work.slug,
+    title: work.title,
+    summary: work.excerpt || undefined,
+    imageUrl: work.heroImageUrl || undefined,
+    categorySlug: work.categorySlug || "",
+    categoryName: (work.categorySlug && names.get(work.categorySlug)) || (work.kind === "paper" ? "Research Paper" : "Essay"),
+    authorName: work.authorName || "Editorial",
+    publishedAt: work.publishedAt || undefined,
+    readingMinutes: work.readingMinutes || undefined,
+  }));
+}
+
+/** A listing request that fails (rather than resolving to nothing) on an error response. */
+const fetchListing = (url: string) =>
+  fetch(url, { credentials: "include" })
+    .then((response) => {
+      if (!response.ok) throw new Error(`Request failed (${response.status})`);
+      return response.json();
+    })
+    .catch(() => null);
+
 export default function ArchivePage() {
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Same title and description as the server-rendered archive.
+  useDocumentMetadata({ ...PAGE_META.archive, canonicalPath: "/archive" });
+
+  // Start from the works the server rendered, so a failed or blocked request
+  // never leaves an empty archive in their place.
+  const [serverItems] = useState<any[]>(() => (typeof window === "undefined" ? [] : serverArchiveItems()));
+  const [items, setItems] = useState<any[]>(serverItems);
+  const [loading, setLoading] = useState(serverItems.length === 0);
   
   const [query, setQuery] = useState("");
   const [selectedDomain, setSelectedDomain] = useState("all");
@@ -37,10 +95,15 @@ export default function ArchivePage() {
   // Fetch Data
   useEffect(() => {
     Promise.all([
-      fetch(`${base()}/api/articles?limit=100`, { credentials: "include" }).then((r) => r.json()).catch(() => ({ articles: [] })),
-      fetch(`${base()}/api/papers?limit=100`, { credentials: "include" }).then((r) => r.json()).catch(() => ({ papers: [] })),
+      fetchListing(`${base()}/api/articles?limit=100`),
+      fetchListing(`${base()}/api/papers?limit=100`),
     ]).then(([articles, papers]) => {
-      const allArticles = (articles.articles || []).map((a: any) => ({
+      if ((!articles || !papers) && serverItems.length > 0) {
+        // A request failed or was blocked: keep the server's list on screen.
+        setLoading(false);
+        return;
+      }
+      const allArticles = (articles?.articles || []).map((a: any) => ({
         id: a.id,
         kind: "article",
         slug: a.slug,
@@ -56,7 +119,7 @@ export default function ArchivePage() {
         lineCount: a.lineCount,
       }));
 
-      const allPapers = (papers.papers || []).map((p: any) => ({
+      const allPapers = (papers?.papers || []).map((p: any) => ({
         id: p.id,
         kind: "paper",
         slug: p.slug,
@@ -85,6 +148,10 @@ export default function ArchivePage() {
     if (selectedKind !== "all") params.set("type", selectedKind);
     if (sortOrder !== "newest") params.set("sort", sortOrder);
     if (readingTime !== "any") params.set("time", readingTime);
+    // Keep the server's archive page number, so the address stays the URL
+    // that was requested (and that the page's canonical names).
+    const serverPage = new URLSearchParams(window.location.search).get("page");
+    if (serverPage) params.set("page", serverPage);
     
     const newUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
     window.history.replaceState({}, '', newUrl);

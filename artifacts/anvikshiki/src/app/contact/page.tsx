@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
 import { OrnamentDivider } from "@/components/manuscript/OrnamentDivider";
 import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
+import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
+import { PAGE_META } from "@/lib/pageMeta";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -17,6 +19,8 @@ const INQUIRY_TYPES = [
 ];
 
 export default function ContactPage() {
+  // Same title and description as the server-rendered page.
+  useDocumentMetadata({ ...PAGE_META.contact, canonicalPath: "/contact" });
   const [form, setForm] = useState({ name: "", email: "", type: "submission", subject: "", message: "" });
   const [status, setStatus] = useState<"idle" | "sending" | "ok" | "err">("idle");
   const [validationError, setValidationError] = useState("");
