@@ -50,9 +50,15 @@ describe("One truthful sitemap (ANV-CRAWL-04/05/19)", () => {
 
     expect(res.status).toBe(200);
     expect(res.text).not.toContain("<changefreq>");
-    for (const path of ["/privacy", "/terms", "/submit", "/community", "/domains"]) {
+    for (const path of ["/privacy", "/terms", "/community"]) {
       expect(res.text).not.toContain(`<loc>https://anvikshikijournal.in${path}</loc>`);
     }
+    // /domains (once "Cannot GET") and /submit (once a sign-in form) are now
+    // server-rendered, self-canonical content pages, so they are listed.
+    for (const path of ["/domains", "/submit"]) {
+      expect(res.text).toContain(`<loc>https://anvikshikijournal.in${path}</loc>`);
+    }
+    expect(res.text).not.toContain("<loc>https://anvikshikijournal.in/submit/");
     expect(res.text).toContain("<loc>https://anvikshikijournal.in/authors/arya-ambadi</loc>");
   });
 

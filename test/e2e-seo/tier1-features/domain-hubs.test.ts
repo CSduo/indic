@@ -107,7 +107,9 @@ describe("Tier 1 - Feature 10: Domain Authority Hubs & Internal Linking (R5)", (
     const res = await request(app).get("/browse");
     expect(res.status).toBe(200);
     expect(res.headers["content-type"]).toMatch(/text\/html/);
-    expect(res.text).toContain("Browse Research Papers, Articles &amp; Scholarly Archives");
+    // Title changed deliberately (lib/page-meta.ts): it names what the page
+    // lists instead of "Research Papers ... Scholarly Archives".
+    expect(res.text).toContain("Browse Published Articles &amp; Papers");
     expect(res.text).toContain('<link rel="canonical" href="https://anvikshikijournal.in/browse"');
     expect(res.text).toContain("Disciplines &amp; Research Domains");
   });

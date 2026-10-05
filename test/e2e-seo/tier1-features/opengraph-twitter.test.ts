@@ -25,15 +25,24 @@ describe("Tier 1 - Feature 3: Open Graph & Twitter Cards (R3)", () => {
     expect(og["og:image"]).toMatch(/^https?:\/\//);
   });
 
-  it("declares standard 1200x630 social card dimensions in Open Graph image metadata", async () => {
-    const res = await request(app)
-      .get("/articles/nyaya-epistemology-pramana-theory");
+  // Changed deliberately: dimensions are declared only when they are known to
+  // be true (the 1200x630 default card, or a Cloudinary 1200x630 crop). An
+  // uploaded hero image of unknown size is sent without claimed dimensions.
+  it("declares 1200x630 for the default social card and no invented size for other images", async () => {
+    const fallback = await request(app)
+      .get(`/articles/${encodeURIComponent("samkhya-purusa-prakrti-सङ्ख्य-दर्शने")}`);
+    expect(fallback.status).toBe(200);
+    const fallbackOg = extractOpenGraph(fallback.text);
+    expect(fallbackOg["og:image"]).toBe("https://anvikshikijournal.in/og-default.jpg");
+    expect(fallbackOg["og:image:width"]).toBe("1200");
+    expect(fallbackOg["og:image:height"]).toBe("630");
 
-    expect(res.status).toBe(200);
-    const og = extractOpenGraph(res.text);
-
-    expect(og["og:image:width"]).toBe("1200");
-    expect(og["og:image:height"]).toBe("630");
+    const own = await request(app).get("/articles/nyaya-epistemology-pramana-theory");
+    expect(own.status).toBe(200);
+    const ownOg = extractOpenGraph(own.text);
+    expect(ownOg["og:image"]).toBe("https://anvikshikijournal.in/images/nyaya-hero.jpg");
+    expect(ownOg["og:image:width"]).toBeUndefined();
+    expect(ownOg["og:image:height"]).toBeUndefined();
   });
 
   it("outputs article temporal and author metadata in Open Graph namespace", async () => {

@@ -101,8 +101,10 @@ describe("Tier 4 - Real-world Workloads & Crawler Emulation", () => {
     expect(og["og:title"]).toContain("Nyāya Epistemology");
     expect(og["og:type"]).toBe("article");
     expect(og["og:image"]).toBeTruthy();
-    expect(og["og:image:width"]).toBe("1200");
-    expect(og["og:image:height"]).toBe("630");
+    // The fixture's own hero image has no known size, so none is claimed
+    // (dimensions are declared only for the 1200x630 default card).
+    expect(og["og:image:width"]).toBeUndefined();
+    expect(og["og:image:height"]).toBeUndefined();
   });
 
   it("serves crisp social title, description, and preview image to WhatsApp link scraper", async () => {

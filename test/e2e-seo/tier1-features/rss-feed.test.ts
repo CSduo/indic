@@ -14,7 +14,9 @@ describe("Tier 1 - Feature 7: RSS Feed Generation (R6)", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers["content-type"]).toMatch(/rss\+xml|application\/xml|text\/xml/);
-    expect(res.text).toContain("<rss version=\"2.0\">");
+    // The root now declares the Atom (rel="self") and Dublin Core (dc:creator)
+    // namespaces.
+    expect(res.text).toMatch(/<rss version="2.0"[\s>]/);
     expect(res.text).toContain("<channel>");
   });
 
@@ -23,8 +25,10 @@ describe("Tier 1 - Feature 7: RSS Feed Generation (R6)", () => {
 
     expect(res.status).toBe(200);
     expect(res.text).toContain("<title>Ānvīkṣikī");
-    expect(res.text).toContain("<link>https://anvikshikijournal.in</link>");
-    expect(res.text).toContain("<language>en-us</language>");
+    // The channel links to the canonical home URL (with its trailing slash)
+    // and declares "en", the same language as <html lang="en">.
+    expect(res.text).toContain("<link>https://anvikshikijournal.in/</link>");
+    expect(res.text).toContain("<language>en</language>");
   });
 
   it("includes published articles and research papers with canonical links", async () => {

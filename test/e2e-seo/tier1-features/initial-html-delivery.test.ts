@@ -35,7 +35,9 @@ describe("Tier 1 - Feature 1: Initial HTTP HTML Delivery (R1)", () => {
 
     const description = getMeta(res.text, "description");
     expect(description).toBeTruthy();
-    expect(description).toContain("computational model");
+    // The editor's seoDescription is used as written when it is set (it used
+    // to be overridden by the abstract); the fixture paper has one.
+    expect(description).toContain("computational validation");
   });
 
   it("delivers author metadata and publication dates in the initial HTML payload", async () => {

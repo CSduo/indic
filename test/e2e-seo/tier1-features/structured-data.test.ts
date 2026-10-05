@@ -17,10 +17,14 @@ describe("Tier 1 - Feature 5: Schema.org JSON-LD Structured Data (R4)", () => {
 
     expect(res.status).toBe(200);
     const schemas = extractJsonLd(res.text);
-    // When JSON-LD is implemented, at least one schema object must be parsed
-    if (schemas.length > 0) {
-      expect(schemas[0]["@context"]).toMatch(/https?:\/\/schema\.org/);
-    }
+    expect(schemas.length).toBeGreaterThan(0);
+    // One JSON-LD block per page holds an @graph; @context sits on the block,
+    // not on each node that extractJsonLd flattens out of the graph.
+    const blocks = [...res.text.matchAll(/<script\s+type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
+    expect(blocks.length).toBe(1);
+    const block = JSON.parse(blocks[0][1]);
+    expect(block["@context"]).toMatch(/https?:\/\/schema\.org/);
+    expect(Array.isArray(block["@graph"])).toBe(true);
   });
 
   it("exposes ScholarlyArticle or Article schema on published research papers", async () => {
