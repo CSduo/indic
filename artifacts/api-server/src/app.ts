@@ -17,13 +17,8 @@ import { db, articlesTable, papersTable, usersTable, categoriesTable, submission
 import { eq, and, or, ilike, isNull } from "drizzle-orm";
 import { sanitizeArticleBody } from "./lib/content";
 import { slugify } from "./lib/slug";
-import {
-  enrichKeywords,
-  enrichAuthorKeywords,
-  enrichDomainKeywords,
-  ABOUT_PAGE_KEYWORDS,
-  BROWSE_PAGE_KEYWORDS,
-} from "./lib/keywords";
+import { articleTopicTags } from "./lib/keywords";
+import { ROBOTS_TXT } from "./lib/robots";
 import fs from "fs";
 
 const app: Express = express();
@@ -347,6 +342,111 @@ app.get(["/indexnow-key.txt", `/${DEFAULT_INDEXNOW_KEY}.txt`], (_req, res) => {
 // used to follow here were unreachable and unauthenticated; they are gone.
 
 export const CANONICAL_DOMAIN = "https://anvikshikijournal.in";
+
+const SITE_NAME = "Ānvīkṣikī Journal";
+const ORGANIZATION_ID = `${CANONICAL_DOMAIN}/#organization`;
+const PERIODICAL_ID = `${CANONICAL_DOMAIN}/#periodical`;
+// Must match the Periodical node in artifacts/anvikshiki/index.html.
+const PERIODICAL_NAME = "Ānvīkṣikī: Indic Philosophy, History & Civilizational Thought";
+
+/** The publisher, as referenced from every page's structured data. */
+export function publisherNode() {
+  return {
+    "@type": "Organization",
+    "@id": ORGANIZATION_ID,
+    "name": SITE_NAME,
+    "url": CANONICAL_DOMAIN,
+    // A real 512x512 PNG (public/brand-emblem.png); the old favicon.svg URL
+    // did not exist and returned the HTML app shell.
+    "logo": {
+      "@type": "ImageObject",
+      "url": `${CANONICAL_DOMAIN}/brand-emblem.png`,
+      "width": 512,
+      "height": 512,
+    },
+  };
+}
+
+export interface SocialImage {
+  url: string;
+  width?: number;
+  height?: number;
+}
+
+/** 1200x630 card derived from opengraph.jpg (public/og-default.jpg). */
+export const DEFAULT_SOCIAL_IMAGE: SocialImage = {
+  url: `${CANONICAL_DOMAIN}/og-default.jpg`,
+  width: 1200,
+  height: 630,
+};
+
+/**
+ * The image for og:image / twitter:image, with dimensions only when they are
+ * known to be true. Cloudinary images are requested as an exact 1200x630 crop;
+ * any other image is used as-is without claimed dimensions; no image falls back
+ * to the default card. (The old fallback, /api/og/*, was never implemented and
+ * returned 404.)
+ */
+export function socialImage(rawUrl: unknown): SocialImage {
+  if (typeof rawUrl !== "string" || !rawUrl.trim()) return DEFAULT_SOCIAL_IMAGE;
+  const url = rawUrl.trim().startsWith("/") ? `${CANONICAL_DOMAIN}${rawUrl.trim()}` : rawUrl.trim();
+  if (!/^https?:\/\//i.test(url)) return DEFAULT_SOCIAL_IMAGE;
+
+  const cloudinary = url.match(/^(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)(.+)$/i);
+  if (cloudinary) {
+    return { url: `${cloudinary[1]}c_fill,w_1200,h_630,q_auto/${cloudinary[2]}`, width: 1200, height: 630 };
+  }
+  return { url };
+}
+
+export function socialImageMetaTags(image: SocialImage, alt: string): string {
+  const url = escapeHtml(image.url);
+  const dims = image.width && image.height
+    ? `\n    <meta property="og:image:width" content="${image.width}" />\n    <meta property="og:image:height" content="${image.height}" />`
+    : "";
+  return `<meta property="og:image" content="${url}" />
+    <meta property="og:image:secure_url" content="${url}" />${dims}
+    <meta property="og:image:alt" content="${escapeHtml(alt)}" />
+    <meta name="twitter:image" content="${url}" />`;
+}
+
+/** One <script type="application/ld+json"> holding a single @graph. */
+export function jsonLdGraphScript(nodes: Array<Record<string, unknown>>): string {
+  const graph = { "@context": "https://schema.org", "@graph": nodes };
+  return `<script type="application/ld+json">\n${JSON.stringify(graph, null, 2).replace(/</g, "\\u003c")}\n    </script>`;
+}
+
+/**
+ * The /authors/<segment> for an article's author: the submitting account's
+ * handle when there is one (the canonical author URL, as used in the sitemap),
+ * otherwise a slug of the display name.
+ */
+async function resolveArticleAuthorSegment(authorName: string, sourceSubmissionId?: string | null): Promise<string> {
+  const nameSlug = slugify(authorName);
+  try {
+    if (sourceSubmissionId) {
+      const [row] = await db
+        .select({ handle: usersTable.handle, deletionRequestedAt: usersTable.deletionRequestedAt })
+        .from(submissionsTable)
+        .leftJoin(usersTable, eq(submissionsTable.userId, usersTable.id))
+        .where(eq(submissionsTable.id, sourceSubmissionId))
+        .limit(1);
+      if (row?.handle && !row.deletionRequestedAt) return row.handle;
+    }
+    if (authorName.trim()) {
+      const matches = await db
+        .select({ handle: usersTable.handle, name: usersTable.name })
+        .from(usersTable)
+        .where(and(ilike(usersTable.name, authorName.trim()), isNull(usersTable.deletionRequestedAt)))
+        .limit(2);
+      const exact = matches.filter((m: any) => m?.handle && slugify(m.name || "") === nameSlug);
+      if (exact.length === 1) return exact[0].handle as string;
+    }
+  } catch {
+    // Fall back to the name slug; the author route resolves both.
+  }
+  return nameSlug;
+}
 
 export function buildCanonicalUrl(pathname: string, query?: Record<string, any> | string): string {
   let cleanPath = pathname.startsWith("/") ? pathname : `/${pathname}`;
@@ -1096,9 +1196,9 @@ export function send410(res: import("express").Response, resourceType: string, s
   return res.status(410).send(html);
 }
 
-export function generateArticleSsrHtml(article: any, domainDisplayName: string): string {
+export function generateArticleSsrHtml(article: any, domainDisplayName: string, authorSegment?: string): string {
   const author = article.authorName || "Ānvīkṣikī Editorial Collective";
-  const authorSlug = slugify(author);
+  const authorSlug = authorSegment || slugify(author);
   const isoPublished = formatIsoDate(article.publishedAt);
   const formattedPublished = formatDate(article.publishedAt);
   const isoUpdated = formatIsoDate(article.updatedAt);
@@ -1605,6 +1705,9 @@ export function generateAboutAnvikshikiSsrHtml(): string {
 </article>`;
 }
 
+/** Describes what /browse actually lists; no "peer-level" or "monograph" claims. */
+export const BROWSE_DESCRIPTION = "Every article and paper published on Ānvīkṣikī, grouped by discipline: Indic philosophy, Sanskrit traditions, history and civilizational thought.";
+
 export function generateBrowseSsrHtml(
   articles: Array<any>,
   papers: Array<any>,
@@ -1620,8 +1723,8 @@ export function generateBrowseSsrHtml(
 
   <header class="ssr-domain-header">
     <span class="ssr-domain-label">Publication Index</span>
-    <h1 class="ssr-title" itemprop="name">Browse Research Papers, Articles &amp; Scholarly Archives</h1>
-    <p class="ssr-description" itemprop="description">Explore published research papers, peer-level philosophical essays, monographs, and archives across Indic studies, Sanskrit traditions, and civilizational history.</p>
+    <h1 class="ssr-title" itemprop="name">Browse Published Articles &amp; Papers</h1>
+    <p class="ssr-description" itemprop="description">${escapeHtml(BROWSE_DESCRIPTION)}</p>
     <div class="ssr-domain-stats">
       <span><strong>${articles.length}</strong> Essays</span> · <span><strong>${papers.length}</strong> Papers</span> · <span><strong>${categories.length}</strong> Disciplines</span>
     </div>
@@ -1681,57 +1784,44 @@ export function generateBrowseSsrHtml(
 // SSR for /about/anvikshiki (Meaning of Ānvīkṣikī Canonical Hub)
 app.get("/about/anvikshiki", (_req, res) => {
   const template = getHtmlTemplate();
-  const canonicalUrl = "https://anvikshikijournal.in/about/anvikshiki";
+  const canonicalUrl = `${CANONICAL_DOMAIN}/about/anvikshiki`;
   const title = "Meaning of Ānvīkṣikī: Etymology, Philosophy & Classical Heritage — Ānvīkṣikī";
   const description = "Explore the profound meaning of Ānvīkṣikī (आन्वीक्षिकी): the Sanskrit etymology, Kautilya's Arthaśāstra doctrine of the foundational science, and Nyāya rational inquiry.";
-  const definedTermJsonLd = {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "AboutPage",
-        "@id": `${canonicalUrl}#webpage`,
-        "url": canonicalUrl,
-        "name": title,
-        "description": description,
-        "inLanguage": "en",
-        "publisher": {
-          "@type": "Organization",
-          "@id": "https://anvikshikijournal.in/#organization",
-          "name": "Ānvīkṣikī Journal",
-          "url": "https://anvikshikijournal.in",
-        },
-        "mainEntity": {
-          "@type": "DefinedTerm",
-          "@id": `${canonicalUrl}#term`,
-          "name": "Ānvīkṣikī",
-          "alternateName": ["Anvikshiki", "आन्वीक्षिकी", "Aanvikshiki", "Anvikshiki Vidya"],
-          "description": "The classical Sanskrit science of critical inquiry, logical examination, and rational philosophy as articulated in Kautilya's Arthaśāstra and Vātsyāyana's Nyāyabhāṣya.",
-          "inDefinedTermSet": "https://anvikshikijournal.in/domains/philosophy",
-        },
-      },
-    ],
+  const aboutPageNode = {
+    "@type": "AboutPage",
+    "@id": `${canonicalUrl}#webpage`,
+    "url": canonicalUrl,
+    "name": title,
+    "description": description,
+    "inLanguage": "en",
+    "isPartOf": { "@type": "WebSite", "@id": `${CANONICAL_DOMAIN}/#website` },
+    "publisher": publisherNode(),
+    "mainEntity": {
+      "@type": "DefinedTerm",
+      "@id": `${canonicalUrl}#term`,
+      "name": "Ānvīkṣikī",
+      "alternateName": ["Anvikshiki", "आन्वीक्षिकी", "Aanvikshiki", "Anvikshiki Vidya"],
+      "description": "The classical Sanskrit science of critical inquiry, logical examination, and rational philosophy as articulated in Kautilya's Arthaśāstra and Vātsyāyana's Nyāyabhāṣya.",
+      "inDefinedTermSet": `${CANONICAL_DOMAIN}/domains/philosophy`,
+    },
   };
 
   const metaTags = `
     <title>${escapeHtml(title)}</title>
     <meta name="description" content="${escapeHtml(description)}" />
-    <meta name="keywords" content="anvikshiki meaning, anvikshiki meaning in english, meaning of anvikshiki, anvikshiki philosophy, ānvīkṣikī, kautilya anvikshiki, arthashastra anvikshiki, nyaya anvikshiki, indic philosophy, sanskrit inquiry" />
-    <meta name="news_keywords" content="Hindu article, Hindu philosophy, Indic research, Ānvīkṣikī, Sanskrit inquiry, Kautilya Arthashastra, Nyaya" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
-    <meta property="og:site_name" content="Ānvīkṣikī Journal" />
+    <meta property="og:site_name" content="${SITE_NAME}" />
+    <meta property="og:locale" content="en_IN" />
     <meta property="og:title" content="${escapeHtml(title)}" />
     <meta property="og:description" content="${escapeHtml(description)}" />
     <meta property="og:type" content="article" />
     <meta property="og:url" content="${canonicalUrl}" />
-    <meta property="og:image" content="https://anvikshikijournal.in/opengraph.jpg" />
+    ${socialImageMetaTags(DEFAULT_SOCIAL_IMAGE, "Ānvīkṣikī")}
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${escapeHtml(title)}" />
     <meta name="twitter:description" content="${escapeHtml(description)}" />
-    <meta name="twitter:image" content="https://anvikshikijournal.in/opengraph.jpg" />
     <link rel="canonical" href="${canonicalUrl}" />
-    <script type="application/ld+json">
-${JSON.stringify(definedTermJsonLd, null, 2)}
-    </script>
+    ${jsonLdGraphScript([aboutPageNode])}
   `;
 
   const ssrHtml = generateAboutAnvikshikiSsrHtml();
@@ -1743,23 +1833,35 @@ ${JSON.stringify(definedTermJsonLd, null, 2)}
 // SSR for /about
 app.get("/about", (_req, res) => {
   const template = getHtmlTemplate();
-  const canonicalUrl = "https://anvikshikijournal.in/about";
+  const canonicalUrl = `${CANONICAL_DOMAIN}/about`;
   const title = "About Ānvīkṣikī: An Open Journal of Indic Philosophy & Civilizational Thought";
   const description = "Ānvīkṣikī is an open-access journal and living archive dedicated to rigorous scholarship in Indic philosophy, Sanskrit traditions, history, and civilizational inquiry.";
+  const aboutPageNode = {
+    "@type": "AboutPage",
+    "@id": `${canonicalUrl}#webpage`,
+    "url": canonicalUrl,
+    "name": title,
+    "description": description,
+    "inLanguage": "en",
+    "isPartOf": { "@type": "WebSite", "@id": `${CANONICAL_DOMAIN}/#website` },
+    "publisher": publisherNode(),
+  };
   const metaTags = `
     <title>${escapeHtml(title)}</title>
     <meta name="description" content="${escapeHtml(description)}" />
-    <meta name="keywords" content="${escapeHtml(ABOUT_PAGE_KEYWORDS.keywordsStr)}" />
-    <meta name="news_keywords" content="${escapeHtml(ABOUT_PAGE_KEYWORDS.newsKeywordsStr)}" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
-    <meta property="og:site_name" content="Ānvīkṣikī Journal" />
+    <meta property="og:site_name" content="${SITE_NAME}" />
+    <meta property="og:locale" content="en_IN" />
     <meta property="og:title" content="${escapeHtml(title)}" />
     <meta property="og:description" content="${escapeHtml(description)}" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="${canonicalUrl}" />
-    <meta property="og:image" content="https://anvikshikijournal.in/opengraph.jpg" />
+    ${socialImageMetaTags(DEFAULT_SOCIAL_IMAGE, "Ānvīkṣikī")}
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${escapeHtml(title)}" />
+    <meta name="twitter:description" content="${escapeHtml(description)}" />
     <link rel="canonical" href="${canonicalUrl}" />
+    ${jsonLdGraphScript([aboutPageNode])}
   `;
   const ssrHtml = `<main class="ssr-content ssr-about">
     <h1>About Ānvīkṣikī</h1>
@@ -1776,9 +1878,9 @@ app.get("/about", (_req, res) => {
 // SSR for /browse
 app.get("/browse", async (_req, res) => {
   const template = getHtmlTemplate();
-  const canonicalUrl = "https://anvikshikijournal.in/browse";
-  const title = "Browse Research Papers, Articles & Scholarly Archives — Ānvīkṣikī";
-  const description = "Explore published research papers, peer-level philosophical essays, monographs, and archives across Indic studies, Sanskrit traditions, and civilizational history.";
+  const canonicalUrl = `${CANONICAL_DOMAIN}/browse`;
+  const title = "Browse Published Articles & Papers — Ānvīkṣikī";
+  const description = BROWSE_DESCRIPTION;
 
   let articles: any[] = [];
   let papers: any[] = [];
@@ -1798,20 +1900,39 @@ app.get("/browse", async (_req, res) => {
     ]);
   } catch {}
 
+  const browseNode = {
+    "@type": "CollectionPage",
+    "@id": canonicalUrl,
+    "url": canonicalUrl,
+    "name": title,
+    "description": description,
+    "inLanguage": "en",
+    "isPartOf": { "@type": "WebSite", "@id": `${CANONICAL_DOMAIN}/#website` },
+    "publisher": publisherNode(),
+    "mainEntity": {
+      "@type": "ItemList",
+      "itemListElement": [
+        ...articles.map((a: any, i: number) => ({ "@type": "ListItem", "position": i + 1, "url": `${CANONICAL_DOMAIN}/articles/${a.slug}`, "name": a.title })),
+        ...papers.map((p: any, i: number) => ({ "@type": "ListItem", "position": articles.length + i + 1, "url": `${CANONICAL_DOMAIN}/papers/${p.slug}`, "name": p.title })),
+      ],
+    },
+  };
   const metaTags = `
     <title>${escapeHtml(title)}</title>
     <meta name="description" content="${escapeHtml(description)}" />
-    <meta name="keywords" content="${escapeHtml(BROWSE_PAGE_KEYWORDS.keywordsStr)}" />
-    <meta name="news_keywords" content="${escapeHtml(BROWSE_PAGE_KEYWORDS.newsKeywordsStr)}" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
-    <meta property="og:site_name" content="Ānvīkṣikī Journal" />
+    <meta property="og:site_name" content="${SITE_NAME}" />
+    <meta property="og:locale" content="en_IN" />
     <meta property="og:title" content="${escapeHtml(title)}" />
     <meta property="og:description" content="${escapeHtml(description)}" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="${canonicalUrl}" />
-    <meta property="og:image" content="https://anvikshikijournal.in/opengraph.jpg" />
+    ${socialImageMetaTags(DEFAULT_SOCIAL_IMAGE, "Ānvīkṣikī")}
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${escapeHtml(title)}" />
+    <meta name="twitter:description" content="${escapeHtml(description)}" />
     <link rel="canonical" href="${canonicalUrl}" />
+    ${jsonLdGraphScript([browseNode])}
   `;
 
   const ssrHtml = generateBrowseSsrHtml(articles, papers, categories);
@@ -1821,12 +1942,16 @@ app.get("/browse", async (_req, res) => {
 });
 
 // SSR / Landing Route Handlers for Submissions
-app.get(/^\/submit(?:\/.*)?$/, (_req, res) => {
+app.get(/^\/submit(?:\/.*)?$/, (req, res) => {
   const template = getHtmlTemplate();
+  // Only the /submit landing is indexable; the drafting and upload screens
+  // under /submit/ are private (robots.txt Disallow + X-Robots-Tag noindex).
+  const isLanding = req.path.replace(/\/+$/, "") === "/submit";
+  if (!isLanding) res.setHeader("X-Robots-Tag", "noindex, nofollow");
   const metaTags = `
     <title>Submit Research &amp; Essays — Ānvīkṣikī Journal</title>
     <meta name="description" content="Submit your research paper, translation, essay, or review to Ānvīkṣikī. Open journal and research platform for Indic philosophy and civilizational inquiry." />
-    <meta name="robots" content="index, follow" />
+    <meta name="robots" content="${isLanding ? "index, follow" : "noindex, nofollow"}" />
     <link rel="canonical" href="https://anvikshikijournal.in/submit" />
   `;
   const ssrHtml = `<main class="ssr-content ssr-submit-landing">
@@ -1916,25 +2041,23 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
 
     const title = item.title;
     const excerpt = isPaper ? (item.abstract || item.title) : (item.excerpt || item.subtitle || item.title);
-    let imageUrl = isPaper ? (item.coverImageUrl || "") : (item.heroImageUrl || "");
     const canonicalPath = isPaper ? `/papers/${item.slug}` : `/articles/${item.slug}`;
     const canonicalUrl = buildCanonicalUrl(canonicalPath);
 
-    const fallbackImage = `https://anvikshikijournal.in/api/og/${isPaper ? "paper" : "article"}/${encodeURIComponent(item.slug)}`;
-    if (!imageUrl) {
-      imageUrl = fallbackImage;
-    } else if (imageUrl.startsWith("/")) {
-      imageUrl = `https://anvikshikijournal.in${imageUrl}`;
-    }
+    const heroImage = isPaper ? item.coverImageUrl : item.heroImageUrl;
+    const image = socialImage(heroImage);
+    // Structured data gets the original, highest-resolution image.
+    const structuredImage = typeof heroImage === "string" && heroImage.trim()
+      ? (heroImage.trim().startsWith("/") ? `${CANONICAL_DOMAIN}${heroImage.trim()}` : heroImage.trim())
+      : DEFAULT_SOCIAL_IMAGE.url;
 
     const cleanTitle = escapeHtml(title);
-    const cleanExcerpt = escapeHtml(stripHtml(excerpt).slice(0, 300));
+    const plainDescription = stripHtml(excerpt).slice(0, 300);
+    const cleanExcerpt = escapeHtml(plainDescription);
     const cleanUrl = escapeHtml(canonicalUrl);
-    const cleanImage = escapeHtml(imageUrl);
     const isoPublished = formatIsoDate(item.publishedAt);
     const isoUpdated = formatIsoDate(item.updatedAt);
     const authorRaw = item.authorName || (isPaper ? "Anonymous Scholar" : "Ānvīkṣikī Editorial Collective");
-    const cleanAuthor = escapeHtml(authorRaw);
 
     // Split authors by comma or "and" to handle multiple contributors
     const rawAuthors = authorRaw.split(/,\s*|\s+and\s+/i).map((s: string) => s.trim()).filter(Boolean);
@@ -1949,98 +2072,69 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
       res.setHeader("X-Robots-Tag", "noindex, nofollow");
     }
 
-    // Resolve enriched topic keywords using dynamic keyword engine
-    const enriched = enrichKeywords({
-      title: item.title,
-      slug: item.slug,
-      categorySlug: item.categorySlug,
-      dbTags: item.tags,
-      content: `${item.subtitle || ""} ${excerpt} ${item.body || item.content || ""}`,
-    });
-    const keywordsStr = enriched.keywordsStr;
-    const newsKeywordsStr = enriched.newsKeywordsStr;
-    const mergedKeywords = enriched.keywordsList;
+    // Only the work's own tags describe it. Nothing generic is added, and the
+    // keyword tags are omitted entirely when the work has no tags.
+    const topicTags = articleTopicTags(item.tags);
+    const topicTagsStr = topicTags.join(", ");
 
-    const authorSchema = isPaper || authors.length > 1
-      ? authors.map((a: string) => ({
-          "@type": "Person",
-          "@id": `https://anvikshikijournal.in/authors/${slugify(a)}#person`,
-          "name": a,
-          "url": `https://anvikshikijournal.in/authors/${slugify(a)}`,
-        }))
-      : {
-          "@type": "Person",
-          "@id": `https://anvikshikijournal.in/authors/${slugify(authorRaw)}#person`,
-          "name": authorRaw,
-          "url": `https://anvikshikijournal.in/authors/${slugify(authorRaw)}`,
-        };
+    // One canonical author URL: the account handle when the work came from a
+    // signed-in submission (single-author articles), otherwise the name slug.
+    const singleAuthorSegment = !isPaper && authors.length === 1
+      ? await resolveArticleAuthorSegment(authorRaw, item.sourceSubmissionId)
+      : null;
+    const authorUrl = (name: string) =>
+      `${CANONICAL_DOMAIN}/authors/${encodeURIComponent(singleAuthorSegment ?? slugify(name))}`;
+    const authorNodes = authors.map((a: string) => ({
+      "@type": "Person",
+      "@id": `${authorUrl(a)}#person`,
+      "name": a,
+      "url": authorUrl(a),
+    }));
 
-    const jsonLdData: any = {
-      "@context": "https://schema.org",
+    const workNode: Record<string, unknown> = {
+      // Essays are Articles. ScholarlyArticle is reserved for the separate
+      // research-paper format at /papers/*.
       "@type": isPaper ? "ScholarlyArticle" : "Article",
       "@id": `${canonicalUrl}#${isPaper ? "scholarlyarticle" : "article"}`,
-      "isPartOf": {
-        "@type": "Periodical",
-        "@id": "https://anvikshikijournal.in/#periodical",
-        "name": "Ānvīkṣikī: An Open Journal of Indic Philosophy & Intellectual Traditions",
-      },
       "headline": item.title,
       "name": item.title,
-      "description": stripHtml(excerpt).slice(0, 300),
-      "mainEntityOfPage": {
-        "@type": "WebPage",
-        "@id": canonicalUrl,
-      },
+      "description": plainDescription || undefined,
       "url": canonicalUrl,
+      "mainEntityOfPage": { "@type": "WebPage", "@id": canonicalUrl },
       "inLanguage": "en",
-      "publisher": {
-        "@type": "Organization",
-        "@id": "https://anvikshikijournal.in/#organization",
-        "name": "Ānvīkṣikī Journal",
-        "url": "https://anvikshikijournal.in",
-        "logo": {
-          "@type": "ImageObject",
-          "url": "https://anvikshikijournal.in/favicon.svg",
-        },
-      },
-      "author": authorSchema,
+      "isPartOf": { "@type": "Periodical", "@id": PERIODICAL_ID, "name": PERIODICAL_NAME },
+      "publisher": publisherNode(),
+      "author": authorNodes.length === 1 ? authorNodes[0] : authorNodes,
       "datePublished": isoPublished || undefined,
       "dateModified": isoUpdated || isoPublished || undefined,
-      "image": imageUrl || undefined,
+      "image": [structuredImage],
       "articleSection": domainDisplayName || undefined,
-      "keywords": keywordsStr || undefined,
-      "about": enriched.aboutThings.length > 0 ? enriched.aboutThings : undefined,
+      "keywords": topicTagsStr || undefined,
     };
 
     if (isPaper && item.pdfUrl) {
-      jsonLdData.encoding = {
+      workNode.encoding = {
         "@type": "MediaObject",
         "contentUrl": safeUrl(item.pdfUrl),
         "encodingFormat": "application/pdf",
       };
     }
+    if (isPaper && item.doi) {
+      workNode.identifier = { "@type": "PropertyValue", "propertyID": "DOI", "value": item.doi };
+    }
 
-    const breadcrumbJsonLd = {
-      "@context": "https://schema.org",
+    const breadcrumbNode = {
       "@type": "BreadcrumbList",
+      "@id": `${canonicalUrl}#breadcrumb`,
       "itemListElement": [
-        {
-          "@type": "ListItem",
-          "position": 1,
-          "name": "Home",
-          "item": {
-            "@type": "WebPage",
-            "@id": "https://anvikshikijournal.in",
-            "name": "Home",
-          },
-        },
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": { "@type": "WebPage", "@id": `${CANONICAL_DOMAIN}/`, "name": "Home" } },
         {
           "@type": "ListItem",
           "position": 2,
           "name": isPaper ? "Papers" : "Journal",
           "item": {
             "@type": "WebPage",
-            "@id": isPaper ? "https://anvikshikijournal.in/papers" : "https://anvikshikijournal.in/browse",
+            "@id": isPaper ? `${CANONICAL_DOMAIN}/papers` : `${CANONICAL_DOMAIN}/browse`,
             "name": isPaper ? "Papers" : "Journal",
           },
         },
@@ -2048,22 +2142,9 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
           "@type": "ListItem",
           "position": 3,
           "name": domainDisplayName,
-          "item": {
-            "@type": "WebPage",
-            "@id": `https://anvikshikijournal.in/domains/${item.categorySlug || "philosophy"}`,
-            "name": domainDisplayName,
-          },
+          "item": { "@type": "WebPage", "@id": `${CANONICAL_DOMAIN}/domains/${item.categorySlug || "philosophy"}`, "name": domainDisplayName },
         },
-        {
-          "@type": "ListItem",
-          "position": 4,
-          "name": item.title,
-          "item": {
-            "@type": "WebPage",
-            "@id": canonicalUrl,
-            "name": item.title,
-          },
-        },
+        { "@type": "ListItem", "position": 4, "name": item.title, "item": { "@type": "WebPage", "@id": canonicalUrl, "name": item.title } },
       ],
     };
 
@@ -2071,34 +2152,25 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
     <!-- Dynamic Open Graph & Twitter Card Meta Tags -->
     <title>${cleanTitle} — Ānvīkṣikī</title>
     <meta name="description" content="${cleanExcerpt}" />
-    ${keywordsStr ? `<meta name="keywords" content="${escapeHtml(keywordsStr)}" />` : ""}
-    ${newsKeywordsStr ? `<meta name="news_keywords" content="${escapeHtml(newsKeywordsStr)}" />` : ""}
-    ${mergedKeywords.map(k => `<meta property="article:tag" content="${escapeHtml(k)}" />`).join("\n    ")}
+    ${topicTagsStr ? `<meta name="keywords" content="${escapeHtml(topicTagsStr)}" />` : ""}
+    ${topicTags.map(k => `<meta property="article:tag" content="${escapeHtml(k)}" />`).join("\n    ")}
     ${robotsDirective}
     ${scholarAuthorMeta}
     ${isoPublished ? `<meta property="article:published_time" content="${isoPublished}" />` : ""}
     ${isoUpdated ? `<meta property="article:modified_time" content="${isoUpdated}" />` : ""}
-    ${item.categorySlug ? `<meta property="article:section" content="${escapeHtml(item.categorySlug)}" />` : ""}
-    <meta property="og:site_name" content="Ānvīkṣikī Journal" />
+    ${domainDisplayName ? `<meta property="article:section" content="${escapeHtml(domainDisplayName)}" />` : ""}
+    <meta property="og:site_name" content="${SITE_NAME}" />
+    <meta property="og:locale" content="en_IN" />
     <meta property="og:title" content="${cleanTitle}" />
     <meta property="og:description" content="${cleanExcerpt}" />
     <meta property="og:type" content="article" />
     <meta property="og:url" content="${cleanUrl}" />
-    <meta property="og:image" content="${cleanImage}" />
-    <meta property="og:image:secure_url" content="${cleanImage}" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
+    ${socialImageMetaTags(image, title)}
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${cleanTitle}" />
     <meta name="twitter:description" content="${cleanExcerpt}" />
-    <meta name="twitter:image" content="${cleanImage}" />
     <link rel="canonical" href="${cleanUrl}" />
-    <script type="application/ld+json">
-${JSON.stringify(jsonLdData, null, 2)}
-    </script>
-    <script type="application/ld+json">
-${JSON.stringify(breadcrumbJsonLd, null, 2)}
-    </script>
+    ${jsonLdGraphScript([workNode, breadcrumbNode])}
     <!-- Google Scholar Highwire Metadata -->
     <meta name="citation_title" content="${cleanTitle}" />
     ${scholarCitationAuthorTags}
@@ -2107,12 +2179,12 @@ ${JSON.stringify(breadcrumbJsonLd, null, 2)}
     ${item.pdfUrl ? `<meta name="citation_pdf_url" content="${safeUrl(item.pdfUrl)}" />` : ""}
     <meta name="citation_abstract_html_url" content="${cleanUrl}" />
     ${item.doi ? `<meta name="citation_doi" content="${escapeHtml(item.doi)}" />` : ""}
-    ${keywordsStr ? `<meta name="citation_keywords" content="${escapeHtml(keywordsStr)}" />` : ""}
+    ${topicTagsStr ? `<meta name="citation_keywords" content="${escapeHtml(topicTagsStr)}" />` : ""}
     `;
 
     const ssrHtml = isPaper
       ? generatePaperSsrHtml(item, domainDisplayName)
-      : generateArticleSsrHtml(item, domainDisplayName);
+      : generateArticleSsrHtml(item, domainDisplayName, singleAuthorSegment ?? undefined);
 
     const template = getHtmlTemplate();
     const finalHtml = template
@@ -2227,100 +2299,75 @@ app.get("/authors/:slug", async (req, res, next) => {
     }
 
     const displayName = user?.name || authorArticles[0]?.authorName || (authorPapers[0]?.authorName ? authorPapers[0].authorName.split(/,\s*/)[0] : cleanSlug);
-    const authorBio = user?.bio || `${displayName} is a contributing scholar to Ānvīkṣikī Journal.`;
+    // The person's own bio, or nothing. No boilerplate "contributing scholar"
+    // line and no invented expertise.
+    const realBio = typeof user?.bio === "string" && user.bio.trim() ? user.bio.trim() : null;
     const authorData = {
       id: user?.id,
       name: displayName,
       handle: user?.handle || cleanSlug,
-      bio: authorBio,
+      bio: realBio,
       institution: user?.institution || (authorPapers[0] as any)?.institution || null,
       avatarUrl: user?.avatarUrl || null,
       articleCount: authorArticles.length,
       paperCount: authorPapers.length,
     };
 
+    const workCount = authorArticles.length + authorPapers.length;
+    const hasPublishedWork = workCount > 0;
+    const factualSummary = hasPublishedWork
+      ? `${displayName} on Ānvīkṣikī: ${workCount} published ${workCount === 1 ? "work" : "works"}${authorArticles[0]?.title ? `, including “${authorArticles[0].title}”` : ""}.`
+      : `Author profile for ${displayName} on Ānvīkṣikī.`;
+
     const cleanName = escapeHtml(authorData.name);
-    const cleanBio = escapeHtml(stripHtml(authorData.bio).slice(0, 300));
+    const cleanBio = escapeHtml(stripHtml(realBio || factualSummary).slice(0, 300));
     const canonicalUrl = buildCanonicalUrl(`/authors/${cleanSlug}`);
     const cleanUrl = escapeHtml(canonicalUrl);
-    const cleanImage = authorData.avatarUrl
-      ? escapeHtml(authorData.avatarUrl)
-      : `https://anvikshikijournal.in/api/og/author/${encodeURIComponent(cleanSlug)}`;
+    const image = authorData.avatarUrl ? socialImage(authorData.avatarUrl) : DEFAULT_SOCIAL_IMAGE;
 
-    // Extract keywords and subject domains from author's publications
-    const rawAuthorTags = [
-      ...authorArticles.flatMap(a => (a as any).tags || []),
-      ...authorPapers.flatMap(p => (p as any).tags || []),
-    ];
-    const rawAuthorCategories = [
-      ...authorArticles.map(a => a.categorySlug),
-      ...authorPapers.map(p => p.categorySlug),
-    ];
-    const authorEnriched = enrichAuthorKeywords({
-      name: authorData.name,
-      bio: authorData.bio,
-      institution: authorData.institution,
-      publicationTags: rawAuthorTags,
-      publicationCategories: rawAuthorCategories,
-    });
-    const authorKeywords = authorEnriched.keywordsStr;
-    const authorNewsKeywords = authorEnriched.newsKeywordsStr;
-    const knowsAboutList = authorEnriched.knowsAbout;
+    // Members who have not published anything get a working profile page, but
+    // it is kept out of search results (and out of the sitemap).
+    const robotsContent = hasPublishedWork ? "index, follow, max-image-preview:large" : "noindex, follow";
+    if (!hasPublishedWork) {
+      res.setHeader("X-Robots-Tag", "noindex, follow");
+    }
 
-    const authorPersonJsonLd: any = {
-      "@context": "https://schema.org",
+    const personId = `${canonicalUrl}#person`;
+    const personNode: Record<string, unknown> = {
       "@type": "Person",
-      "@id": `https://anvikshikijournal.in/authors/${cleanSlug}#person`,
+      "@id": personId,
       "name": authorData.name,
       "url": canonicalUrl,
-      "description": authorData.bio || undefined,
-      "keywords": authorKeywords || undefined,
-      "knowsAbout": knowsAboutList.length > 0 ? knowsAboutList : undefined,
-      "worksFor": authorData.institution ? {
-        "@type": "Organization",
-        "name": authorData.institution,
-      } : undefined,
+      "description": realBio || undefined,
+      "worksFor": authorData.institution ? { "@type": "Organization", "name": authorData.institution } : undefined,
       "image": authorData.avatarUrl || undefined,
     };
-
-    const authorProfilePageJsonLd = {
-      "@context": "https://schema.org",
+    const profilePageNode = {
       "@type": "ProfilePage",
       "@id": canonicalUrl,
       "url": canonicalUrl,
-      "name": `${cleanName} — Author Profile — Ānvīkṣikī`,
-      "keywords": authorKeywords || undefined,
-      "mainEntity": {
-        "@id": `https://anvikshikijournal.in/authors/${cleanSlug}#person`,
-      },
+      "name": `${authorData.name} — Author Profile — Ānvīkṣikī`,
+      "inLanguage": "en",
+      "isPartOf": { "@type": "WebSite", "@id": `${CANONICAL_DOMAIN}/#website` },
+      "mainEntity": { "@id": personId },
     };
 
     const ogTags = `
     <!-- Dynamic Open Graph & Twitter Card Meta Tags for Author Hub -->
     <title>${cleanName} — Author Profile — Ānvīkṣikī</title>
     <meta name="description" content="${cleanBio}" />
-    ${authorKeywords ? `<meta name="keywords" content="${escapeHtml(authorKeywords)}" />` : ""}
-    ${authorNewsKeywords ? `<meta name="news_keywords" content="${escapeHtml(authorNewsKeywords)}" />` : ""}
-    <meta name="robots" content="index, follow, max-image-preview:large" />
-    <meta property="og:site_name" content="Ānvīkṣikī Journal" />
+    <meta name="robots" content="${robotsContent}" />
+    <meta property="og:site_name" content="${SITE_NAME}" />
     <meta property="og:title" content="${cleanName} — Author Profile" />
     <meta property="og:description" content="${cleanBio}" />
     <meta property="og:type" content="profile" />
     <meta property="og:url" content="${cleanUrl}" />
-    <meta property="og:image" content="${cleanImage}" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
+    ${socialImageMetaTags(image, `${authorData.name} — Ānvīkṣikī`)}
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="${cleanName} — Author Profile" />
     <meta name="twitter:description" content="${cleanBio}" />
-    <meta name="twitter:image" content="${cleanImage}" />
     <link rel="canonical" href="${cleanUrl}" />
-    <script type="application/ld+json">
-${JSON.stringify(authorPersonJsonLd, null, 2)}
-    </script>
-    <script type="application/ld+json">
-${JSON.stringify(authorProfilePageJsonLd, null, 2)}
-    </script>
+    ${jsonLdGraphScript([profilePageNode, personNode])}
     `;
 
     const ssrHtml = generateAuthorHubSsrHtml(authorData, authorArticles, authorPapers);
@@ -2391,33 +2438,38 @@ app.get("/domains/:slug", async (req, res, next) => {
     const cleanDesc = escapeHtml(stripHtml(descRaw).slice(0, 300));
     const canonicalUrl = buildCanonicalUrl(`/domains/${category.slug}`);
     const cleanUrl = escapeHtml(canonicalUrl);
-    const cleanImage = `https://anvikshikijournal.in/api/og/domain/${encodeURIComponent(category.slug)}`;
+    const image = DEFAULT_SOCIAL_IMAGE;
 
-    const domainEnriched = enrichDomainKeywords(category.slug, category.name);
-    const domainKeywords = domainEnriched.keywordsStr;
-    const domainNewsKeywords = domainEnriched.newsKeywordsStr;
-    const domainCollectionJsonLd = {
-      "@context": "https://schema.org",
+    // Empty hubs stay reachable but out of search results (and the sitemap)
+    // until they hold published work.
+    const hasPublishedWork = domainArticles.length + domainPapers.length > 0;
+    const robotsContent = hasPublishedWork ? "index, follow, max-image-preview:large" : "noindex, follow";
+    if (!hasPublishedWork) {
+      res.setHeader("X-Robots-Tag", "noindex, follow");
+    }
+
+    const domainCollectionNode = {
       "@type": "CollectionPage",
       "@id": canonicalUrl,
       "url": canonicalUrl,
-      "name": `${cleanName} — Domain Archive — Ānvīkṣikī`,
-      "description": cleanDesc,
-      "keywords": domainKeywords,
-      "about": domainEnriched.aboutThings,
+      "name": `${category.name} — Domain Archive — Ānvīkṣikī`,
+      "description": stripHtml(descRaw).slice(0, 300),
+      "inLanguage": "en",
+      "isPartOf": { "@type": "WebSite", "@id": `${CANONICAL_DOMAIN}/#website` },
+      "publisher": publisherNode(),
       "mainEntity": {
         "@type": "ItemList",
         "itemListElement": [
           ...domainArticles.map((a: any, i: number) => ({
             "@type": "ListItem",
             "position": i + 1,
-            "url": `https://anvikshikijournal.in/articles/${a.slug}`,
+            "url": `${CANONICAL_DOMAIN}/articles/${a.slug}`,
             "name": a.title,
           })),
           ...domainPapers.map((p: any, i: number) => ({
             "@type": "ListItem",
             "position": domainArticles.length + i + 1,
-            "url": `https://anvikshikijournal.in/papers/${p.slug}`,
+            "url": `${CANONICAL_DOMAIN}/papers/${p.slug}`,
             "name": p.title,
           })),
         ],
@@ -2428,25 +2480,18 @@ app.get("/domains/:slug", async (req, res, next) => {
     <!-- Dynamic Open Graph & Twitter Card Meta Tags for Domain Hub -->
     <title>${cleanName} — Domain Archive — Ānvīkṣikī</title>
     <meta name="description" content="${cleanDesc}" />
-    <meta name="keywords" content="${escapeHtml(domainKeywords)}" />
-    <meta name="news_keywords" content="${escapeHtml(domainNewsKeywords)}" />
-    <meta name="robots" content="index, follow, max-image-preview:large" />
-    <meta property="og:site_name" content="Ānvīkṣikī Journal" />
+    <meta name="robots" content="${robotsContent}" />
+    <meta property="og:site_name" content="${SITE_NAME}" />
     <meta property="og:title" content="${cleanName} — Domain Archive" />
     <meta property="og:description" content="${cleanDesc}" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="${cleanUrl}" />
-    <meta property="og:image" content="${cleanImage}" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
+    ${socialImageMetaTags(image, `${category.name} — Ānvīkṣikī`)}
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${cleanName} — Domain Archive" />
     <meta name="twitter:description" content="${cleanDesc}" />
-    <meta name="twitter:image" content="${cleanImage}" />
     <link rel="canonical" href="${cleanUrl}" />
-    <script type="application/ld+json">
-${JSON.stringify(domainCollectionJsonLd, null, 2)}
-    </script>
+    ${jsonLdGraphScript([domainCollectionNode])}
     `;
 
     const ssrHtml = generateDomainHubSsrHtml(category, domainArticles, domainPapers);
@@ -2466,34 +2511,12 @@ ${JSON.stringify(domainCollectionJsonLd, null, 2)}
   }
 });
 
-// Direct robots.txt route for search engines & crawlers
+// Direct robots.txt route for search engines & crawlers. On Vercel the
+// identical static public/robots.txt is served instead (see lib/robots.ts).
 app.get("/robots.txt", (_req, res) => {
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=3600");
-  return res.status(200).send(`User-agent: *
-Allow: /
-Allow: /api/sitemap.xml
-Allow: /api/rss
-Allow: /api/og/
-Allow: /favicon.ico
-Allow: /favicon.png
-Allow: /icon.png
-Allow: /apple-touch-icon.png
-Allow: /opengraph.jpg
-Allow: /logo.png
-Allow: /brand-emblem.png
-Disallow: /api/
-Disallow: /admin/
-Disallow: /account/
-Disallow: /messages/
-Disallow: /notifications
-Disallow: /saved
-Disallow: /submit/write
-Disallow: /submit/upload
-
-Sitemap: https://anvikshikijournal.in/sitemap.xml
-Sitemap: https://anvikshikijournal.in/api/sitemap.xml
-`);
+  return res.status(200).send(ROBOTS_TXT);
 });
 
 // Canonical SSR redirection and pre-rendering for Profile URLs
