@@ -14,8 +14,8 @@ const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//
 
 export default function BrowsePage() {
   useDocumentMetadata({
-    title: "Browse Research Papers, Articles & Scholarly Archives — Ānvīkṣikī",
-    description: "Explore published research papers, peer-level philosophical essays, monographs, and archives across Indic studies, Sanskrit traditions, and civilizational history.",
+    title: "Browse Published Articles & Papers — Ānvīkṣikī",
+    description: "Every article and paper published on Ānvīkṣikī, grouped by discipline: Indic philosophy, Sanskrit traditions, history and civilizational thought.",
     canonicalPath: "/browse",
   });
 
@@ -40,7 +40,7 @@ export default function BrowsePage() {
           eyebrow="Publication Index & Archives"
           title="Browse Research & Publications"
           subtitle="Explore essays, papers, and scholarship across Indic knowledge traditions."
-          description="Discover peer-level publications, academic working papers, and critical monographs organized by discipline, author, and research domain."
+          description="Published articles and papers, organized by discipline, author and research domain."
           glyph="archive"
           focal="center"
           ctaPrimary={{ label: "View Research Papers", href: "/papers" }}

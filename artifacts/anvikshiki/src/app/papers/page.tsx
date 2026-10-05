@@ -55,7 +55,7 @@ export default function PapersPage() {
           imageAlt="Illustrated ornate library hall with books, owl, globe, and scholarly symbols"
           eyebrow="Research Repository"
           title="Papers"
-          subtitle="Working papers, peer-reviewed manuscripts, and research notes."
+          subtitle="Working papers and research notes."
           description="Browse scholarly work by discipline, author, topic, and status while preserving the serious reading flow of a journal archive."
           glyph="papers"
           focal="center"

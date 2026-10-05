@@ -490,7 +490,7 @@ export default function LoginPage() {
               <Sparkles size={12} className="text-[var(--gold)]" /> Ānvīkṣikī Journal of Philosophy
             </span>
             <h2 className="font-display text-4xl leading-tight text-[var(--ink)] max-w-md">
-              A sovereign realm for peer review, dialogue, and enduring philosophy.
+              A home for essays, dialogue, and enduring philosophy.
             </h2>
             <p className="mt-4 font-body text-base leading-7 text-[var(--ink-soft)] max-w-md">
               Every registered scholar receives a permanent unique handle, direct access to the editorial submission desk, collaborative annotations, and manuscript tracking.
@@ -505,7 +505,7 @@ export default function LoginPage() {
               <div>
                 <h3 className="font-display text-base text-[var(--ink)]">Unique Scholar Identity</h3>
                 <p className="font-body text-xs leading-5 text-[var(--muted)]">
-                  Your chosen @handle is guaranteed unique and connects all your peer reviews, essays, and citations.
+                  Your chosen @handle is guaranteed unique and connects all your essays, comments, and citations.
                 </p>
               </div>
             </div>
