@@ -243,13 +243,11 @@ router.get("/auth/me", async (req, res) => {
 
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    // Accounts made before handles existed get one the first time they sign
-    // in, rather than needing anybody to run a migration.
-    if (!(user as any).handle && user.id) {
-      const handle = await ensureHandle(user.id, user.name, user.email);
-      if (handle) (user as any).handle = handle;
-    }
-
+    /*
+      No handle is assigned here. GET must not write: a missing handle is
+      filled in when the person signs in (POST /auth/login, POST /auth/google)
+      or by the daily backfill in the purge-deleted-accounts cron.
+    */
     return res.json({ user });
   } catch (err) {
     req.log.error(err);
@@ -471,12 +469,13 @@ router.get(["/users/:userId/profile", "/users/profile/:userId"], async (req, res
 
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    // Ensure handle exists for older accounts
-    if (!user.handle && user.id) {
-      const handle = await ensureHandle(user.id, user.name, user.email);
-      if (handle) user.handle = handle;
-    }
-
+    /*
+      This is a public GET that crawlers and every visitor's browser call, so it
+      must not write. It used to assign a handle to accounts without one, which
+      meant a crawl could rewrite author URLs. Handles are now backfilled only by
+      the daily cron (GET /api/admin/purge-deleted-accounts, CRON_SECRET) or on
+      sign-in.
+    */
     const { email: _omitEmail, ...safeUser } = user;
     const userCleanName = user.name ? user.name.replace(/^(dr|prof|vidwan|acharya)\.?\s+/i, "").trim() : "";
 
