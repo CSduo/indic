@@ -12,15 +12,12 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/brand/ThemeToggle";
 import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
+import { AuthorLink } from "@/components/AuthorLink";
+import { authorHref } from "@/lib/authorPath";
+import { cleanTitle, deriveDescription, demoteBodyHeadings } from "@/lib/seoText";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
-
-const textSummary = (value: unknown, maxLength = 220) => String(value || "")
-  .replace(/<[^>]*>/g, " ")
-  .replace(/\s+/g, " ")
-  .trim()
-  .slice(0, maxLength);
 
 import { FileText, BookOpen } from "lucide-react";
 import { CitationModal } from "@/components/CitationModal";
@@ -237,11 +234,16 @@ export default function ArticlePage() {
     return () => controller.abort();
   }, [slug]);
 
-  const articleDescription = textSummary(article?.excerpt || article?.body);
+  // Same title and description rules as the server-rendered page
+  // (lib/seoText.ts is a copy of the server's lib/seo-text.ts).
+  const articleDescription = article
+    ? deriveDescription({ seoDescription: article.seoDescription, summaries: [article.excerpt, article.subtitle], body: article.body })
+    : "";
   const articleImage = article?.heroImageUrl || article?.featuredImage || article?.coverImage || null;
-  const canonicalPath = `/articles/${encodeURIComponent(slug)}`;
+  const canonicalPath = `/articles/${encodeURIComponent(article?.slug || slug)}`;
+  const articleTitle = article?.title ? cleanTitle(article.seoTitle?.trim() ? article.seoTitle : article.title) : "";
   useDocumentMetadata({
-    title: article?.title ? `${article.title} — Ānvīkṣikī` : undefined,
+    title: articleTitle ? `${articleTitle} — Ānvīkṣikī` : undefined,
     description: articleDescription,
     canonicalPath,
     image: articleImage,
@@ -511,12 +513,12 @@ export default function ArticlePage() {
           <OrnamentDivider variant="minimal" className="my-5 justify-center mx-auto" />
           <div className="flex flex-wrap items-center justify-center gap-4 font-ui text-xs uppercase tracking-[0.08em] text-[var(--ink-faint)]">
             {article.authorName ? (
-              <Link
-                href={article.authorHandle ? `/authors/${article.authorHandle}` : `/authors/${article.authorId || encodeURIComponent(article.authorName)}`}
+              <AuthorLink
+                href={authorHref(article)}
                 className="hover:underline font-semibold text-[var(--ink)] transition-colors"
               >
                 By {article.authorName}
-              </Link>
+              </AuthorLink>
             ) : null}
             {article.publishedAt ? <span>{new Date(article.publishedAt).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })}</span> : null}
             {(() => {
@@ -631,7 +633,7 @@ export default function ArticlePage() {
           {article.body ? (
             <div
               className="prose-anv prose-editor-content"
-              dangerouslySetInnerHTML={{ __html: article.body.replace(/<img /g, '<img loading="lazy" ') }}
+              dangerouslySetInnerHTML={{ __html: demoteBodyHeadings(article.body).replace(/<img /g, '<img loading="lazy" ') }}
             />
           ) : (
             <ParchmentCard className="p-8 text-center">
@@ -653,8 +655,8 @@ export default function ArticlePage() {
           {/* Author profile card at the end of the text */}
           {/* Author profile card at the end of the text */}
           <div className="card-sacred p-6 mt-12 flex flex-col md:flex-row items-center gap-5" style={{ borderLeft: "3px solid var(--gold)" }}>
-            <Link
-              href={article.authorHandle ? `/authors/${article.authorHandle}` : `/authors/${article.authorId || encodeURIComponent(article.authorName || "scholar")}`}
+            <AuthorLink
+              href={authorHref(article)}
               className="h-14 w-14 rounded-full overflow-hidden bg-[var(--terracotta-pale)] flex items-center justify-center border border-[var(--border-gold)] shrink-0 cursor-pointer hover:opacity-80 transition-opacity ring-2 ring-[var(--border-gold)] ring-offset-2 ring-offset-[var(--bg)]"
             >
               {article.authorAvatarUrl ? (
@@ -664,25 +666,25 @@ export default function ArticlePage() {
                   {(article.authorName || "A").charAt(0).toUpperCase()}
                 </span>
               )}
-            </Link>
+            </AuthorLink>
             <div className="text-center md:text-left space-y-1 flex-1">
-              <Link
-                href={article.authorHandle ? `/authors/${article.authorHandle}` : `/authors/${article.authorId || encodeURIComponent(article.authorName || "scholar")}`}
+              <AuthorLink
+                href={authorHref(article)}
                 className="font-ui text-base font-bold text-[var(--gold-bright)] hover:underline cursor-pointer block"
               >
                 {article.authorName}
-              </Link>
+              </AuthorLink>
               <p className="font-ui text-[11px] text-[var(--ink-faint)]">Contributing Scholar · Ānvīkṣikī Journal</p>
               <p className="font-body text-xs text-[var(--ink-soft)] leading-relaxed mt-2">
                 {article.authorBio || "This contribution is part of Anvikshiki's ongoing dedication to independent civilizational dialogue, multidisciplinary analysis, and rigorous philosophical inquiry."}
               </p>
               <div className="pt-2">
-                <Link
-                  href={article.authorHandle ? `/authors/${article.authorHandle}` : `/authors/${article.authorId || encodeURIComponent(article.authorName || "scholar")}`}
+                <AuthorLink
+                  href={authorHref(article)}
                   className="inline-flex items-center gap-1.5 font-ui text-[11px] font-semibold text-[var(--terracotta)] hover:underline"
                 >
                   View Author Profile &amp; Works &rarr;
-                </Link>
+                </AuthorLink>
               </div>
             </div>
           </div>

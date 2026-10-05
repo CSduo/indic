@@ -7,7 +7,7 @@ import {
   submissionsTable,
 } from "@workspace/db";
 import { and, eq, isNull } from "drizzle-orm";
-import { slugify } from "./slug";
+import { makeAuthorResolver, workAuthorSegments } from "./author-identity";
 
 /**
  * The one sitemap generator.
@@ -88,34 +88,6 @@ function newest(...times: Array<number | null | undefined>): number | null {
   return valid.length > 0 ? Math.max(...valid) : null;
 }
 
-/**
- * Resolve the /authors/<segment> used for a name on a work, preferring the
- * account's handle (the canonical author URL) over a slug of the display name.
- */
-function makeAuthorResolver(users: SitemapUserRow[]) {
-  const byId = new Map<string, SitemapUserRow>();
-  const byNameSlug = new Map<string, SitemapUserRow | null>();
-
-  for (const user of users) {
-    byId.set(user.id, user);
-    const nameSlug = slugify(user.name || "");
-    if (!nameSlug) continue;
-    // Two accounts with the same name are ambiguous: use neither handle.
-    byNameSlug.set(nameSlug, byNameSlug.has(nameSlug) ? null : user);
-  }
-
-  return (name: string, ownerId: string | null | undefined, singleAuthor: boolean): string | null => {
-    const nameSlug = slugify(name);
-    const owner = ownerId ? byId.get(ownerId) : undefined;
-    if (owner?.handle && (singleAuthor || slugify(owner.name || "") === nameSlug)) {
-      return owner.handle;
-    }
-    const byName = nameSlug ? byNameSlug.get(nameSlug) : undefined;
-    if (byName?.handle) return byName.handle;
-    return nameSlug || null;
-  };
-}
-
 /** Pure builder, kept free of I/O so it can be unit-tested directly. */
 export function buildSitemapEntries(source: SitemapSource): SitemapEntry[] {
   const staticTime = toTime(STATIC_PAGES_LASTMOD);
@@ -176,16 +148,12 @@ export function buildSitemapEntries(source: SitemapSource): SitemapEntry[] {
     if (!segment) return;
     authorTimes.set(segment, newest(authorTimes.get(segment), workTime(work)));
   };
+  // The same segments the /authors/:slug route serves (lib/author-identity.ts).
   for (const article of source.articles) {
-    const name = (article.authorName || "").trim();
-    if (!name && !article.authorId) continue;
-    addAuthor(resolveAuthor(name, article.authorId, true), article);
+    for (const segment of workAuthorSegments({ kind: "article", ...article }, resolveAuthor)) addAuthor(segment, article);
   }
   for (const paper of source.papers) {
-    const names = (paper.authorName || "").split(/,\s*/).map(n => n.trim()).filter(Boolean);
-    for (const name of names) {
-      addAuthor(resolveAuthor(name, paper.authorId, names.length === 1), paper);
-    }
+    for (const segment of workAuthorSegments({ kind: "paper", ...paper }, resolveAuthor)) addAuthor(segment, paper);
   }
   for (const [segment, time] of authorTimes) {
     entries.push({

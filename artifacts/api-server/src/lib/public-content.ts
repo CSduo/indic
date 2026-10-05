@@ -5,7 +5,7 @@
  */
 import { db, articlesTable, papersTable, categoriesTable, submissionsTable, usersTable } from "@workspace/db";
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
-import { slugify } from "./slug";
+import { makeAuthorResolver, singleAuthorPath, type AuthorUser } from "./author-identity";
 
 export interface WorkSummary {
   kind: "article" | "paper";
@@ -49,16 +49,14 @@ function isoOrNull(value: unknown): string | null {
 }
 
 /**
- * The author hub for a work: the submitting account's handle when it has one
- * (the canonical author URL, as in the sitemap), otherwise a slug of a single
- * author name. Works with several named authors get no single link.
+ * Every account that can be named as an author (accounts awaiting deletion are
+ * left out), for lib/author-identity.ts.
  */
-export function authorPathFor(authorName: string | null, handle: string | null): string | null {
-  if (handle) return `/authors/${encodeURIComponent(handle)}`;
-  const name = (authorName || "").trim();
-  if (!name || /,|\s+and\s+/i.test(name)) return null;
-  const segment = slugify(name);
-  return segment ? `/authors/${encodeURIComponent(segment)}` : null;
+export async function loadAuthorUsers(): Promise<AuthorUser[]> {
+  return db
+    .select({ id: usersTable.id, handle: usersTable.handle, name: usersTable.name })
+    .from(usersTable)
+    .where(isNull(usersTable.deletionRequestedAt));
 }
 
 /** Newest first; works without a publication date go last. */
@@ -73,7 +71,7 @@ export function sortNewestFirst<T extends { publishedAt: string | null; id: stri
 
 /** Every published, non-deleted article and paper, newest first. */
 export async function listPublishedWorks(): Promise<PublishedWorks> {
-  const [articleRows, paperRows] = await Promise.all([
+  const [articleRows, paperRows, users] = await Promise.all([
     db.select({
       id: articlesTable.id,
       slug: articlesTable.slug,
@@ -85,12 +83,10 @@ export async function listPublishedWorks(): Promise<PublishedWorks> {
       publishedAt: articlesTable.publishedAt,
       readingMinutes: articlesTable.readingMinutes,
       heroImageUrl: articlesTable.heroImageUrl,
-      handle: usersTable.handle,
-      deletionRequestedAt: usersTable.deletionRequestedAt,
+      authorId: submissionsTable.userId,
     })
       .from(articlesTable)
       .leftJoin(submissionsTable, eq(articlesTable.sourceSubmissionId, submissionsTable.id))
-      .leftJoin(usersTable, eq(submissionsTable.userId, usersTable.id))
       .where(and(eq(articlesTable.status, "PUBLISHED"), isNull(articlesTable.deletedAt)))
       .orderBy(sql`${articlesTable.publishedAt} desc nulls last`),
     db.select({
@@ -103,18 +99,18 @@ export async function listPublishedWorks(): Promise<PublishedWorks> {
       publishedAt: papersTable.publishedAt,
       readingMinutes: papersTable.readingMinutes,
       coverImageUrl: papersTable.coverImageUrl,
-      handle: usersTable.handle,
-      deletionRequestedAt: usersTable.deletionRequestedAt,
+      authorId: submissionsTable.userId,
     })
       .from(papersTable)
       .leftJoin(submissionsTable, eq(papersTable.sourceSubmissionId, submissionsTable.id))
-      .leftJoin(usersTable, eq(submissionsTable.userId, usersTable.id))
       .where(and(eq(papersTable.status, "PUBLISHED"), isNull(papersTable.deletedAt)))
       .orderBy(sql`${papersTable.publishedAt} desc nulls last`),
+    loadAuthorUsers(),
   ]);
 
-  const liveHandle = (row: { handle: string | null; deletionRequestedAt: Date | null }) =>
-    row.handle && !row.deletionRequestedAt ? row.handle : null;
+  // Author links use the same canonical segment as the sitemap and the
+  // /authors/:slug route.
+  const resolve = makeAuthorResolver(users);
 
   const articles: WorkSummary[] = articleRows.map((row) => ({
     kind: "article",
@@ -123,7 +119,7 @@ export async function listPublishedWorks(): Promise<PublishedWorks> {
     title: row.title,
     excerpt: plainText(row.excerpt) ?? plainText(row.subtitle),
     authorName: row.authorName ?? null,
-    authorPath: authorPathFor(row.authorName ?? null, liveHandle(row)),
+    authorPath: singleAuthorPath({ kind: "article", authorName: row.authorName, authorId: row.authorId }, resolve),
     categorySlug: row.categorySlug ?? null,
     publishedAt: isoOrNull(row.publishedAt),
     readingMinutes: row.readingMinutes ?? null,
@@ -136,7 +132,7 @@ export async function listPublishedWorks(): Promise<PublishedWorks> {
     title: row.title,
     excerpt: plainText(row.abstract),
     authorName: row.authorName ?? null,
-    authorPath: authorPathFor(row.authorName ?? null, liveHandle(row)),
+    authorPath: singleAuthorPath({ kind: "paper", authorName: row.authorName, authorId: row.authorId }, resolve),
     categorySlug: row.categorySlug ?? null,
     publishedAt: isoOrNull(row.publishedAt),
     readingMinutes: row.readingMinutes ?? null,

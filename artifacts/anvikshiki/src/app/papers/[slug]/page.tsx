@@ -11,16 +11,13 @@ import { EmptyState } from "@/components/sacred/EmptyState";
 import { ThemeToggle } from "@/components/brand/ThemeToggle";
 import { DocumentViewer } from "@/components/manuscript/DocumentViewer";
 import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
+import { AuthorLink } from "@/components/AuthorLink";
+import { authorHref } from "@/lib/authorPath";
+import { cleanTitle, deriveDescription, demoteBodyHeadings } from "@/lib/seoText";
 import { CitationModal } from "@/components/CitationModal";
 import { readInitialData } from "@/lib/initialData";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
-const textSummary = (value: unknown, maxLength = 220) => String(value || "")
-  .replace(/<[^>]*>/g, " ")
-  .replace(/\s+/g, " ")
-  .trim()
-  .slice(0, maxLength);
-
 export default function PaperDetailPage() {
   const [, params] = useRoute("/papers/:slug");
   const slug = params?.slug || "";
@@ -71,12 +68,16 @@ export default function PaperDetailPage() {
     return () => controller.abort();
   }, [slug]);
 
-  const paperDescription = textSummary(paper?.abstract || paper?.body);
+  // Same title and description rules as the server-rendered page.
+  const paperDescription = paper
+    ? deriveDescription({ seoDescription: paper.seoDescription, summaries: [paper.abstract], body: paper.body })
+    : "";
+  const paperTitle = paper?.title ? cleanTitle(paper.seoTitle?.trim() ? paper.seoTitle : paper.title) : "";
 
   useDocumentMetadata({
-    title: paper?.title ? `${paper.title} — Ānvīkṣikī` : undefined,
+    title: paperTitle ? `${paperTitle} — Ānvīkṣikī` : undefined,
     description: paperDescription,
-    canonicalPath: `/papers/${encodeURIComponent(slug)}`,
+    canonicalPath: `/papers/${encodeURIComponent(paper?.slug || slug)}`,
     type: "article",
   });
 
@@ -147,12 +148,12 @@ export default function PaperDetailPage() {
           {paper.authorName ? (
             <div className="mt-4 font-ui text-sm uppercase tracking-[0.08em] text-[var(--muted)] flex items-center gap-1.5">
               <span>by</span>
-              <Link
-                href={paper.authorHandle ? `/authors/${paper.authorHandle}` : `/authors/${paper.authorId || encodeURIComponent(paper.authorName)}`}
+              <AuthorLink
+                href={authorHref(paper)}
                 className="font-semibold text-[var(--ink)] hover:underline capitalize"
               >
                 {paper.authorName}
-              </Link>
+              </AuthorLink>
             </div>
           ) : null}
           <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--border-subtle)] pt-6">
@@ -185,7 +186,7 @@ export default function PaperDetailPage() {
             </ParchmentCard>
           ) : null}
           {paper.body ? (
-            <div className="prose-anv prose-editor-content" dangerouslySetInnerHTML={{ __html: paper.body }} />
+            <div className="prose-anv prose-editor-content" dangerouslySetInnerHTML={{ __html: demoteBodyHeadings(paper.body) }} />
           ) : null}
           {paper.pdfUrl ? <DocumentViewer url={paper.pdfUrl} title={paper.title} /> : null}
           {paper.citationText ? (
@@ -198,29 +199,29 @@ export default function PaperDetailPage() {
           {/* Author Hub card */}
           {paper.authorName && (
             <div className="card-sacred p-6 mt-12 flex flex-col md:flex-row items-center gap-5" style={{ borderLeft: "3px solid var(--gold)" }}>
-              <Link
-                href={paper.authorHandle ? `/authors/${paper.authorHandle}` : `/authors/${paper.authorId || encodeURIComponent(paper.authorName)}`}
+              <AuthorLink
+                href={authorHref(paper)}
                 className="h-14 w-14 rounded-full overflow-hidden bg-[var(--terracotta-pale)] flex items-center justify-center border border-[var(--border-gold)] shrink-0 cursor-pointer hover:opacity-80 transition-opacity ring-2 ring-[var(--border-gold)] ring-offset-2 ring-offset-[var(--bg)]"
               >
                 <span className="font-display text-lg font-bold text-[var(--terracotta)]">
                   {paper.authorName.charAt(0).toUpperCase()}
                 </span>
-              </Link>
+              </AuthorLink>
               <div className="text-center md:text-left space-y-1 flex-1">
-                <Link
-                  href={paper.authorHandle ? `/authors/${paper.authorHandle}` : `/authors/${paper.authorId || encodeURIComponent(paper.authorName)}`}
+                <AuthorLink
+                  href={authorHref(paper)}
                   className="font-ui text-base font-bold text-[var(--gold-bright)] hover:underline cursor-pointer block"
                 >
                   {paper.authorName}
-                </Link>
+                </AuthorLink>
                 <p className="font-ui text-[11px] text-[var(--ink-faint)]">Contributing Scholar · Ānvīkṣikī Journal</p>
                 <div className="pt-2">
-                  <Link
-                    href={paper.authorHandle ? `/authors/${paper.authorHandle}` : `/authors/${paper.authorId || encodeURIComponent(paper.authorName)}`}
+                  <AuthorLink
+                    href={authorHref(paper)}
                     className="inline-flex items-center gap-1.5 font-ui text-[11px] font-semibold text-[var(--terracotta)] hover:underline"
                   >
                     View Scholar Profile &amp; Publications &rarr;
-                  </Link>
+                  </AuthorLink>
                 </div>
               </div>
             </div>
