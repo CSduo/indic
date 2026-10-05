@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link, useRoute } from "wouter";
 import { ArrowLeft, Clock, Edit3, Eye, MessageSquare, Play, Pause, Volume2, Share2, Copy } from "lucide-react";
 import { ArticleActionBar } from "@/components/manuscript/ArticleActionBar";
@@ -243,33 +243,12 @@ export default function ArticlePage() {
   const articleDescription = textSummary(article?.excerpt || article?.body);
   const articleImage = article?.heroImageUrl || article?.featuredImage || article?.coverImage || null;
   const canonicalPath = `/articles/${encodeURIComponent(slug)}`;
-  const articleTags = useMemo(() => {
-    if (!article) return [];
-    const tags = Array.isArray(article.tags) ? [...article.tags] : [];
-    if (article.categorySlug && !tags.includes(article.categorySlug)) {
-      tags.push(article.categorySlug);
-    }
-    return tags;
-  }, [article?.tags, article?.categorySlug]);
-
   useDocumentMetadata({
     title: article?.title ? `${article.title} — Ānvīkṣikī` : undefined,
     description: articleDescription,
-    keywords: articleTags,
     canonicalPath,
     image: articleImage,
     type: "article",
-    structuredData: article ? {
-      "@context": "https://schema.org",
-      "@type": "ScholarlyArticle",
-      headline: article.title,
-      description: articleDescription,
-      keywords: articleTags.join(", "),
-      author: article.authorName ? { "@type": "Person", name: article.authorName } : undefined,
-      datePublished: article.publishedAt || undefined,
-      dateModified: article.updatedAt || article.publishedAt || undefined,
-      articleSection: article.categorySlug || article.categoryId || undefined,
-    } : null,
   });
 
   const handleShare = async () => {

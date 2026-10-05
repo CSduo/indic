@@ -143,7 +143,7 @@ export default function HomePage() {
     title: "Ānvīkṣikī — Indic Philosophy, History & Civilizational Thought",
     description: "An open journal and research platform for Indic philosophy, Sanskrit studies, ancient Indian history, science, and civilizational inquiry.",
     canonicalPath: "/",
-    image: "https://anvikshikijournal.in/opengraph.jpg",
+    image: "https://anvikshikijournal.in/og-default.jpg",
   });
 
   const [recentPage, setRecentPage] = useState(1);

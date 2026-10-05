@@ -249,48 +249,16 @@ export default function AuthorHubPage() {
   }, [slug]);
 
   const authorName = author?.name || slug;
-  const authorBio = author?.bio || `Scholar profile for ${authorName} on Ānvīkṣikī.`;
+  // The author's own bio, or a neutral line; never invented expertise.
+  const authorBio = author?.bio || `Author profile for ${authorName} on Ānvīkṣikī.`;
 
-  const authorKeywords = useMemo(() => {
-    const kws = new Set<string>();
-    articles.forEach(a => {
-      if (a.categorySlug) kws.add(a.categorySlug);
-      if (a.title) {
-        a.title.split(/\s+/).forEach(w => {
-          const clean = w.toLowerCase().replace(/[^a-z0-9]/g, "");
-          if (clean.length > 3) kws.add(clean);
-        });
-      }
-    });
-    papers.forEach(p => {
-      if (p.categorySlug) kws.add(p.categorySlug);
-      if (p.title) {
-        p.title.split(/\s+/).forEach(w => {
-          const clean = w.toLowerCase().replace(/[^a-z0-9]/g, "");
-          if (clean.length > 3) kws.add(clean);
-        });
-      }
-    });
-    if (author?.institution) kws.add(author.institution);
-    return Array.from(kws).filter(Boolean);
-  }, [articles, papers, author?.institution]);
 
   useDocumentMetadata({
     title: authorName ? `${authorName} — Author Profile — Ānvīkṣikī` : undefined,
     description: authorBio.slice(0, 200),
-    keywords: authorKeywords,
     canonicalPath: `/authors/${encodeURIComponent(author?.handle || slug)}`,
     image: author?.avatarUrl || null,
     type: "profile",
-    structuredData: author ? {
-      "@context": "https://schema.org",
-      "@type": "Person",
-      "name": authorName,
-      "description": authorBio,
-      "keywords": authorKeywords.join(", "),
-      "knowsAbout": authorKeywords,
-      "worksFor": author.institution ? { "@type": "Organization", "name": author.institution } : undefined,
-    } : null,
   });
 
   const handleShare = async () => {

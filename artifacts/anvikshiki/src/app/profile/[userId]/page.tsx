@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useParams, useLocation } from "wouter";
 import { ArrowLeft, BookOpen, Building2, Mail, MessageSquare, User, UserCheck, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
@@ -152,37 +152,13 @@ export default function PublicProfilePage() {
     recordProfileView(userId);
   }, [userId, viewer?.id]);
 
-  const profileKeywords = useMemo(() => {
-    const kws = new Set<string>();
-    works.forEach(w => {
-      if (w.categorySlug) kws.add(w.categorySlug);
-      if (w.title) {
-        w.title.split(/\s+/).forEach(term => {
-          const clean = term.toLowerCase().replace(/[^a-z0-9]/g, "");
-          if (clean.length > 3) kws.add(clean);
-        });
-      }
-    });
-    if (profile?.institution) kws.add(profile.institution);
-    return Array.from(kws).filter(Boolean);
-  }, [works, profile?.institution]);
 
   useDocumentMetadata({
     title: profile?.name ? `${profile.name} — Scholar Profile — Ānvīkṣikī` : undefined,
-    description: profile?.bio?.slice(0, 200) || (profile?.name ? `Scholar profile for ${profile.name} on Ānvīkṣikī.` : undefined),
-    keywords: profileKeywords,
+    description: profile?.bio?.slice(0, 200) || (profile?.name ? `Member profile for ${profile.name} on Ānvīkṣikī.` : undefined),
     canonicalPath: `/profile/${encodeURIComponent(profile?.handle ? `@${profile.handle}` : (userId || ""))}`,
     image: profile?.avatarUrl || null,
     type: "profile",
-    structuredData: profile ? {
-      "@context": "https://schema.org",
-      "@type": "Person",
-      "name": profile.name,
-      "description": profile.bio || undefined,
-      "keywords": profileKeywords.join(", "),
-      "knowsAbout": profileKeywords,
-      "worksFor": profile.institution ? { "@type": "Organization", "name": profile.institution } : undefined,
-    } : null,
   });
 
   if (loading) {

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { Link, useRoute } from "wouter";
 import { ArrowLeft, ExternalLink, Download, FileText } from "lucide-react";
 import { toast } from "sonner";
@@ -75,32 +75,12 @@ export default function PaperDetailPage() {
   }, [slug]);
 
   const paperDescription = textSummary(paper?.abstract || paper?.body);
-  const paperTags = useMemo(() => {
-    if (!paper) return [];
-    const tags = Array.isArray(paper.tags) ? [...paper.tags] : [];
-    if (paper.categorySlug && !tags.includes(paper.categorySlug)) {
-      tags.push(paper.categorySlug);
-    }
-    return tags;
-  }, [paper?.tags, paper?.categorySlug]);
 
   useDocumentMetadata({
     title: paper?.title ? `${paper.title} — Ānvīkṣikī` : undefined,
     description: paperDescription,
-    keywords: paperTags,
     canonicalPath: `/papers/${encodeURIComponent(slug)}`,
     type: "article",
-    structuredData: paper ? {
-      "@context": "https://schema.org",
-      "@type": "ScholarlyArticle",
-      headline: paper.title,
-      description: paperDescription,
-      keywords: paperTags.join(", "),
-      author: paper.authorName ? { "@type": "Person", name: paper.authorName } : undefined,
-      datePublished: paper.publishedAt || undefined,
-      dateModified: paper.updatedAt || paper.publishedAt || undefined,
-      articleSection: paper.categorySlug || paper.categoryId || paper.discipline || undefined,
-    } : null,
   });
 
   const handleBibtexExport = () => {

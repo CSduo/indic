@@ -3,23 +3,71 @@ import { useEffect } from "react";
 interface DocumentMetadata {
   title?: string;
   description?: string;
-  keywords?: string | string[];
-  newsKeywords?: string | string[];
   canonicalPath?: string;
   image?: string | null;
   type?: "website" | "article" | "profile";
-  structuredData?: Record<string, unknown> | null;
 }
 
-const configuredSiteUrl = import.meta.env.VITE_PUBLIC_SITE_URL?.trim().replace(/\/$/, "");
+/*
+  What this hook deliberately does not do any more:
+
+  - Keywords. It used to write meta keywords / news_keywords / citation_keywords
+    built from category slugs and title words; search engines ignore them and
+    they did not describe the page.
+  - Structured data. The server emits one JSON-LD graph per page (and the SPA
+    shell carries the site-wide graph). A second, client-made ScholarlyArticle
+    or Person block contradicted it.
+  - Overwriting the server's canonical / og:url. Server-rendered pages already
+    carry the correct canonical; the client used to replace it with a URL
+    built from VITE_PUBLIC_SITE_URL, which pointed at the www host.
+*/
+
+export const DEFAULT_SITE_URL = "https://anvikshikijournal.in";
+
+/**
+ * The public origin used for canonical and og:url values. Defaults to the apex
+ * domain when VITE_PUBLIC_SITE_URL is unset, and folds the www host (which
+ * now 308-redirects to the apex) back onto the apex.
+ */
+export function resolveSiteUrl(configured: string | undefined): string {
+  const value = configured?.trim().replace(/\/+$/, "");
+  if (!value) return DEFAULT_SITE_URL;
+  try {
+    const url = new URL(value);
+    if (url.hostname === "www.anvikshikijournal.in") return DEFAULT_SITE_URL;
+    return url.origin;
+  } catch {
+    return DEFAULT_SITE_URL;
+  }
+}
+
+const siteUrl = resolveSiteUrl(import.meta.env.VITE_PUBLIC_SITE_URL);
 
 function absoluteUrl(value: string): string {
-  const baseUrl = configuredSiteUrl || window.location.origin;
   try {
-    return new URL(value, `${baseUrl}/`).href;
+    return new URL(value, `${siteUrl}/`).href;
   } catch {
-    return `${baseUrl}/`;
+    return `${siteUrl}/`;
   }
+}
+
+/*
+  The page the server rendered: its path and whether its HTML arrived with a
+  canonical link. Captured once, before any effect runs. While the visitor is
+  still on that path the server's canonical and og:url are authoritative and
+  are left alone; after client-side navigation to another path they are stale,
+  so the hook updates them (and restores them on the way back).
+*/
+const initialPath = typeof window !== "undefined" ? window.location.pathname : "";
+const serverProvidedCanonical =
+  typeof document !== "undefined" && !!document.head.querySelector('link[rel="canonical"][href]');
+
+export function keepsServerCanonical(
+  currentPath: string,
+  firstPath: string,
+  hadServerCanonical: boolean,
+): boolean {
+  return hadServerCanonical && currentPath === firstPath;
 }
 
 function setMeta(selector: string, attributes: Record<string, string>) {
@@ -46,64 +94,54 @@ function setMeta(selector: string, attributes: Record<string, string>) {
   };
 }
 
+function setCanonical(href: string) {
+  let canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+  const created = !canonical;
+  if (!canonical) {
+    canonical = document.createElement("link");
+    canonical.rel = "canonical";
+    document.head.appendChild(canonical);
+  }
+  const previous = canonical.getAttribute("href");
+  canonical.href = href;
+  return () => {
+    if (created) canonical.remove();
+    else if (previous === null) canonical.removeAttribute("href");
+    else canonical.setAttribute("href", previous);
+  };
+}
+
 export function useDocumentMetadata({
   title,
   description,
-  keywords,
-  newsKeywords,
   canonicalPath,
   image,
   type = "website",
-  structuredData,
 }: DocumentMetadata) {
-  const structuredDataJson = structuredData ? JSON.stringify(structuredData) : "";
-  const keywordsStr = Array.isArray(keywords) ? keywords.filter(Boolean).join(", ") : (keywords || "").trim();
-  const newsKeywordsStr = Array.isArray(newsKeywords)
-    ? newsKeywords.filter(Boolean).join(", ")
-    : (newsKeywords || (keywordsStr ? keywordsStr.split(/,\s*/).slice(0, 10).join(", ") : "")).trim();
-
   useEffect(() => {
     if (!title) return;
     const previousTitle = document.title;
-    const canonicalUrl = absoluteUrl(canonicalPath || window.location.pathname);
     const imageUrl = image ? absoluteUrl(image) : "";
     const cleanDescription = (description || "Ānvīkṣikī journal and research platform.").trim().slice(0, 300);
     document.title = title;
-
-    let canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
-    const canonicalCreated = !canonical;
-    if (!canonical) {
-      canonical = document.createElement("link");
-      canonical.rel = "canonical";
-      document.head.appendChild(canonical);
-    }
-    const previousCanonical = canonical.getAttribute("href");
-    canonical.href = canonicalUrl;
 
     const restores = [
       setMeta('meta[name="description"]', { name: "description", content: cleanDescription }),
       setMeta('meta[property="og:title"]', { property: "og:title", content: title }),
       setMeta('meta[property="og:description"]', { property: "og:description", content: cleanDescription }),
       setMeta('meta[property="og:type"]', { property: "og:type", content: type }),
-      setMeta('meta[property="og:url"]', { property: "og:url", content: canonicalUrl }),
       setMeta('meta[name="twitter:title"]', { name: "twitter:title", content: title }),
       setMeta('meta[name="twitter:description"]', { name: "twitter:description", content: cleanDescription }),
     ];
-    if (keywordsStr) {
+
+    if (!keepsServerCanonical(window.location.pathname, initialPath, serverProvidedCanonical)) {
+      const canonicalUrl = absoluteUrl(canonicalPath || window.location.pathname);
       restores.push(
-        setMeta('meta[name="keywords"]', { name: "keywords", content: keywordsStr })
-      );
-      if (type === "article") {
-        restores.push(
-          setMeta('meta[name="citation_keywords"]', { name: "citation_keywords", content: keywordsStr })
-        );
-      }
-    }
-    if (newsKeywordsStr) {
-      restores.push(
-        setMeta('meta[name="news_keywords"]', { name: "news_keywords", content: newsKeywordsStr })
+        setCanonical(canonicalUrl),
+        setMeta('meta[property="og:url"]', { property: "og:url", content: canonicalUrl }),
       );
     }
+
     if (imageUrl) {
       restores.push(
         setMeta('meta[property="og:image"]', { property: "og:image", content: imageUrl }),
@@ -111,22 +149,9 @@ export function useDocumentMetadata({
       );
     }
 
-    let schema: HTMLScriptElement | null = null;
-    if (structuredDataJson) {
-      schema = document.createElement("script");
-      schema.type = "application/ld+json";
-      schema.dataset.anvPageSchema = "true";
-      schema.textContent = structuredDataJson;
-      document.head.appendChild(schema);
-    }
-
     return () => {
       document.title = previousTitle;
       for (const restore of restores.reverse()) restore();
-      if (canonicalCreated) canonical.remove();
-      else if (previousCanonical === null) canonical.removeAttribute("href");
-      else canonical.setAttribute("href", previousCanonical);
-      schema?.remove();
     };
-  }, [canonicalPath, description, image, keywordsStr, newsKeywordsStr, structuredDataJson, title, type]);
+  }, [canonicalPath, description, image, title, type]);
 }

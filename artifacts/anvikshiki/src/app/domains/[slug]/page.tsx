@@ -48,17 +48,8 @@ export default function DomainPage() {
   useDocumentMetadata({
     title: `${meta.label} — Domain Archive — Ānvīkṣikī`,
     description: meta.description || `Essays and research papers in ${meta.label} published in Ānvīkṣikī Journal.`,
-    keywords: [meta.label, slug, "Indic Studies", "Philosophy", "Research Archive"],
     canonicalPath: `/domains/${encodeURIComponent(slug)}`,
     type: "website",
-    structuredData: {
-      "@context": "https://schema.org",
-      "@type": "CollectionPage",
-      "name": `${meta.label} — Domain Archive`,
-      "description": meta.description,
-      "keywords": `${meta.label}, ${slug}, Indic Studies, Philosophy`,
-      "url": `https://anvikshikijournal.in/domains/${encodeURIComponent(slug)}`,
-    },
   });
 
   useEffect(() => {
