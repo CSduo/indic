@@ -130,6 +130,14 @@ describe("real 404s instead of soft 404s", () => {
     expect(api.status).toBe(404);
     expect(api.headers["content-type"]).toMatch(/json/);
   });
+
+  it("keeps API JSON out of the index but not uploaded files", async () => {
+    // robots.txt allows the SPA's public read endpoints to be fetched.
+    const api = await request(app).get("/api/no-such-endpoint");
+    expect(api.headers["x-robots-tag"]).toBe("noindex");
+    const upload = await request(app).get("/api/uploads/no-such-file.pdf");
+    expect(upload.headers["x-robots-tag"]).toBeUndefined();
+  });
 });
 
 describe("redirects", () => {

@@ -177,6 +177,11 @@ app.use((req, res, next) => {
       "Content-Security-Policy",
       "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
     );
+    // robots.txt lets crawlers fetch the public read endpoints the SPA uses
+    // (/api/articles, /api/papers, ...) so rendered pages are complete. The
+    // JSON itself is not a search result; noindex keeps it out of the index
+    // without blocking rendering. Uploaded files (/api/uploads) are exempt.
+    res.setHeader("X-Robots-Tag", "noindex");
   }
 
   if (isProduction) {
