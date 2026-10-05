@@ -231,6 +231,41 @@ describe("article pages", () => {
     expect(res.text).toContain("<h2>Introduction</h2>");
     expect(res.text).toContain("<h3>Sources</h3>");
   });
+
+  // The client renders `body` from __INITIAL_DATA__ with dangerouslySetInnerHTML,
+  // so the embedded body must be the sanitised, repaired one the API returns,
+  // never the stored value.
+  function initialDataBody(html: string): string {
+    const json = html.match(/<script id="__INITIAL_DATA__" type="application\/json">([\s\S]*?)<\/script>/)?.[1] ?? "null";
+    return JSON.parse(json)?.data?.body ?? "";
+  }
+
+  function articleRow(slug: string, body: string) {
+    return {
+      id: `id-${slug}`, slug, title: "An Essay", subtitle: null, excerpt: "An essay.", seoTitle: null, seoDescription: null,
+      body, authorName: "Xiyato Saanvi", status: "PUBLISHED", deletedAt: null, publishedAt: "2026-08-01T00:00:00.000Z",
+      updatedAt: "2026-08-02T00:00:00.000Z", categorySlug: null, tags: [], sourceSubmissionId: null,
+    };
+  }
+
+  it("embeds a sanitised body in the initial data, not the stored HTML", async () => {
+    state.rows.set("unsafe-body", articleRow("unsafe-body", '<p>Text</p><img src="x" onerror="alert(1)"><script>alert(2)</script><a href="javascript:alert(3)">x</a>'));
+    const res = await request(app).get("/articles/unsafe-body");
+    expect(res.status).toBe(200);
+    const body = initialDataBody(res.text);
+    expect(body).toContain("<p>Text</p>");
+    expect(body).not.toMatch(/onerror|<script|javascript:/i);
+  });
+
+  it("restores legacy inline images in the server HTML and the initial data", async () => {
+    const slug = "the-transatlantic-slave-trade-4e607526";
+    state.rows.set(slug, articleRow(slug, '<p>Text</p><img alt="A ship"><p>More</p>'));
+    const res = await request(app).get(`/articles/${slug}`);
+    expect(res.status).toBe(200);
+    const legacySrc = `/images/legacy/${slug}/01.jpg`;
+    expect(initialDataBody(res.text)).toContain(legacySrc);
+    expect(res.text.replace(/<script id="__INITIAL_DATA__"[\s\S]*?<\/script>/, "")).toContain(`src="${legacySrc}"`);
+  });
 });
 
 describe("author pages", () => {

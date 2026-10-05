@@ -61,6 +61,8 @@ import {
 } from "./lib/publication-lookup";
 import { makeAuthorResolver, resolveAuthorRequest, workAuthorSegments } from "./lib/author-identity";
 import { cleanTitle, deriveDescription } from "./lib/seo-text";
+import { sanitizeArticleBody } from "./lib/content";
+import { recoverLegacyInlineImages } from "./lib/legacy-content";
 
 export * from "./lib/ssr-html";
 
@@ -1423,16 +1425,22 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
     ${topicTagsStr ? `<meta name="citation_keywords" content="${escapeHtml(topicTagsStr)}" />` : ""}
     `;
 
+    // The body as GET /api/articles/:slug and /api/papers/:slug return it:
+    // legacy inline images restored (articles), then sanitised. The client
+    // renders `body` from the initial data as HTML, so it must never carry the
+    // raw stored value.
+    const repairedBody = isPaper ? item.body : recoverLegacyInlineImages(item.slug, item.body);
+    const publicItem = { ...item, body: repairedBody };
     const ssrHtml = isPaper
-      ? generatePaperSsrHtml(item, domainDisplayName, bylineSegmentsFor((item.authorName || "Anonymous Scholar").split(/,\s*/)))
-      : generateArticleSsrHtml(item, domainDisplayName, singleAuthorSegment);
+      ? generatePaperSsrHtml(publicItem, domainDisplayName, bylineSegmentsFor((item.authorName || "Anonymous Scholar").split(/,\s*/)))
+      : generateArticleSsrHtml(publicItem, domainDisplayName, singleAuthorSegment);
 
     const finalHtml = renderSsrDocument(
       ogTags,
       ssrHtml,
       // authorHandle: the canonical author segment, which the client uses for
       // its own byline links.
-      { route: isPaper ? "paper" : "article", path: req.path, data: { ...item, authorHandle: singleAuthorSegment } },
+      { route: isPaper ? "paper" : "article", path: req.path, data: { ...item, body: sanitizeArticleBody(repairedBody), authorHandle: singleAuthorSegment } },
       { showPapers: isPaper || (await hasPublishedPapers()) },
     );
 
