@@ -85,18 +85,6 @@ INDIC_KNOWN_TERMS = {
     "southeast asia", "hindu influence", "khmer empire"
 }
 
-UNIVERSAL_CORE_TERMS = [
-    "Hindu article",
-    "Hindu philosophy",
-    "Indic research",
-    "Sanatana Dharma scholarship",
-    "ancient Indian history",
-    "Vedic science",
-    "Nyaya",
-    "Vedanta",
-]
-
-
 def clean_text(raw: str) -> str:
     if not raw:
         return ""
@@ -208,28 +196,21 @@ def extract_keywords_from_article(content: str, title: str = "", max_keywords: i
 
 def enrich_article_seo_metadata(title: str, content: str, slug: str = "", category: str = "philosophy") -> dict:
     """
-    Enriches article with dynamically extracted keywords, universal search terms,
-    and Google News search tags.
+    Proposes keywords for an article from its own title and text only.
+    No fixed "universal" terms are added: meta keywords must describe the page.
     """
     extracted = extract_keywords_from_article(content, title, max_keywords=10)
 
-    # Blend with universal core terms ("Hindu article", "Hindu philosophy", etc.)
     all_keywords = []
     seen = set()
-
-    # Priority order:
-    # 1. Extracted article keywords
-    # 2. Universal core terms (ensuring "Hindu article" is always present)
-    # 3. Category
-    for k in extracted + UNIVERSAL_CORE_TERMS + [category.replace("-", " ").title()]:
+    for k in extracted:
         k_clean = k.strip()
         k_low = k_clean.lower()
         if k_clean and k_low not in seen:
             seen.add(k_low)
             all_keywords.append(k_clean)
 
-    # News keywords (top 8 focused queries)
-    news_keywords = ["Hindu article", "Hindu philosophy"] + [k for k in extracted[:6] if k.lower() not in {"hindu article", "hindu philosophy"}]
+    news_keywords = all_keywords[:8]
 
     return {
         "title": title,
