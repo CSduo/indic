@@ -559,39 +559,48 @@ export default function HomePage() {
       <WisdomStrip />
 
       {/* ─── BROWSE BY DOMAIN ─── */}
-      <section className="home-v3-section home-v3-domains-section" style={{ position: "relative", overflow: "hidden" }}>
-        <div className="container-anv" style={{ position: "relative", zIndex: 1 }}>
-          <div className="home-v3-section-head centered">
-            <h2 className="home-v3-section-title">Browse by Domain</h2>
-          </div>
+      <section className="home-v3-section home-v3-domains-section" aria-labelledby="domain-gallery-title">
+        <div className="container-anv">
+          <div className="home-v3-domain-chamber">
+            <span className="home-v3-chamber-corner home-v3-chamber-corner-tl" aria-hidden="true" />
+            <span className="home-v3-chamber-corner home-v3-chamber-corner-tr" aria-hidden="true" />
+            <span className="home-v3-chamber-corner home-v3-chamber-corner-bl" aria-hidden="true" />
+            <span className="home-v3-chamber-corner home-v3-chamber-corner-br" aria-hidden="true" />
 
-          <p className="home-v3-section-sub">
-            Fourteen fields of inquiry — from the sweep of civilizations to the intimacy of the aesthetic moment,
-            the precision of science to the depth of Sanskrit wisdom.
-          </p>
+            <header className="home-v3-domain-heading">
+              <p className="home-v3-domain-eyebrow">The symposium of ideas</p>
+              <h2 id="domain-gallery-title" className="home-v3-section-title">Browse by Domain</h2>
+              <p className="home-v3-section-sub">
+                Fourteen fields of inquiry — from the sweep of civilizations to the intimacy of the aesthetic moment,
+                the precision of science to the depth of Sanskrit wisdom.
+              </p>
+            </header>
 
-          <div className="home-v3-domains home-v3-domains-expanded">
-            {DOMAIN_ORDER.map(key => {
-              const d = DOMAIN_META[key];
-              if (!d) return null;
-              return (
-                <Link
-                  key={key}
-                  href={d.route}
-                  className="home-v3-domain-card"
-                  style={{ "--card-color": d.color } as React.CSSProperties}
-                >
-                  <span className="home-v3-domain-beacon" aria-hidden="true" />
-                  <div className="home-v3-domain-icon-wrap">
-                    <AnimalGlyph domain={key} size={50} />
-                  </div>
-                  <div className="home-v3-domain-name">{d.label}</div>
-                  <div className="home-v3-domain-badge">
-                    {domainCounts[key] || 0} {d.countLabel || "Items"}
-                  </div>
-                </Link>
-              );
-            })}
+            <div className="home-v3-domains home-v3-domains-expanded">
+              {DOMAIN_ORDER.map(key => {
+                const d = DOMAIN_META[key];
+                return (
+                  <Link key={key} href={d.route} className="home-v3-domain-card">
+                    <span className="home-v3-domain-beacon" aria-hidden="true" />
+                    <div className="home-v3-domain-icon-wrap" aria-hidden="true">
+                      <AnimalGlyph domain={key} size={50} />
+                    </div>
+                    <h3 className="home-v3-domain-name">{d.label}</h3>
+                    <span className="home-v3-domain-badge">
+                      {domainCounts[key] || 0} {d.countLabel || "Items"}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+
+            <figure className="home-v3-domain-plinth">
+              <blockquote lang="sa">प्रदीपः सर्वविद्यानाम् उपायः सर्वकर्मणाम्</blockquote>
+              <figcaption>
+                <span>A lamp for all learning, a means for every undertaking.</span>
+                <cite>Kauṭilya · Arthaśāstra 1.2</cite>
+              </figcaption>
+            </figure>
           </div>
         </div>
       </section>
