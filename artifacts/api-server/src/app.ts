@@ -49,7 +49,8 @@ import {
 } from "./lib/ssr-html";
 import { hasPublishedPapers, listPublishedWorks, listVisibleCategories, loadAuthorUsers, type WorkSummary } from "./lib/public-content";
 import { PAGE_META } from "./lib/page-meta";
-import { looksLikeFile, matchClientOnlyRoute, normalizedPagePath, type ClientOnlyRoute } from "./lib/spa-routes";
+import { clientRouteTitle, looksLikeFile, matchClientOnlyRoute, normalizedPagePath, type ClientOnlyRoute } from "./lib/spa-routes";
+import { MIN_WORKS_FOR_INDEXED_HUB } from "./lib/sitemap-entries";
 import {
   findAuthorProfile,
   findPublicationBySlug,
@@ -260,7 +261,7 @@ function sendClientShell(res: import("express").Response, route: ClientOnlyRoute
   // The shell carries no user data and only changes with a deploy.
   res.setHeader("Cache-Control", PUBLIC_HTML_CACHE_CONTROL);
   const metaTags = `
-    <title>${escapeHtml(SITE_NAME)}</title>
+    <title>${escapeHtml(`${clientRouteTitle(route)} — ${SITE_NAME}`)}</title>
     <meta name="robots" content="${robots}" />`;
   return res.status(200).send(renderSpaShell(metaTags));
 }
@@ -1660,11 +1661,12 @@ app.get("/domains/:slug", async (req, res, next) => {
     const cleanUrl = escapeHtml(canonicalUrl);
     const image = DEFAULT_SOCIAL_IMAGE;
 
-    // Empty hubs stay reachable but out of search results (and the sitemap)
-    // until they hold published work.
+    // Thin hubs stay reachable but out of search results (and the sitemap)
+    // until they hold MIN_WORKS_FOR_INDEXED_HUB published works.
     const hasPublishedWork = domainArticles.length + domainPapers.length > 0;
-    const robotsContent = hasPublishedWork ? "index, follow, max-image-preview:large" : "noindex, follow";
-    if (!hasPublishedWork) {
+    const indexableHub = domainArticles.length + domainPapers.length >= MIN_WORKS_FOR_INDEXED_HUB;
+    const robotsContent = indexableHub ? "index, follow, max-image-preview:large" : "noindex, follow";
+    if (!indexableHub) {
       res.setHeader("X-Robots-Tag", "noindex, follow");
     }
 

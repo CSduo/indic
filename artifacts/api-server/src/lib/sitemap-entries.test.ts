@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  buildSitemapEntries,
+  buildSitemapEntries, MIN_WORKS_FOR_INDEXED_HUB,
   renderSitemapXml,
   SITE_URL,
   STATIC_PAGES_LASTMOD,
@@ -73,14 +73,22 @@ describe("buildSitemapEntries", () => {
     expect(entry?.lastmod).toBe("2026-08-21T11:21:00.000Z");
   });
 
-  it("only includes domain hubs that have published work, dated by their newest work", () => {
-    const entries = buildSitemapEntries(source());
+  it("includes a domain hub only once it holds MIN_WORKS_FOR_INDEXED_HUB works, dated by its newest work", () => {
+    const history = ["a", "b", "c"].map((id, i) => ({
+      slug: `history-${id}`,
+      updatedAt: `2026-08-1${i + 1}T00:00:00.000Z`,
+      authorName: "Xiyato Saanvi",
+      categorySlug: "history",
+    }));
+    const philosophy = [{ slug: "one-essay", updatedAt: "2026-08-20T00:00:00.000Z", authorName: "Xiyato Saanvi", categorySlug: "philosophy" }];
+    const entries = buildSitemapEntries(source({ articles: [...history, ...philosophy], papers: [] }));
     const urls = entries.map(e => e.loc);
 
-    expect(urls).toContain(`${SITE_URL}/domains/philosophy`);
+    expect(MIN_WORKS_FOR_INDEXED_HUB).toBe(3);
     expect(urls).toContain(`${SITE_URL}/domains/history`);
+    expect(urls).not.toContain(`${SITE_URL}/domains/philosophy`);
     expect(urls).not.toContain(`${SITE_URL}/domains/sanskrit-studies`);
-    expect(entries.find(e => e.loc === `${SITE_URL}/domains/history`)?.lastmod).toBe("2026-08-15T22:18:00.000Z");
+    expect(entries.find(e => e.loc === `${SITE_URL}/domains/history`)?.lastmod).toBe("2026-08-13T00:00:00.000Z");
   });
 
   it("lists authors with published work once, at their handle URL, and omits members with no work", () => {

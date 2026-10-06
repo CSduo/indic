@@ -10,6 +10,12 @@ import { and, eq, isNull } from "drizzle-orm";
 import { makeAuthorResolver, workAuthorSegments } from "./author-identity";
 
 /**
+ * A domain hub is indexed (and listed in the sitemap) only once it holds this
+ * many published works; a hub with one or two pieces is a thin listing page.
+ */
+export const MIN_WORKS_FOR_INDEXED_HUB = 3;
+
+/**
  * The one sitemap generator.
  *
  * /sitemap.xml and the IndexNow reindex job both read from here, so the set of
@@ -124,16 +130,19 @@ export function buildSitemapEntries(source: SitemapSource): SitemapEntry[] {
     });
   }
 
-  // Domain hubs: only those with at least one published work.
+  // Domain hubs: only those with enough published work to stand as a page
+  // (MIN_WORKS_FOR_INDEXED_HUB); thinner hubs are noindex until they grow.
   const visibleCategories = new Set(source.categories.map(c => c.slug));
   const hubTimes = new Map<string, number | null>();
+  const hubCounts = new Map<string, number>();
   for (const work of allWorks) {
     const slug = work.categorySlug;
     if (!slug || !visibleCategories.has(slug)) continue;
     hubTimes.set(slug, newest(hubTimes.get(slug), workTime(work)));
+    hubCounts.set(slug, (hubCounts.get(slug) ?? 0) + 1);
   }
   for (const category of source.categories) {
-    if (!hubTimes.has(category.slug)) continue;
+    if ((hubCounts.get(category.slug) ?? 0) < MIN_WORKS_FOR_INDEXED_HUB) continue;
     entries.push({
       loc: `${SITE_URL}/domains/${encodeURIComponent(category.slug)}`,
       lastmod: iso(hubTimes.get(category.slug)),

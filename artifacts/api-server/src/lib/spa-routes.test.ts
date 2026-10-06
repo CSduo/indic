@@ -51,3 +51,12 @@ describe("looksLikeFile", () => {
     expect(looksLikeFile("/articles/some-slug")).toBe(false);
   });
 });
+
+describe("client-only screen titles", () => {
+  it("gives sign-in, account and admin screens distinct titles", async () => {
+    const { clientRouteTitle, matchClientOnlyRoute } = await import("./spa-routes");
+    const titles = ["/login", "/account", "/admin", "/saved", "/messages"].map((p) => clientRouteTitle(matchClientOnlyRoute(p)!));
+    expect(new Set(titles).size).toBe(titles.length);
+    expect(clientRouteTitle(matchClientOnlyRoute("/login")!)).toBe("Sign in");
+  });
+});

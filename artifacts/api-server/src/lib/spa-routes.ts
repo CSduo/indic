@@ -92,6 +92,32 @@ export function matchClientOnlyRoute(pathname: string): ClientOnlyRoute | null {
   return CLIENT_ONLY_MATCHERS.find(({ regex }) => regex.test(pathname))?.route ?? null;
 }
 
+/** A distinct, human title for each client-only screen (they never share one). */
+const CLIENT_ROUTE_TITLES: Array<[RegExp, string]> = [
+  [/^\/login$/, "Sign in"],
+  [/^\/account\/profile$/, "Your profile"],
+  [/^\/account\/collections$/, "Your collections"],
+  [/^\/account\/notifications$/, "Notifications"],
+  [/^\/account\/settings$/, "Account settings"],
+  [/^\/account\/edit\//, "Edit your work"],
+  [/^\/account$/, "Your account"],
+  [/^\/submit\//, "Submit your work"],
+  [/^\/saved$/, "Saved items"],
+  [/^\/admin\/login$/, "Editor sign in"],
+  [/^\/admin/, "Editorial admin"],
+  [/^\/messages\//, "Conversation"],
+  [/^\/messages$/, "Messages"],
+  [/^\/search$/, "Search"],
+  [/^\/community\/feed$/, "Community feed"],
+  [/^\/community\/discussions$/, "Community discussions"],
+  [/^\/community\/events$/, "Community events"],
+  [/^\/community\/members$/, "Community members"],
+];
+
+export function clientRouteTitle(route: ClientOnlyRoute): string {
+  return CLIENT_ROUTE_TITLES.find(([pattern]) => pattern.test(route.path))?.[1] ?? "Ānvīkṣikī";
+}
+
 /** First path segments that belong to the site, for case normalisation. */
 export const KNOWN_SECTIONS = new Set(
   [...SERVER_RENDERED_ROUTES, ...CLIENT_ONLY_ROUTES.map((route) => route.path)]
