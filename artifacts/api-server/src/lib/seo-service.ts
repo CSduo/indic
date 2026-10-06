@@ -3,6 +3,7 @@ import * as crypto from "crypto";
 import { importPKCS8, SignJWT } from "jose";
 import { logger } from "./logger";
 import { CANONICAL_HOST, CANONICAL_BASE_URL, submitIndexNow, type IndexNowResult } from "./indexnow";
+import { pingWebSubHub } from "./websub";
 
 export { CANONICAL_HOST, CANONICAL_BASE_URL };
 
@@ -610,7 +611,12 @@ export function triggerPublicContentSeo(payload: ContentPublicationPayload): Pro
         return null;
       }
 
-      return await submitUrlsToSearchEngines(urls, `publish-${payload.type}:${payload.slug}`);
+      const result = await submitUrlsToSearchEngines(urls, `publish-${payload.type}:${payload.slug}`);
+      // A new or updated essay or paper changes the feed: announce it to Google's WebSub hub.
+      if (payload.type === "article" || payload.type === "paper") {
+        await pingWebSubHub(`${CANONICAL_BASE_URL}/rss.xml`);
+      }
+      return result;
     } catch (err: any) {
       logger.warn({ err: err?.message, payload }, "[SEO Engine] Background publication trigger caught error");
       return null;

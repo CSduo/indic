@@ -5,6 +5,7 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { CANONICAL_DOMAIN, SITE_NAME, escapeHtml } from "../lib/ssr-html";
 import { PAGE_META } from "../lib/page-meta";
 import { cleanTitle, plainTextFromHtml } from "../lib/seo-text";
+import { WEBSUB_HUB } from "../lib/websub";
 
 const router = Router();
 
@@ -58,6 +59,7 @@ ${creators}${category}    <description>${cdata(item.description)}</description>
   <title>${escapeHtml(SITE_NAME)}</title>
   <link>${CANONICAL_DOMAIN}/</link>
   <atom:link href="${RSS_SELF_URL}" rel="self" type="application/rss+xml" />
+  <atom:link href="${WEBSUB_HUB}" rel="hub" />
   <description>${escapeHtml(PAGE_META.home.description)}</description>
   <language>en</language>
   <lastBuildDate>${lastBuild.toUTCString()}</lastBuildDate>

@@ -25,6 +25,8 @@ describe("RSS feed", () => {
 
   it("declares its own URL, title and language", () => {
     expect(xml).toContain(`<atom:link href="${RSS_SELF_URL}" rel="self" type="application/rss+xml" />`);
+    // WebSub: the feed names Google's hub, which publishing pings.
+    expect(xml).toContain('<atom:link href="https://pubsubhubbub.appspot.com/" rel="hub" />');
     expect(xml).toContain("<title>Ānvīkṣikī Journal</title>");
     expect(xml).toContain("<language>en</language>");
     expect(xml).toContain(`<lastBuildDate>${new Date(Date.UTC(2026, 7, 1)).toUTCString()}</lastBuildDate>`);

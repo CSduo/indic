@@ -11,6 +11,7 @@ import { UPLOADS_DIR } from "./lib/storage";
 import healthRouter from "./routes/health";
 import sitemapRouter from "./routes/sitemap";
 import rssRouter from "./routes/rss";
+import llmsRouter from "./routes/llms";
 import indexnowRouter from "./routes/indexnow";
 import publicPagesRouter, { sendUnavailable } from "./routes/public-pages";
 import { DEFAULT_INDEXNOW_KEY } from "./lib/indexnow";
@@ -402,6 +403,7 @@ app.use("/api", router);
 // Direct root protocol endpoints
 app.use(sitemapRouter);
 app.use(rssRouter);
+app.use(llmsRouter);
 app.use(indexnowRouter);
 // Server-rendered /, /archive, /domains, /papers, /contact, /privacy, /terms,
 // /community and /submit (see routes/public-pages.ts).
