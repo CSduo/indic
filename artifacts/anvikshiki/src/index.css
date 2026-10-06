@@ -5580,59 +5580,184 @@ input[type="search"]::-webkit-search-decoration {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 2rem 1.25rem;
+  padding: 2.25rem 1.25rem 1.65rem;
   border-radius: var(--radius-card);
   background: var(--surface);
-  border: 1px solid var(--border-subtle);
-  transition: all var(--motion) ease;
+  border: 1px solid color-mix(in srgb, var(--card-color, var(--gold)) 28%, var(--border-subtle));
+  border-top: 3.5px solid color-mix(in srgb, var(--card-color, var(--gold)) 85%, transparent);
+  transition: all var(--motion) cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   overflow: hidden;
   text-decoration: none;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.03);
+}
+
+/* Luminous Divine Aura (Prabhāva-Maṇḍala) */
+.home-v3-domain-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-card);
+  background:
+    radial-gradient(
+      ellipse 85% 65% at 50% -10%,
+      color-mix(in srgb, var(--card-color, var(--gold)) 32%, transparent) 0%,
+      color-mix(in srgb, var(--card-color, var(--gold)) 12%, transparent) 42%,
+      transparent 78%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--card-color, var(--gold)) 9%, var(--surface)) 0%,
+      var(--surface) 60%
+    );
+  pointer-events: none;
+  transition: opacity 0.45s ease;
+  opacity: 0.85;
+}
+
+.home-v3-domain-card:hover::before {
+  opacity: 1;
+}
+
+/* Shimmer sweep on hover */
+.home-v3-domain-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    108deg,
+    transparent 28%,
+    color-mix(in srgb, white 9%, transparent) 50%,
+    transparent 72%
+  );
+  background-size: 220% 100%;
+  background-position: -200% center;
+  border-radius: var(--radius-card);
+  pointer-events: none;
+  transition: background-position 0.85s ease;
+}
+
+.home-v3-domain-card:hover::after {
+  background-position: 300% center;
 }
 
 .home-v3-domain-card:hover {
-  border-color: var(--gold);
-  box-shadow: 0 8px 30px rgba(0,0,0,0.1), 0 0 0 1px var(--gold);
-  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--card-color, var(--gold)) 75%, transparent);
+  box-shadow:
+    0 14px 40px rgba(0,0,0,0.08),
+    0 0 28px color-mix(in srgb, var(--card-color, var(--gold)) 32%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--card-color, var(--gold)) 50%, transparent);
+  transform: translateY(-5px);
 }
 
+/* Header Beacon dot of divine presence */
+.home-v3-domain-beacon {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--card-color, var(--gold));
+  box-shadow: 0 0 8px var(--card-color, var(--gold)), 0 0 16px color-mix(in srgb, var(--card-color, var(--gold)) 80%, transparent);
+  opacity: 0.75;
+  transition: transform var(--motion) ease, opacity var(--motion) ease;
+}
+
+.home-v3-domain-card:hover .home-v3-domain-beacon {
+  transform: scale(1.4);
+  opacity: 1;
+}
+
+/* Expanded, majestic 82px medallion with concentric sacred rings */
 .home-v3-domain-icon-wrap {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 1rem;
-  width: 64px;
-  height: 64px;
+  margin-bottom: 1.15rem;
+  width: 82px;
+  height: 82px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--gold) 12%, var(--surface));
-  color: var(--gold);
-  transition: all var(--motion) ease;
+  background:
+    radial-gradient(
+      circle at 40% 35%,
+      color-mix(in srgb, var(--card-color, var(--gold)) 25%, var(--surface)) 0%,
+      color-mix(in srgb, var(--card-color, var(--gold)) 12%, var(--surface)) 60%,
+      var(--surface) 100%
+    );
+  border: 1.5px solid color-mix(in srgb, var(--card-color, var(--gold)) 40%, transparent);
+  color: var(--card-color, var(--gold));
+  box-shadow:
+    0 4px 20px rgba(0,0,0,0.06),
+    0 0 18px color-mix(in srgb, var(--card-color, var(--gold)) 22%, transparent);
+  transition: all var(--motion) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.home-v3-domain-icon-wrap::before {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+  border: 1.5px dashed color-mix(in srgb, var(--card-color, var(--gold)) 42%, transparent);
+  animation: rotateSlow 24s linear infinite;
+  pointer-events: none;
+  transition: border-color 0.4s ease;
+}
+
+.home-v3-domain-card:hover .home-v3-domain-icon-wrap::before {
+  border-color: color-mix(in srgb, var(--card-color, var(--gold)) 75%, transparent);
+  animation-duration: 9s;
+}
+
+.home-v3-domain-icon-wrap::after {
+  content: '';
+  position: absolute;
+  inset: -15px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--card-color, var(--gold)) 22%, transparent);
+  animation: rotateSlow 40s linear infinite reverse;
+  pointer-events: none;
 }
 
 .home-v3-domain-card:hover .home-v3-domain-icon-wrap {
-  transform: scale(1.1);
-  box-shadow: 0 0 15px color-mix(in srgb, var(--gold) 40%, transparent);
+  transform: scale(1.08);
+  box-shadow:
+    0 8px 32px rgba(0,0,0,0.12),
+    0 0 28px color-mix(in srgb, var(--card-color, var(--gold)) 55%, transparent);
 }
 
 .home-v3-domain-name {
   font-family: var(--font-display);
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   font-weight: 600;
+  letter-spacing: 0.02em;
   color: var(--ink);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.55rem;
+  transition: color var(--motion) ease;
+}
+
+.home-v3-domain-card:hover .home-v3-domain-name {
+  color: color-mix(in srgb, var(--card-color, var(--gold)) 85%, var(--ink));
 }
 
 .home-v3-domain-badge {
   font-family: var(--font-ui);
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  padding: 0.2rem 0.6rem;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--gold) 15%, transparent);
-  color: var(--ink);
+  letter-spacing: 0.12em;
+  padding: 0.25rem 0.75rem;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--card-color, var(--gold)) 32%, transparent);
+  background: color-mix(in srgb, var(--card-color, var(--gold)) 12%, transparent);
+  color: color-mix(in srgb, var(--card-color, var(--gold)) 90%, var(--ink));
+  transition: all var(--motion) ease;
+}
+
+.home-v3-domain-card:hover .home-v3-domain-badge {
+  background: color-mix(in srgb, var(--card-color, var(--gold)) 24%, transparent);
+  border-color: color-mix(in srgb, var(--card-color, var(--gold)) 60%, transparent);
 }
 
 .article-card-enhanced {

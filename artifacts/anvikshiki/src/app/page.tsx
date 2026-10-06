@@ -581,24 +581,12 @@ export default function HomePage() {
                   className="home-v3-domain-card"
                   style={{ "--card-color": d.color } as React.CSSProperties}
                 >
-                  <div
-                    className="home-v3-domain-icon-wrap"
-                    style={{
-                      color: d.color,
-                      background: `color-mix(in srgb, ${d.color} 14%, var(--surface))`,
-                    }}
-                  >
-                    <AnimalGlyph domain={key} size={38} />
+                  <span className="home-v3-domain-beacon" aria-hidden="true" />
+                  <div className="home-v3-domain-icon-wrap">
+                    <AnimalGlyph domain={key} size={50} />
                   </div>
                   <div className="home-v3-domain-name">{d.label}</div>
-                  <div
-                    className="home-v3-domain-badge"
-                    style={{
-                      borderColor: `color-mix(in srgb, ${d.color} 30%, transparent)`,
-                      background: `color-mix(in srgb, ${d.color} 12%, transparent)`,
-                      color: `color-mix(in srgb, ${d.color} 90%, var(--ink))`,
-                    }}
-                  >
+                  <div className="home-v3-domain-badge">
                     {domainCounts[key] || 0} {d.countLabel || "Items"}
                   </div>
                 </Link>
