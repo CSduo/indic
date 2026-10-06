@@ -308,8 +308,11 @@ describe("deployment routing", () => {
   // URL with a 200 soft 404). Every request that is not a static file reaches
   // Express, which serves the shell with 200 only for known client routes
   // (lib/spa-routes.ts) and a 404 otherwise.
+  // The catch-all skips /_vercel/*: Vercel serves its Web Analytics script and
+  // beacon (/_vercel/insights/*) itself, and a rewrite to Express turned those
+  // into 404s, so no page views were recorded.
   it("sends every non-file request to the API function and none to the static shell", () => {
-    expect(rewrites).toEqual([{ source: "/(.*)", destination: "/api/index" }]);
+    expect(rewrites).toEqual([{ source: "/((?!_vercel/).*)", destination: "/api/index" }]);
     expect(rewrites.some((r) => r.destination === "/spa.html")).toBe(false);
   });
 
