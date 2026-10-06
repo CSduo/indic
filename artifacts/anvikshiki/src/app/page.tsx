@@ -575,12 +575,30 @@ export default function HomePage() {
               const d = DOMAIN_META[key];
               if (!d) return null;
               return (
-                <Link key={key} href={d.route} className="home-v3-domain-card">
-                  <div className="home-v3-domain-icon-wrap">
-                    <AnimalGlyph domain={key} size={32} />
+                <Link
+                  key={key}
+                  href={d.route}
+                  className="home-v3-domain-card"
+                  style={{ "--card-color": d.color } as React.CSSProperties}
+                >
+                  <div
+                    className="home-v3-domain-icon-wrap"
+                    style={{
+                      color: d.color,
+                      background: `color-mix(in srgb, ${d.color} 14%, var(--surface))`,
+                    }}
+                  >
+                    <AnimalGlyph domain={key} size={38} />
                   </div>
                   <div className="home-v3-domain-name">{d.label}</div>
-                  <div className="home-v3-domain-badge">
+                  <div
+                    className="home-v3-domain-badge"
+                    style={{
+                      borderColor: `color-mix(in srgb, ${d.color} 30%, transparent)`,
+                      background: `color-mix(in srgb, ${d.color} 12%, transparent)`,
+                      color: `color-mix(in srgb, ${d.color} 90%, var(--ink))`,
+                    }}
+                  >
                     {domainCounts[key] || 0} {d.countLabel || "Items"}
                   </div>
                 </Link>
