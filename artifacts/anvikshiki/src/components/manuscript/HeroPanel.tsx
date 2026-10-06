@@ -71,7 +71,7 @@ export function HeroPanel({
         <FloralCorner position="tr" size={52} className="absolute top-2 right-2 text-[var(--gold)] opacity-30" />
 
         {glyph ? (
-          <div className="mb-5 animate-marginalia text-[var(--gold)]">
+          <div className="mb-5 animate-marginalia text-[#991B1B]">
             <AnimalGlyph domain={glyph} size={48} />
           </div>
         ) : null}

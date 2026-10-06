@@ -4002,16 +4002,46 @@ body:has(.sacred-drawer) {
 
 .home-v3-domains-section {
   background:
-    radial-gradient(ellipse 65% 50% at 50% 0%,   rgba(139,96,32,0.06)  0%, transparent 65%),
-    radial-gradient(ellipse 40% 70% at 8%  60%,  rgba(184,76,42,0.04)  0%, transparent 65%),
-    radial-gradient(ellipse 35% 50% at 92% 40%,  rgba(201,136,61,0.04) 0%, transparent 65%),
+    radial-gradient(ellipse 70% 45% at 50% 0%, rgba(153, 27, 27, 0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 50% at 10% 80%, rgba(69, 10, 10, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 50% at 90% 60%, rgba(69, 10, 10, 0.08) 0%, transparent 60%),
     var(--bg);
+}
+
+.home-v3-domains-section .home-v3-section-title {
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, #180406 0%, #991B1B 45%, #DC2626 75%, #EF4444 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 0.75rem;
+}
+
+[data-theme="dark"] .home-v3-domains-section .home-v3-section-title {
+  background: linear-gradient(135deg, #FFFFFF 0%, #FECACA 40%, #EF4444 75%, #B91C1C 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.home-v3-domains-section .home-v3-section-sub {
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  line-height: 1.75;
+  color: var(--ink-soft);
+  max-width: 680px;
+  margin: 0 auto 1.5rem;
+  text-align: center;
 }
 
 .home-v3-actions-section {
   background:
-    radial-gradient(ellipse 55% 55% at 90% 95%, rgba(201,136,61,0.07) 0%, transparent 60%),
-    radial-gradient(ellipse 40% 40% at 5%  5%,  rgba(139,96,32,0.05)  0%, transparent 65%);
+    radial-gradient(ellipse 55% 55% at 90% 95%, rgba(153, 27, 27, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 40% at 5%  5%,  rgba(69, 10, 10, 0.06)  0%, transparent 65%);
 }
 
 /* Fine hairline above each section */
@@ -4022,129 +4052,10 @@ body:has(.sacred-drawer) {
   transform: translateX(-50%);
   width: 75%;
   height: 1px;
-  background: linear-gradient(to right, transparent, var(--border-gold), transparent);
+  background: linear-gradient(to right, transparent, rgba(153, 27, 27, 0.35), transparent);
   pointer-events: none;
 }
 
-/* ------ Domain grid — 14-domain layout (7×2 so every row is fully symmetric) ------ */
-.home-v3-domains-expanded {
-  grid-template-columns: repeat(7, 1fr);
-}
-
-@media (max-width: 1200px) {
-  .home-v3-domains-expanded { grid-template-columns: repeat(2, 1fr); }
-}
-
-/* ------ Domain card — radial bloom background --------------------------------------------------------------------------------------- */
-.home-v3-domain-card {
-  padding: 2rem 1.25rem 1.5rem;
-}
-
-/* Override ::before — radial glow from top instead of text corner mark */
-.home-v3-domain-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: var(--radius-card);
-  background: radial-gradient(
-    ellipse 70% 55% at 50% -5%,
-    color-mix(in srgb, var(--card-color, var(--gold)) 18%, transparent) 0%,
-    transparent 72%
-  );
-  pointer-events: none;
-  transition: opacity 0.45s ease;
-  opacity: 0.65;
-}
-
-.home-v3-domain-card:hover::before { opacity: 1; }
-
-/* Override ::after — shimmer sweep on hover */
-.home-v3-domain-card::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    108deg,
-    transparent 28%,
-    color-mix(in srgb, white 7%, transparent) 50%,
-    transparent 72%
-  );
-  background-size: 220% 100%;
-  background-position: -200% center;
-  border-radius: var(--radius-card);
-  pointer-events: none;
-  transition: background-position 0.85s ease;
-}
-
-.home-v3-domain-card:hover::after {
-  background-position: 300% center;
-}
-
-/* ------ Domain icon wrapper — outer dashed ring --------------------------------------------------------------------------------- */
-.home-v3-domain-icon-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 0.5rem;
-}
-
-.home-v3-domain-icon-wrap::before {
-  content: '';
-  position: absolute;
-  inset: -6px;
-  border-radius: 50%;
-  border: 1px dashed color-mix(in srgb, var(--card-color, var(--gold)) 32%, transparent);
-  animation: rotateSlow 24s linear infinite;
-  pointer-events: none;
-  transition: border-color 0.4s ease;
-}
-
-.home-v3-domain-card:hover .home-v3-domain-icon-wrap::before {
-  border-color: color-mix(in srgb, var(--card-color, var(--gold)) 60%, transparent);
-  animation-duration: 10s;
-}
-
-.home-v3-domain-icon-wrap::after {
-  content: '';
-  position: absolute;
-  inset: -14px;
-  border-radius: 50%;
-  border: 0.5px solid color-mix(in srgb, var(--card-color, var(--gold)) 15%, transparent);
-  animation: rotateSlow 40s linear infinite reverse;
-  pointer-events: none;
-}
-
-/* Refine domain icon background */
-.home-v3-domain-icon {
-  width: 60px;
-  height: 60px;
-  box-shadow:
-    0 0 0 4px color-mix(in srgb, var(--card-color, var(--gold)) 10%, transparent),
-    0 4px 16px rgba(0,0,0,0.06);
-}
-
-.home-v3-domain-card:hover .home-v3-domain-icon {
-  box-shadow:
-    0 0 0 5px color-mix(in srgb, var(--card-color, var(--gold)) 20%, transparent),
-    0 6px 20px rgba(0,0,0,0.10);
-}
-
-/* Domain name color tint */
-.home-v3-domain-name {
-  color: color-mix(in srgb, var(--card-color, var(--gold)) 75%, var(--ink));
-  font-size: 1rem;
-}
-
-/* Domain ornament — spaced diamonds */
-.home-v3-domain-ornament {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.4rem;
-  color: color-mix(in srgb, var(--card-color, var(--gold)) 50%, transparent);
-  margin-top: 0.25rem;
-}
 
 /* ------ Chip hover refinement ------------------------------------------------------------------------------------------------------------------------------------------ */
 .home-v3-chip {
@@ -5550,91 +5461,115 @@ input[type="search"]::-webkit-search-decoration {
   color: var(--ink-soft);
 }
 
+/* ==========================================================================
+   PREMIUM RED & OBSIDIAN BLACK DOMAIN CATEGORY BOXES
+   Authoritative, High-Contrast Classical Design (Zero Orange / Zero Gray)
+   ========================================================================== */
+
 .home-v3-domains-expanded {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 1.5rem;
-  padding: 2rem 0;
+  padding: 2.5rem 0 3rem;
 }
 
-@media (min-width: 1200px) {
+@media (max-width: 1280px) {
   .home-v3-domains-expanded {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.25rem;
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 960px) {
   .home-v3-domains-expanded {
     grid-template-columns: repeat(3, 1fr);
+    gap: 1.15rem;
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 640px) {
   .home-v3-domains-expanded {
     grid-template-columns: repeat(2, 1fr);
+    gap: 0.85rem;
   }
 }
 
+/* Category Box Container */
 .home-v3-domain-card {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 2.25rem 1.25rem 1.65rem;
-  border-radius: var(--radius-card);
-  background: var(--surface);
-  border: 1px solid color-mix(in srgb, var(--card-color, var(--gold)) 28%, var(--border-subtle));
-  border-top: 3.5px solid color-mix(in srgb, var(--card-color, var(--gold)) 85%, transparent);
-  transition: all var(--motion) cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 2.25rem 1.25rem 1.75rem;
+  border-radius: 20px;
+  background: #09090B !important; /* Pitch black obsidian */
+  border: 1px solid rgba(153, 27, 27, 0.45) !important; /* Dark imperial crimson border */
+  border-top: 3.5px solid #991B1B !important; /* Deep crimson crest */
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   overflow: hidden;
   text-decoration: none;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.03);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.75),
+    0 2px 6px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
-/* Luminous Divine Aura (Prabhāva-Maṇḍala) */
+/* Luminous Dark Crimson Ambient Bloom (Replaces any orange/gray aura) */
 .home-v3-domain-card::before {
   content: '';
   position: absolute;
   inset: 0;
-  border-radius: var(--radius-card);
+  border-radius: 20px;
   background:
     radial-gradient(
-      ellipse 85% 65% at 50% -10%,
-      color-mix(in srgb, var(--card-color, var(--gold)) 32%, transparent) 0%,
-      color-mix(in srgb, var(--card-color, var(--gold)) 12%, transparent) 42%,
-      transparent 78%
+      ellipse 90% 65% at 50% -10%,
+      rgba(185, 28, 28, 0.38) 0%,
+      rgba(127, 29, 29, 0.16) 45%,
+      transparent 80%
     ),
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--card-color, var(--gold)) 9%, var(--surface)) 0%,
-      var(--surface) 60%
+      #140406 0%,
+      #09090B 100%
     );
   pointer-events: none;
-  transition: opacity 0.45s ease;
-  opacity: 0.85;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  opacity: 0.9;
 }
 
 .home-v3-domain-card:hover::before {
   opacity: 1;
+  background:
+    radial-gradient(
+      ellipse 95% 75% at 50% -10%,
+      rgba(220, 38, 38, 0.52) 0%,
+      rgba(153, 27, 27, 0.28) 45%,
+      transparent 85%
+    ),
+    linear-gradient(
+      180deg,
+      #1C0609 0%,
+      #09090B 100%
+    );
 }
 
-/* Shimmer sweep on hover */
+/* Velvet Crimson Shimmer Sweep on Hover */
 .home-v3-domain-card::after {
   content: '';
   position: absolute;
   inset: 0;
   background: linear-gradient(
     108deg,
-    transparent 28%,
-    color-mix(in srgb, white 9%, transparent) 50%,
-    transparent 72%
+    transparent 25%,
+    rgba(239, 68, 68, 0.12) 50%,
+    transparent 75%
   );
   background-size: 220% 100%;
   background-position: -200% center;
-  border-radius: var(--radius-card);
+  border-radius: 20px;
   pointer-events: none;
-  transition: background-position 0.85s ease;
+  transition: background-position 0.85s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .home-v3-domain-card:hover::after {
@@ -5642,122 +5577,136 @@ input[type="search"]::-webkit-search-decoration {
 }
 
 .home-v3-domain-card:hover {
-  border-color: color-mix(in srgb, var(--card-color, var(--gold)) 75%, transparent);
+  border-color: rgba(220, 38, 38, 0.8) !important;
+  border-top-color: #DC2626 !important;
   box-shadow:
-    0 14px 40px rgba(0,0,0,0.08),
-    0 0 28px color-mix(in srgb, var(--card-color, var(--gold)) 32%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--card-color, var(--gold)) 50%, transparent);
-  transform: translateY(-5px);
+    0 22px 55px rgba(0, 0, 0, 0.9),
+    0 0 35px rgba(185, 28, 28, 0.45),
+    0 0 0 1px rgba(220, 38, 38, 0.5);
+  transform: translateY(-6px);
 }
 
-/* Header Beacon dot of divine presence */
+/* Beacon Jewel Dot */
 .home-v3-domain-beacon {
   position: absolute;
-  top: 10px;
-  right: 12px;
-  width: 7px;
-  height: 7px;
+  top: 12px;
+  right: 14px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: var(--card-color, var(--gold));
-  box-shadow: 0 0 8px var(--card-color, var(--gold)), 0 0 16px color-mix(in srgb, var(--card-color, var(--gold)) 80%, transparent);
-  opacity: 0.75;
-  transition: transform var(--motion) ease, opacity var(--motion) ease;
+  background: #DC2626 !important;
+  box-shadow: 0 0 8px #EF4444, 0 0 16px rgba(220, 38, 38, 0.9) !important;
+  opacity: 0.85;
+  transition: transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease;
+  z-index: 2;
 }
 
 .home-v3-domain-card:hover .home-v3-domain-beacon {
-  transform: scale(1.4);
+  transform: scale(1.35);
   opacity: 1;
+  box-shadow: 0 0 12px #EF4444, 0 0 24px rgba(239, 68, 68, 1) !important;
 }
 
-/* Expanded, majestic 82px medallion with concentric sacred rings */
+/* 84px Insignia Medallion (Dignified Concentric Jewelry Rings — NO rotating dashed AI animation) */
 .home-v3-domain-icon-wrap {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 1.15rem;
-  width: 82px;
-  height: 82px;
+  margin-bottom: 1.25rem;
+  width: 84px;
+  height: 84px;
   border-radius: 50%;
-  background:
-    radial-gradient(
-      circle at 40% 35%,
-      color-mix(in srgb, var(--card-color, var(--gold)) 25%, var(--surface)) 0%,
-      color-mix(in srgb, var(--card-color, var(--gold)) 12%, var(--surface)) 60%,
-      var(--surface) 100%
-    );
-  border: 1.5px solid color-mix(in srgb, var(--card-color, var(--gold)) 40%, transparent);
-  color: var(--card-color, var(--gold));
+  background: radial-gradient(circle at 40% 35%, #1F0508 0%, #100204 60%, #050102 100%) !important;
+  border: 2px solid rgba(185, 28, 28, 0.5) !important;
+  color: #EF4444 !important;
   box-shadow:
-    0 4px 20px rgba(0,0,0,0.06),
-    0 0 18px color-mix(in srgb, var(--card-color, var(--gold)) 22%, transparent);
-  transition: all var(--motion) cubic-bezier(0.16, 1, 0.3, 1);
+    0 6px 24px rgba(0, 0, 0, 0.8),
+    0 0 20px rgba(153, 27, 27, 0.3),
+    inset 0 1px 1px rgba(255, 255, 255, 0.12);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 2;
 }
 
 .home-v3-domain-icon-wrap::before {
   content: '';
   position: absolute;
-  inset: -7px;
+  inset: -6px;
   border-radius: 50%;
-  border: 1.5px dashed color-mix(in srgb, var(--card-color, var(--gold)) 42%, transparent);
-  animation: rotateSlow 24s linear infinite;
+  border: 1px solid rgba(185, 28, 28, 0.35);
   pointer-events: none;
-  transition: border-color 0.4s ease;
-}
-
-.home-v3-domain-card:hover .home-v3-domain-icon-wrap::before {
-  border-color: color-mix(in srgb, var(--card-color, var(--gold)) 75%, transparent);
-  animation-duration: 9s;
+  transition: border-color 0.35s ease, transform 0.35s ease;
 }
 
 .home-v3-domain-icon-wrap::after {
   content: '';
   position: absolute;
-  inset: -15px;
+  inset: -12px;
   border-radius: 50%;
-  border: 1px solid color-mix(in srgb, var(--card-color, var(--gold)) 22%, transparent);
-  animation: rotateSlow 40s linear infinite reverse;
+  border: 1px solid rgba(153, 27, 27, 0.18);
   pointer-events: none;
+  transition: border-color 0.35s ease;
 }
 
 .home-v3-domain-card:hover .home-v3-domain-icon-wrap {
-  transform: scale(1.08);
+  transform: scale(1.06);
+  border-color: rgba(220, 38, 38, 0.85) !important;
   box-shadow:
-    0 8px 32px rgba(0,0,0,0.12),
-    0 0 28px color-mix(in srgb, var(--card-color, var(--gold)) 55%, transparent);
+    0 10px 36px rgba(0, 0, 0, 0.9),
+    0 0 32px rgba(220, 38, 38, 0.55),
+    inset 0 1px 2px rgba(255, 255, 255, 0.2);
 }
 
+.home-v3-domain-card:hover .home-v3-domain-icon-wrap::before {
+  border-color: rgba(239, 68, 68, 0.65);
+}
+
+.home-v3-domain-card:hover .home-v3-domain-icon-wrap::after {
+  border-color: rgba(185, 28, 28, 0.35);
+}
+
+/* Maximum Readability: Brilliant White Title */
 .home-v3-domain-name {
   font-family: var(--font-display);
-  font-size: 1.15rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--ink);
-  margin-bottom: 0.55rem;
-  transition: color var(--motion) ease;
+  font-size: 1.25rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  color: #FFFFFF !important;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.95);
+  margin-bottom: 0.65rem;
+  line-height: 1.2;
+  transition: all 0.25s ease;
+  z-index: 2;
 }
 
 .home-v3-domain-card:hover .home-v3-domain-name {
-  color: color-mix(in srgb, var(--card-color, var(--gold)) 85%, var(--ink));
+  color: #FFFFFF !important;
+  text-shadow: 0 0 16px rgba(254, 202, 202, 0.7), 0 2px 10px rgba(0, 0, 0, 0.95);
 }
 
+/* Maximum Readability: Dark Crimson Pill Badge */
 .home-v3-domain-badge {
   font-family: var(--font-ui);
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  padding: 0.25rem 0.75rem;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--card-color, var(--gold)) 32%, transparent);
-  background: color-mix(in srgb, var(--card-color, var(--gold)) 12%, transparent);
-  color: color-mix(in srgb, var(--card-color, var(--gold)) 90%, var(--ink));
-  transition: all var(--motion) ease;
+  padding: 0.28rem 0.85rem;
+  border-radius: 9999px;
+  background: rgba(127, 29, 29, 0.45) !important;
+  border: 1px solid rgba(220, 38, 38, 0.55) !important;
+  color: #FEE2E2 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  transition: all 0.3s ease;
+  z-index: 2;
 }
 
 .home-v3-domain-card:hover .home-v3-domain-badge {
-  background: color-mix(in srgb, var(--card-color, var(--gold)) 24%, transparent);
-  border-color: color-mix(in srgb, var(--card-color, var(--gold)) 60%, transparent);
+  background: #991B1B !important;
+  border-color: #DC2626 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 0 16px rgba(220, 38, 38, 0.65);
+  transform: translateY(-1px);
 }
 
 .article-card-enhanced {

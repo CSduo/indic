@@ -10,67 +10,71 @@ export type AnimalGlyphProps = {
   style?: React.CSSProperties;
 };
 
-/* ─── Shared SVG Palette & Filter Definitions ─── */
+/* ─── Shared SVG Palette & Filter Definitions (Dark Crimson & Obsidian Luxury Scheme) ─── */
 function IndicGlyphGradients() {
   return (
     <defs>
-      {/* 1. Luminous Temple Gold (Suvarṇa) */}
+      {/* 1. Regal Imperial Crimson (Primary Insignia Gradient) */}
       <linearGradient id="anvGold" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#FDE68A" />
-        <stop offset="45%" stopColor="#F59E0B" />
-        <stop offset="100%" stopColor="#B45309" />
+        <stop offset="0%" stopColor="#FCA5A5" />
+        <stop offset="35%" stopColor="#EF4444" />
+        <stop offset="70%" stopColor="#B91C1C" />
+        <stop offset="100%" stopColor="#7F1D1D" />
       </linearGradient>
 
-      {/* 2. Deep Sacred Bronze / Copper (Tāmra / Kāṃsya) */}
+      {/* 2. Deep Obsidian Wine / Dark Shadow Bronze */}
       <linearGradient id="anvBronze" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#FBBF24" />
-        <stop offset="50%" stopColor="#B45309" />
-        <stop offset="100%" stopColor="#78350F" />
+        <stop offset="0%" stopColor="#991B1B" />
+        <stop offset="45%" stopColor="#450A0A" />
+        <stop offset="85%" stopColor="#1A0406" />
+        <stop offset="100%" stopColor="#080203" />
       </linearGradient>
 
-      {/* 3. Living Agni Flame (Jñāna-Agni) */}
+      {/* 3. Luminous Living Agni (Pure White Core to Ruby Crimson) */}
       <radialGradient id="anvFlame" cx="50%" cy="80%" r="75%">
         <stop offset="0%" stopColor="#FFFFFF" />
-        <stop offset="25%" stopColor="#FEF08A" />
-        <stop offset="60%" stopColor="#F97316" />
-        <stop offset="100%" stopColor="#DC2626" />
+        <stop offset="25%" stopColor="#FECACA" />
+        <stop offset="55%" stopColor="#EF4444" />
+        <stop offset="85%" stopColor="#991B1B" />
+        <stop offset="100%" stopColor="#450A0A" />
       </radialGradient>
 
-      {/* 4. Kashmiri Saffron (Kesara / Kumkuma) */}
+      {/* 4. Vivid Ruby Vermilion */}
       <linearGradient id="anvSaffron" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#FED7AA" />
-        <stop offset="50%" stopColor="#F97316" />
-        <stop offset="100%" stopColor="#C2410C" />
+        <stop offset="0%" stopColor="#F87171" />
+        <stop offset="45%" stopColor="#DC2626" />
+        <stop offset="100%" stopColor="#881337" />
       </linearGradient>
 
-      {/* 5. Vedic Sapphire / Lapis (Nīla-Maṇi) */}
+      {/* 5. Lustrous Obsidian Noir */}
       <linearGradient id="anvSapphire" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#BAE6FD" />
-        <stop offset="45%" stopColor="#38BDF8" />
-        <stop offset="80%" stopColor="#0284C7" />
-        <stop offset="100%" stopColor="#0369A1" />
+        <stop offset="0%" stopColor="#52525B" />
+        <stop offset="40%" stopColor="#27272A" />
+        <stop offset="80%" stopColor="#18181B" />
+        <stop offset="100%" stopColor="#09090B" />
       </linearGradient>
 
-      {/* 6. Sacred Lotus Carmine / Ruby (Padma-Rāga) */}
+      {/* 6. Imperial Velvet Ruby / Carmine */}
       <linearGradient id="anvLotus" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#FECDD3" />
-        <stop offset="45%" stopColor="#FB7185" />
-        <stop offset="100%" stopColor="#BE123C" />
+        <stop offset="0%" stopColor="#FFFFFF" />
+        <stop offset="30%" stopColor="#FCA5A5" />
+        <stop offset="70%" stopColor="#DC2626" />
+        <stop offset="100%" stopColor="#7F1D1D" />
       </linearGradient>
 
-      {/* 7. Forest Emerald / Jade (Marakata) */}
+      {/* 7. Midnight Crimson Wine */}
       <linearGradient id="anvJade" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#A7F3D0" />
-        <stop offset="45%" stopColor="#34D399" />
-        <stop offset="85%" stopColor="#059669" />
-        <stop offset="100%" stopColor="#064E3B" />
+        <stop offset="0%" stopColor="#B91C1C" />
+        <stop offset="50%" stopColor="#5B0D13" />
+        <stop offset="85%" stopColor="#260407" />
+        <stop offset="100%" stopColor="#0D0102" />
       </linearGradient>
 
-      {/* 8. Saraswati Amethyst (Brāhmī-Jāmbava) */}
+      {/* 8. Deep Royal Garnet */}
       <linearGradient id="anvAmethyst" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#DDD6FE" />
-        <stop offset="45%" stopColor="#A855F7" />
-        <stop offset="100%" stopColor="#6B21A8" />
+        <stop offset="0%" stopColor="#F87171" />
+        <stop offset="45%" stopColor="#991B1B" />
+        <stop offset="100%" stopColor="#450A0A" />
       </linearGradient>
     </defs>
   );
