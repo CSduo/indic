@@ -3,11 +3,13 @@ import { db, withDbRetry } from "@workspace/db";
 import { papersTable, categoriesTable, submissionsTable, usersTable } from "@workspace/db";
 import { eq, and, desc, ilike, inArray, or, sql, isNull } from "drizzle-orm";
 import { categorySlugCandidates, normalizeCategorySlug, slugify, syncSubmissionFromPublication } from "../lib/publication-sync";
-import { ownsAuthoredWork, resolveViewer } from "../lib/viewer";
+import { ownsPublishedWork, resolveViewer } from "../lib/viewer";
 import { countUnresolvedArticleImages, sanitizeArticleBody, MAX_BODY_CHARS } from "../lib/content";
 import { parsePagination, toLikePattern, PUBLIC_CONTENT_CACHE_CONTROL } from "../lib/request";
 import { triggerPublicContentSeo } from "../lib/seo-service";
+import { workSeo } from "../lib/effective-seo";
 import { z } from "zod";
+import { firstIssueMessage, referencesInputSchema } from "../lib/references";
 
 const router = Router();
 
@@ -213,6 +215,8 @@ router.get("/papers/:slug", async (req, res) => {
         authorBio: authorUser?.bio || null,
         body: sanitizeArticleBody(row.paper.body),
         category: row.category,
+        // The title, description, topic terms and references the page shows (lib/effective-seo.ts).
+        seo: workSeo(row.paper, "paper"),
       },
     });
   } catch (err) {
@@ -234,14 +238,9 @@ const paperEditSchema = z.object({
   citationText: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
   doi: z.string().max(255).optional().or(z.literal("")),
   tags: z.array(z.string().trim().min(1).max(80)).max(30).optional(),
-  references: z.array(z.object({
-    id: z.string().max(120).optional(),
-    title: z.string().max(500),
-    url: z.string().max(2_000).optional(),
-    citation: z.string().max(2_000).optional(),
-  })).max(200).optional(),
-  seoTitle: z.string().max(200).optional().or(z.literal("")),
-  seoDescription: z.string().max(500).optional().or(z.literal("")),
+  references: referencesInputSchema,
+  seoTitle: z.string().trim().max(200).optional().or(z.literal("")),
+  seoDescription: z.string().trim().max(500).optional().or(z.literal("")),
 });
 
 // PATCH /api/papers/:slug/edit -€- author can update their own paper
@@ -263,13 +262,13 @@ router.patch("/papers/:slug/edit", async (req, res) => {
       .limit(1);
 
     if (!existing) return res.status(404).json({ error: "Paper not found" });
-    if (!ownsAuthoredWork(viewer, existing.authorName)) {
-      return res.status(403).json({ error: "You can only edit papers published under your own name" });
+    if (!(await ownsPublishedWork(viewer, existing.sourceSubmissionId))) {
+      return res.status(403).json({ error: "You can only edit papers you submitted from this account" });
     }
 
     const parsed = paperEditSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
+      return res.status(400).json({ error: firstIssueMessage(parsed.error), details: parsed.error.flatten() });
     }
 
     const data = parsed.data;
@@ -337,7 +336,7 @@ router.patch("/papers/:slug/edit", async (req, res) => {
     });
   } catch (err: any) {
     console.error("PATCH /api/papers/:slug/edit ERROR:", err);
-    return res.status(500).json({ error: err.message || "Failed to update paper" });
+    return res.status(500).json({ error: "Could not save the paper. Please try again." });
   }
 });
 

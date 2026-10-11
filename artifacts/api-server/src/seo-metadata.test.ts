@@ -9,7 +9,7 @@ import app, {
   socialImage,
   socialImageMetaTags,
 } from "./app";
-import { articleTopicTags, extractArticleKeywords } from "./lib/keywords";
+import { articleTopicTags, deriveSeoTerms } from "./lib/seo-terms";
 import { ROBOTS_TXT } from "./lib/robots";
 
 // The page routes sit behind the database bootstrap middleware. These pages
@@ -100,7 +100,7 @@ describe("topic terms", () => {
 
   it("proposes only terms that occur in the text", () => {
     const text = "The Champa kingdom built temples at Mỹ Sơn. Champa inscriptions are in Sanskrit.";
-    const terms = extractArticleKeywords(text, "Temples of Champa");
+    const terms = deriveSeoTerms({ title: "Temples of Champa", body: text });
     expect(terms.length).toBeGreaterThan(0);
     for (const term of terms) {
       expect(`${text} Temples of Champa`.toLowerCase()).toContain(term.toLowerCase());

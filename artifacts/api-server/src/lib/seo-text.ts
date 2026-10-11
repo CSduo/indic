@@ -25,10 +25,15 @@ export function cleanTitle(value: unknown): string {
   return cleaned || raw;
 }
 
-/** HTML to plain text, without the "===== Page N =====" markers of PDF imports. */
+/**
+ * HTML to plain text, without the "===== Page N =====" markers of PDF imports.
+ * Inline formatting tags are removed without a space, so a drop cap such as
+ * "<strong>I</strong>n 1918" reads "In 1918"; block tags separate words.
+ */
 export function plainTextFromHtml(value: unknown): string {
   return String(value ?? "")
     .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<\/?(?:strong|b|em|i|u|s|span|a|sup|sub|mark|small|abbr|cite|code|del|ins|font)\b[^>]*>/gi, "")
     .replace(/<\/(p|div|h[1-6]|li|blockquote|br)\s*>/gi, " ")
     .replace(/<br\s*\/?>/gi, " ")
     .replace(/<[^>]*>/g, " ")
@@ -100,22 +105,96 @@ export interface DescriptionSource {
   summaries?: unknown[];
   /** The full body (HTML or text). */
   body?: unknown;
+  /**
+   * The work's title, or several (the title and the SEO title). The <title>
+   * already says it, so the description never starts by repeating one.
+   */
+  title?: unknown;
+}
+
+/** For comparing text: diacritics folded, punctuation dropped, lower case. */
+function comparable(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+/**
+ * The text without a leading copy of the title: "The Arithmetic of Betrayal:
+ * How Mandal Reshaped India" becomes "How Mandal Reshaped India". Text that is
+ * only the title becomes "".
+ */
+function withoutLeadingTitle(text: string, title: string): string {
+  const titleWords = comparable(title).split(" ").filter(Boolean);
+  if (!titleWords.length || !text) return text;
+  const word = /[\p{L}\p{M}\p{N}]+/gu;
+  let matched = 0;
+  let cut = 0;
+  let match: RegExpExecArray | null;
+  while (matched < titleWords.length && (match = word.exec(text)) !== null) {
+    if (comparable(match[0]) !== titleWords[matched]) return text;
+    matched++;
+    cut = match.index + match[0].length;
+  }
+  if (matched < titleWords.length) return text;
+  const rest = text.slice(cut).replace(/^[\s:;,.|\-–—"'“”‘’)\]]+/u, "").trim();
+  return rest ? rest.charAt(0).toUpperCase() + rest.slice(1) : "";
+}
+
+/** The text with every leading copy of any of the titles removed. */
+function withoutLeadingTitles(text: string, titles: string[]): string {
+  let current = text;
+  for (let pass = 0; pass < 3; pass++) {
+    const before = current;
+    for (const title of titles) current = withoutLeadingTitle(current, title);
+    if (current === before) break;
+  }
+  return current;
+}
+
+/**
+ * The body's running text. Section headings, short label lines without
+ * closing punctuation (a repeated title or subtitle, "THE ARITHMETIC OF
+ * ANXIETY"), figure captions, page markers and lines that repeat the title or
+ * summary would read as part of the first sentence, so they are left out.
+ */
+function runningText(body: unknown, repeats: string[]): string {
+  const html = String(body ?? "").replace(/<h([1-6])[^>]*>[\s\S]*?<\/h\1\s*>/gi, "\n");
+  const skip = new Set(repeats.map(comparable).filter(Boolean));
+  const kept = html
+    .split(/<\/?(?:p|div|li|ul|ol|blockquote|figure|figcaption|table|tbody|thead|tr|td|th|section|br|hr)\b[^>]*>/i)
+    .map(plainTextFromHtml)
+    .filter(block => {
+      if (!block || skip.has(comparable(block))) return false;
+      if (/^(?:fig(?:ure)?|table|chart|plate|image|photo|map)\.?\s*\d+/i.test(block)) return false;
+      if (/[.!?…]["'”’)\]]*$/u.test(block)) return true;
+      const words = block.split(" ");
+      if (words.length <= 12) return false;
+      // A long line in Title Case without closing punctuation is a subtitle.
+      const long = words.filter(w => w.length > 3);
+      return long.filter(w => /^\p{Lu}/u.test(w)).length / Math.max(long.length, 1) < 0.6;
+    });
+  return kept.join(" ");
 }
 
 /**
  * The page description: the editor's seoDescription when it is filled in,
  * otherwise a sentence-aware 120–160 character description from the first
- * non-empty summary, continued from the body's running text (headings left
- * out) when the summary is short.
+ * non-empty summary, continued from the body's running text when the summary
+ * is short. A derived description never starts with a copy of the title.
  */
-export function deriveDescription({ seoDescription, summaries = [], body }: DescriptionSource): string {
+export function deriveDescription({ seoDescription, summaries = [], body, title }: DescriptionSource): string {
   const own = plainTextFromHtml(seoDescription);
   if (own) return own.length > 300 ? truncateAtWord(own, 299) : own;
 
-  const summary = summaries.map(plainTextFromHtml).find(Boolean) || "";
-  // Section headings ("Introduction", "1. Sources") would read as part of the
-  // first sentence, so only the body's running text is used.
-  const bodyText = plainTextFromHtml(String(body ?? "").replace(/<h([1-6])[^>]*>[\s\S]*?<\/h\1\s*>/gi, " "));
+  const titles = (Array.isArray(title) ? title : [title])
+    .map(value => cleanTitle(plainTextFromHtml(value)))
+    .filter(Boolean);
+  const firstSummary = summaries.map(plainTextFromHtml).find(Boolean) || "";
+  const summary = withoutLeadingTitles(firstSummary, titles);
+  const bodyText = withoutLeadingTitles(
+    runningText(body, [...titles, firstSummary, summary])
+      || plainTextFromHtml(String(body ?? "").replace(/<h([1-6])[^>]*>[\s\S]*?<\/h\1\s*>/gi, " ")),
+    titles,
+  );
 
   let text = summary;
   if (summary.length < DESCRIPTION_MIN && bodyText) {

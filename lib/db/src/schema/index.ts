@@ -162,6 +162,9 @@ export const submissionsTable = pgTable("submissions", {
   coverImageResourceType: text("cover_image_resource_type"),
   audioUrl: text("audio_url"),
   audioPublicId: text("audio_public_id"),
+  // Optional sources the author lists ({ title, url?, authors?, publisher?,
+  // year?, doi?, note? }); copied to the article or paper on publication.
+  references: jsonb("references").notNull().default([]),
   consent: boolean("consent").notNull().default(false),
   status: submissionStatusEnum("status").notNull().default("RECEIVED"),
   priority: priorityEnum("priority").notNull().default("NORMAL"),

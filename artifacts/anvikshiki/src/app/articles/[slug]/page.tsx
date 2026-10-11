@@ -22,6 +22,8 @@ const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//
 import { FileText, BookOpen } from "lucide-react";
 import { CitationModal } from "@/components/CitationModal";
 import { readInitialData } from "@/lib/initialData";
+import { ReferencesSection, TopicsRow } from "@/components/manuscript/ReferencesSection";
+import { workSources } from "@/lib/references";
 
 export function getArticleStats(bodyHtmlOrText?: string, excerpt?: string) {
   const content = bodyHtmlOrText || excerpt || "";
@@ -234,14 +236,16 @@ export default function ArticlePage() {
     return () => controller.abort();
   }, [slug]);
 
-  // Same title and description rules as the server-rendered page
-  // (lib/seoText.ts is a copy of the server's lib/seo-text.ts).
+  // The server sends the effective title, description, topics and references
+  // as `seo` (api-server lib/effective-seo.ts). Without it, the same rules as
+  // the server-rendered page (lib/seoText.ts is a copy of lib/seo-text.ts).
   const articleDescription = article
-    ? deriveDescription({ seoDescription: article.seoDescription, summaries: [article.excerpt, article.subtitle], body: article.body })
+    ? article.seo?.description || deriveDescription({ seoDescription: article.seoDescription, summaries: [article.excerpt, article.subtitle], body: article.body, title: [article.title, article.seoTitle] })
     : "";
+  const sources = workSources(article);
   const articleImage = article?.heroImageUrl || article?.featuredImage || article?.coverImage || null;
   const canonicalPath = `/articles/${encodeURIComponent(article?.slug || slug)}`;
-  const articleTitle = article?.title ? cleanTitle(article.seoTitle?.trim() ? article.seoTitle : article.title) : "";
+  const articleTitle = article?.title ? (article.seo?.title || cleanTitle(article.seoTitle?.trim() ? article.seoTitle : article.title)) : "";
   useDocumentMetadata({
     title: articleTitle ? `${articleTitle} — Ānvīkṣikī` : undefined,
     description: articleDescription,
@@ -642,6 +646,10 @@ export default function ArticlePage() {
             </ParchmentCard>
           )}
 
+          {/* Topics and References & Sources close the article text. */}
+          <TopicsRow topics={sources.topics} />
+          <ReferencesSection references={sources.references} note={sources.sourcesNote} />
+
           {/* Action box: Share & Citation */}
           <div className="flex flex-wrap gap-4 mt-8 share-buttons">
             <button onClick={handleShare} className="btn-ink flex-1 md:flex-none justify-center gap-2">
@@ -965,50 +973,6 @@ export default function ArticlePage() {
 
             <OrnamentDivider className="my-10" />
 
-            {/* ─── SOURCES & REFERENCES ─── */}
-            {article.references && Array.isArray(article.references) && article.references.length > 0 && (
-              <div className="mt-8 mb-10" id="sources">
-                <div className="flex items-center gap-2 mb-5">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--gold)]" aria-hidden="true">
-                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-                  </svg>
-                  <h2 className="font-display text-2xl text-[var(--ink)]">Sources &amp; References</h2>
-                </div>
-                <div className="card-sacred p-5" style={{ background: "var(--surface-2)" }}>
-                  <ol className="space-y-3">
-                    {(article.references as any[]).map((ref: any, idx: number) => {
-                      const isString = typeof ref === "string";
-                      const title = isString ? ref : (ref.title || ref.name || ref.text || String(ref));
-                      const url = isString ? null : (ref.url || ref.href || ref.link || null);
-                      const authors = isString ? null : (ref.authors || ref.author || null);
-                      const year = isString ? null : (ref.year || ref.date || null);
-                      const publication = isString ? null : (ref.publication || ref.journal || ref.publisher || null);
-                      return (
-                        <li key={idx} className="flex gap-3 font-body text-sm leading-relaxed text-[var(--ink-soft)]">
-                          <span className="shrink-0 font-ui text-xs font-bold text-[var(--gold-soft)] mt-0.5" style={{ minWidth: 22 }}>
-                            {idx + 1}.
-                          </span>
-                          <span>
-                            {authors && <span className="font-semibold text-[var(--ink)]">{authors}{year ? ` (${year})` : ""}. </span>}
-                            {url ? (
-                              <a href={url} target="_blank" rel="noopener noreferrer" className="text-[var(--terracotta)] hover:underline">
-                                {title}
-                              </a>
-                            ) : (
-                              <em>{title}</em>
-                            )}
-                            {publication && <span className="text-[var(--ink-faint)]"> — {publication}</span>}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </div>
-              </div>
-            )}
-
-            <OrnamentDivider className="my-10" />
 
 
 

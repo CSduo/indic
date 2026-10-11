@@ -10,6 +10,7 @@ import {
   type ImportedContentSummary,
 } from "@/lib/documentImport";
 import { uploadInlineBase64Images, safeJsonResponse } from "@/lib/inlineImageUploader";
+import { ReferencesEditor, referenceRowsFrom, referencesPayload, referencesProblem, type ReferenceRow } from "@/components/manuscript/ReferencesEditor";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const STORAGE_KEY = "anvikshiki_write_draft";
@@ -49,12 +50,14 @@ interface Draft {
   notes: string;
   audioUrl?: string | null;
   audioPublicId?: string | null;
+  /** Optional sources, shown in References & Sources on the published piece. */
+  references?: ReferenceRow[];
 }
 
 const EMPTY: Draft = {
   type: "", fullName: "", email: "", institution: "", language: "English",
   title: "", domain: "", abstract: "", keywords: "", body: "", notes: "",
-  audioUrl: null, audioPublicId: null,
+  audioUrl: null, audioPublicId: null, references: [],
 };
 
 function loadDraft(): Draft {
@@ -966,6 +969,7 @@ export default function SubmitWritePage() {
           title: s.title || "",
           abstract: s.abstract || "",
           body: s.body || "",
+          references: referenceRowsFrom(s.references),
         }));
         setServerDraftId(s.id);
 
@@ -1001,6 +1005,14 @@ export default function SubmitWritePage() {
       return next;
     });
     if (errors[k]) setErrors(e => ({ ...e, [k]: undefined }));
+  };
+
+  const setReferences = (rows: ReferenceRow[]) => {
+    setDraft(prev => {
+      const next = { ...prev, references: rows };
+      saveDraft(next);
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -1151,6 +1163,7 @@ export default function SubmitWritePage() {
             title: submissionDraft.title || "Untitled draft", abstract: submissionDraft.abstract, body: cleanBody,
             domain: submissionDraft.domain, notes: buildNotes(submissionDraft, imageUrl), status: "DRAFT",
             audioUrl: audioUrlVal, audioPublicId: audioPublicIdVal,
+            references: referencesPayload(draft.references),
           }),
         });
         await safeJsonResponse(r, "Could not save draft");
@@ -1164,6 +1177,7 @@ export default function SubmitWritePage() {
             title: submissionDraft.title || "Untitled draft", abstract: submissionDraft.abstract, body: cleanBody,
             domain: submissionDraft.domain, notes: buildNotes(submissionDraft, imageUrl), status: "DRAFT",
             audioUrl: audioUrlVal, audioPublicId: audioPublicIdVal,
+            references: referencesPayload(draft.references),
           }),
         });
         const data = await safeJsonResponse(r, "Could not save draft");
@@ -1188,6 +1202,8 @@ export default function SubmitWritePage() {
   const submit = async () => {
     if (!validate()) { setError("Please fix the highlighted fields before submitting."); return; }
     if (!declared) { setError("Please confirm the declaration before submitting."); return; }
+    const referenceError = referencesProblem(draft.references);
+    if (referenceError) { setError(referenceError); return; }
     setError(""); setSubmitting(true);
 
     try {
@@ -1218,6 +1234,7 @@ export default function SubmitWritePage() {
             title: submissionDraft.title, abstract: submissionDraft.abstract || "See essay body.", body: cleanBody,
             domain: submissionDraft.domain, notes, consent: true, status: "RECEIVED",
             audioUrl: audioUrlVal, audioPublicId: audioPublicIdVal,
+            references: referencesPayload(draft.references),
           }),
         });
       } else {
@@ -1230,6 +1247,7 @@ export default function SubmitWritePage() {
             title: submissionDraft.title, abstract: submissionDraft.abstract || "See essay body.", body: cleanBody,
             domain: submissionDraft.domain, notes, consent: true,
             audioUrl: audioUrlVal, audioPublicId: audioPublicIdVal,
+            references: referencesPayload(draft.references),
           }),
         });
       }
@@ -1896,6 +1914,9 @@ export default function SubmitWritePage() {
                 style={{ boxSizing: "border-box" }}
               />
             </div>
+
+            {/* Optional sources, shown at the end of the published piece */}
+            <ReferencesEditor value={draft.references} onChange={setReferences} />
 
             {/* Declaration + Submit */}
             <div className="card-sacred p-5">

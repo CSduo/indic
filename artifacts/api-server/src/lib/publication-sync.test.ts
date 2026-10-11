@@ -60,6 +60,7 @@ vi.mock("drizzle-orm", () => ({
   asc: (field: unknown) => ({ type: "asc", field }),
   inArray: (field: unknown, values: unknown[]) => ({ type: "inArray", field, values }),
   isNull: (field: unknown) => ({ type: "isNull", field }),
+  sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({ type: "sql", strings: [...strings], values }),
 }));
 
 vi.mock("./content", () => ({

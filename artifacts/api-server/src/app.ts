@@ -18,7 +18,8 @@ import { DEFAULT_INDEXNOW_KEY } from "./lib/indexnow";
 import { db, articlesTable, papersTable, usersTable, categoriesTable, submissionsTable, ensureDatabaseSchema, coreTablesExist } from "@workspace/db";
 import { eq, and, or, isNull } from "drizzle-orm";
 import { slugify } from "./lib/slug";
-import { articleTopicTags } from "./lib/keywords";
+import { workSeo, type WorkSeo } from "./lib/effective-seo";
+import { referencesToCitations } from "./lib/references";
 import { ROBOTS_TXT } from "./lib/robots";
 import {
   CANONICAL_DOMAIN,
@@ -40,7 +41,7 @@ import {
   formatScholarDate,
   renderBreadcrumbs,
   renderReferences,
-  renderTags,
+  renderTopics,
   renderBodyHtml,
   injectSsrHtml,
   buildFallbackHtml,
@@ -62,7 +63,7 @@ import {
   type AuthorHubPaper,
 } from "./lib/publication-lookup";
 import { makeAuthorResolver, resolveAuthorRequest, workAuthorSegments } from "./lib/author-identity";
-import { cleanTitle, deriveDescription } from "./lib/seo-text";
+import { cleanTitle } from "./lib/seo-text";
 import { sanitizeArticleBody } from "./lib/content";
 import { getAdminAuth, getUserAuth } from "./lib/auth";
 import { recoverLegacyInlineImages } from "./lib/legacy-content";
@@ -70,6 +71,8 @@ import { recoverLegacyInlineImages } from "./lib/legacy-content";
 export * from "./lib/ssr-html";
 
 const app: Express = express();
+// Do not announce the framework on every response.
+app.disable("x-powered-by");
 const isProduction = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
 const configuredOrigins = new Set(
   (process.env.FRONTEND_URL || "")
@@ -343,12 +346,25 @@ function hasSessionCookie(req: import("express").Request): boolean {
   return /^Bearer\s+\S+/i.test(req.get("authorization") || "");
 }
 
+/**
+ * The exemption needs a session that verifies. Any non-empty cookie or bearer
+ * string used to skip the limit, so an anonymous script could add a fake one.
+ */
+async function hasVerifiedSession(req: import("express").Request): Promise<boolean> {
+  if (!hasSessionCookie(req)) return false;
+  try {
+    return Boolean(await getUserAuth(req));
+  } catch {
+    return false;
+  }
+}
+
 const publicWriteLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: Number(process.env.PUBLIC_WRITE_RATE_LIMIT || 60),
   standardHeaders: true,
   legacyHeaders: false,
-  skip: req => SAFE_METHODS.has(req.method) || hasSessionCookie(req),
+  skip: async req => SAFE_METHODS.has(req.method) || (await hasVerifiedSession(req)),
   message: { error: "Too many requests from this address. Please try again later." },
 });
 
@@ -359,7 +375,7 @@ const mediaWriteLimiter = rateLimit({
   max: Number(process.env.MEDIA_WRITE_RATE_LIMIT || 300),
   standardHeaders: true,
   legacyHeaders: false,
-  skip: req => SAFE_METHODS.has(req.method) || hasSessionCookie(req),
+  skip: async req => SAFE_METHODS.has(req.method) || (await hasVerifiedSession(req)),
   message: { error: "Too many uploads from this address. Please try again later." },
 });
 
@@ -557,7 +573,10 @@ export function send410(res: import("express").Response, resourceType: string, s
  * means the author route serves no page for this name, so the byline is not
  * linked. When it is omitted, the name slug is used.
  */
-export function generateArticleSsrHtml(article: any, domainDisplayName: string, authorSegment?: string | null): string {
+/** The parts of the effective SEO (lib/effective-seo.ts) the page body shows. */
+type BodySeo = Pick<WorkSeo, "topics" | "references" | "sourcesNote">;
+
+export function generateArticleSsrHtml(article: any, domainDisplayName: string, authorSegment?: string | null, seo: BodySeo = workSeo(article, "article")): string {
   const author = article.authorName || "Ānvīkṣikī Editorial Collective";
   const authorSlug = authorSegment === undefined ? slugify(author) : authorSegment;
   const authorHref = authorSlug ? `/authors/${escapeHtml(encodeURIComponent(authorSlug))}` : null;
@@ -574,8 +593,8 @@ export function generateArticleSsrHtml(article: any, domainDisplayName: string, 
     { name: article.title },
   ]);
 
-  const tagsHtml = renderTags(article.tags, "Topics");
-  const referencesHtml = renderReferences(article.references);
+  const topicsHtml = renderTopics(seo.topics, "Topics");
+  const referencesHtml = renderReferences(seo.references, seo.sourcesNote);
   const bodyHtml = renderBodyHtml(article.body, article.excerpt || undefined);
 
   return `<article class="ssr-content ssr-article" itemscope itemtype="https://schema.org/Article">
@@ -633,7 +652,7 @@ export function generateArticleSsrHtml(article: any, domainDisplayName: string, 
     ${bodyHtml}
   </div>
 
-  ${tagsHtml}
+  ${topicsHtml}
   ${referencesHtml}
 
   <footer class="ssr-article-footer">
@@ -670,7 +689,7 @@ export function generateArticleSsrHtml(article: any, domainDisplayName: string, 
 </article>`;
 }
 
-export function generatePaperSsrHtml(paper: any, domainDisplayName: string, authorSegments?: Map<string, string>): string {
+export function generatePaperSsrHtml(paper: any, domainDisplayName: string, authorSegments?: Map<string, string>, seo: BodySeo = workSeo(paper, "paper")): string {
   const author = paper.authorName || "Anonymous Scholar";
   const authorsList = author.split(/,\s*/);
   const year = paper.year || (paper.publishedAt ? new Date(paper.publishedAt).getFullYear() : new Date().getFullYear());
@@ -685,8 +704,8 @@ export function generatePaperSsrHtml(paper: any, domainDisplayName: string, auth
     { name: paper.title },
   ]);
 
-  const tagsHtml = renderTags(paper.tags, "Keywords");
-  const referencesHtml = renderReferences(paper.references);
+  const topicsHtml = renderTopics(seo.topics, "Keywords");
+  const referencesHtml = renderReferences(seo.references, seo.sourcesNote);
   const bodyHtml = renderBodyHtml(paper.body, paper.abstract || undefined);
 
   const citationText = paper.citationText || `${author} (${year}). "${paper.title}". Ānvīkṣikī Journal of Indic Studies.`;
@@ -762,6 +781,9 @@ export function generatePaperSsrHtml(paper: any, domainDisplayName: string, auth
     ${bodyHtml}
   </div>
 
+  ${topicsHtml}
+  ${referencesHtml}
+
   <section class="ssr-section ssr-citation-details">
     <h2>Citation Details</h2>
     <div class="ssr-citation-card">
@@ -769,9 +791,6 @@ export function generatePaperSsrHtml(paper: any, domainDisplayName: string, auth
       <pre class="ssr-bibtex-code"><code>${escapeHtml(bibtex)}</code></pre>
     </div>
   </section>
-
-  ${tagsHtml}
-  ${referencesHtml}
 
   <footer class="ssr-paper-footer">
     <div class="ssr-contributor-cta">
@@ -1304,17 +1323,15 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
       }
     } catch {}
 
-    // <title>, og:title and twitter:title: the editor's SEO title when set,
-    // otherwise the title, without a dangling ":" / "-" / "—". The description
-    // is the editor's SEO description when set, otherwise a 120–160 character
-    // one built from whole sentences of the excerpt or abstract and the body.
-    const title = cleanTitle(typeof item.seoTitle === "string" && item.seoTitle.trim() ? item.seoTitle : item.title);
+    // Title, description, topic terms and references: the value stored on the
+    // work, else the editorial layer, else one derived from the text
+    // (lib/effective-seo.ts). <title>, og:title and twitter:title use the SEO
+    // title without a dangling ":" / "-" / "—"; the description is 120–160
+    // characters of whole sentences that never start with the title.
+    const seo = workSeo(item, isPaper ? "paper" : "article");
+    const title = seo.title;
     const headline = cleanTitle(item.title);
-    const description = deriveDescription({
-      seoDescription: item.seoDescription,
-      summaries: isPaper ? [item.abstract] : [item.excerpt, item.subtitle],
-      body: item.body,
-    }) || headline;
+    const description = seo.description || headline;
     const canonicalPath = isPaper ? `/papers/${item.slug}` : `/articles/${item.slug}`;
     const canonicalUrl = buildCanonicalUrl(canonicalPath);
 
@@ -1346,10 +1363,11 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
       res.setHeader("X-Robots-Tag", "noindex, nofollow");
     }
 
-    // Only the work's own tags describe it. Nothing generic is added, and the
-    // keyword tags are omitted entirely when the work has no tags.
-    const topicTags = articleTopicTags(item.tags);
+    // The same topic terms and references are shown on the page, so the
+    // markup matches what readers see. Nothing generic is added.
+    const topicTags = seo.topics;
     const topicTagsStr = topicTags.join(", ");
+    const references = seo.references;
 
     // One canonical author URL per name, the same one the sitemap lists and
     // /authors/:slug serves; names that route does not serve get no URL.
@@ -1382,6 +1400,8 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
       "image": [structuredImage],
       "articleSection": domainDisplayName || undefined,
       "keywords": topicTagsStr || undefined,
+      "about": topicTags.length ? topicTags.map(name => ({ "@type": "Thing", "name": name })) : undefined,
+      "citation": references.length ? referencesToCitations(references) : undefined,
     };
 
     if (isPaper && item.pdfUrl) {
@@ -1461,15 +1481,17 @@ app.get(["/articles/:slug", "/papers/:slug"], async (req, res, next) => {
     const repairedBody = isPaper ? item.body : recoverLegacyInlineImages(item.slug, item.body);
     const publicItem = { ...item, body: repairedBody };
     const ssrHtml = isPaper
-      ? generatePaperSsrHtml(publicItem, domainDisplayName, bylineSegmentsFor((item.authorName || "Anonymous Scholar").split(/,\s*/)))
-      : generateArticleSsrHtml(publicItem, domainDisplayName, singleAuthorSegment);
+      ? generatePaperSsrHtml(publicItem, domainDisplayName, bylineSegmentsFor((item.authorName || "Anonymous Scholar").split(/,\s*/)), seo)
+      : generateArticleSsrHtml(publicItem, domainDisplayName, singleAuthorSegment, seo);
 
     const finalHtml = renderSsrDocument(
       ogTags,
       ssrHtml,
       // authorHandle: the canonical author segment, which the client uses for
-      // its own byline links.
-      { route: isPaper ? "paper" : "article", path: req.path, data: { ...item, body: sanitizeArticleBody(repairedBody), authorHandle: singleAuthorSegment } },
+      // its own byline links. seo: the effective title, description, topics
+      // and references (lib/effective-seo.ts), so the client shows the same
+      // head and sections without deriving them again.
+      { route: isPaper ? "paper" : "article", path: req.path, data: { ...item, body: sanitizeArticleBody(repairedBody), authorHandle: singleAuthorSegment, seo } },
       { showPapers: isPaper || (await hasPublishedPapers()) },
     );
 

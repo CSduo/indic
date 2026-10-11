@@ -447,7 +447,9 @@ router.get(["/users/:userId/profile", "/users/profile/:userId"], async (req, res
     const rawId = typeof rawParam === "string" ? rawParam.trim() : "";
     if (!rawId) return res.status(400).json({ error: "User ID or handle required" });
     const cleanHandle = rawId.replace(/^@/, "").toLowerCase();
-    const namePattern = rawId.replace(/[-_]/g, " ");
+    // LIKE wildcards in the request are literal characters, never patterns
+    // ("%" used to match, and return, an arbitrary member).
+    const namePattern = rawId.replace(/[-_]/g, " ").replace(/[\\%]/g, "\\$&");
 
     const [user] = await db.select({
       id: usersTable.id,
@@ -463,7 +465,7 @@ router.get(["/users/:userId/profile", "/users/profile/:userId"], async (req, res
         eq(usersTable.handle, cleanHandle),
         eq(usersTable.handle, rawId),
         ilike(usersTable.name, namePattern),
-        ilike(usersTable.name, `%${namePattern}%`)
+        ...(namePattern.trim().length >= 3 ? [ilike(usersTable.name, `%${namePattern}%`)] : []),
       )
     ).limit(1);
 

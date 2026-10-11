@@ -18,6 +18,18 @@ import {
 } from "@/lib/documentImport";
 import { loadPdfjs } from "@/lib/pdfjs";
 import { clearSubmissionDraft, loadSubmissionDetails, loadSubmissionType, missingSubmissionDetails } from "@/lib/submissionDraft";
+import { ReferencesEditor, referencesPayload, referencesProblem, type ReferenceRow } from "@/components/manuscript/ReferencesEditor";
+
+/** Optional references survive a trip back to the details step. */
+const REFERENCES_KEY = "anvikshiki_submit_references";
+function loadReferenceRows(): ReferenceRow[] {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(REFERENCES_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 import { uploadInlineBase64Images, safeJsonResponse } from "@/lib/inlineImageUploader";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -113,6 +125,14 @@ export default function SubmitUploadPage() {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
   const [extracting, setExtracting] = useState(false);
+  const [references, setReferencesState] = useState<ReferenceRow[]>(() => loadReferenceRows());
+  const setReferences = (rows: ReferenceRow[]) => {
+    setReferencesState(rows);
+    try { sessionStorage.setItem(REFERENCES_KEY, JSON.stringify(rows)); } catch {}
+  };
+  const clearReferences = () => {
+    try { sessionStorage.removeItem(REFERENCES_KEY); } catch {}
+  };
 
   // Read once on mount and again whenever this tab regains focus, so returning
   // from the details step shows the updated values without a reload.
@@ -625,6 +645,8 @@ export default function SubmitUploadPage() {
   const submit = async () => {
     if (!mainFile) { setError("Please upload your manuscript file"); return; }
     if (!declared) { setError("Please confirm the declaration"); return; }
+    const referenceError = referencesProblem(references);
+    if (referenceError) { setError(referenceError); return; }
     setError("");
     setSubmitting(true);
     setProgress(15);
@@ -656,7 +678,10 @@ export default function SubmitUploadPage() {
       let isCloudinary = false;
       if (healthRes.ok) {
         const health = await healthRes.json();
-        isCloudinary = health?.environment?.storageProvider === "cloudinary";
+        // /api/health reports the tier uploads land in as storage.activeProvider;
+        // the old environment.storageProvider field no longer exists, which sent
+        // every file through the API and its ~4.5 MB request limit.
+        isCloudinary = (health?.storage?.activeProvider ?? health?.environment?.storageProvider) === "cloudinary";
       }
 
       let uploadSucceeded = false;
@@ -738,6 +763,7 @@ export default function SubmitUploadPage() {
             coverUrl: coverImageUrl,
             coverPublicId: coverImagePublicId,
             coverResourceType: coverImageResourceType,
+            references: referencesPayload(references),
           };
 
           const response = await fetch(`${base()}/api/submissions/upload`, {
@@ -770,6 +796,8 @@ export default function SubmitUploadPage() {
         if (details.domain) formData.append("domain", details.domain);
         if (details.keywords) formData.append("keywords", details.keywords);
         if (details.notes) formData.append("notes", details.notes);
+        const referenceList = referencesPayload(references);
+        if (referenceList.length) formData.append("references", JSON.stringify(referenceList));
 
         const response = await fetch(`${base()}/api/submissions/upload`, {
           method: "POST",
@@ -781,7 +809,8 @@ export default function SubmitUploadPage() {
         sessionStorage.setItem("anvikshiki_submit_id", data.submission?.id || "");
       }
 
-            clearSubmissionDraft();
+      clearSubmissionDraft();
+      clearReferences();
       navigate("/submit/success");
     } catch (err: any) {
       setError(err.message || "Submission failed. Please try again.");
@@ -794,6 +823,8 @@ export default function SubmitUploadPage() {
   const submitEdited = async () => {
     if (!declared) { setError("Please confirm the declaration"); return; }
     if (!editorBody.trim()) { setError("Essay content cannot be empty"); return; }
+    const referenceError = referencesProblem(references);
+    if (referenceError) { setError(referenceError); return; }
     setError("");
     setSubmitting(true);
     setProgress(15);
@@ -823,7 +854,10 @@ export default function SubmitUploadPage() {
       let isCloudinary = false;
       if (healthRes.ok) {
         const health = await healthRes.json();
-        isCloudinary = health?.environment?.storageProvider === "cloudinary";
+        // /api/health reports the tier uploads land in as storage.activeProvider;
+        // the old environment.storageProvider field no longer exists, which sent
+        // every file through the API and its ~4.5 MB request limit.
+        isCloudinary = (health?.storage?.activeProvider ?? health?.environment?.storageProvider) === "cloudinary";
       }
 
       let coverUrl = null;
@@ -906,6 +940,7 @@ export default function SubmitUploadPage() {
           body: cleanBody,
           notes: finalNotes,
           consent: true,
+          references: referencesPayload(references),
         }),
       });
 
@@ -914,6 +949,7 @@ export default function SubmitUploadPage() {
       sessionStorage.setItem("anvikshiki_submit_id", data.submission?.id || "");
 
       clearSubmissionDraft();
+      clearReferences();
       navigate("/submit/success");
     } catch (err: any) {
       setError(err.message || "Submission failed. Please try again.");
@@ -1433,6 +1469,11 @@ export default function SubmitUploadPage() {
               )}
             </div>
           )}
+
+            {/* Optional sources, shown at the end of the published piece */}
+            <div className="mt-7">
+              <ReferencesEditor value={references} onChange={setReferences} />
+            </div>
 
             <OrnamentDivider className="my-7" />
 

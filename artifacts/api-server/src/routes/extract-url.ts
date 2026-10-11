@@ -812,7 +812,8 @@ router.post('/extract-url', async (req, res) => {
           const [article] = await db
             .select()
             .from(articlesTable)
-            .where(and(eq(articlesTable.slug, slug), isNull(articlesTable.deletedAt)))
+            // Published pieces only: a draft or archived body is not public.
+            .where(and(eq(articlesTable.slug, slug), eq(articlesTable.status, "PUBLISHED"), isNull(articlesTable.deletedAt)))
             .limit(1);
           if (article && article.body) {
             return res.json({
@@ -826,7 +827,7 @@ router.post('/extract-url', async (req, res) => {
           const [paper] = await db
             .select()
             .from(papersTable)
-            .where(and(eq(papersTable.slug, slug), isNull(papersTable.deletedAt)))
+            .where(and(eq(papersTable.slug, slug), eq(papersTable.status, "PUBLISHED"), isNull(papersTable.deletedAt)))
             .limit(1);
           if (paper && (paper.body || paper.abstract)) {
             return res.json({

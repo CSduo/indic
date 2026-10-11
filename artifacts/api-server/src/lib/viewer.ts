@@ -1,6 +1,6 @@
 import type { Request } from "express";
-import { db, adminsTable, usersTable } from "@workspace/db";
-import { eq, ilike, or } from "drizzle-orm";
+import { db, adminsTable, submissionsTable, usersTable } from "@workspace/db";
+import { eq, sql } from "drizzle-orm";
 import { getUserAuth } from "./auth";
 
 /**
@@ -22,9 +22,8 @@ export type Viewer = {
 };
 
 /**
- * Resolve who is asking, together with the author identities their account
- * owns. Published articles and papers carry only an author name, so ownership
- * is matched by identity rather than by a hardcoded email allowlist.
+ * Resolve who is asking. `identities` (name keys) are kept for display and
+ * matching hints only; they never grant access to anything.
  */
 export async function resolveViewer(req: Request): Promise<Viewer | null> {
   const auth = await getUserAuth(req);
@@ -41,14 +40,23 @@ export async function resolveViewer(req: Request): Promise<Viewer | null> {
   }
 
   try {
-    const cleanEmail = auth.email ? auth.email.trim().toLowerCase() : "";
-    const adminRows = cleanEmail
-      ? await db.select().from(adminsTable)
-          .where(or(eq(adminsTable.id, auth.userId), ilike(adminsTable.email, cleanEmail)))
-          .limit(1)
-      : await db.select().from(adminsTable)
-          .where(eq(adminsTable.id, auth.userId))
-          .limit(1);
+    // An admin session carries the admin's own id. A member account counts as
+    // the admin with the same email only when that address is verified: the
+    // account was created through Google sign-in (no password). Email/password
+    // signup never verifies the address, so matching on it would let anyone
+    // register an admin's address and act as that admin. Exact, lower-cased
+    // comparison: ILIKE would treat "_" and "%" in an address as wildcards.
+    let adminRows = await db.select().from(adminsTable)
+      .where(eq(adminsTable.id, auth.userId))
+      .limit(1);
+    const verifiedEmail = dbUser && !dbUser.password && typeof dbUser.email === "string"
+      ? dbUser.email.trim().toLowerCase()
+      : "";
+    if (!adminRows[0] && verifiedEmail) {
+      adminRows = await db.select().from(adminsTable)
+        .where(eq(sql`lower(${adminsTable.email})`, verifiedEmail))
+        .limit(1);
+    }
     dbAdmin = adminRows[0] || null;
   } catch (err) {
     (req as any).log?.warn?.({ err }, "Failed to lookup admin in resolveViewer");
@@ -71,9 +79,34 @@ export async function resolveViewer(req: Request): Promise<Viewer | null> {
   };
 }
 
-/** True when this viewer is the named author of a work, or an administrator. */
-export function ownsAuthoredWork(viewer: Viewer, authorName?: string | null): boolean {
+/**
+ * True when this viewer owns a published article or paper: an administrator,
+ * or the account whose submission produced it (the work's
+ * `source_submission_id`). Ownership is decided by account id only. A byline
+ * is free text and display names are not unique, so matching on the name (or
+ * an email local part) let any account that took an author's name edit, trash
+ * or delete that author's work.
+ */
+export async function ownsPublishedWork(viewer: Viewer, sourceSubmissionId?: string | null): Promise<boolean> {
   if (viewer.isAdmin) return true;
-  const key = identityKey(authorName);
-  return key.length > 0 && viewer.identities.has(key);
+  if (!sourceSubmissionId) return false;
+  const [row] = await db
+    .select({ userId: submissionsTable.userId })
+    .from(submissionsTable)
+    .where(eq(submissionsTable.id, sourceSubmissionId))
+    .limit(1);
+  return Boolean(row?.userId) && row!.userId === viewer.userId;
+}
+
+/**
+ * True when this viewer may act on a submission row: the account that made it,
+ * an administrator, or, for a guest submission made without an account, the
+ * account that holds the submitter's email address. An account-linked
+ * submission is never reachable through an email match.
+ */
+export function ownsSubmissionRow(viewer: Viewer, row: { userId?: string | null; submitterEmail?: string | null }): boolean {
+  if (viewer.isAdmin) return true;
+  if (row.userId) return row.userId === viewer.userId;
+  const email = (row.submitterEmail || "").trim().toLowerCase();
+  return email.length > 0 && email === viewer.email;
 }

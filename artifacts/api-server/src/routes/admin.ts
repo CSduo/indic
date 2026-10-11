@@ -29,7 +29,7 @@ import {
   CANONICAL_BASE_URL,
 } from "../lib/seo-service";
 import { isIndexNowEnabled } from "../lib/indexnow";
-import { extractArticleKeywords } from "../lib/keywords";
+import { firstIssueMessage, referencesInputSchema } from "../lib/references";
 
 const router = Router();
 
@@ -50,8 +50,9 @@ const articleInputSchema = z.object({
   heroImageUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
   heroImageAlt: z.string().max(500).optional(),
   keyTakeaways: z.array(z.string().max(1_000)).max(20).default([]),
-  seoTitle: z.string().max(200).optional(),
-  seoDescription: z.string().max(500).optional(),
+  references: referencesInputSchema,
+  seoTitle: z.string().trim().max(200).optional(),
+  seoDescription: z.string().trim().max(500).optional(),
   audioUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
   status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).default("DRAFT"),
   featured: z.boolean().default(false),
@@ -73,8 +74,9 @@ const paperInputSchema = z.object({
   paperType: z.enum(["RESEARCH_PAPER", "WORKING_PAPER", "REVIEW_ESSAY", "MONOGRAPH", "TRANSLATION", "ARCHIVAL_NOTE"]).default("RESEARCH_PAPER"),
   year: z.number().optional(),
   doi: z.string().max(255).optional(),
-  seoTitle: z.string().max(200).optional(),
-  seoDescription: z.string().max(500).optional(),
+  references: referencesInputSchema,
+  seoTitle: z.string().trim().max(200).optional(),
+  seoDescription: z.string().trim().max(500).optional(),
   status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).default("DRAFT"),
   publishedAt: z.string().optional(),
 });
@@ -233,16 +235,12 @@ router.get("/admin/articles", requireAdmin, async (req, res) => {
 router.post("/admin/articles", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
   try {
     const parsed = articleInputSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
+    if (!parsed.success) return res.status(400).json({ error: firstIssueMessage(parsed.error) });
 
     const data = parsed.data;
     let slug = data.slug || data.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     const [existing] = await db.select().from(articlesTable).where(eq(articlesTable.slug, slug)).limit(1);
     if (existing) slug = `${slug}-${Date.now()}`;
-
-    const effectiveTags = Array.isArray(data.tags) && data.tags.length > 0
-      ? data.tags
-      : extractArticleKeywords(`${data.title} ${data.excerpt || ""} ${data.body || ""}`, data.title, 8);
 
     const [article] = await db.insert(articlesTable).values({
       slug,
@@ -251,7 +249,9 @@ router.post("/admin/articles", requireAdmin, requireAdminRole("ADMIN", "EDITOR")
       excerpt: data.excerpt,
       body: sanitizeArticleBody(data.body || ""),
       categorySlug: normalizeCategorySlug(data.categorySlug),
-      tags: effectiveTags,
+      // Tags are the editor's own; without them, pages derive topic terms from the text.
+      tags: data.tags,
+      references: data.references ?? [],
       authorName: data.authorName,
       heroImageUrl: data.heroImageUrl || null,
       heroImageAlt: data.heroImageAlt,
@@ -291,17 +291,16 @@ router.post("/admin/articles", requireAdmin, requireAdminRole("ADMIN", "EDITOR")
 router.patch("/admin/articles/:id", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
   try {
     const parsed = articleInputSchema.partial().safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
+    if (!parsed.success) return res.status(400).json({ error: firstIssueMessage(parsed.error) });
 
     const updates: any = { ...parsed.data, updatedAt: new Date() };
     if (updates.body !== undefined) updates.body = sanitizeArticleBody(updates.body);
     if (updates.categorySlug !== undefined) updates.categorySlug = normalizeCategorySlug(updates.categorySlug);
     if (updates.heroImageUrl === "") updates.heroImageUrl = null;
     if (updates.audioUrl === "") updates.audioUrl = null;
+    if (updates.seoTitle === "") updates.seoTitle = null;
+    if (updates.seoDescription === "") updates.seoDescription = null;
     if (updates.publishedAt) updates.publishedAt = new Date(updates.publishedAt);
-    if (updates.tags !== undefined && (!Array.isArray(updates.tags) || updates.tags.length === 0)) {
-      updates.tags = extractArticleKeywords(`${updates.title || ""} ${updates.excerpt || ""} ${updates.body || ""}`, updates.title, 8);
-    }
 
     const [article] = await db.update(articlesTable).set(updates)
       .where(and(eq(articlesTable.id, req.params.id), isNull(articlesTable.deletedAt))).returning();
@@ -410,7 +409,7 @@ router.get("/admin/papers", requireAdmin, async (req, res) => {
 router.post("/admin/papers", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
   try {
     const parsed = paperInputSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
+    if (!parsed.success) return res.status(400).json({ error: firstIssueMessage(parsed.error) });
 
     const data = parsed.data;
     let slug = data.slug || data.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -424,6 +423,7 @@ router.post("/admin/papers", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), 
       body: sanitizeArticleBody(data.body || ""),
       categorySlug: normalizeCategorySlug(data.categorySlug),
       tags: data.tags,
+      references: data.references ?? [],
       authorName: data.authorName,
       pdfUrl: data.pdfUrl || null,
       coverImageUrl: data.coverImageUrl || null,
@@ -465,13 +465,15 @@ router.post("/admin/papers", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), 
 router.patch("/admin/papers/:id", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
   try {
     const parsed = paperInputSchema.partial().safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
+    if (!parsed.success) return res.status(400).json({ error: firstIssueMessage(parsed.error) });
 
     const updates: any = { ...parsed.data, updatedAt: new Date() };
     if (updates.body !== undefined) updates.body = sanitizeArticleBody(updates.body);
     if (updates.categorySlug !== undefined) updates.categorySlug = normalizeCategorySlug(updates.categorySlug);
     if (updates.pdfUrl === "") updates.pdfUrl = null;
     if (updates.coverImageUrl === "") updates.coverImageUrl = null;
+    if (updates.seoTitle === "") updates.seoTitle = null;
+    if (updates.seoDescription === "") updates.seoDescription = null;
     if (updates.publishedAt) updates.publishedAt = new Date(updates.publishedAt);
 
     const [paper] = await db.update(papersTable).set(updates)
@@ -603,6 +605,11 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
+    // Publishing puts a work on the public site, the same power as creating an
+    // article, so it needs the same roles; a reviewer can still triage.
+    if (parsed.data.status === "PUBLISHED" && !["ADMIN", "EDITOR"].includes((req as any).adminAuth?.role)) {
+      return res.status(403).json({ error: "Only an editor or administrator can publish" });
+    }
 
     const [previous] = await db.select({
       status: submissionsTable.status,

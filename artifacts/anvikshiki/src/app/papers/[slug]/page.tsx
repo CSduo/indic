@@ -16,6 +16,8 @@ import { authorHref } from "@/lib/authorPath";
 import { cleanTitle, deriveDescription, demoteBodyHeadings } from "@/lib/seoText";
 import { CitationModal } from "@/components/CitationModal";
 import { readInitialData } from "@/lib/initialData";
+import { ReferencesSection, TopicsRow } from "@/components/manuscript/ReferencesSection";
+import { workSources } from "@/lib/references";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 export default function PaperDetailPage() {
@@ -68,11 +70,14 @@ export default function PaperDetailPage() {
     return () => controller.abort();
   }, [slug]);
 
-  // Same title and description rules as the server-rendered page.
+  // The server sends the effective title, description, topics and references
+  // as `seo` (api-server lib/effective-seo.ts); without it, the same rules as
+  // the server-rendered page.
   const paperDescription = paper
-    ? deriveDescription({ seoDescription: paper.seoDescription, summaries: [paper.abstract], body: paper.body })
+    ? paper.seo?.description || deriveDescription({ seoDescription: paper.seoDescription, summaries: [paper.abstract], body: paper.body, title: [paper.title, paper.seoTitle] })
     : "";
-  const paperTitle = paper?.title ? cleanTitle(paper.seoTitle?.trim() ? paper.seoTitle : paper.title) : "";
+  const paperTitle = paper?.title ? (paper.seo?.title || cleanTitle(paper.seoTitle?.trim() ? paper.seoTitle : paper.title)) : "";
+  const sources = workSources(paper);
 
   useDocumentMetadata({
     title: paperTitle ? `${paperTitle} — Ānvīkṣikī` : undefined,
@@ -189,6 +194,8 @@ export default function PaperDetailPage() {
             <div className="prose-anv prose-editor-content" dangerouslySetInnerHTML={{ __html: demoteBodyHeadings(paper.body) }} />
           ) : null}
           {paper.pdfUrl ? <DocumentViewer url={paper.pdfUrl} title={paper.title} /> : null}
+          <TopicsRow topics={sources.topics} label="Keywords" />
+          <ReferencesSection references={sources.references} note={sources.sourcesNote} />
           {paper.citationText ? (
             <ParchmentCard className="mt-8 p-5">
               <p className="type-section-label mb-3">Citation</p>

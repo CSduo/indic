@@ -4,7 +4,8 @@ import { articlesTable, papersTable } from "@workspace/db";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { CANONICAL_DOMAIN, SITE_NAME, escapeHtml } from "../lib/ssr-html";
 import { PAGE_META } from "../lib/page-meta";
-import { cleanTitle, plainTextFromHtml } from "../lib/seo-text";
+import { cleanTitle } from "../lib/seo-text";
+import { effectiveSeoDescription, effectiveTopics } from "../lib/effective-seo";
 import { WEBSUB_HUB } from "../lib/websub";
 
 const router = Router();
@@ -25,7 +26,10 @@ export interface RssItem {
   /** Milliseconds since the epoch. */
   timestamp: number;
   creators: string[];
+  /** The domain hub slug. */
   category: string | null;
+  /** The same topic terms the page declares (lib/effective-seo.ts). */
+  topics?: string[];
 }
 
 /** Text inside CDATA, with any "]]>" split so it cannot end the section early. */
@@ -42,7 +46,10 @@ export function buildRssXml(items: RssItem[], now: Date = new Date()): string {
   const lastBuild = items.length > 0 ? new Date(Math.max(...items.map((item) => item.timestamp))) : now;
   const itemXml = items.map((item) => {
     const creators = item.creators.map((name) => `    <dc:creator>${cdata(name)}</dc:creator>\n`).join("");
-    const category = item.category ? `    <category>${escapeHtml(item.category)}</category>\n` : "";
+    const category = [item.category, ...(item.topics || [])]
+      .filter((value): value is string => Boolean(value))
+      .map((value) => `    <category>${escapeHtml(value)}</category>\n`)
+      .join("");
     return `  <item>
     <title>${cdata(item.title)}</title>
     <link>${escapeHtml(item.link)}</link>
@@ -92,21 +99,24 @@ router.get(["/rss", "/rss.xml", "/feed"], async (req, res) => {
     const items: RssItem[] = [
       ...articles.map((a): RssItem => ({
         title: cleanTitle(a.title),
-        description: plainTextFromHtml(a.excerpt || a.subtitle || ""),
+        // The same description the page's meta tag carries.
+        description: effectiveSeoDescription(a, "article"),
         link: `${CANONICAL_DOMAIN}/articles/${encodeURIComponent(a.slug)}`,
         guid: `article-${a.id}`,
         timestamp: timestampOf(a),
         creators: [(a.authorName || "").trim() || SITE_NAME],
         category: a.categorySlug || null,
+        topics: effectiveTopics(a),
       })),
       ...papers.map((p): RssItem => ({
         title: cleanTitle(p.title),
-        description: plainTextFromHtml(p.abstract || ""),
+        description: effectiveSeoDescription(p, "paper"),
         link: `${CANONICAL_DOMAIN}/papers/${encodeURIComponent(p.slug)}`,
         guid: `paper-${p.id}`,
         timestamp: timestampOf(p),
         creators: (p.authorName || "").split(/,\s*/).map((name) => name.trim()).filter(Boolean),
         category: p.categorySlug || null,
+        topics: effectiveTopics(p),
       })),
     ]
       .sort((a, b) => b.timestamp - a.timestamp)

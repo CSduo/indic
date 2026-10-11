@@ -90,6 +90,7 @@ const TABLE_STATEMENTS = [
      "cover_image_resource_type" text,
      "audio_url" text,
      "audio_public_id" text,
+     "references" jsonb DEFAULT '[]'::jsonb NOT NULL,
      "consent" boolean DEFAULT false NOT NULL,
      "status" "submission_status" DEFAULT 'RECEIVED' NOT NULL,
      "priority" "priority" DEFAULT 'NORMAL' NOT NULL,
@@ -391,6 +392,8 @@ const COLUMN_STATEMENTS: Record<string, string[]> = {
     `"cover_image_resource_type" text`,
     `"audio_url" text`,
     `"audio_public_id" text`,
+    // Optional author-supplied references, added after submissions shipped.
+    `"references" jsonb NOT NULL DEFAULT '[]'::jsonb`,
     `"consent" boolean NOT NULL DEFAULT false`,
     `"priority" "priority" NOT NULL DEFAULT 'NORMAL'`,
     `"assigned_editor_id" text`,

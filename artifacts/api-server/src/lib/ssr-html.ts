@@ -9,6 +9,7 @@ import path from "path";
 import { sanitizeArticleBody } from "./content";
 import { slugify } from "./slug";
 import { demoteBodyHeadings } from "./seo-text";
+import { normalizeStoredReferences, type WorkReference } from "./references";
 
 export const CANONICAL_DOMAIN = "https://anvikshikijournal.in";
 
@@ -257,81 +258,80 @@ export function renderBreadcrumbs(items: BreadcrumbItem[]): string {
   </nav>`;
 }
 
-export function renderReferences(rawRefs: unknown): string {
-  if (!Array.isArray(rawRefs) || rawRefs.length === 0) return "";
+/** "Title." — a closing period unless the title already ends in punctuation. */
+function withPeriod(html: string, plain: string): string {
+  return /[.!?…]["'”’)\]]*$/u.test(plain) ? html : `${html}.`;
+}
 
-  const items = rawRefs.map((ref, idx) => {
-    const indexNum = idx + 1;
+/** The doi.org resolver URL for a bare DOI. */
+export function doiUrl(doi: string): string {
+  return `https://doi.org/${encodeURI(doi).replace(/#/g, "%23").replace(/\?/g, "%3F")}`;
+}
 
-    if (typeof ref === "string") {
-      return `<li>
-        <span class="ssr-ref-num">${indexNum}.</span>
-        <span class="ssr-ref-text"><em>${escapeHtml(ref)}</em></span>
-      </li>`;
-    }
-
-    if (ref && typeof ref === "object") {
-      const title = (ref as any).title || (ref as any).name || (ref as any).text || String(ref);
-      const url = (ref as any).url || (ref as any).href || (ref as any).link || null;
-      const author = (ref as any).authors || (ref as any).author || null;
-      const year = (ref as any).year || (ref as any).date || null;
-      const publication = (ref as any).publication || (ref as any).journal || (ref as any).publisher || null;
-
-      let authorSnippet = "";
-      if (author) {
-        authorSnippet = `<span class="ssr-ref-author">${escapeHtml(author)}${year ? ` (${escapeHtml(year)})` : ""}. </span>`;
-      }
-
-      let titleSnippet = "";
-      if (url) {
-        titleSnippet = `<a href="${safeUrl(url)}" target="_blank" rel="noopener noreferrer" class="ssr-ref-link">${escapeHtml(title)}</a>`;
-      } else {
-        titleSnippet = `<em>${escapeHtml(title)}</em>`;
-      }
-
-      const pubSnippet = publication ? `<span class="ssr-ref-pub"> — ${escapeHtml(publication)}</span>` : "";
-
-      return `<li>
-        <span class="ssr-ref-num">${indexNum}.</span>
-        <span class="ssr-ref-text">${authorSnippet}${titleSnippet}${pubSnippet}</span>
-      </li>`;
-    }
-
-    return `<li>
-      <span class="ssr-ref-num">${indexNum}.</span>
-      <span class="ssr-ref-text">${escapeHtml(String(ref))}</span>
+/** One reference as "Authors (Year). Title. Publisher. DOI", with an optional note below. */
+export function renderReferenceItem(ref: WorkReference, index: number): string {
+  const titleText = escapeHtml(ref.title);
+  const title = ref.url
+    ? `<a href="${escapeHtml(ref.url)}" target="_blank" rel="noopener noreferrer" class="ssr-ref-link">${titleText}</a>`
+    : titleText;
+  const parts: string[] = [];
+  if (ref.authors) {
+    const authors = `<span class="ssr-ref-authors">${escapeHtml(ref.authors)}</span>`;
+    parts.push(ref.year
+      ? `${authors} <span class="ssr-ref-year">(${escapeHtml(ref.year)})</span>.`
+      : withPeriod(authors, ref.authors));
+    parts.push(withPeriod(`<cite class="ssr-ref-title">${title}</cite>`, ref.title));
+  } else {
+    parts.push(ref.year
+      ? `<cite class="ssr-ref-title">${title}</cite> <span class="ssr-ref-year">(${escapeHtml(ref.year)})</span>.`
+      : withPeriod(`<cite class="ssr-ref-title">${title}</cite>`, ref.title));
+  }
+  if (ref.publisher) parts.push(withPeriod(`<em class="ssr-ref-publisher">${escapeHtml(ref.publisher)}</em>`, ref.publisher));
+  if (ref.doi) {
+    const doi = escapeHtml(ref.doi);
+    parts.push(`<a href="${escapeHtml(doiUrl(ref.doi))}" target="_blank" rel="noopener noreferrer" class="ssr-ref-doi">doi:${doi}</a>`);
+  }
+  const note = ref.note ? `\n      <p class="ssr-ref-note">${escapeHtml(ref.note)}</p>` : "";
+  return `<li class="ssr-reference" id="ref-${index + 1}">
+      <p class="ssr-ref-text">${parts.join(" ")}</p>${note}
     </li>`;
-  }).join("\n");
+}
 
-  return `<section class="ssr-section ssr-references" id="references">
-    <h2>Sources &amp; References</h2>
-    <ol class="ssr-reference-list">
-      ${items}
-    </ol>
+/**
+ * The "References & Sources" section: an optional editor's note, then a
+ * numbered list of the work's sources. Nothing is rendered when there is
+ * neither. Every field is escaped and only http(s) links survive
+ * normalisation.
+ */
+export function renderReferences(rawRefs: unknown, sourcesNote?: string | null): string {
+  const refs = normalizeStoredReferences(rawRefs);
+  const note = typeof sourcesNote === "string" ? sourcesNote.trim() : "";
+  if (refs.length === 0 && !note) return "";
+  const noteHtml = note ? `\n    <p class="ssr-sources-note">${escapeHtml(note)}</p>` : "";
+  const listHtml = refs.length
+    ? `\n    <ol class="ssr-reference-list">
+    ${refs.map(renderReferenceItem).join("\n    ")}
+    </ol>`
+    : "";
+  return `<section class="ssr-section ssr-references" id="references" aria-labelledby="references-heading">
+    <h2 id="references-heading">References &amp; Sources</h2>${noteHtml}${listHtml}
   </section>`;
 }
 
-export function renderTags(tags: unknown, label = "Topics & Tags"): string {
-  const tagList = Array.isArray(tags)
-    ? tags
-    : typeof tags === "string"
-      ? tags.split(",").map(t => t.trim())
-      : [];
-
-  const validTags = tagList.filter(t => typeof t === "string" && t.trim().length > 0);
-  if (validTags.length === 0) return "";
-
-  const items = validTags.map(tag => {
-    const cleanTag = tag.trim();
-    return `<li><a href="/search?q=${encodeURIComponent(cleanTag)}">${escapeHtml(cleanTag)}</a></li>`;
-  }).join("\n");
-
-  return `<section class="ssr-section ssr-tags">
-    <h2>${escapeHtml(label)}</h2>
-    <ul class="ssr-tag-list">
-      ${items}
-    </ul>
-  </section>`;
+/**
+ * The visible Topics row: the same terms the page declares in its metadata,
+ * each linking to a search for it. Search pages are noindex, so the links are
+ * nofollow to keep crawlers on the journal's own pages.
+ */
+export function renderTopics(terms: string[], label = "Topics"): string {
+  if (!terms.length) return "";
+  const items = terms
+    .map(term => `<li><a href="/search?q=${escapeHtml(encodeURIComponent(term))}" rel="nofollow">${escapeHtml(term)}</a></li>`)
+    .join("");
+  return `<nav class="ssr-topics" aria-label="${escapeHtml(label)}">
+    <span class="ssr-topics-label">${escapeHtml(label)}</span>
+    <ul class="ssr-tag-list">${items}</ul>
+  </nav>`;
 }
 
 // The page title is the only H1; body headings are shifted down a level when
@@ -574,6 +574,107 @@ export const SSR_CSS_STYLES = `<style id="anvikshiki-ssr-styles">
     color: var(--ssr-ink-soft);
     text-decoration: none;
     background: var(--ssr-surface);
+  }
+  .ssr-topics {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    margin: 2rem 0 0 0;
+    text-align: left;
+  }
+  .ssr-topics .ssr-tag-list { margin: 0; }
+  .ssr-topics-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--ssr-ink-soft);
+  }
+  .ssr-tag-list a:hover { border-color: var(--ssr-gold); color: var(--ssr-ink); }
+  .ssr-references {
+    margin: 2.5rem 0;
+    padding: 1.5rem 1.5rem 1.25rem;
+    background: var(--ssr-surface);
+    border: 1px solid var(--ssr-border);
+    border-top: 3px solid var(--ssr-gold);
+    border-radius: 8px;
+    text-align: left;
+  }
+  .ssr-references h2 {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 1.6rem;
+    line-height: 1.2;
+    margin: 0 0 1rem 0;
+    color: var(--ssr-ink);
+  }
+  .ssr-reference-list {
+    list-style: none;
+    counter-reset: ssr-ref;
+    margin: 0;
+    padding: 0;
+  }
+  .ssr-reference {
+    counter-increment: ssr-ref;
+    position: relative;
+    padding: 0.85rem 0 0.85rem 2.6rem;
+    border-top: 1px solid var(--ssr-border);
+  }
+  .ssr-reference:first-child { border-top: 0; padding-top: 0.25rem; }
+  .ssr-reference::before {
+    content: counter(ssr-ref);
+    position: absolute;
+    left: 0;
+    top: 0.85rem;
+    width: 1.7rem;
+    height: 1.7rem;
+    border-radius: 9999px;
+    display: grid;
+    place-items: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--ssr-ink-soft);
+    border: 1px solid var(--ssr-gold);
+  }
+  .ssr-reference:first-child::before { top: 0.25rem; }
+  .ssr-ref-text {
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.65;
+    color: var(--ssr-ink-soft);
+    overflow-wrap: anywhere;
+  }
+  .ssr-ref-authors { font-weight: 600; color: var(--ssr-ink); }
+  .ssr-ref-title { font-style: normal; color: var(--ssr-ink); }
+  .ssr-ref-link, .ssr-ref-doi {
+    color: var(--ssr-ink);
+    text-decoration: underline;
+    text-decoration-color: var(--ssr-gold);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+  .ssr-ref-link:hover, .ssr-ref-doi:hover { text-decoration-thickness: 2px; }
+  .ssr-ref-publisher { color: var(--ssr-ink-soft); }
+  .ssr-ref-doi { font-size: 0.85rem; }
+  .ssr-ref-note {
+    margin: 0.35rem 0 0 0;
+    font-size: 0.85rem;
+    line-height: 1.55;
+    color: var(--ssr-ink-soft);
+  }
+  .ssr-sources-note {
+    margin: 0 0 1.1rem 0;
+    padding: 0.1rem 0 0.1rem 0.9rem;
+    border-left: 2px solid var(--ssr-gold);
+    font-size: 0.92rem;
+    line-height: 1.65;
+    font-style: italic;
+    color: var(--ssr-ink-soft);
+  }
+  @media (max-width: 640px) {
+    .ssr-references { padding: 1.1rem 1rem 1rem; }
+    .ssr-reference { padding-left: 2.2rem; }
+    .ssr-reference::before { width: 1.5rem; height: 1.5rem; }
   }
   .ssr-author-bio-card {
     background: var(--ssr-surface);

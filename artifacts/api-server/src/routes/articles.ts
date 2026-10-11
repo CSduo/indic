@@ -3,12 +3,14 @@ import { db, withDbRetry } from "@workspace/db";
 import { articlesTable, categoriesTable, submissionsTable, usersTable } from "@workspace/db";
 import { eq, and, desc, ilike, inArray, or, sql, isNull } from "drizzle-orm";
 import { categorySlugCandidates, normalizeCategorySlug, slugify, syncSubmissionFromPublication } from "../lib/publication-sync";
-import { ownsAuthoredWork, resolveViewer } from "../lib/viewer";
+import { ownsPublishedWork, resolveViewer } from "../lib/viewer";
 import { countUnresolvedArticleImages, sanitizeArticleBody, MAX_BODY_CHARS } from "../lib/content";
 import { recoverLegacyInlineImages } from "../lib/legacy-content";
 import { z } from "zod";
+import { firstIssueMessage, referencesInputSchema } from "../lib/references";
 import { parsePagination, toLikePattern, PUBLIC_CONTENT_CACHE_CONTROL } from "../lib/request";
 import { triggerPublicContentSeo } from "../lib/seo-service";
+import { workSeo } from "../lib/effective-seo";
 
 const router = Router();
 
@@ -259,6 +261,8 @@ router.get("/articles/:slug", async (req, res) => {
         body: sanitizeArticleBody(recoverLegacyInlineImages(row.article.slug, row.article.body)),
         rawBody: row.article.body,
         category: row.category,
+        // The title, description, topic terms and references the page shows (lib/effective-seo.ts).
+        seo: workSeo(row.article, "article"),
       },
     });
   } catch (err) {
@@ -280,14 +284,9 @@ const articleEditSchema = z.object({
   audioUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
   tags: z.array(z.string().trim().min(1).max(80)).max(30).optional(),
   keyTakeaways: z.array(z.string().max(1_000)).max(20).optional(),
-  references: z.array(z.object({
-    id: z.string().max(120).optional(),
-    title: z.string().max(500),
-    url: z.string().max(2_000).optional(),
-    citation: z.string().max(2_000).optional(),
-  })).max(200).optional(),
-  seoTitle: z.string().max(200).optional().or(z.literal("")),
-  seoDescription: z.string().max(500).optional().or(z.literal("")),
+  references: referencesInputSchema,
+  seoTitle: z.string().trim().max(200).optional().or(z.literal("")),
+  seoDescription: z.string().trim().max(500).optional().or(z.literal("")),
 });
 
 // PATCH /api/articles/:slug/edit -€- author can update their own article
@@ -314,13 +313,13 @@ router.patch("/articles/:slug/edit", async (req, res) => {
       .limit(1);
 
     if (!existing) return res.status(404).json({ error: "Article not found" });
-    if (!ownsAuthoredWork(viewer, existing.authorName)) {
-      return res.status(403).json({ error: "You can only edit articles published under your own name" });
+    if (!(await ownsPublishedWork(viewer, existing.sourceSubmissionId))) {
+      return res.status(403).json({ error: "You can only edit articles you submitted from this account" });
     }
 
     const parsed = articleEditSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
+      return res.status(400).json({ error: firstIssueMessage(parsed.error), details: parsed.error.flatten() });
     }
 
     const data = parsed.data;
@@ -391,7 +390,7 @@ router.patch("/articles/:slug/edit", async (req, res) => {
     });
   } catch (err: any) {
     console.error("PATCH /api/articles/:slug/edit ERROR:", err);
-    return res.status(500).json({ error: err.message || "Failed to update article" });
+    return res.status(500).json({ error: "Could not save the article. Please try again." });
   }
 });
 

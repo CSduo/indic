@@ -1,15 +1,16 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { submissionsTable, articlesTable, papersTable, usersTable } from "@workspace/db";
-import { eq, and, isNull, isNotNull, or, ilike, desc } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, or, ilike, desc, sql } from "drizzle-orm";
 import { getUserAuth } from "../lib/auth";
-import { ownsAuthoredWork, resolveViewer, type Viewer } from "../lib/viewer";
+import { ownsPublishedWork, ownsSubmissionRow, resolveViewer, type Viewer } from "../lib/viewer";
 import {
   normalizeCategorySlug,
   slugify,
   syncSubmissionFromPublication,
 } from "../lib/publication-sync";
 import { z } from "zod";
+import { firstIssueMessage, normalizeStoredReferences, referencesInputSchema } from "../lib/references";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import path from "path";
@@ -93,6 +94,8 @@ const submissionSchema = z.object({
   consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).transform(v => v === true || v === "true"),
   audioUrl: z.string().optional().or(z.literal("")).or(z.null()),
   audioPublicId: z.string().optional().or(z.literal("")).or(z.null()),
+  // Optional: authors are encouraged, not required, to list their sources.
+  references: referencesInputSchema,
 });
 
 /**
@@ -127,7 +130,7 @@ async function resolveSubmitterIdentity(auth: any, fallbackName?: string | null,
 router.post("/submissions", async (req, res) => {
   try {
     const parsed = submissionSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
+    if (!parsed.success) return res.status(400).json({ error: firstIssueMessage(parsed.error), details: parsed.error.flatten() });
 
     const auth = await getUserAuth(req);
     const data = parsed.data;
@@ -147,6 +150,7 @@ router.post("/submissions", async (req, res) => {
       notes: data.notes,
       audioUrl: data.audioUrl || null,
       audioPublicId: data.audioPublicId || null,
+      references: data.references ?? [],
       consent: true,
     }).returning();
 
@@ -239,25 +243,30 @@ router.post(
         type: z.enum(["ESSAY", "PAPER", "REVIEW", "COMMENTARY"]).default("ESSAY"),
         consent: z.union([z.boolean(), z.literal("true"), z.literal("false")]).transform(v => v === true || v === "true"),
         manuscriptUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
-        manuscriptPublicId: z.string().max(500).optional(),
-        manuscriptResourceType: z.string().max(50).optional(),
+        // The upload page sends null for the cover fields when no cover was
+        // chosen; rejecting null failed every cover-less JSON submission and
+        // pushed the browser into re-uploading the manuscript through the API.
+        manuscriptPublicId: z.string().max(500).nullish(),
+        manuscriptResourceType: z.string().max(50).nullish(),
         coverUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
         coverImageUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
-        coverPublicId: z.string().max(500).optional(),
-        coverImagePublicId: z.string().max(500).optional(),
-        coverResourceType: z.string().max(50).optional(),
-        coverImageResourceType: z.string().max(50).optional(),
+        coverPublicId: z.string().max(500).nullish(),
+        coverImagePublicId: z.string().max(500).nullish(),
+        coverResourceType: z.string().max(50).nullish(),
+        coverImageResourceType: z.string().max(50).nullish(),
         audioUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
-        audioPublicId: z.string().max(500).optional(),
-        keywords: z.string().max(2_000).optional(),
-        notes: z.string().max(5_000).optional(),
+        audioPublicId: z.string().max(500).nullish(),
+        keywords: z.string().max(2_000).nullish(),
+        notes: z.string().max(5_000).nullish(),
+        // A JSON array, or a JSON string of one in a multipart form.
+        references: referencesInputSchema,
       });
       const parsed = uploadSchema.safeParse({
         ...req.body,
         type: String(req.body.type || "ESSAY").toUpperCase(),
       });
       if (!parsed.success) {
-        return res.status(400).json({ error: "Invalid submission", details: parsed.error.flatten() });
+        return res.status(400).json({ error: firstIssueMessage(parsed.error, "Invalid submission"), details: parsed.error.flatten() });
       }
       if (!parsed.data.consent) return res.status(400).json({ error: "Consent is required" });
 
@@ -347,6 +356,7 @@ router.post(
         coverImageResourceType,
         audioUrl,
         audioPublicId,
+        references: data.references ?? [],
       }).returning();
 
       // Trigger notifications asynchronously
@@ -393,6 +403,7 @@ const SUBMISSION_LIST_COLUMNS = {
   coverImageUrl: submissionsTable.coverImageUrl,
   manuscriptUrl: submissionsTable.manuscriptUrl,
   audioUrl: submissionsTable.audioUrl,
+  references: submissionsTable.references,
   status: submissionsTable.status,
   publishedAt: submissionsTable.publishedAt,
   deletedAt: submissionsTable.deletedAt,
@@ -453,10 +464,11 @@ router.post("/submissions/write", async (req, res) => {
       status: z.enum(["DRAFT", "RECEIVED"]).optional().default("RECEIVED"),
       audioUrl: z.string().optional().or(z.literal("")).or(z.null()),
       audioPublicId: z.string().optional().or(z.literal("")).or(z.null()),
+      references: referencesInputSchema,
     });
 
     const parsed = schema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
+    if (!parsed.success) return res.status(400).json({ error: firstIssueMessage(parsed.error), details: parsed.error.flatten() });
 
     const data = parsed.data;
     const isDraft = data.status === "DRAFT";
@@ -495,6 +507,7 @@ router.post("/submissions/write", async (req, res) => {
       status: isDraft ? "DRAFT" : "RECEIVED",
       audioUrl: data.audioUrl || null,
       audioPublicId: data.audioPublicId || null,
+      references: data.references ?? [],
     }).returning();
 
     if (!isDraft) {
@@ -519,10 +532,15 @@ router.get("/submissions", async (req, res) => {
 
     const trashed = req.query.trashed === "true" || req.query.deleted === "true";
 
-    // 1. The author's own submission rows, matched by account id or email.
+    // 1. The author's own submission rows: matched by account id, plus guest
+    // submissions (no account) sent under this account's email address. An
+    // email never reaches a submission that belongs to another account.
     const userEmail = viewer.email ? viewer.email.trim().toLowerCase() : "";
     const ownsSubmission = userEmail
-      ? or(eq(submissionsTable.userId, viewer.userId), ilike(submissionsTable.submitterEmail, userEmail))!
+      ? or(
+          eq(submissionsTable.userId, viewer.userId),
+          and(isNull(submissionsTable.userId), eq(sql`lower(${submissionsTable.submitterEmail})`, userEmail)),
+        )!
       : eq(submissionsTable.userId, viewer.userId);
 
     const [submissionsResult, ownArticlesResult, ownPapersResult] = await Promise.all([
@@ -676,7 +694,7 @@ router.get("/submissions/:id", async (req, res) => {
           trashed ? isNotNull(articlesTable.deletedAt) : isNull(articlesTable.deletedAt),
         )).limit(1);
       if (!art) return res.status(404).json({ error: "Article not found" });
-      if (!ownsAuthoredWork(viewer, art.authorName)) return res.status(403).json({ error: "Forbidden" });
+      if (!(await ownsPublishedWork(viewer, art.sourceSubmissionId))) return res.status(403).json({ error: "Forbidden" });
       return res.json({
         submission: {
           id,
@@ -689,6 +707,7 @@ router.get("/submissions/:id", async (req, res) => {
           status: art.status,
           slug: art.slug,
           coverImageUrl: art.heroImageUrl,
+          references: normalizeStoredReferences(art.references),
         }
       });
     }
@@ -701,7 +720,7 @@ router.get("/submissions/:id", async (req, res) => {
           trashed ? isNotNull(papersTable.deletedAt) : isNull(papersTable.deletedAt),
         )).limit(1);
       if (!paper) return res.status(404).json({ error: "Paper not found" });
-      if (!ownsAuthoredWork(viewer, paper.authorName)) return res.status(403).json({ error: "Forbidden" });
+      if (!(await ownsPublishedWork(viewer, paper.sourceSubmissionId))) return res.status(403).json({ error: "Forbidden" });
       return res.json({
         submission: {
           id,
@@ -714,6 +733,7 @@ router.get("/submissions/:id", async (req, res) => {
           status: paper.status,
           slug: paper.slug,
           coverImageUrl: paper.coverImageUrl,
+          references: normalizeStoredReferences(paper.references),
         }
       });
     }
@@ -727,7 +747,7 @@ router.get("/submissions/:id", async (req, res) => {
 
     if (!submission) return res.status(404).json({ error: "Submission not found" });
 
-    if (submission.userId !== auth.userId && (auth as any).role !== "ADMIN" && submission.submitterEmail !== auth.email) {
+    if (!ownsSubmissionRow(viewer, submission)) {
       return res.status(403).json({ error: "Forbidden" });
     }
 
@@ -754,7 +774,7 @@ async function updateSyntheticPublication(req: any, res: any, viewer: Viewer, id
 
   const [existing] = await db.select().from(table as any).where(eq((table as any).id, realId)).limit(1);
   if (!existing) return res.status(404).json({ error: isPaper ? "Paper not found" : "Article not found" });
-  if (!ownsAuthoredWork(viewer, (existing as any).authorName)) {
+  if (!(await ownsPublishedWork(viewer, (existing as any).sourceSubmissionId))) {
     return res.status(403).json({ error: "You can only edit work published under your own name" });
   }
   if ((existing as any).deletedAt) {
@@ -770,9 +790,10 @@ async function updateSyntheticPublication(req: any, res: any, viewer: Viewer, id
     coverUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
     coverImageUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
     audioUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
+    references: referencesInputSchema,
   });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
+  if (!parsed.success) return res.status(400).json({ error: firstIssueMessage(parsed.error), details: parsed.error.flatten() });
 
   const data = parsed.data;
   if (data.body !== undefined) {
@@ -802,6 +823,10 @@ async function updateSyntheticPublication(req: any, res: any, viewer: Viewer, id
     else updates.heroImageUrl = cover || null;
   }
   if (!isPaper && data.audioUrl !== undefined) updates.audioUrl = data.audioUrl || null;
+  // The submission forms always send their (possibly empty) list. An empty list
+  // from there must not wipe references an editor set on the live work; those
+  // are cleared from the work's own edit screen.
+  if (data.references && data.references.length > 0) updates.references = data.references;
 
   const [updated] = await db.update(table as any).set(updates)
     .where(and(eq((table as any).id, realId), isNull((table as any).deletedAt)))
@@ -853,7 +878,7 @@ router.put("/submissions/:id", async (req, res) => {
     const [existing] = await db.select().from(submissionsTable)
       .where(eq(submissionsTable.id, req.params.id)).limit(1);
     if (!existing) return res.status(404).json({ error: "Submission not found" });
-    if (existing.userId !== auth.userId && (auth as any).role !== "ADMIN" && existing.submitterEmail !== auth.email) {
+    if (!ownsSubmissionRow(viewer, existing)) {
       return res.status(403).json({ error: "Forbidden" });
     }
     if (existing.deletedAt) return res.status(409).json({ error: "Restore this submission before editing it" });
@@ -893,10 +918,11 @@ router.put("/submissions/:id", async (req, res) => {
       audioPublicId: z.string().max(500).optional().or(z.literal("")).or(z.null()),
       coverUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
       coverImageUrl: z.string().max(2_000).optional().or(z.literal("")).or(z.null()),
+      references: referencesInputSchema,
     });
 
     const parsed = schema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
+    if (!parsed.success) return res.status(400).json({ error: firstIssueMessage(parsed.error), details: parsed.error.flatten() });
 
     const data = parsed.data;
 
@@ -930,6 +956,7 @@ router.put("/submissions/:id", async (req, res) => {
     if (data.audioPublicId !== undefined) updates.audioPublicId = data.audioPublicId || null;
     if (data.coverUrl !== undefined) updates.coverImageUrl = data.coverUrl || null;
     if (data.coverImageUrl !== undefined) updates.coverImageUrl = data.coverImageUrl || null;
+    if (data.references !== undefined) updates.references = data.references;
 
     const wantsSubmit = data.status === "RECEIVED" && existing.status === "DRAFT";
     if (wantsSubmit) {
@@ -983,7 +1010,7 @@ router.delete("/submissions/:id", async (req, res) => {
       const realId = id.replace("art-", "");
       const [existingArt] = await db.select().from(articlesTable).where(eq(articlesTable.id, realId)).limit(1);
       if (!existingArt) return res.status(404).json({ error: "Article not found" });
-      if (!ownsAuthoredWork(viewer, existingArt.authorName)) return res.status(403).json({ error: "Forbidden" });
+      if (!(await ownsPublishedWork(viewer, existingArt.sourceSubmissionId))) return res.status(403).json({ error: "Forbidden" });
 
       const [art] = await db.update(articlesTable)
         .set({ deletedAt: now, updatedAt: now })
@@ -998,7 +1025,7 @@ router.delete("/submissions/:id", async (req, res) => {
       const realId = id.replace("paper-", "");
       const [existingPaper] = await db.select().from(papersTable).where(eq(papersTable.id, realId)).limit(1);
       if (!existingPaper) return res.status(404).json({ error: "Paper not found" });
-      if (!ownsAuthoredWork(viewer, existingPaper.authorName)) return res.status(403).json({ error: "Forbidden" });
+      if (!(await ownsPublishedWork(viewer, existingPaper.sourceSubmissionId))) return res.status(403).json({ error: "Forbidden" });
 
       const [paper] = await db.update(papersTable)
         .set({ deletedAt: now, updatedAt: now })
@@ -1011,7 +1038,7 @@ router.delete("/submissions/:id", async (req, res) => {
     const [existing] = await db.select().from(submissionsTable)
       .where(eq(submissionsTable.id, id)).limit(1);
     if (!existing) return res.status(404).json({ error: "Submission not found" });
-    if (existing.userId !== auth.userId && (auth as any).role !== "ADMIN" && existing.submitterEmail !== auth.email) {
+    if (!ownsSubmissionRow(viewer, existing)) {
       return res.status(403).json({ error: "Forbidden" });
     }
     if (existing.deletedAt) return res.status(409).json({ error: "Submission is already in Trash" });
@@ -1059,7 +1086,7 @@ router.post("/submissions/:id/restore", async (req, res) => {
       const realId = id.replace("art-", "");
       const [existingArt] = await db.select().from(articlesTable).where(eq(articlesTable.id, realId)).limit(1);
       if (!existingArt) return res.status(404).json({ error: "Article not found" });
-      if (!ownsAuthoredWork(viewer, existingArt.authorName)) return res.status(403).json({ error: "Forbidden" });
+      if (!(await ownsPublishedWork(viewer, existingArt.sourceSubmissionId))) return res.status(403).json({ error: "Forbidden" });
 
       const [art] = await db.update(articlesTable)
         .set({ deletedAt: null, updatedAt: now })
@@ -1073,7 +1100,7 @@ router.post("/submissions/:id/restore", async (req, res) => {
       const realId = id.replace("paper-", "");
       const [existingPaper] = await db.select().from(papersTable).where(eq(papersTable.id, realId)).limit(1);
       if (!existingPaper) return res.status(404).json({ error: "Paper not found" });
-      if (!ownsAuthoredWork(viewer, existingPaper.authorName)) return res.status(403).json({ error: "Forbidden" });
+      if (!(await ownsPublishedWork(viewer, existingPaper.sourceSubmissionId))) return res.status(403).json({ error: "Forbidden" });
 
       const [paper] = await db.update(papersTable)
         .set({ deletedAt: null, updatedAt: now })
@@ -1086,7 +1113,7 @@ router.post("/submissions/:id/restore", async (req, res) => {
     const [existing] = await db.select().from(submissionsTable)
       .where(eq(submissionsTable.id, id)).limit(1);
     if (!existing) return res.status(404).json({ error: "Submission not found" });
-    if (existing.userId !== auth.userId && (auth as any).role !== "ADMIN" && existing.submitterEmail !== auth.email) {
+    if (!ownsSubmissionRow(viewer, existing)) {
       return res.status(403).json({ error: "Forbidden" });
     }
     if (!existing.deletedAt) return res.status(409).json({ error: "Submission is not in Trash" });
@@ -1134,7 +1161,7 @@ router.delete("/submissions/:id/permanent", async (req, res) => {
       const realId = id.replace("art-", "");
       const [art] = await db.select().from(articlesTable).where(eq(articlesTable.id, realId)).limit(1);
       if (!art) return res.status(404).json({ error: "Article not found" });
-      if (!ownsAuthoredWork(viewer, art.authorName)) return res.status(403).json({ error: "Forbidden" });
+      if (!(await ownsPublishedWork(viewer, art.sourceSubmissionId))) return res.status(403).json({ error: "Forbidden" });
       if (!art.deletedAt) return res.status(409).json({ error: "Move this work to Trash before permanently deleting it" });
       await db.delete(articlesTable).where(and(eq(articlesTable.id, realId), isNotNull(articlesTable.deletedAt)));
       return res.json({ success: true });
@@ -1144,7 +1171,7 @@ router.delete("/submissions/:id/permanent", async (req, res) => {
       const realId = id.replace("paper-", "");
       const [paper] = await db.select().from(papersTable).where(eq(papersTable.id, realId)).limit(1);
       if (!paper) return res.status(404).json({ error: "Paper not found" });
-      if (!ownsAuthoredWork(viewer, paper.authorName)) return res.status(403).json({ error: "Forbidden" });
+      if (!(await ownsPublishedWork(viewer, paper.sourceSubmissionId))) return res.status(403).json({ error: "Forbidden" });
       if (!paper.deletedAt) return res.status(409).json({ error: "Move this work to Trash before permanently deleting it" });
       await db.delete(papersTable).where(and(eq(papersTable.id, realId), isNotNull(papersTable.deletedAt)));
       return res.json({ success: true });
@@ -1153,7 +1180,7 @@ router.delete("/submissions/:id/permanent", async (req, res) => {
     const [existing] = await db.select().from(submissionsTable)
       .where(eq(submissionsTable.id, id)).limit(1);
     if (!existing) return res.status(404).json({ error: "Submission not found" });
-    if (existing.userId !== auth.userId && (auth as any).role !== "ADMIN" && existing.submitterEmail !== auth.email) {
+    if (!ownsSubmissionRow(viewer, existing)) {
       return res.status(403).json({ error: "Forbidden" });
     }
     if (!existing.deletedAt) return res.status(409).json({ error: "Move the submission to Trash before permanently deleting it" });

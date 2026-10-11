@@ -4,6 +4,7 @@ import { importPKCS8, SignJWT } from "jose";
 import { logger } from "./logger";
 import { CANONICAL_HOST, CANONICAL_BASE_URL, submitIndexNow, type IndexNowResult } from "./indexnow";
 import { pingWebSubHub } from "./websub";
+import { keepAlive } from "./keep-alive";
 
 export { CANONICAL_HOST, CANONICAL_BASE_URL };
 
@@ -623,7 +624,9 @@ export function triggerPublicContentSeo(payload: ContentPublicationPayload): Pro
     }
   };
 
-  return task();
+  // Callers do not await this; keepAlive stops Vercel freezing the function
+  // before the search engines have been told.
+  return keepAlive(task());
 }
 
 /** Default look-back for the daily job: a day plus slack for scheduling drift. */

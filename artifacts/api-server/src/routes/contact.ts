@@ -77,18 +77,11 @@ router.post("/contact", async (req, res) => {
       if (firstUser) adminUsers = [firstUser];
     }
 
-    // 3. Resolve sender entity (logged-in user or registered account by email)
-    let senderId = auth?.userId || null;
-    if (!senderId) {
-      const [existingUser] = await db
-        .select({ id: usersTable.id })
-        .from(usersTable)
-        .where(ilike(usersTable.email, data.email))
-        .limit(1);
-      if (existingUser) {
-        senderId = existingUser.id;
-      }
-    }
+    // 3. Resolve the sender: only a signed-in session links the thread to an
+    // account. The typed email proves nothing, so an anonymous form naming a
+    // member's address must not be attributed to that member; the address
+    // stays in the message text below.
+    const senderId = auth?.userId || null;
 
     // Structured message body for the direct message thread
     const formattedMessage = [

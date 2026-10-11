@@ -1,4 +1,4 @@
-import { and, asc, eq, ilike, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import {
   articlesTable,
   categoriesTable,
@@ -9,7 +9,7 @@ import {
 } from "@workspace/db";
 import { sanitizeArticleBody } from "./content";
 import { triggerPublicContentSeo } from "./seo-service";
-import { extractArticleKeywords } from "./keywords";
+import { normalizeStoredReferences, type WorkReference } from "./references";
 
 type PublicationKind = "article" | "paper";
 
@@ -77,6 +77,25 @@ function publicationFailure(kind: PublicationKind, cause: unknown): Error {
   const error = new Error(`The public ${kind} record could not be created${detail}`);
   (error as any).cause = cause;
   return error;
+}
+
+/**
+ * The submission's references, cleaned for the public record. An author may
+ * leave them out entirely; that is not an error.
+ */
+function submissionReferences(submission: Submission): WorkReference[] {
+  return normalizeStoredReferences((submission as any).references);
+}
+
+/**
+ * The references a re-publish writes onto an existing article or paper: the
+ * submission's, but only when the public record has none yet. Once an editor
+ * has set references on the public record, the submission never overwrites them.
+ */
+function referencesUpdate(existingReferences: unknown, submission: Submission): { references?: WorkReference[] } {
+  if (normalizeStoredReferences(existingReferences).length > 0) return {};
+  const fromSubmission = submissionReferences(submission);
+  return fromSubmission.length > 0 ? { references: fromSubmission } : {};
 }
 
 export type PublicPublicationResult = {
@@ -248,20 +267,26 @@ export async function ensurePublicPublicationForSubmission(
   const kind: PublicationKind = submission.type === "PAPER" ? "paper" : "article";
 
   if (kind === "paper") {
-    let [existing] = await db
-      .select({ id: papersTable.id, slug: papersTable.slug, status: papersTable.status, deletedAt: papersTable.deletedAt })
+    let [existing]: Array<{ id: string; slug: string; status: string; deletedAt: Date | null; references?: unknown }> = await db
+      .select({ id: papersTable.id, slug: papersTable.slug, status: papersTable.status, deletedAt: papersTable.deletedAt, references: papersTable.references })
       .from(papersTable)
       .where(eq(papersTable.sourceSubmissionId, submission.id))
       .limit(1);
 
     if (!existing && allowCreate && submission.title) {
       const baseSlug = slugify(submission.title);
+      // Only a row no other submission owns may be adopted. Matching any row by
+      // slug or title let a second submission with the same title overwrite
+      // another author's live paper.
       const [candidate] = await db
-        .select({ id: papersTable.id, slug: papersTable.slug, status: papersTable.status, deletedAt: papersTable.deletedAt })
+        .select({ id: papersTable.id, slug: papersTable.slug, status: papersTable.status, deletedAt: papersTable.deletedAt, references: papersTable.references })
         .from(papersTable)
-        .where(or(
-          eq(papersTable.slug, baseSlug),
-          ilike(papersTable.title, submission.title.trim())
+        .where(and(
+          isNull(papersTable.sourceSubmissionId),
+          or(
+            eq(papersTable.slug, baseSlug),
+            eq(sql`lower(${papersTable.title})`, submission.title.trim().toLowerCase()),
+          ),
         ))
         .limit(1);
       if (candidate) existing = candidate;
@@ -282,11 +307,8 @@ export async function ensurePublicPublicationForSubmission(
       const body = sanitizeArticleBody(submission.body || submission.abstract || submission.title || "No body content provided.");
       const authorName = submission.submitterName || "Anonymous Scholar";
       const coverImageUrl = getSubmissionCoverImage(submission) || "/images/provided/home-falcon-city-panorama-hero.jpg";
-      const extractedTags = extractArticleKeywords(
-        `${submission.title || ""} ${submission.abstract || ""} ${body}`,
-        submission.title || undefined,
-        8
-      );
+      // Tags are the editor's own. Topic terms for pages and feeds are derived
+      // from the text at render time (lib/seo-terms.ts), so nothing is frozen here.
       const updateData: any = {
         title: submission.title || "Untitled Paper",
         abstract: submission.abstract || "",
@@ -300,10 +322,8 @@ export async function ensurePublicPublicationForSubmission(
         deletedAt: null,
         sourceSubmissionId: submission.id,
         updatedAt: new Date(),
+        ...referencesUpdate(existing.references, submission),
       };
-      if (extractedTags.length > 0) {
-        updateData.tags = extractedTags;
-      }
       await db
         .update(papersTable)
         .set(updateData)
@@ -314,7 +334,6 @@ export async function ensurePublicPublicationForSubmission(
         title: submission.title || "Untitled Paper",
         authorSlug: slugify(authorName),
         authorId: submission.userId,
-        tags: extractedTags,
       }).catch(() => {});
       return {
         kind,
@@ -336,11 +355,6 @@ export async function ensurePublicPublicationForSubmission(
     const body = sanitizeArticleBody(submission.body || submission.abstract || submission.title || "No body content provided.");
     const authorName = submission.submitterName || "Anonymous Scholar";
     const coverImageUrl = getSubmissionCoverImage(submission) || "/images/provided/home-falcon-city-panorama-hero.jpg";
-    const extractedTags = extractArticleKeywords(
-      `${submission.title || ""} ${submission.abstract || ""} ${body}`,
-      submission.title || undefined,
-      8
-    );
     let candidateSlug = await uniquePaperSlug(baseSlug, submission.id);
     let lastInsertError: unknown = null;
 
@@ -354,7 +368,8 @@ export async function ensurePublicPublicationForSubmission(
             abstract: submission.abstract || "",
             body,
             categorySlug,
-            tags: extractedTags,
+            tags: [],
+            references: submissionReferences(submission),
             authorName,
             pdfUrl: submission.manuscriptUrl || (submission as any).fileUrl || null,
             coverImageUrl,
@@ -374,7 +389,6 @@ export async function ensurePublicPublicationForSubmission(
             title: submission.title || "Untitled Paper",
             authorSlug: slugify(authorName),
             authorId: submission.userId,
-            tags: extractedTags,
           }).catch(() => {});
           return { kind, status: "created", id: paper.id, slug: paper.slug };
         }
@@ -394,7 +408,10 @@ export async function ensurePublicPublicationForSubmission(
       .from(papersTable)
       .where(or(
         eq(papersTable.sourceSubmissionId, submission.id),
-        ilike(papersTable.title, (submission.title || "").trim())
+        and(
+          isNull(papersTable.sourceSubmissionId),
+          eq(sql`lower(${papersTable.title})`, (submission.title || "").trim().toLowerCase()),
+        )
       ))
       .limit(1);
 
@@ -411,20 +428,26 @@ export async function ensurePublicPublicationForSubmission(
     throw publicationFailure("paper", lastInsertError);
   }
 
-  let [existing] = await db
-    .select({ id: articlesTable.id, slug: articlesTable.slug, status: articlesTable.status, deletedAt: articlesTable.deletedAt })
+  let [existing]: Array<{ id: string; slug: string; status: string; deletedAt: Date | null; references?: unknown }> = await db
+    .select({ id: articlesTable.id, slug: articlesTable.slug, status: articlesTable.status, deletedAt: articlesTable.deletedAt, references: articlesTable.references })
     .from(articlesTable)
     .where(eq(articlesTable.sourceSubmissionId, submission.id))
     .limit(1);
 
   if (!existing && allowCreate && submission.title) {
     const baseSlug = slugify(submission.title);
+    // Only a row no other submission owns may be adopted. Matching any row by
+    // slug or title let a second submission with the same title overwrite
+    // another author's live article.
     const [candidate] = await db
-      .select({ id: articlesTable.id, slug: articlesTable.slug, status: articlesTable.status, deletedAt: articlesTable.deletedAt })
+      .select({ id: articlesTable.id, slug: articlesTable.slug, status: articlesTable.status, deletedAt: articlesTable.deletedAt, references: articlesTable.references })
       .from(articlesTable)
-      .where(or(
-        eq(articlesTable.slug, baseSlug),
-        ilike(articlesTable.title, submission.title.trim())
+      .where(and(
+        isNull(articlesTable.sourceSubmissionId),
+        or(
+          eq(articlesTable.slug, baseSlug),
+          eq(sql`lower(${articlesTable.title})`, submission.title.trim().toLowerCase()),
+        ),
       ))
       .limit(1);
     if (candidate) existing = candidate;
@@ -445,11 +468,6 @@ export async function ensurePublicPublicationForSubmission(
     const body = sanitizeArticleBody(submission.body || submission.abstract || submission.title || "No body content provided.");
     const authorName = submission.submitterName || "Anonymous Scholar";
     const coverImageUrl = getSubmissionCoverImage(submission) || "/images/provided/home-falcon-city-panorama-hero.jpg";
-    const extractedTags = extractArticleKeywords(
-      `${submission.title || ""} ${submission.abstract || ""} ${body}`,
-      submission.title || undefined,
-      8
-    );
     const articleUpdateData: any = {
       title: submission.title || "Untitled Article",
       excerpt: submission.abstract || submission.title || "Article excerpt",
@@ -464,10 +482,8 @@ export async function ensurePublicPublicationForSubmission(
       deletedAt: null,
       sourceSubmissionId: submission.id,
       updatedAt: new Date(),
+      ...referencesUpdate(existing.references, submission),
     };
-    if (extractedTags.length > 0) {
-      articleUpdateData.tags = extractedTags;
-    }
     await db
       .update(articlesTable)
       .set(articleUpdateData)
@@ -478,7 +494,6 @@ export async function ensurePublicPublicationForSubmission(
       title: submission.title || "Untitled Article",
       authorSlug: slugify(authorName),
       authorId: submission.userId,
-      tags: extractedTags,
     }).catch(() => {});
     return {
       kind,
@@ -500,11 +515,6 @@ export async function ensurePublicPublicationForSubmission(
   const body = sanitizeArticleBody(submission.body || submission.abstract || submission.title || "No body content provided.");
   const authorName = submission.submitterName || "Anonymous Scholar";
   const coverImageUrl = getSubmissionCoverImage(submission) || "/images/provided/home-falcon-city-panorama-hero.jpg";
-  const extractedTags = extractArticleKeywords(
-    `${submission.title || ""} ${submission.abstract || ""} ${body}`,
-    submission.title || undefined,
-    8
-  );
   let candidateSlug = await uniqueArticleSlug(baseSlug, submission.id);
   let lastInsertError: unknown = null;
 
@@ -519,7 +529,8 @@ export async function ensurePublicPublicationForSubmission(
           excerpt: submission.abstract || submission.title || "Article excerpt",
           body,
           categorySlug,
-          tags: extractedTags,
+          tags: [],
+          references: submissionReferences(submission),
           authorName,
           heroImageUrl: coverImageUrl,
           heroImageAlt: submission.title || "Article Cover",
@@ -539,7 +550,6 @@ export async function ensurePublicPublicationForSubmission(
           title: submission.title || "Untitled Article",
           authorSlug: slugify(authorName),
           authorId: submission.userId,
-          tags: extractedTags,
         }).catch(() => {});
         return { kind, status: "created", id: article.id, slug: article.slug };
       }
@@ -556,7 +566,10 @@ export async function ensurePublicPublicationForSubmission(
     .from(articlesTable)
     .where(or(
       eq(articlesTable.sourceSubmissionId, submission.id),
-      ilike(articlesTable.title, (submission.title || "").trim())
+      and(
+        isNull(articlesTable.sourceSubmissionId),
+        eq(sql`lower(${articlesTable.title})`, (submission.title || "").trim().toLowerCase()),
+      )
     ))
     .limit(1);
 
@@ -590,6 +603,9 @@ export async function syncSubmissionFromPublication(
   if (publication.authorName) updates.submitterName = publication.authorName;
   if (publication.categorySlug) updates.domain = normalizeCategorySlug(publication.categorySlug);
   if (typeof publication.body === "string") updates.body = publication.body;
+  // The submission mirrors the live references, so a later reconciliation
+  // pass never brings back a list the author or an editor has since changed.
+  if (Array.isArray(publication.references)) updates.references = publication.references;
 
   if (kind === "paper") {
     if (typeof publication.abstract === "string") updates.abstract = publication.abstract;

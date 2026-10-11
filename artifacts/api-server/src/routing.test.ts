@@ -207,10 +207,14 @@ describe("redirects", () => {
 });
 
 describe("article pages", () => {
+  // A slug with no entry in lib/editorial-overrides.ts, so every value below is
+  // derived from the row itself.
+  const PLAIN_SLUG = "champa-and-the-coast-of-vietnam";
+
   it("cleans the title, derives a description and keeps a single H1", async () => {
-    state.rows.set(CURRENT_SLUG, {
+    state.rows.set(PLAIN_SLUG, {
       id: "a9",
-      slug: CURRENT_SLUG,
+      slug: PLAIN_SLUG,
       title: "Beyond Angkor: Why is Vietnam Frequently Excluded from the History of Hindu Influence in Southeast Asia:",
       subtitle: null,
       excerpt: "",
@@ -226,7 +230,7 @@ describe("article pages", () => {
       tags: [],
       sourceSubmissionId: null,
     });
-    const res = await request(app).get(`/articles/${CURRENT_SLUG}`);
+    const res = await request(app).get(`/articles/${PLAIN_SLUG}`);
     expect(res.status).toBe(200);
 
     const title = res.text.match(/<title>([^<]*)<\/title>/)?.[1] ?? "";
@@ -244,6 +248,54 @@ describe("article pages", () => {
     expect(res.text.match(/<h1[^>]*>([^<]*)<\/h1>/)?.[1]).toBe("Beyond Angkor: Why is Vietnam Frequently Excluded from the History of Hindu Influence in Southeast Asia");
     expect(res.text).toContain("<h2>Introduction</h2>");
     expect(res.text).toContain("<h3>Sources</h3>");
+  });
+
+  it("uses the editorial layer for a published essay without its own SEO fields or references", async () => {
+    state.rows.set("quantum-eternal", {
+      id: "q1",
+      slug: "quantum-eternal",
+      title: "The Quantum and the Eternal",
+      subtitle: null,
+      excerpt: "",
+      seoTitle: null,
+      seoDescription: null,
+      body: "<p>Erwin Schrödinger read the Upanishads. He wrote about Vedanta and consciousness in My View of the World. Schrödinger returned to the Upanishads often.</p>",
+      authorName: "Xiyato Saanvi",
+      status: "PUBLISHED",
+      deletedAt: null,
+      publishedAt: "2026-08-01T00:00:00.000Z",
+      updatedAt: "2026-08-02T00:00:00.000Z",
+      categorySlug: null,
+      tags: [],
+      references: [],
+      sourceSubmissionId: null,
+    });
+    const res = await request(app).get("/articles/quantum-eternal");
+    expect(res.status).toBe(200);
+
+    expect(res.text).toContain("<title>How Schrödinger Found Solace in the Upanishads — Ānvīkṣikī</title>");
+    // The visible headline stays the essay's own title.
+    expect(res.text.match(/<h1[^>]*>([^<]*)<\/h1>/)?.[1]).toBe("The Quantum and the Eternal");
+
+    // References & Sources: the credit note and the Latten (2025) entry with its DOI link.
+    expect(res.text).toContain("References &amp; Sources");
+    expect(res.text).toContain("draws on, and in places closely follows, Latten (2025)");
+    expect(res.text).toContain("Thijs M. K. Latten");
+    expect(res.text).toContain('href="https://doi.org/10.1002/bewi.202400027"');
+
+    // The same sources are declared as schema.org citations, and the topics as keywords.
+    const ld = [...res.text.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
+      .map(m => JSON.parse(m[1]))
+      .flatMap(node => (Array.isArray(node["@graph"]) ? node["@graph"] : [node]))
+      .find(node => node["@type"] === "Article" || node["@type"] === "ScholarlyArticle");
+    expect(ld?.citation?.some((c: any) => c.identifier?.value === "10.1002/bewi.202400027")).toBe(true);
+    expect(String(ld?.keywords)).toContain("Erwin Schrödinger");
+
+    // The client receives the same values, so it does not derive them again.
+    const json = res.text.match(/<script id="__INITIAL_DATA__" type="application\/json">([\s\S]*?)<\/script>/)?.[1] ?? "null";
+    const seo = JSON.parse(json)?.data?.seo;
+    expect(seo?.references?.[0]?.doi).toBe("10.1002/bewi.202400027");
+    expect(seo?.sourcesNote).toContain("Latten (2025)");
   });
 
   // The client renders `body` from __INITIAL_DATA__ with dangerouslySetInnerHTML,
