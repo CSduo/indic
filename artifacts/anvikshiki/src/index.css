@@ -5323,6 +5323,8 @@ input[type="search"]::-webkit-search-decoration {
   border: 1px solid rgba(153, 27, 27, 0.45);
   background:
     radial-gradient(ellipse 70% 40% at 50% 0%, rgba(153, 27, 27, 0.12), transparent),
+    repeating-linear-gradient(45deg, rgba(153, 27, 27, 0.035) 0 1px, transparent 1px 18px),
+    repeating-linear-gradient(-45deg, rgba(153, 27, 27, 0.035) 0 1px, transparent 1px 18px),
     #09090B;
   box-shadow: inset 0 0 0 6px #070709, inset 0 0 0 7px rgba(153, 27, 27, 0.18);
 }
@@ -5495,7 +5497,7 @@ input[type="search"]::-webkit-search-decoration {
 .home-v3-domain-icon-wrap::after { inset: 5px; border-color: rgba(239, 68, 68, 0.3); }
 
 .home-v3-domain-name {
-  margin: 0 0 1rem;
+  margin: 0 0 0.6rem;
   color: #FFFFFF !important;
   font-family: var(--font-display);
   font-size: 1.25rem;
@@ -5504,6 +5506,32 @@ input[type="search"]::-webkit-search-decoration {
   letter-spacing: 0.01em;
   overflow-wrap: anywhere;
   text-shadow: 0 2px 10px #070709;
+}
+
+.home-v3-domain-ordinal {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  color: rgba(254, 226, 226, 0.55);
+  font: 600 0.62rem/1 var(--font-ui);
+  letter-spacing: 0.18em;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-v3-domain-sanskrit {
+  margin: 0 0 0.3rem;
+  color: #F87171;
+  font-family: "Noto Serif Devanagari", var(--font-display);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+}
+
+.home-v3-domain-desc {
+  max-width: 22ch;
+  margin: 0 auto 1.1rem;
+  color: rgba(254, 226, 226, 0.78);
+  font: italic 400 0.86rem/1.55 var(--font-body);
 }
 
 .home-v3-domain-badge {
@@ -5576,6 +5604,8 @@ input[type="search"]::-webkit-search-decoration {
   .home-v3-domain-eyebrow::before, .home-v3-domain-eyebrow::after { width: 16px; }
   .home-v3-domains-expanded { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; padding: 1.5rem 0; }
   .home-v3-domain-card { grid-column: auto; padding: 1.5rem 0.5rem 1.25rem; }
+  .home-v3-domain-name { font-size: 1.1rem; }
+  .home-v3-domain-desc { font-size: 0.8rem; }
   .home-v3-domain-plinth { padding-inline: 0.5rem; }
 }
 
@@ -5603,6 +5633,8 @@ input[type="search"]::-webkit-search-decoration {
   border-color: #DC2626;
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.6), 0 0 16px rgba(153, 27, 27, 0.2);
 }
+
+.home-v3-domain-card:is(:hover, :focus-visible) .home-v3-domain-ordinal { color: #FCA5A5; }
 
 .home-v3-domain-card:is(:hover, :focus-visible) .home-v3-domain-icon-wrap {
   border-color: #EF4444;

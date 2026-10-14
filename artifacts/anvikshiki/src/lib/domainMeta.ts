@@ -20,6 +20,8 @@ export type DomainKey =
 
 export type DomainMeta = {
   label: string;
+  /** Devanagari name shown above the English label on domain cards. */
+  sanskritName?: string;
   color: string;
   description: string;
   route: string;
@@ -29,6 +31,7 @@ export type DomainMeta = {
 export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   philosophy: {
     label: "Philosophy",
+    sanskritName: "दर्शन",
     color: "#991B1B",
     description: "Reality, reasoning, self, knowledge, and truth.",
     route: "/domains/philosophy",
@@ -36,6 +39,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   history: {
     label: "History",
+    sanskritName: "इतिहास",
     color: "#7F1D1D",
     description: "Civilizations, memory, events, eras, and inheritance.",
     route: "/domains/history",
@@ -43,6 +47,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   psychology: {
     label: "Psychology",
+    sanskritName: "मनोविज्ञान",
     color: "#991B1B",
     description: "Mind, behavior, consciousness, and inner landscapes.",
     route: "/domains/psychology",
@@ -50,6 +55,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   sociology: {
     label: "Sociology",
+    sanskritName: "समाजशास्त्र",
     color: "#7F1D1D",
     description: "Communities, institutions, cultures, and shared patterns.",
     route: "/domains/sociology",
@@ -57,6 +63,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   science: {
     label: "Science",
+    sanskritName: "विज्ञान",
     color: "#991B1B",
     description: "Observation, logic, nature, systems, and discovery.",
     route: "/domains/science",
@@ -64,6 +71,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   geopolitics: {
     label: "Geopolitics",
+    sanskritName: "भूराजनीति",
     color: "#7F1D1D",
     description: "Power, geography, statecraft, strategy, and place.",
     route: "/domains/geopolitics",
@@ -71,6 +79,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   papers: {
     label: "Papers",
+    sanskritName: "शोधपत्र",
     color: "#991B1B",
     description: "Research manuscripts, working papers, and scholarship.",
     route: "/papers",
@@ -78,6 +87,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   archive: {
     label: "Archive",
+    sanskritName: "अभिलेखागार",
     color: "#7F1D1D",
     description: "Texts, records, timelines, sources, and living memory.",
     route: "/archive",
@@ -85,6 +95,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   civilization: {
     label: "Civilization",
+    sanskritName: "सभ्यता",
     color: "#991B1B",
     description: "Living traditions, long memory, and cultural worlds.",
     route: "/domains/civilization",
@@ -92,6 +103,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   "civilizational-thought": {
     label: "Civilizational Thought",
+    sanskritName: "सभ्यता-चिन्तन",
     color: "#991B1B",
     description: "Long-arc inquiry into culture, tradition, and society.",
     route: "/domains/civilizational-thought",
@@ -99,6 +111,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   aesthetics: {
     label: "Aesthetics",
+    sanskritName: "सौन्दर्यशास्त्र",
     color: "#7F1D1D",
     description: "Art, beauty, literature, music, symbol, and form.",
     route: "/domains/aesthetics",
@@ -106,6 +119,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   sanskrit: {
     label: "Sanskrit Studies",
+    sanskritName: "संस्कृत-अध्ययन",
     color: "#991B1B",
     description: "Language, shastra, grammar, and textual traditions.",
     route: "/domains/sanskrit-studies",
@@ -113,6 +127,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   "sanskrit-studies": {
     label: "Sanskrit Studies",
+    sanskritName: "संस्कृत-अध्ययन",
     color: "#991B1B",
     description: "Language, shastra, grammar, and textual traditions.",
     route: "/domains/sanskrit-studies",
@@ -120,6 +135,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   "political-theory": {
     label: "Political Theory",
+    sanskritName: "राजनीतिशास्त्र",
     color: "#7F1D1D",
     description: "State, order, sovereignty, justice, and power.",
     route: "/domains/political-theory",
@@ -127,6 +143,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   translations: {
     label: "Translations",
+    sanskritName: "अनुवाद",
     color: "#991B1B",
     description: "Texts moving between languages, worlds, and eras.",
     route: "/domains/translations",
@@ -134,6 +151,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   multimedia: {
     label: "Multimedia",
+    sanskritName: "दृश्य-श्रव्य",
     color: "#7F1D1D",
     description: "Visual stories, lectures, audio, and interactive work.",
     route: "/domains/multimedia",

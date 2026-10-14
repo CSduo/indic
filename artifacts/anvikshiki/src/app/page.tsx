@@ -577,15 +577,20 @@ export default function HomePage() {
             </header>
 
             <div className="home-v3-domains home-v3-domains-expanded">
-              {DOMAIN_ORDER.map(key => {
+              {DOMAIN_ORDER.map((key, index) => {
                 const d = DOMAIN_META[key];
                 return (
                   <Link key={key} href={d.route} className="home-v3-domain-card">
+                    <span className="home-v3-domain-ordinal" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
                     <span className="home-v3-domain-beacon" aria-hidden="true" />
                     <div className="home-v3-domain-icon-wrap" aria-hidden="true">
                       <AnimalGlyph domain={key} size={50} />
                     </div>
+                    {d.sanskritName && (
+                      <span className="home-v3-domain-sanskrit" lang="sa">{d.sanskritName}</span>
+                    )}
                     <h3 className="home-v3-domain-name">{d.label}</h3>
+                    <p className="home-v3-domain-desc">{d.description}</p>
                     <span className="home-v3-domain-badge">
                       {domainCounts[key] || 0} {d.countLabel || "Items"}
                     </span>
