@@ -3,6 +3,7 @@ import { listPublishedWorks, sortNewestFirst } from "../lib/public-content";
 import { PAGE_META } from "../lib/page-meta";
 import { CANONICAL_DOMAIN } from "../lib/ssr-html";
 import { cleanTitle } from "../lib/seo-text";
+import { effectiveSeoDescription } from "../lib/effective-seo";
 
 /*
  * /llms.txt — a plain factual summary for AI assistants and crawlers that read
@@ -17,8 +18,11 @@ router.get("/llms.txt", async (_req, res) => {
     const works = await listPublishedWorks();
     const essays = sortNewestFirst(works.articles);
     const papers = sortNewestFirst(works.papers);
+    // Summaries are the same descriptions the pages carry (lib/effective-seo.ts):
+    // whole sentences of at most ~160 characters that never open with the
+    // title. Cutting the raw excerpt at 220 characters left words half-written.
     const line = (path: string, title: string, summary: string | null) =>
-      `- [${cleanTitle(title)}](${CANONICAL_DOMAIN}${path})${summary ? `: ${summary.slice(0, 220).trim()}` : ""}`;
+      `- [${cleanTitle(title)}](${CANONICAL_DOMAIN}${path})${summary ? `: ${summary}` : ""}`;
 
     const body = [
       "# Ānvīkṣikī (Anvikshiki Journal)",
@@ -37,8 +41,12 @@ router.get("/llms.txt", async (_req, res) => {
       `- [RSS feed](${CANONICAL_DOMAIN}/rss.xml)`,
       "",
       "## Essays",
-      ...(essays.length ? essays.map((w) => line(`/articles/${encodeURIComponent(w.slug)}`, w.title, w.excerpt)) : ["- No essays published yet."]),
-      ...(papers.length ? ["", "## Papers", ...papers.map((w) => line(`/papers/${encodeURIComponent(w.slug)}`, w.title, w.excerpt))] : []),
+      ...(essays.length
+        ? essays.map((w) => line(`/articles/${encodeURIComponent(w.slug)}`, w.title, effectiveSeoDescription({ slug: w.slug, title: w.title, excerpt: w.excerpt }, "article") || w.excerpt))
+        : ["- No essays published yet."]),
+      ...(papers.length
+        ? ["", "## Papers", ...papers.map((w) => line(`/papers/${encodeURIComponent(w.slug)}`, w.title, effectiveSeoDescription({ slug: w.slug, title: w.title, abstract: w.excerpt }, "paper") || w.excerpt))]
+        : []),
       "",
     ].join("\n");
 
