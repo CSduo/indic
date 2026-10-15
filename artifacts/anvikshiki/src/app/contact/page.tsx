@@ -83,7 +83,7 @@ export default function ContactPage() {
           <div>
             {status === "ok" ? (
               <ParchmentCard className="p-10 text-center">
-                <AnimalGlyph domain="community" size={56} className="mx-auto mb-4 text-[var(--gold)]" />
+                <AnimalGlyph domain="community" size={56} className="mx-auto mb-4" />
                 <h2 className="font-display text-3xl text-[var(--ink)] mb-3">Message Received</h2>
                 <p className="font-body text-base leading-7 text-[var(--ink-soft)]">
                   Your enquiry has been delivered directly to the editorial desk. We'll also respond to <strong>{form.email}</strong> within 3–5 working days.

@@ -24,7 +24,7 @@ export const DOMAIN_VIVID: Record<string, { from: string; to: string; text: stri
   psychology:              { from: "#881337", to: "#E11D48", text: "#FDA4AF", bg: "rgba(225,29,72,0.08)",    accent: "#E11D48" },
   sociology:               { from: "#064E3B", to: "#059669", text: "#6EE7B7", bg: "rgba(5,150,105,0.08)",    accent: "#059669" },
   science:                 { from: "#0C4A6E", to: "#0EA5E9", text: "#BAE6FD", bg: "rgba(14,165,233,0.08)",   accent: "#0EA5E9" },
-  geopolitics:             { from: "#7F1D1D", to: "#B91C1C", text: "#FCA5A5", bg: "rgba(185,28,28,0.08)",   accent: "#B91C1C" },
+  geopolitics:             { from: "#3A3D40", to: "#53565A", text: "#C8C9C7", bg: "rgba(83,86,90,0.08)",    accent: "#53565A" },
   "sanskrit-studies":      { from: "#713F12", to: "#CA8A04", text: "#FDE68A", bg: "rgba(202,138,4,0.08)",   accent: "#CA8A04" },
   "political-theory":      { from: "#500724", to: "#9D174D", text: "#F9A8D4", bg: "rgba(157,23,77,0.08)",   accent: "#9D174D" },
   translations:            { from: "#1E1B4B", to: "#4338CA", text: "#A5B4FC", bg: "rgba(67,56,202,0.08)",   accent: "#4338CA" },

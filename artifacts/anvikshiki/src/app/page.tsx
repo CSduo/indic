@@ -561,52 +561,49 @@ export default function HomePage() {
       {/* ─── BROWSE BY DOMAIN ─── */}
       <section className="home-v3-section home-v3-domains-section" aria-labelledby="domain-gallery-title">
         <div className="container-anv">
-          <div className="home-v3-domain-chamber">
-            <span className="home-v3-chamber-corner home-v3-chamber-corner-tl" aria-hidden="true" />
-            <span className="home-v3-chamber-corner home-v3-chamber-corner-tr" aria-hidden="true" />
-            <span className="home-v3-chamber-corner home-v3-chamber-corner-bl" aria-hidden="true" />
-            <span className="home-v3-chamber-corner home-v3-chamber-corner-br" aria-hidden="true" />
+          <header className="home-v3-domain-heading">
+            <p className="home-v3-domain-eyebrow">The symposium of ideas</p>
+            <h2 id="domain-gallery-title" className="home-v3-section-title">Browse by Domain</h2>
+            <p className="home-v3-section-sub">
+              Fourteen fields of inquiry — from the sweep of civilizations to the intimacy of the aesthetic moment,
+              the precision of science to the depth of Sanskrit wisdom.
+            </p>
+          </header>
 
-            <header className="home-v3-domain-heading">
-              <p className="home-v3-domain-eyebrow">The symposium of ideas</p>
-              <h2 id="domain-gallery-title" className="home-v3-section-title">Browse by Domain</h2>
-              <p className="home-v3-section-sub">
-                Fourteen fields of inquiry — from the sweep of civilizations to the intimacy of the aesthetic moment,
-                the precision of science to the depth of Sanskrit wisdom.
-              </p>
-            </header>
-
-            <div className="home-v3-domains home-v3-domains-expanded">
-              {DOMAIN_ORDER.map((key, index) => {
-                const d = DOMAIN_META[key];
-                return (
-                  <Link key={key} href={d.route} className="home-v3-domain-card">
-                    <span className="home-v3-domain-ordinal" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
-                    <span className="home-v3-domain-beacon" aria-hidden="true" />
-                    <div className="home-v3-domain-icon-wrap" aria-hidden="true">
-                      <AnimalGlyph domain={key} size={50} />
-                    </div>
+          <div className="home-v3-domain-index">
+            {DOMAIN_ORDER.map((key, index) => {
+              const d = DOMAIN_META[key];
+              const count = domainCounts[key] || 0;
+              const noun = d.countLabel || "Items";
+              return (
+                <Link key={key} href={d.route} className="home-v3-domain-card">
+                  <span className="home-v3-domain-ordinal" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+                  <span className="home-v3-domain-icon" aria-hidden="true">
+                    <AnimalGlyph domain={key} size={48} />
+                  </span>
+                  <span className="home-v3-domain-text">
                     {d.sanskritName && (
                       <span className="home-v3-domain-sanskrit" lang="sa">{d.sanskritName}</span>
                     )}
                     <h3 className="home-v3-domain-name">{d.label}</h3>
                     <p className="home-v3-domain-desc">{d.description}</p>
-                    <span className="home-v3-domain-badge">
-                      {domainCounts[key] || 0} {d.countLabel || "Items"}
+                    <span className="home-v3-domain-count">
+                      {count} {count === 1 ? noun.replace(/s$/, "") : noun}
+                      <ArrowRight size={12} strokeWidth={1.75} aria-hidden="true" />
                     </span>
-                  </Link>
-                );
-              })}
-            </div>
-
-            <figure className="home-v3-domain-plinth">
-              <blockquote lang="sa">प्रदीपः सर्वविद्यानाम् उपायः सर्वकर्मणाम्</blockquote>
-              <figcaption>
-                <span>A lamp for all learning, a means for every undertaking.</span>
-                <cite>Kauṭilya · Arthaśāstra 1.2</cite>
-              </figcaption>
-            </figure>
+                  </span>
+                </Link>
+              );
+            })}
           </div>
+
+          <figure className="home-v3-domain-plinth">
+            <blockquote lang="sa">प्रदीपः सर्वविद्यानाम् उपायः सर्वकर्मणाम्</blockquote>
+            <figcaption>
+              <span>A lamp for all learning, a means for every undertaking.</span>
+              <cite>Kauṭilya · Arthaśāstra 1.2</cite>
+            </figcaption>
+          </figure>
         </div>
       </section>
 

@@ -106,8 +106,52 @@
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" as="style">
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Devanagari:wght@400;500;600;700&family=Noto+Serif+Sharada&family=Noto+Serif+Tamil:wght@400;500;600;700&family=Noto+Serif+Telugu:wght@400;500;600;700&family=Noto+Serif+Grantha&family=Noto+Serif+Kannada:wght@400;500&family=Noto+Serif+Malayalam:wght@400;500&family=Noto+Serif+Bengali:wght@400;500&family=Noto+Serif+Gurmukhi:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Boot cover: painted with the first frame so neither the crawler-facing
+         SSR text nor half-mounted React sections are ever seen. App.tsx lifts
+         it once the route, fonts, first data and above-the-fold images are in. -->
+    <style id="anv-boot-style">
+      #anv-boot {
+        position: fixed; inset: 0; z-index: 10000;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.1rem;
+        background: #FFFFFF; color: #000000;
+        transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.45s;
+      }
+      html[data-theme="dark"] #anv-boot { background: #000000; color: #FFFFFF; }
+      html[data-boot="on"], html[data-boot="on"] body { overflow: hidden; }
+      html[data-boot="skip"] #anv-boot, #anv-boot.is-done { opacity: 0; visibility: hidden; pointer-events: none; }
+      .anv-boot-mark {
+        margin: 0; font: 400 clamp(1.7rem, 4.5vw, 2.6rem)/1 "Cormorant Garamond", Georgia, serif;
+        letter-spacing: 0.32em; padding-left: 0.32em; text-transform: uppercase;
+      }
+      .anv-boot-sub {
+        margin: 0; color: #53565A; font: 500 0.62rem/1 Inter, system-ui, sans-serif;
+        letter-spacing: 0.3em; padding-left: 0.3em; text-transform: uppercase;
+      }
+      html[data-theme="dark"] .anv-boot-sub { color: #B1B3B3; }
+      .anv-boot-track {
+        position: relative; width: 140px; height: 1px; margin-top: 0.6rem; overflow: hidden;
+        background: rgba(83, 86, 90, 0.18);
+      }
+      .anv-boot-track::after {
+        content: ""; position: absolute; inset: 0; width: 40%;
+        background: #53565A;
+        animation: anv-boot-sweep 1.15s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+      }
+      html[data-theme="dark"] .anv-boot-track { background: rgba(177, 179, 179, 0.2); }
+      html[data-theme="dark"] .anv-boot-track::after { background: #B1B3B3; }
+      @keyframes anv-boot-sweep { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+      @media (prefers-reduced-motion: reduce) {
+        .anv-boot-track::after { animation: none; width: 100%; opacity: 0.5; }
+      }
+    </style>
+    <noscript><style>#anv-boot { display: none !important; } html[data-boot="on"], html[data-boot="on"] body { overflow: auto !important; }</style></noscript>
   </head>
   <body>
+    <div id="anv-boot" aria-hidden="true">
+      <p class="anv-boot-mark">Ānvīkṣikī</p>
+      <p class="anv-boot-sub">A Journal of Indic Ideas</p>
+      <span class="anv-boot-track"></span>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

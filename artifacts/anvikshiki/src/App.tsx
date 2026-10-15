@@ -3,12 +3,12 @@ import { Switch, Route, Redirect, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import { Analytics, type BeforeSendEvent } from "@vercel/analytics/react";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { withContentVersion } from "@/lib/contentVersion";
 import { SacredHeader } from "@/components/sacred/SacredHeader";
 import { SacredFooter } from "@/components/sacred/SacredFooter";
-import { LoadingScreen } from "@/components/sacred/LoadingScreen";
+import { BootCover } from "@/components/sacred/BootCover";
 import { PageSkeleton } from "@/components/sacred/PageSkeleton";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -366,18 +366,11 @@ function stripQuery(event: BeforeSendEvent): BeforeSendEvent {
 }
 
 function App() {
-  const [loading, setLoading] = useState(() => {
-    try {
-      if (new URLSearchParams(window.location.search).has("skip")) return false;
-      return !sessionStorage.getItem("anv_loaded");
-    } catch { return true; }
-  });
-
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
-          {loading && <LoadingScreen onDone={() => { sessionStorage.setItem("anv_loaded","1"); setLoading(false); }} />}
+          <BootCover />
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
             <Router />
           </WouterRouter>

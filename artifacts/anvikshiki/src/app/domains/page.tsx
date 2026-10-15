@@ -109,14 +109,14 @@ export default function DomainsPage() {
                           <AnimalGlyph domain={meta.key} size={40} style={{ color: meta.color }} />
                         </div>
                         <h2 className="font-display text-2xl text-[var(--ink)] leading-tight mb-2">{d.name}</h2>
-                        <p className="font-ui text-xs font-bold uppercase tracking-[0.12em] text-[var(--gold)] mb-2">
+                        <p className="font-ui text-xs font-bold uppercase tracking-[0.12em] text-[var(--domain-ink)] mb-2">
                           {plural(d.articleCount, "essay")}
                           {d.paperCount > 0 ? ` · ${plural(d.paperCount, "paper")}` : ""}
                         </p>
                         {d.description && (
                           <p className="font-body text-sm leading-6 text-[var(--ink-soft)] mb-4">{d.description}</p>
                         )}
-                        <span className="inline-flex items-center gap-1 font-ui text-xs text-[var(--gold)] group-hover:gap-2 transition-all">
+                        <span className="inline-flex items-center gap-1 font-ui text-xs text-[var(--domain-ink)] group-hover:gap-2 transition-all">
                           Explore <ArrowRight size={12} />
                         </span>
                       </ParchmentCard>
@@ -157,7 +157,7 @@ export default function DomainsPage() {
                 <p className="font-body text-sm leading-6 text-[var(--ink-soft)] mb-4">
                   {d.description}
                 </p>
-                <span className="inline-flex items-center gap-1 font-ui text-xs text-[var(--gold)] group-hover:gap-2 transition-all">
+                <span className="inline-flex items-center gap-1 font-ui text-xs text-[var(--domain-ink)] group-hover:gap-2 transition-all">
                   Explore <ArrowRight size={12} />
                 </span>
               </ParchmentCard>
@@ -180,7 +180,7 @@ export default function DomainsPage() {
                   <h3 className="font-display text-xl text-[var(--ink)] leading-tight">{d.label}</h3>
                   <p className="mt-0.5 font-body text-xs leading-5 text-[var(--ink-soft)] line-clamp-2">{d.description}</p>
                 </div>
-                <ArrowRight size={14} className="shrink-0 text-[var(--muted)] group-hover:text-[var(--gold)] transition-colors ml-auto" />
+                <ArrowRight size={14} className="shrink-0 text-[var(--muted)] group-hover:text-[var(--domain-ink)] transition-colors ml-auto" />
               </div>
             </Link>
           ))}
@@ -193,7 +193,7 @@ export default function DomainsPage() {
       <section className="container-anv py-10 pb-16">
         <OrnamentDivider className="mb-10" />
         <div className="rounded-[12px] border border-[var(--border-gold)] bg-[var(--surface)] p-8 md:p-12 text-center">
-          <AnimalGlyph domain="papers" size={48} className="mx-auto mb-4 text-[var(--gold)]" />
+          <AnimalGlyph domain="papers" size={48} className="mx-auto mb-4" />
           <h2 className="font-display text-3xl md:text-4xl text-[var(--ink)] mb-3">
             Don't see your field?
           </h2>

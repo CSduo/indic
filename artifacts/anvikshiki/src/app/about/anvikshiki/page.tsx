@@ -176,7 +176,7 @@ export default function AnvikshikiMeaningPage() {
           {/* Scholarly Sidebar & Fast Navigation */}
           <aside className="space-y-6">
             <ParchmentCard className="p-6 text-center">
-              <AnimalGlyph domain="philosophy" size={68} className="mx-auto mb-3 text-[var(--gold)]" />
+              <AnimalGlyph domain="philosophy" size={68} className="mx-auto mb-3" />
               <h3 className="font-display text-2xl text-[var(--ink)]">Quick Facts</h3>
               <dl className="mt-4 space-y-3 font-ui text-xs text-left border-t border-[var(--border-ink)] pt-3">
                 <div>

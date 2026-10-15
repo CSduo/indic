@@ -119,7 +119,7 @@ export default function CommunityPage() {
                   <span className="grid h-12 w-12 place-items-center rounded-[8px] border border-[var(--border-gold)] bg-[var(--surface)] text-[var(--gold)]">
                     <Icon size={24} />
                   </span>
-                  <AnimalGlyph domain={item.domain} size={38} className="text-[var(--gold)]" />
+                  <AnimalGlyph domain={item.domain} size={38} />
                 </div>
                 <p className="type-section-label mb-2">{item.label}</p>
                 <h2 className="font-display text-3xl text-[var(--ink)]">{item.title}</h2>
@@ -149,7 +149,7 @@ export default function CommunityPage() {
           <ParchmentCard className="p-6">
             {status === "ok" ? (
               <div className="py-6 text-center">
-                <AnimalGlyph domain="community" size={54} className="mx-auto mb-4 text-[var(--gold)]" />
+                <AnimalGlyph domain="community" size={54} className="mx-auto mb-4" />
                 <h3 className="font-display text-3xl text-[var(--ink)]">Welcome to the community</h3>
                 <p className="mt-2 font-body text-sm leading-6 text-[var(--ink-soft)]">Your subscription has been saved to our community list.</p>
               </div>

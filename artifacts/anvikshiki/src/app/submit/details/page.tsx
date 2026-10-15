@@ -237,7 +237,7 @@ export default function SubmitDetailsPage() {
                   ["science", "Clarity", "Short, precise abstracts help the editorial review."],
                 ].map(([domain, title, desc]) => (
                   <div key={title} className="flex gap-3">
-                    <AnimalGlyph domain={domain} size={26} className="shrink-0 text-[var(--gold)]" />
+                    <AnimalGlyph domain={domain} size={26} className="shrink-0" />
                     <div>
                       <h3 className="font-ui text-xs font-bold uppercase tracking-[0.1em] text-[var(--ink)]">{title}</h3>
                       <p className="mt-1 font-body text-sm leading-6 text-[var(--ink-soft)]">{desc}</p>

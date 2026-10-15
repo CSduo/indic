@@ -3,6 +3,7 @@ export function PageSkeleton() {
   return (
     <div
       aria-busy="true"
+      data-page-skeleton=""
       aria-label="Loading page…"
       style={{
         minHeight: "60vh",

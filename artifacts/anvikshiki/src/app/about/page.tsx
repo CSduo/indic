@@ -65,7 +65,7 @@ export default function AboutPage() {
 
           <aside className="space-y-4">
             <ParchmentCard className="p-5 text-center">
-              <AnimalGlyph domain="philosophy" size={72} className="mx-auto mb-3 text-[var(--gold)]" />
+              <AnimalGlyph domain="philosophy" size={72} className="mx-auto mb-3" />
               <h2 className="font-display text-3xl text-[var(--ink)]">Inquiry, Wisdom, Truth</h2>
               <p className="mt-2 font-body text-sm leading-6 text-[var(--ink-soft)]">The platform is built as a living archive, not a disposable feed.</p>
             </ParchmentCard>
@@ -81,7 +81,7 @@ export default function AboutPage() {
             { domain: "science", title: "Illumination", desc: "Clarity, evidence, and discovery presented beautifully." },
           ].map((value) => (
             <ParchmentCard key={value.title} className="p-6 text-center">
-              <AnimalGlyph domain={value.domain} size={58} className="mx-auto mb-4 text-[var(--gold)]" />
+              <AnimalGlyph domain={value.domain} size={58} className="mx-auto mb-4" />
               <h3 className="font-display text-3xl text-[var(--ink)]">{value.title}</h3>
               <p className="mt-2 font-body text-sm leading-6 text-[var(--ink-soft)]">{value.desc}</p>
             </ParchmentCard>

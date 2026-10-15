@@ -291,7 +291,7 @@ export default function AccountPage() {
       <div key={submission.id} className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)] p-4 flex flex-col">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-3 min-w-0">
-            <AnimalGlyph domain={submission.domain || "papers"} size={28} className="mt-1 shrink-0 text-[var(--gold)]" />
+            <AnimalGlyph domain={submission.domain || "papers"} size={28} className="mt-1 shrink-0" />
             <div className="min-w-0">
               <h3 className="font-display text-xl leading-tight text-[var(--ink)] break-words">{submission.title || "Untitled draft"}</h3>
               <p className="mt-1 font-ui text-xs text-[var(--muted)]">
@@ -382,7 +382,7 @@ export default function AccountPage() {
     <div key={submission.id} className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)]/60 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3 flex-1 min-w-0">
-          <AnimalGlyph domain={submission.domain || "papers"} size={28} className="mt-1 shrink-0 text-[var(--ink-faint)]" />
+          <AnimalGlyph domain={submission.domain || "papers"} size={28} className="mt-1 shrink-0" />
           <div className="flex-1 min-w-0">
             <h3 className="font-display text-xl leading-tight text-[var(--ink-soft)] break-words">{submission.title || "Untitled"}</h3>
             <p className="mt-1 font-ui text-xs text-[var(--muted)]">

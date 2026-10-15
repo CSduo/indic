@@ -1571,7 +1571,7 @@ export default function SubmitUploadPage() {
               </ul>
             </ParchmentCard>
             <ParchmentCard className="p-5 text-center">
-              <AnimalGlyph domain="archive" size={54} className="mx-auto mb-3 text-[var(--gold)]" />
+              <AnimalGlyph domain="archive" size={54} className="mx-auto mb-3" />
               <p className="font-display text-2xl text-[var(--ink)]">A living archive receives carefully.</p>
             </ParchmentCard>
           </aside>

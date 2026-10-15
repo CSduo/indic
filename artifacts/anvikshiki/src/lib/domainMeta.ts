@@ -32,7 +32,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   philosophy: {
     label: "Philosophy",
     sanskritName: "दर्शन",
-    color: "#991B1B",
+    color: "var(--domain-ink)",
     description: "Reality, reasoning, self, knowledge, and truth.",
     route: "/domains/philosophy",
     countLabel: "Essays",
@@ -40,7 +40,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   history: {
     label: "History",
     sanskritName: "इतिहास",
-    color: "#7F1D1D",
+    color: "var(--domain-ink)",
     description: "Civilizations, memory, events, eras, and inheritance.",
     route: "/domains/history",
     countLabel: "Essays",
@@ -48,7 +48,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   psychology: {
     label: "Psychology",
     sanskritName: "मनोविज्ञान",
-    color: "#991B1B",
+    color: "var(--domain-ink)",
     description: "Mind, behavior, consciousness, and inner landscapes.",
     route: "/domains/psychology",
     countLabel: "Essays",
@@ -56,7 +56,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   sociology: {
     label: "Sociology",
     sanskritName: "समाजशास्त्र",
-    color: "#7F1D1D",
+    color: "var(--domain-ink)",
     description: "Communities, institutions, cultures, and shared patterns.",
     route: "/domains/sociology",
     countLabel: "Essays",
@@ -64,7 +64,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   science: {
     label: "Science",
     sanskritName: "विज्ञान",
-    color: "#991B1B",
+    color: "var(--domain-ink)",
     description: "Observation, logic, nature, systems, and discovery.",
     route: "/domains/science",
     countLabel: "Essays",
@@ -72,7 +72,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   geopolitics: {
     label: "Geopolitics",
     sanskritName: "भूराजनीति",
-    color: "#7F1D1D",
+    color: "var(--domain-ink)",
     description: "Power, geography, statecraft, strategy, and place.",
     route: "/domains/geopolitics",
     countLabel: "Essays",
@@ -80,7 +80,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   papers: {
     label: "Papers",
     sanskritName: "शोधपत्र",
-    color: "#991B1B",
+    color: "var(--domain-ink)",
     description: "Research manuscripts, working papers, and scholarship.",
     route: "/papers",
     countLabel: "Papers",
@@ -88,7 +88,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   archive: {
     label: "Archive",
     sanskritName: "अभिलेखागार",
-    color: "#7F1D1D",
+    color: "var(--domain-ink)",
     description: "Texts, records, timelines, sources, and living memory.",
     route: "/archive",
     countLabel: "Items",
@@ -96,7 +96,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   civilization: {
     label: "Civilization",
     sanskritName: "सभ्यता",
-    color: "#991B1B",
+    color: "var(--domain-ink)",
     description: "Living traditions, long memory, and cultural worlds.",
     route: "/domains/civilization",
     countLabel: "Essays",
@@ -104,7 +104,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   "civilizational-thought": {
     label: "Civilizational Thought",
     sanskritName: "सभ्यता-चिन्तन",
-    color: "#991B1B",
+    color: "var(--domain-ink)",
     description: "Long-arc inquiry into culture, tradition, and society.",
     route: "/domains/civilizational-thought",
     countLabel: "Essays",
@@ -112,7 +112,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   aesthetics: {
     label: "Aesthetics",
     sanskritName: "सौन्दर्यशास्त्र",
-    color: "#7F1D1D",
+    color: "var(--domain-ink)",
     description: "Art, beauty, literature, music, symbol, and form.",
     route: "/domains/aesthetics",
     countLabel: "Essays",
@@ -120,7 +120,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   sanskrit: {
     label: "Sanskrit Studies",
     sanskritName: "संस्कृत-अध्ययन",
-    color: "#991B1B",
+    color: "var(--domain-ink)",
     description: "Language, shastra, grammar, and textual traditions.",
     route: "/domains/sanskrit-studies",
     countLabel: "Essays",
@@ -128,7 +128,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   "sanskrit-studies": {
     label: "Sanskrit Studies",
     sanskritName: "संस्कृत-अध्ययन",
-    color: "#991B1B",
+    color: "var(--domain-ink)",
     description: "Language, shastra, grammar, and textual traditions.",
     route: "/domains/sanskrit-studies",
     countLabel: "Essays",
@@ -136,7 +136,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   "political-theory": {
     label: "Political Theory",
     sanskritName: "राजनीतिशास्त्र",
-    color: "#7F1D1D",
+    color: "var(--domain-ink)",
     description: "State, order, sovereignty, justice, and power.",
     route: "/domains/political-theory",
     countLabel: "Essays",
@@ -144,7 +144,7 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   translations: {
     label: "Translations",
     sanskritName: "अनुवाद",
-    color: "#991B1B",
+    color: "var(--domain-ink)",
     description: "Texts moving between languages, worlds, and eras.",
     route: "/domains/translations",
     countLabel: "Texts",
@@ -152,20 +152,20 @@ export const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   multimedia: {
     label: "Multimedia",
     sanskritName: "दृश्य-श्रव्य",
-    color: "#7F1D1D",
+    color: "var(--domain-ink)",
     description: "Visual stories, lectures, audio, and interactive work.",
     route: "/domains/multimedia",
     countLabel: "Items",
   },
   community: {
     label: "Community",
-    color: "#991B1B",
+    color: "var(--domain-ink)",
     description: "Conversation, gathering, contribution, and shared inquiry.",
     route: "/community",
   },
   submit: {
     label: "Submit",
-    color: "#7F1D1D",
+    color: "var(--domain-ink)",
     description: "Send your work into the living archive.",
     route: "/submit",
   },

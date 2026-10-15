@@ -61,7 +61,7 @@ export default function EventsPage() {
             <ParchmentCard key={ev.title} className="p-6">
               <div className="flex items-start justify-between mb-4">
                 <span className="badge badge-received text-[0.65rem]">{ev.type}</span>
-                <AnimalGlyph domain={ev.domain} size={28} className="text-[var(--gold)]" />
+                <AnimalGlyph domain={ev.domain} size={28} />
               </div>
               <h2 className="font-display text-2xl text-[var(--ink)] leading-tight mb-2">{ev.title}</h2>
               <p className="font-body text-sm leading-6 text-[var(--ink-soft)] mb-4">{ev.desc}</p>

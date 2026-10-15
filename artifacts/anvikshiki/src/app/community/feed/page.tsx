@@ -65,7 +65,7 @@ export default function CommunityFeedPage() {
               Recent activity from across the platform.
             </p>
           </div>
-          <AnimalGlyph domain="community" size={54} className="text-[var(--gold)] hidden md:block" />
+          <AnimalGlyph domain="community" size={54} className="hidden md:block" />
         </div>
 
         <OrnamentDivider className="my-8" />

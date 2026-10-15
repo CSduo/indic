@@ -48,7 +48,7 @@ export default function DiscussionsPage() {
                 <ParchmentCard className="p-6 flex flex-col h-full hover:border-[var(--gold)] transition-colors cursor-pointer group">
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center gap-2">
-                      <AnimalGlyph domain={t.domain} size={20} className="text-[var(--gold)]" />
+                      <AnimalGlyph domain={t.domain} size={20} />
                       <span className="font-ui text-[10px] text-[var(--muted)] uppercase tracking-wider">{t.domain}</span>
                     </div>
                     <div className="flex items-center gap-1.5 badge badge-received">
@@ -88,7 +88,7 @@ export default function DiscussionsPage() {
                     <h2 className="font-display text-xl text-[var(--ink)] leading-tight group-hover:text-[var(--gold)] transition-colors">{t.title}</h2>
                     <p className="mt-1 font-body text-sm leading-5 text-[var(--ink-soft)] line-clamp-2">{t.excerpt}</p>
                     <div className="mt-2 flex items-center gap-3">
-                      <AnimalGlyph domain={t.domain} size={14} className="text-[var(--muted)]" />
+                      <AnimalGlyph domain={t.domain} size={14} />
                       <span className="font-ui text-[10px] text-[var(--muted)]">{t.commentCount} comments</span>
                       <span className="badge badge-received text-[0.6rem]">{t.status}</span>
                     </div>
