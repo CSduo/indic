@@ -262,7 +262,7 @@ describe("hub and editorial pages", () => {
     const res = await request(app).get("/domains/history");
     expect(res.headers["x-robots-tag"]).toBeUndefined();
     const head = expectIndexablePage(res.text, "/domains/history");
-    expect(head.description).toMatch(/^4 essays in History published on Ānvīkṣikī/);
+    expect(head.description).toMatch(/^Historical chronicles, narratives, and research: 4 essays in History published on Ānvīkṣikī\./);
     const html = mainOf(res.text);
     expect(html).toContain("Historical chronicles, narratives, and research");
     expect(count(html, /<li class="ssr-work-item">/g)).toBe(4);

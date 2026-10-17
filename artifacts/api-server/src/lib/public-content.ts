@@ -3,8 +3,9 @@
  * /domains, /domains/:slug, /papers, /submit, /browse). Kept apart from the
  * page templates so the handlers can be tested with this module mocked.
  */
+import { createHash } from "crypto";
 import { db, articlesTable, papersTable, categoriesTable, submissionsTable, usersTable } from "@workspace/db";
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { makeAuthorResolver, singleAuthorPath, type AuthorUser } from "./author-identity";
 import { effectiveSeoDescription, effectiveTopics, type SeoWork, type WorkKind } from "./effective-seo";
 
@@ -62,13 +63,26 @@ function isoOrNull(value: unknown): string | null {
   Deriving a description and topic terms from a long body takes tens of
   milliseconds, and every listing page needs them for every work. They are
   remembered per version of a work: the key holds its id, updatedAt (which
-  every edit sets) and the fields they are derived from, so an edit is a new
-  key and nothing stale is ever served. Bounded, oldest entry first out.
+  every edit sets) and the fields they are derived from (the body by its
+  hash), so an edit is a new key and nothing stale is ever served. Bounded,
+  oldest entry first out.
 */
 const LISTING_SEO_CACHE_MAX = 2000;
 const listingSeoCache = new Map<string, { description: string; topics: string[] }>();
 
-function listingSeoKey(work: SeoWork & { id?: unknown; updatedAt?: unknown }, kind: WorkKind): string | null {
+type ListingSeoWork = SeoWork & {
+  id?: unknown;
+  updatedAt?: unknown;
+  /** md5 of the body, as SQL `md5(coalesce(body, ''))` gives it, when the body itself was not read. */
+  bodyHash?: string | null;
+};
+
+/** The same hash as SQL `md5(coalesce(body, ''))`. */
+function bodyHashOf(body: unknown): string {
+  return createHash("md5").update(typeof body === "string" ? body : "").digest("hex");
+}
+
+function listingSeoKey(work: ListingSeoWork, kind: WorkKind): string | null {
   const updated = isoOrNull(work.updatedAt);
   if (typeof work.id !== "string" || !updated) return null;
   const text = (value: unknown) => (typeof value === "string" ? value : "");
@@ -83,7 +97,7 @@ function listingSeoKey(work: SeoWork & { id?: unknown; updatedAt?: unknown }, ki
     text(work.seoDescription),
     Array.isArray(work.tags) ? work.tags.join("\u0001") : "",
     text(work.excerpt ?? work.abstract),
-    text(work.body).length,
+    typeof work.bodyHash === "string" ? work.bodyHash : bodyHashOf(work.body),
   ].join("\u0000");
 }
 
@@ -91,7 +105,7 @@ function listingSeoKey(work: SeoWork & { id?: unknown; updatedAt?: unknown }, ki
  * The description and topic terms a listing shows for a work: the effective
  * values its own page uses (stored, else editorial, else derived from its text).
  */
-export function listingSeo(work: SeoWork & { id?: unknown; updatedAt?: unknown }, kind: WorkKind): { description: string; topics: string[] } {
+export function listingSeo(work: ListingSeoWork, kind: WorkKind): { description: string; topics: string[] } {
   const key = listingSeoKey(work, kind);
   let value = key ? listingSeoCache.get(key) : undefined;
   if (!value) {
@@ -102,6 +116,42 @@ export function listingSeo(work: SeoWork & { id?: unknown; updatedAt?: unknown }
     }
   }
   return { description: value.description, topics: [...value.topics] };
+}
+
+/** SQL for the hash listings select in place of a body (see listingSeoFor). */
+export const bodyHashSql = (body: typeof articlesTable.body | typeof papersTable.body) =>
+  sql<string>`md5(coalesce(${body}, ''))`;
+
+/** The bodies of these published works, by id. */
+export async function loadWorkBodies(kind: WorkKind, ids: string[]): Promise<Map<string, string | null>> {
+  if (ids.length === 0) return new Map();
+  const table = kind === "paper" ? papersTable : articlesTable;
+  const rows = await db.select({ id: table.id, body: table.body }).from(table).where(inArray(table.id, ids));
+  return new Map(rows.map((row) => [row.id, row.body ?? null]));
+}
+
+/**
+ * listingSeo for many works of one kind, in order. A listing selects each
+ * body's hash rather than the body (bodyHashSql), so a page lists every work
+ * without reading every essay in full: a body is read only for a version
+ * whose description and topics are not cached yet.
+ */
+export async function listingSeoFor<T extends ListingSeoWork & { id: string }>(
+  kind: WorkKind,
+  works: T[],
+  loadBodies: (kind: WorkKind, ids: string[]) => Promise<Map<string, string | null>> = loadWorkBodies,
+): Promise<Array<{ description: string; topics: string[] }>> {
+  const cached = works.map((work) => {
+    const key = listingSeoKey(work, kind);
+    const value = key ? listingSeoCache.get(key) : undefined;
+    return value ? { description: value.description, topics: [...value.topics] } : null;
+  });
+  const missing = works.filter((work, i) => !cached[i] && work.body === undefined).map((work) => work.id);
+  const bodies = missing.length > 0 ? await loadBodies(kind, missing) : new Map<string, string | null>();
+  return works.map((work, i) => cached[i] ?? listingSeo(
+    work.body === undefined ? { ...work, body: bodies.get(work.id) ?? null } : work,
+    kind,
+  ));
 }
 
 /**
@@ -134,8 +184,8 @@ export async function listPublishedWorks(): Promise<PublishedWorks> {
       title: articlesTable.title,
       excerpt: articlesTable.excerpt,
       subtitle: articlesTable.subtitle,
-      // Only read to derive the description and topics; never sent on.
-      body: articlesTable.body,
+      // Identifies the body's version; the body is read only when needed (listingSeoFor).
+      bodyHash: bodyHashSql(articlesTable.body),
       tags: articlesTable.tags,
       seoTitle: articlesTable.seoTitle,
       seoDescription: articlesTable.seoDescription,
@@ -156,7 +206,7 @@ export async function listPublishedWorks(): Promise<PublishedWorks> {
       slug: papersTable.slug,
       title: papersTable.title,
       abstract: papersTable.abstract,
-      body: papersTable.body,
+      bodyHash: bodyHashSql(papersTable.body),
       tags: papersTable.tags,
       seoTitle: papersTable.seoTitle,
       seoDescription: papersTable.seoDescription,
@@ -178,13 +228,17 @@ export async function listPublishedWorks(): Promise<PublishedWorks> {
   // Author links use the same canonical segment as the sitemap and the
   // /authors/:slug route.
   const resolve = makeAuthorResolver(users);
-  const articles = articleRows.map((row) => toWorkSummary({ ...row, kind: "article" }, resolve));
-  const papers = paperRows.map((row) => toWorkSummary({ ...row, kind: "paper" }, resolve));
+  const [articleSeo, paperSeo] = await Promise.all([
+    listingSeoFor("article", articleRows),
+    listingSeoFor("paper", paperRows),
+  ]);
+  const articles = articleRows.map((row, i) => toWorkSummary({ ...row, kind: "article" }, resolve, articleSeo[i]));
+  const papers = paperRows.map((row, i) => toWorkSummary({ ...row, kind: "paper" }, resolve, paperSeo[i]));
   return { articles: sortNewestFirst(articles), papers: sortNewestFirst(papers) };
 }
 
 /** The columns of a published article or paper a listing is built from. */
-export type ListingRow = SeoWork & {
+export type ListingRow = ListingSeoWork & {
   kind: "article" | "paper";
   id: string;
   slug: string;
@@ -201,7 +255,11 @@ export type ListingRow = SeoWork & {
 };
 
 /** One published work as every listing shows it. */
-export function toWorkSummary(row: ListingRow, resolve: ReturnType<typeof makeAuthorResolver>): WorkSummary {
+export function toWorkSummary(
+  row: ListingRow,
+  resolve: ReturnType<typeof makeAuthorResolver>,
+  seo: { description: string; topics: string[] } = listingSeo(row, row.kind),
+): WorkSummary {
   const isPaper = row.kind === "paper";
   return {
     kind: row.kind,
@@ -216,7 +274,8 @@ export function toWorkSummary(row: ListingRow, resolve: ReturnType<typeof makeAu
     updatedAt: isoOrNull(row.updatedAt) ?? isoOrNull(row.publishedAt),
     readingMinutes: row.readingMinutes ?? null,
     heroImageUrl: (isPaper ? row.coverImageUrl : row.heroImageUrl) ?? null,
-    ...listingSeo(row, row.kind),
+    description: seo.description,
+    topics: seo.topics,
   };
 }
 

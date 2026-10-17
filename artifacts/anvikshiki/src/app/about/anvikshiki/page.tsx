@@ -17,7 +17,7 @@ const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//
 export default function AnvikshikiMeaningPage() {
   // Same title and description as the server-rendered page.
   useDocumentMetadata({ ...PAGE_META.aboutAnvikshiki, canonicalPath: "/about/anvikshiki", type: "article" });
-  // Further reading as the server chose it (api-server app.ts meaningPageReading).
+  // Further reading as the server chose it (api-server lib/hub-content.ts meaningPageReading).
   const [server] = useState(() =>
     typeof window === "undefined"
       ? undefined

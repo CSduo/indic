@@ -13,6 +13,29 @@ import type { WorkSummary } from "./public-content";
 /** How many related works a work's page links to. */
 export const RELATED_WORKS_COUNT = 3;
 
+/** How many of the newest works /about lists before pointing to the archive. */
+export const ABOUT_LATEST_COUNT = 10;
+
+/**
+ * The journal's own statement of why it was started. Linked from /about and
+ * /about/anvikshiki while it is published.
+ */
+export const MISSION_ESSAY_SLUG = "why-this-website-exists-0fc91e71";
+
+/** Domains whose essays take up the subjects of /about/anvikshiki (logic, Nyāya, the Sanskrit tradition). */
+export const MEANING_RELATED_DOMAINS = ["philosophy", "sanskrit-studies"];
+
+/**
+ * The published works /about/anvikshiki points readers to, from works listed
+ * newest first: the journal's statement of purpose, then essays in the
+ * domains its subject belongs to.
+ */
+export function meaningPageReading<T extends { kind: WorkSummary["kind"]; slug: string; categorySlug?: string | null }>(works: T[]): T[] {
+  const mission = works.filter((w) => w.kind === "article" && w.slug === MISSION_ESSAY_SLUG);
+  const inDomains = works.filter((w) => w.slug !== MISSION_ESSAY_SLUG && MEANING_RELATED_DOMAINS.includes(w.categorySlug || ""));
+  return [...mission, ...inDomains].slice(0, 6);
+}
+
 const FREE_TO_READ = "All of it is free to read.";
 
 /**
@@ -96,24 +119,27 @@ function leadWithTitles(lead: string, works: WorkSummary[]): string {
 }
 
 /**
- * The meta description of a domain hub: how much is published in it, what the
- * domain covers (its own description) and the works, newest first. It starts
- * with the count, never with the domain name the title already gives.
+ * The meta description of a domain hub: what the domain covers (its own
+ * description, as the editors wrote it), how much is published in it and the
+ * works, newest first. It never starts with the domain name the title already
+ * gives.
  */
 export function domainHubDescription(
   category: { name: string; description?: string | null },
   works: WorkSummary[],
 ): string {
-  const covers = category.description?.trim().replace(/[.!?…]+$/u, "") || "";
+  // Kept as written, so a name in it stays capitalised ("Vedic traditions").
+  const covers = category.description?.replace(/\s+/g, " ").trim().replace(/[.!?…:;,]+$/u, "") || "";
   if (works.length === 0) {
     return composeDescription([
-      `Ānvīkṣikī files essays and papers under ${category.name}, but none has been published in it yet.`,
-      covers ? sentence(`The domain covers ${lowerFirst(covers)}`) : "",
+      covers
+        ? `${covers}: Ānvīkṣikī files essays and papers on these under ${category.name}, but none has been published in it yet.`
+        : `Ānvīkṣikī files essays and papers under ${category.name}, but none has been published in it yet.`,
       "Submissions in this area are welcome.",
     ]);
   }
-  const lead = `${capitalize(workCount(works))} in ${category.name} published on Ānvīkṣikī${covers ? `, covering ${lowerFirst(covers)}` : ""}.`;
-  return leadWithTitles(lead, works);
+  const lead = `${covers ? `${covers}: ` : ""}${workCount(works)} in ${category.name} published on Ānvīkṣikī.`;
+  return leadWithTitles(covers ? lead : capitalize(lead), works);
 }
 
 /**
@@ -139,13 +165,6 @@ export function authorDescription(
 
 function capitalize(text: string): string {
   return text ? text.charAt(0).toUpperCase() + text.slice(1) : text;
-}
-
-/** "Historical chronicles" -> "historical chronicles"; acronyms and names stay as written. */
-function lowerFirst(text: string): string {
-  const [first] = text.split(/\s+/);
-  if (!first || /^\p{Lu}{2,}/u.test(first) || /^\p{Lu}\p{Ll}*\p{Lu}/u.test(first)) return text;
-  return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
 /** The year a work was published, or null when it has no date. */

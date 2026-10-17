@@ -49,8 +49,8 @@ import {
   renderSpaShell,
   PUBLIC_HTML_CACHE_CONTROL,
 } from "./lib/ssr-html";
-import { findCategory, hasPublishedPapers, listPublishedWorks, listVisibleCategories, listingSeo, loadAuthorUsers, withWorkCounts, type CategorySummary, type WorkSummary } from "./lib/public-content";
-import { authorDescription, domainHubDescription } from "./lib/hub-content";
+import { findCategory, hasPublishedPapers, listPublishedWorks, listVisibleCategories, listingSeo, listingSeoFor, loadAuthorUsers, withWorkCounts, type CategorySummary, type WorkSummary } from "./lib/public-content";
+import { ABOUT_LATEST_COUNT, MISSION_ESSAY_SLUG, authorDescription, domainHubDescription, meaningPageReading } from "./lib/hub-content";
 import { loadContinueReading } from "./lib/continue-reading";
 import { renderContinueReading, renderListedWorks, workPath } from "./lib/listing-html";
 import { CONTACT_EMAIL, PAGE_META } from "./lib/page-meta";
@@ -815,7 +815,11 @@ export function generatePaperSsrHtml(paper: any, domainDisplayName: string, auth
  * work's own description and topic terms (lib/effective-seo.ts). The text
  * the description is derived from is not passed on.
  */
-export function authorHubListing(work: AuthorHubArticle | AuthorHubPaper, authorPath: string | null): WorkSummary & { year?: number | null; doi?: string | null } {
+export function authorHubListing(
+  work: AuthorHubArticle | AuthorHubPaper,
+  authorPath: string | null,
+  seo: { description: string; topics: string[] } = listingSeo(work, work.kind),
+): WorkSummary & { year?: number | null; doi?: string | null } {
   const base = {
     kind: work.kind,
     id: work.id,
@@ -827,7 +831,8 @@ export function authorHubListing(work: AuthorHubArticle | AuthorHubPaper, author
     publishedAt: formatIsoDate(work.publishedAt) || null,
     updatedAt: formatIsoDate(work.updatedAt) || formatIsoDate(work.publishedAt) || null,
     readingMinutes: work.readingMinutes,
-    ...listingSeo(work, work.kind),
+    description: seo.description,
+    topics: seo.topics,
   };
   return work.kind === "paper"
     ? { ...base, excerpt: work.abstract ? stripHtml(work.abstract) : null, heroImageUrl: work.coverImageUrl, year: work.year, doi: work.doi }
@@ -1067,25 +1072,6 @@ app.get(["/essays", "/articles"], (req, res) => res.redirect(301, `/archive${for
 app.get("/categories", (req, res) => res.redirect(301, `/domains${forwardedQuery(req)}`));
 app.get("/authors", (req, res) => res.redirect(301, `/browse${forwardedQuery(req)}`));
 
-/**
- * The journal's own statement of why it was started. Linked from /about and
- * /about/anvikshiki while it is published.
- */
-export const MISSION_ESSAY_SLUG = "why-this-website-exists-0fc91e71";
-
-/** Domains whose essays take up the subjects of /about/anvikshiki (logic, Nyāya, the Sanskrit tradition). */
-export const MEANING_RELATED_DOMAINS = ["philosophy", "sanskrit-studies"];
-
-/**
- * The published works /about/anvikshiki points readers to: the journal's
- * statement of purpose, then essays in the domains its subject belongs to.
- */
-export function meaningPageReading(works: WorkSummary[]): WorkSummary[] {
-  const mission = works.filter((w) => w.kind === "article" && w.slug === MISSION_ESSAY_SLUG);
-  const inDomains = works.filter((w) => w.slug !== MISSION_ESSAY_SLUG && MEANING_RELATED_DOMAINS.includes(w.categorySlug || ""));
-  return [...mission, ...inDomains].slice(0, 6);
-}
-
 export function generateAboutAnvikshikiSsrHtml(furtherReading: WorkSummary[] = [], categoryNames: Map<string, string> = new Map()): string {
   const breadcrumbsHtml = renderBreadcrumbs([
     { name: "Home", url: "/" },
@@ -1299,9 +1285,6 @@ app.get("/about/anvikshiki", async (req, res) => {
     data: listing ? { furtherReading, domains: listing.categories } : null,
   }, { showPapers: listing ? listing.papers > 0 : await hasPublishedPapers() }), listing !== null);
 });
-
-/** How many of the newest works /about lists before pointing to the archive. */
-export const ABOUT_LATEST_COUNT = 10;
 
 /**
  * /about: what the journal is and publishes, its name, its published work,
@@ -1743,12 +1726,15 @@ app.get("/authors/:slug", async (req, res, next) => {
     ]);
     const categoryNames = new Map(visibleCategories.map((c) => [c.slug, c.name]));
     const canonicalPath = `/authors/${encodeURIComponent(cleanSlug)}`;
-    const authorArticles = resolution.works
-      .filter((w): w is AuthorHubArticle => w.kind === "article")
-      .map((w) => authorHubListing(w, canonicalPath));
-    const authorPapers = resolution.works
-      .filter((w): w is AuthorHubPaper => w.kind === "paper")
-      .map((w) => authorHubListing(w, canonicalPath));
+    const ownArticles = resolution.works.filter((w): w is AuthorHubArticle => w.kind === "article");
+    const ownPapers = resolution.works.filter((w): w is AuthorHubPaper => w.kind === "paper");
+    // Reads the bodies of this author's works only, and only when not cached.
+    const [articleSeo, paperSeo] = await Promise.all([
+      listingSeoFor("article", ownArticles),
+      listingSeoFor("paper", ownPapers),
+    ]);
+    const authorArticles = ownArticles.map((w, i) => authorHubListing(w, canonicalPath, articleSeo[i]));
+    const authorPapers = ownPapers.map((w, i) => authorHubListing(w, canonicalPath, paperSeo[i]));
     const allPapers = hubWorks.papers;
 
     const displayName = resolution.displayName;

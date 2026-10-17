@@ -5,6 +5,7 @@
  */
 import { db, articlesTable, papersTable, submissionsTable, usersTable } from "@workspace/db";
 import { and, eq, isNull, like, or } from "drizzle-orm";
+import { bodyHashSql } from "./public-content";
 
 export type PublicationKind = "article" | "paper";
 
@@ -104,7 +105,9 @@ export interface AuthorHubArticle {
   heroImageUrl: string | null;
   publishedAt: Date | string | null;
   authorId: string | null;
-  /** Read only to derive the description and topic terms the page lists. */
+  /** Identifies the body's version for the description and topic terms the page lists (listingSeoFor). */
+  bodyHash?: string | null;
+  /** Only when already at hand; listingSeoFor reads it when it is needed. */
   body?: string | null;
   updatedAt?: Date | string | null;
   tags?: string[] | null;
@@ -126,6 +129,7 @@ export interface AuthorHubPaper {
   year: number | null;
   doi: string | null;
   authorId: string | null;
+  bodyHash?: string | null;
   body?: string | null;
   updatedAt?: Date | string | null;
   tags?: string[] | null;
@@ -148,7 +152,7 @@ export async function listAuthorHubWorks(): Promise<{ articles: AuthorHubArticle
       heroImageUrl: articlesTable.heroImageUrl,
       publishedAt: articlesTable.publishedAt,
       authorId: submissionsTable.userId,
-      body: articlesTable.body,
+      bodyHash: bodyHashSql(articlesTable.body),
       updatedAt: articlesTable.updatedAt,
       tags: articlesTable.tags,
       seoTitle: articlesTable.seoTitle,
@@ -169,7 +173,7 @@ export async function listAuthorHubWorks(): Promise<{ articles: AuthorHubArticle
       year: papersTable.year,
       doi: papersTable.doi,
       authorId: submissionsTable.userId,
-      body: papersTable.body,
+      bodyHash: bodyHashSql(papersTable.body),
       updatedAt: papersTable.updatedAt,
       tags: papersTable.tags,
       seoTitle: papersTable.seoTitle,

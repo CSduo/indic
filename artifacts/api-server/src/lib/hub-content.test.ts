@@ -37,10 +37,19 @@ describe("composeDescription", () => {
 });
 
 describe("domain hub descriptions", () => {
-  it("state the count, what the domain covers and the newest titles, never opening with the name", () => {
+  it("state what the domain covers, the count and the newest titles, never opening with the name", () => {
     const text = domainHubDescription(HISTORY, [work(1, { title: "Beyond Angkor" }), work(3, { title: "The Triple Fragmentation" }), work(2, { title: "Girmit" })]);
-    expect(text).toBe("3 essays in History published on Ānvīkṣikī, covering historical chronicles, narratives, and research. Among them are “The Triple Fragmentation” and “Girmit”.");
+    expect(text).toBe("Historical chronicles, narratives, and research: 3 essays in History published on Ānvīkṣikī. They are “The Triple Fragmentation”, “Girmit” and “Beyond Angkor”.");
     expect(text.length).toBeGreaterThanOrEqual(DESCRIPTION_MIN);
+    expect(text.length).toBeLessThanOrEqual(DESCRIPTION_MAX);
+  });
+
+  it("keep the domain's own description as the editors wrote it", () => {
+    const text = domainHubDescription(
+      { name: "Hindu Studies", description: "Vedic traditions, Darśanas, Dharmaśāstras, and Indic spiritual heritage." },
+      [work(1, { title: "On Ṛta" }), work(2, { title: "The Gṛhya Sūtras" }), work(3, { title: "Yajña" })],
+    );
+    expect(text.startsWith("Vedic traditions, Darśanas, Dharmaśāstras, and Indic spiritual heritage: 3 essays in Hindu Studies")).toBe(true);
     expect(text.length).toBeLessThanOrEqual(DESCRIPTION_MAX);
   });
 
@@ -48,7 +57,7 @@ describe("domain hub descriptions", () => {
     expect(domainHubDescription({ name: "Science", description: null }, [work(1, { kind: "paper", title: "On Āryabhaṭa" })]))
       .toBe("1 research paper in Science published on Ānvīkṣikī. It is “On Āryabhaṭa”. All of it is free to read.");
     expect(domainHubDescription({ name: "Aesthetics", description: "Art, literature, poetry, and theories of beauty" }, []))
-      .toBe("Ānvīkṣikī files essays and papers under Aesthetics, but none has been published in it yet. The domain covers art, literature, poetry, and theories of beauty.");
+      .toBe("Art, literature, poetry, and theories of beauty: Ānvīkṣikī files essays and papers on these under Aesthetics, but none has been published in it yet.");
   });
 });
 

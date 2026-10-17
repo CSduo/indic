@@ -141,15 +141,49 @@ describe("buildSitemapEntries", () => {
     }
   });
 
-  // Changed deliberately: /about and /about/anvikshiki now list published work
-  // (the newest works, further reading), so they change when a work does.
   it("dates every page that lists work by its newest work when that is newer than the static copy", () => {
     const urls = buildSitemapEntries(source({
       articles: [{ slug: "new-essay", updatedAt: "2027-02-02T00:00:00.000Z", authorName: "Xiyato Saanvi", categorySlug: "history", authorId: "user-xs" }],
     }));
-    for (const path of ["/", "/about", "/about/anvikshiki", "/browse", "/archive", "/domains"]) {
+    for (const path of ["/", "/about", "/browse", "/archive", "/domains"]) {
       expect(urls.find(e => e.loc === `${SITE_URL}${path}`)?.lastmod, path).toBe("2027-02-02T00:00:00.000Z");
     }
+  });
+
+  // /about lists the newest works and the mission essay, /about/anvikshiki
+  // the mission essay and work in philosophy and Sanskrit studies: an edit
+  // to any other work leaves them as they were.
+  it("dates /about and /about/anvikshiki by the works they show", () => {
+    const essay = (n: number, categorySlug: string, extra: Record<string, string> = {}) => ({
+      slug: `essay-${n}`,
+      publishedAt: new Date(Date.UTC(2026, 6, n)).toISOString(),
+      updatedAt: new Date(Date.UTC(2026, 6, n, 1)).toISOString(),
+      authorName: "Xiyato Saanvi",
+      categorySlug,
+      ...extra,
+    });
+    const articles = Array.from({ length: 12 }, (_, i) => essay(i + 1, "history"));
+    const lastmod = (s: SitemapSource, path: string) => buildSitemapEntries(s).find(e => e.loc === `${SITE_URL}${path}`)?.lastmod;
+
+    // The oldest history essay, edited: on neither page.
+    const oldEdited = source({ articles: [{ ...articles[0], updatedAt: "2027-03-01T00:00:00.000Z" }, ...articles.slice(1)] });
+    expect(lastmod(oldEdited, "/about")).toBe(STATIC_PAGES_LASTMOD);
+    expect(lastmod(oldEdited, "/about/anvikshiki")).toBe(STATIC_PAGES_LASTMOD);
+    expect(lastmod(oldEdited, "/archive")).toBe("2027-03-01T00:00:00.000Z");
+
+    // The newest essay, edited: listed on /about only.
+    const newEdited = source({ articles: [...articles.slice(0, 11), { ...articles[11], updatedAt: "2027-03-02T00:00:00.000Z" }] });
+    expect(lastmod(newEdited, "/about")).toBe("2027-03-02T00:00:00.000Z");
+    expect(lastmod(newEdited, "/about/anvikshiki")).toBe(STATIC_PAGES_LASTMOD);
+
+    // An old philosophy essay and the mission essay, edited: further reading on
+    // /about/anvikshiki; the mission essay is also named on /about.
+    const philosophy = source({ articles: [...articles.slice(1), essay(1, "philosophy", { updatedAt: "2027-03-03T00:00:00.000Z" })] });
+    expect(lastmod(philosophy, "/about/anvikshiki")).toBe("2027-03-03T00:00:00.000Z");
+    expect(lastmod(philosophy, "/about")).toBe(STATIC_PAGES_LASTMOD);
+    const mission = source({ articles: [...articles.slice(1), essay(1, "history", { slug: "why-this-website-exists-0fc91e71", updatedAt: "2027-03-04T00:00:00.000Z" })] });
+    expect(lastmod(mission, "/about")).toBe("2027-03-04T00:00:00.000Z");
+    expect(lastmod(mission, "/about/anvikshiki")).toBe("2027-03-04T00:00:00.000Z");
   });
 
   it("produces unique, percent-encoded locations", () => {

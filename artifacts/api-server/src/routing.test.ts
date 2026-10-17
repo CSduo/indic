@@ -78,6 +78,8 @@ function hubArticle(overrides: Partial<AuthorHubArticle> = {}): AuthorHubArticle
     heroImageUrl: null,
     publishedAt: "2026-08-01T00:00:00.000Z",
     authorId: "u1",
+    // At hand, so the page needs no database read for the listing descriptions.
+    body: null,
     ...overrides,
   };
 }

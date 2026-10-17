@@ -255,6 +255,8 @@ interface Candidate {
   lexicon: boolean;
   acronym: boolean;
   multi: boolean;
+  /** Some occurrence starts mid-sentence, so its first capital is a name's and not a sentence's. */
+  anchored: boolean;
 }
 
 function addSurface(candidates: Map<string, Candidate>, phraseTokens: Token[], extra: Partial<Candidate> = {}) {
@@ -264,11 +266,12 @@ function addSurface(candidates: Map<string, Candidate>, phraseTokens: Token[], e
   const surface = phraseTokens.map(t => t.surface).join(" ");
   let candidate = candidates.get(key);
   if (!candidate) {
-    candidate = { key, phrase, surfaces: new Map(), lexicon: false, acronym: false, multi: phrase.length > 1, ...extra };
+    candidate = { key, phrase, surfaces: new Map(), lexicon: false, acronym: false, multi: phrase.length > 1, anchored: false, ...extra };
     candidates.set(key, candidate);
   }
   if (extra.lexicon) candidate.lexicon = true;
   if (extra.acronym) candidate.acronym = true;
+  if (extra.anchored) candidate.anchored = true;
   candidate.surfaces.set(surface, (candidate.surfaces.get(surface) || 0) + 1);
 }
 
@@ -365,6 +368,21 @@ function isGenericWord(norm: string): boolean {
   return STOPWORDS.has(norm) || GENERIC.has(norm) || INSTITUTIONAL.has(norm) || SITE_WORDS.has(norm) || /^\d+$/.test(norm);
 }
 
+/**
+ * What the capitalised first word of a sentence is, when more capitalised
+ * words follow it: "name" when the text capitalises it mid-sentence too
+ * ("Dara" in "Dara Shikoh"), "word" when the text writes it in lower case
+ * mid-sentence, or it is a sentence adverb or a gerund ("Historically",
+ * "Answering"), and "unknown" otherwise ("Consider").
+ */
+function openerKind(token: Token, caps: Map<string, { upper: number; lower: number }>): "name" | "word" | "unknown" {
+  const c = caps.get(token.norm);
+  if (c && c.upper > 0 && c.upper / (c.upper + c.lower) >= 0.75) return "name";
+  if (c && c.lower > 0) return "word";
+  if (/^\p{L}{5,}ly$/u.test(token.surface) || /^\p{L}{4,}ing$/u.test(token.surface)) return "word";
+  return "unknown";
+}
+
 /** True when `inner` occurs as a run of words inside `outer`. */
 function containsPhrase(outer: string[], inner: string[]): boolean {
   outer: for (let i = 0; i + inner.length <= outer.length; i++) {
@@ -395,14 +413,17 @@ export function deriveSeoTerms(source: SeoTermSource, max = SEO_TERMS_MAX): stri
   // 1. Proper-noun phrases, single proper nouns and acronyms from sentence-case text.
   for (const z of zones) {
     if (!z.prose) continue;
-    const tokens = z.tokens;
-    for (const t of tokens) {
+    for (const t of z.tokens) {
       if (t.initial) continue;
       const entry = caps.get(t.norm) || { upper: 0, lower: 0 };
       if (isCapitalised(t.surface)) entry.upper++;
       else entry.lower++;
       caps.set(t.norm, entry);
     }
+  }
+  for (const z of zones) {
+    if (!z.prose) continue;
+    const tokens = z.tokens;
     let i = 0;
     while (i < tokens.length) {
       if (!isCapitalised(tokens[i].surface)) { i++; continue; }
@@ -421,9 +442,13 @@ export function deriveSeoTerms(source: SeoTermSource, max = SEO_TERMS_MAX): stri
       let end = run.length;
       while (start < end && !(NAME_PREFIXES.has(run[start].lower) && end - start > 1) && (isTrimmable(run[start].lower) || CONNECTORS.has(run[start].lower))) start++;
       while (end > start && (isTrimmable(run[end - 1].lower) || CONNECTORS.has(run[end - 1].lower))) end--;
-      const core = run.slice(start, end);
+      let core = run.slice(start, end);
+      // A sentence opens with a capital, so the first word of a run there may
+      // not belong to the name after it ("Historically Akbar", "Reading Ambedkar").
+      const opener = core.length >= 2 && core[0].initial ? openerKind(core[0], caps) : "name";
+      if (opener === "word") core = core.slice(1);
       if (core.length >= 2 && core.length <= 5) {
-        addSurface(candidates, core);
+        addSurface(candidates, core, { anchored: opener !== "unknown" });
       } else if (core.length === 1) {
         const t = core[0];
         const letters = t.norm.replace(/[^a-z]/g, "");
@@ -531,11 +556,13 @@ export function deriveSeoTerms(source: SeoTermSource, max = SEO_TERMS_MAX): stri
   // twice: a new essay often names many people and places a single time each
   // ("Sher Shah Suri", "Chandragupta Maurya"). Names of several words and
   // lexicon entries come first, then single proper nouns; within each, the
-  // weightier and then the earlier.
+  // weightier and then the earlier. A run of capitals seen only at the start
+  // of a sentence is not used, as its first word may not be part of a name
+  // ("Consider Shivaji").
   const floor = Math.min(SEO_TERMS_MIN, max);
   if (picked.length < floor) {
     const rare = scored
-      .filter(s => s.rare && s.score > 0)
+      .filter(s => s.rare && s.score > 0 && (!s.candidate.multi || s.candidate.lexicon || s.candidate.anchored))
       .sort((a, b) =>
         Number(b.candidate.multi || b.candidate.lexicon) - Number(a.candidate.multi || a.candidate.lexicon) ||
         b.score - a.score ||

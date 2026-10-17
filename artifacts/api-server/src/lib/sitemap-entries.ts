@@ -8,6 +8,7 @@ import {
 } from "@workspace/db";
 import { and, eq, isNull } from "drizzle-orm";
 import { makeAuthorResolver, workAuthorSegments } from "./author-identity";
+import { ABOUT_LATEST_COUNT, MISSION_ESSAY_SLUG, meaningPageReading } from "./hub-content";
 
 /**
  * A domain hub is indexed (and listed in the sitemap) only once it holds this
@@ -33,9 +34,12 @@ export const MIN_WORKS_FOR_INDEXED_HUB = 3;
  * lastmod must be true, because Google stops trusting lastmod for the whole site
  * once it sees false values. So it is never the request time:
  *   - a work: its updatedAt (or publishedAt)
- *   - a page that lists works (/, /about, /about/anvikshiki, /browse,
- *     /archive, /domains, a domain hub, an author page): its newest work, or
- *     STATIC_PAGES_LASTMOD when its own copy or layout changed more recently
+ *   - a page that lists works (/, /browse, /archive, /domains, a domain hub,
+ *     an author page): its newest work, or STATIC_PAGES_LASTMOD when its own
+ *     copy or layout changed more recently
+ *   - /about and /about/anvikshiki: the newest of the works they show (and,
+ *     for /about, the newest publication, which changes its counts), or
+ *     STATIC_PAGES_LASTMOD
  */
 
 export const SITE_URL = "https://anvikshikijournal.in";
@@ -106,13 +110,28 @@ export function buildSitemapEntries(source: SitemapSource): SitemapEntry[] {
   const latestWork = newest(...allWorks.map(workTime));
   const latestPaper = newest(...source.papers.map(workTime));
 
-  // Every one of these pages lists published work (/about its newest works,
-  // /about/anvikshiki further reading), so each changes when a work does.
+  // These pages list every published work, so each changes when any work does.
   const listingTime = iso(newest(staticTime, latestWork));
+
+  // /about and /about/anvikshiki show only some works (lib/hub-content.ts),
+  // listed newest first as the pages list them.
+  const listed = [
+    ...source.articles.map(work => ({ ...work, kind: "article" as const })),
+    ...source.papers.map(work => ({ ...work, kind: "paper" as const })),
+  ].sort((a, b) => (toTime(b.publishedAt) ?? 0) - (toTime(a.publishedAt) ?? 0) || a.slug.localeCompare(b.slug));
+  const mission = listed.find(work => work.kind === "article" && work.slug === MISSION_ESSAY_SLUG);
+  const aboutTime = iso(newest(
+    staticTime,
+    newest(...allWorks.map(work => toTime(work.publishedAt))),
+    ...listed.slice(0, ABOUT_LATEST_COUNT).map(workTime),
+    mission ? workTime(mission) : null,
+  ));
+  const meaningTime = iso(newest(staticTime, ...meaningPageReading(listed).map(workTime)));
+
   const entries: SitemapEntry[] = [
     { loc: `${SITE_URL}/`, lastmod: listingTime },
-    { loc: `${SITE_URL}/about`, lastmod: listingTime },
-    { loc: `${SITE_URL}/about/anvikshiki`, lastmod: listingTime },
+    { loc: `${SITE_URL}/about`, lastmod: aboutTime },
+    { loc: `${SITE_URL}/about/anvikshiki`, lastmod: meaningTime },
     { loc: `${SITE_URL}/browse`, lastmod: listingTime },
     { loc: `${SITE_URL}/archive`, lastmod: listingTime },
     { loc: `${SITE_URL}/domains`, lastmod: listingTime },

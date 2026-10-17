@@ -114,6 +114,28 @@ describe("topic terms", () => {
     }
     expect(terms.map((t) => t.toLowerCase())).not.toContain("hindu article");
   });
+
+  it("does not join the word that opens a sentence to the name after it", () => {
+    const mughal = deriveSeoTerms({
+      title: "The Long Shadow of the Mughal Court",
+      body: [
+        "<p>Historically Akbar governed through a careful balance of nobles and the Mughal treasury.</p>",
+        "<p>Ironically Aurangzeb undid much of that balance in the decades that followed.</p>",
+        "<p>Consider Shivaji, whose raids on the Mughal frontier changed the Deccan.</p>",
+        "<p>Eventually Shah Jahan spent the treasury on marble monuments, and his eldest son, the scholar Dara Shikoh, had the old texts translated into Persian.</p>",
+      ].join(""),
+    });
+    expect(mughal).toEqual(expect.arrayContaining(["Mughal", "Shah Jahan", "Dara Shikoh", "Akbar", "Aurangzeb"]));
+    const words = /^(Historically|Ironically|Consider|Eventually)\b/;
+    expect(mughal.filter((t) => words.test(t))).toEqual([]);
+
+    const socialists = deriveSeoTerms({
+      title: "Gandhi and the Young Socialists",
+      body: "<p>Answering Gandhi, the young socialists of Bengal and the Punjab turned to the Partition question.</p><p>Reading Ambedkar today, one sees the argument the Congress never answered.</p>",
+    });
+    expect(socialists).toEqual(expect.arrayContaining(["Gandhi", "Ambedkar"]));
+    expect(socialists.filter((t) => /^(Answering|Reading)\b/.test(t))).toEqual([]);
+  });
 });
 
 describe("static SSR pages", () => {
