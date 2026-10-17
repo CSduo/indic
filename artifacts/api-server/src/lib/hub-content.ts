@@ -64,14 +64,18 @@ function workCount(works: WorkSummary[]): string {
 }
 
 /**
- * "Among them is “A”." / "Among them are “A” and “B”." with as many of the
- * titles, in order, as fit in `budget` characters; "" when not even the first
+ * As many of the titles, in order, as fit in `budget` characters: "It is “A”."
+ * or "They are “A” and “B”." when that is all of them, "Among them is “A”." or
+ * "Among them are “A” and “B”." when it is some; "" when not even the first
  * one fits.
  */
 function titlesSentence(works: WorkSummary[], budget: number): string {
   let best = "";
   for (let n = 1; n <= Math.min(works.length, 3); n++) {
-    const candidate = `Among them ${n === 1 ? "is" : "are"} ${listJoin(works.slice(0, n).map(quoted))}.`;
+    const titles = listJoin(works.slice(0, n).map(quoted));
+    const candidate = n === works.length
+      ? `${n === 1 ? "It is" : "They are"} ${titles}.`
+      : `Among them ${n === 1 ? "is" : "are"} ${titles}.`;
     if (candidate.length > budget) break;
     best = candidate;
   }

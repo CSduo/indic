@@ -96,9 +96,14 @@ export function renderContinueReading(
     hub ? `<a href="/domains/${escapeHtml(encodeURIComponent(hub.slug))}">More in ${escapeHtml(hub.name)}</a>` : "",
     `<a href="/archive">Every essay in the archive</a>`,
   ].filter(Boolean).join(" · ");
+  if (related.length === 0) {
+    return `<nav class="ssr-section ssr-related" aria-label="More to read">
+    <p class="ssr-related-links">${links}</p>
+  </nav>`;
+  }
   return `<nav class="ssr-section ssr-related" aria-labelledby="related-heading">
     <h2 id="related-heading">Related essays</h2>
-    ${related.length > 0 ? renderListedWorks(related, categoryNames) : ""}
+    ${renderListedWorks(related, categoryNames)}
     <p class="ssr-related-links">${links}</p>
   </nav>`;
 }
