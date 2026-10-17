@@ -94,7 +94,7 @@ async function extractPdfAsHtml(file: File): Promise<string> {
     // A scanned PDF has no text layer at all. Saying so is far more useful than
     // returning an empty import that looks like a silent failure.
     throw new Error(
-      "This PDF has no selectable text -€- it looks like a scan of a printed page. Import a .docx, or paste the text into the editor.",
+      "This PDF has no selectable text — it looks like a scan of a printed page. Import a .docx, or paste the text into the editor.",
     );
   }
   return plainTextToHtml(text);
@@ -978,7 +978,7 @@ export default function SubmitUploadPage() {
           imageAlt="Illustrated manuscript submission"
           eyebrow="Upload Manuscript"
           title="Send the manuscript."
-          description="Attach your file or paste a URL -€- your content flows directly into the editor."
+          description="Attach your file or paste a URL — your content flows directly into the editor."
           glyph="submit"
           focal="center"
         />
@@ -1040,7 +1040,7 @@ export default function SubmitUploadPage() {
                     className="btn-ink min-h-11 shrink-0 self-start text-[11px] uppercase tracking-wider px-3 py-1.5 sm:self-auto"
                     style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-gold)", cursor: "pointer" }}
                   >
-                    -œ- Discard & Re-Upload
+                    ✕ Discard & Re-Upload
                   </button>
                 </div>
 
@@ -1337,7 +1337,7 @@ export default function SubmitUploadPage() {
                     onDrop={(e) => { e.preventDefault(); setDragging(null); const f = e.dataTransfer.files[0]; if (f) pickImg(f); }}
                     icon={<ImageIcon size={38} className="text-[var(--gold)]" />}
                     accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
-                    formatHint="JPG, PNG, WEBP, GIF Â· Max 10 MB"
+                    formatHint="JPG, PNG, WEBP, GIF · Max 10 MB"
                     browseLabel="Browse Images"
                     onRemove={() => setImgFile(null)}
                     inputRef={imgRef}
@@ -1379,7 +1379,7 @@ export default function SubmitUploadPage() {
                         onDrop={(e) => { e.preventDefault(); setDragging(null); const f = e.dataTransfer.files[0]; if (f) pickMain(f); }}
                         icon={<Upload size={38} className="text-[var(--gold)]" />}
                         accept=".pdf,.doc,.docx,.txt"
-                        formatHint="PDF, DOC, DOCX, TXT Â· Max 50 MB"
+                        formatHint="PDF, DOC, DOCX, TXT · Max 50 MB"
                         browseLabel="Browse Files"
                         onRemove={() => setMainFile(null)}
                         inputRef={mainRef}
@@ -1414,7 +1414,7 @@ export default function SubmitUploadPage() {
                         onDrop={(e) => { e.preventDefault(); setDragging(null); const f = e.dataTransfer.files[0]; if (f) pickImg(f); }}
                         icon={<ImageIcon size={38} className="text-[var(--gold)]" />}
                         accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
-                        formatHint="JPG, PNG, WEBP, GIF Â· Max 10 MB"
+                        formatHint="JPG, PNG, WEBP, GIF · Max 10 MB"
                         browseLabel="Browse Images"
                         onRemove={() => setImgFile(null)}
                         inputRef={imgRef}
@@ -1431,7 +1431,7 @@ export default function SubmitUploadPage() {
                   </p>
                   <div className="rounded-lg border border-[var(--border-gold)] bg-[var(--surface-3)] p-3 font-body text-xs leading-5 text-[var(--ink-soft)]">
                     <strong className="font-ui text-[11px] uppercase tracking-[0.08em] text-[var(--ink)]">Google Docs</strong>
-                    <span className="block mt-1">Set sharing to <em>Anyone with link -€- Viewer</em>, then paste its full Google Docs link. The importer keeps readable text and available images; nothing is published automatically.</span>
+                    <span className="block mt-1">Set sharing to <em>Anyone with link — Viewer</em>, then paste its full Google Docs link. The importer keeps readable text and available images; nothing is published automatically.</span>
                   </div>
                   <div>
                     <label className="form-label" htmlFor="url-input">Article / Document URL *</label>
@@ -1581,7 +1581,7 @@ export default function SubmitUploadPage() {
   );
 }
 
-/* ------ UploadZone -€- uses overlay input for reliable mobile taps --------------------- */
+/* ------ UploadZone — uses overlay input for reliable mobile taps --------------------- */
 function UploadZone({
   file, dragging, onDragOver, onDragLeave, onDrop,
   icon, accept, formatHint, browseLabel, onRemove, inputRef, onFileChange,
@@ -1606,7 +1606,7 @@ function UploadZone({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      {/* Invisible full-zone file input -€- catches taps on mobile */}
+      {/* Invisible full-zone file input — catches taps on mobile */}
       {!file && (
         <input
           ref={inputRef}

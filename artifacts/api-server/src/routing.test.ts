@@ -32,6 +32,10 @@ vi.mock("./lib/public-content", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./lib/public-content")>()),
   loadAuthorUsers: async () => state.users,
   hasPublishedPapers: async () => state.papers.length > 0,
+  // The related works under a work and the domain names on author pages.
+  listPublishedWorks: async () => ({ articles: [], papers: [] }),
+  listVisibleCategories: async () => [],
+  findCategory: async () => null,
 }));
 vi.mock("./lib/publication-lookup", async (importOriginal) => {
   const original = await importOriginal<typeof import("./lib/publication-lookup")>();

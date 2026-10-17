@@ -256,7 +256,7 @@ const paperEditSchema = z.object({
   seoDescription: z.string().trim().max(500).optional().or(z.literal("")),
 });
 
-// PATCH /api/papers/:slug/edit -€- author can update their own paper
+// PATCH /api/papers/:slug/edit — author can update their own paper
 router.patch("/papers/:slug/edit", async (req, res) => {
   try {
     const viewer = await resolveViewer(req);

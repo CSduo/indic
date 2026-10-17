@@ -5,7 +5,8 @@ import {
   newsletterSubscribersTable, categoriesTable, usersTable, siteSettingsTable,
   notificationsTable
 } from "@workspace/db";
-import { eq, desc, sql, and, ne, isNull, isNotNull } from "drizzle-orm";
+import { eq, desc, sql, and, ne, isNull, isNotNull, getTableColumns } from "drizzle-orm";
+import { parsePagination } from "../lib/request";
 import {
   hashPassword, comparePassword, createAdminToken,
   getAdminAuth, setAdminCookie, clearAdminCookie
@@ -80,6 +81,12 @@ const paperInputSchema = z.object({
   status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).default("DRAFT"),
   publishedAt: z.string().optional(),
 });
+
+/** The most submissions one page of the editorial desk's list carries. */
+export const ADMIN_SUBMISSIONS_PAGE_SIZE = 50;
+
+/** Every submission column except the body, which only the detail view needs. */
+const { body: _submissionBody, ...ADMIN_SUBMISSION_LIST_COLUMNS } = getTableColumns(submissionsTable);
 
 // Admin auth middleware
 async function requireAdmin(req: any, res: any, next: any) {
@@ -565,19 +572,36 @@ router.get("/admin/submissions", requireAdmin, async (req, res) => {
     const parsedStatus = z.enum(["RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "ACCEPTED", "REJECTED", "PUBLISHED", "ARCHIVED"]).safeParse(status);
     if (status && !parsedStatus.success) return res.status(400).json({ error: "Invalid status" });
     if (parsedStatus.success) conditions.push(eq(submissionsTable.status, parsedStatus.data));
-    const submissions = await db.select().from(submissionsTable)
-      .where(and(...conditions))
-      .orderBy(desc(submissionsTable.createdAt));
-    return res.json({
-      submissions: submissions.map(submission => ({
-        ...submission,
-        body: sanitizeArticleBody(submission.body),
-      })),
-      total: submissions.length,
-    });
+    // A page of the list, without the essay bodies: every submission's full
+    // text in one response could outgrow the 4.5 MB serverless response limit.
+    // GET /admin/submissions/:id returns one submission with its body.
+    const { limit, offset } = parsePagination(req.query.limit, req.query.offset, { defaultLimit: ADMIN_SUBMISSIONS_PAGE_SIZE, maxLimit: ADMIN_SUBMISSIONS_PAGE_SIZE });
+    const [submissions, [{ count }]] = await Promise.all([
+      db.select(ADMIN_SUBMISSION_LIST_COLUMNS).from(submissionsTable)
+        .where(and(...conditions))
+        .orderBy(desc(submissionsTable.createdAt), desc(submissionsTable.id))
+        .limit(limit)
+        .offset(offset),
+      db.select({ count: sql<number>`count(*)` }).from(submissionsTable).where(and(...conditions)),
+    ]);
+    return res.json({ submissions, total: Number(count), limit, offset });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Could not load submissions. Please try again.", code: "LOAD_FAILED" });
+  }
+});
+
+// GET /api/admin/submissions/:id — one submission with its (sanitised) body.
+router.get("/admin/submissions/:id", requireAdmin, async (req, res) => {
+  try {
+    const [submission] = await db.select().from(submissionsTable)
+      .where(eq(submissionsTable.id, String(req.params.id)))
+      .limit(1);
+    if (!submission) return res.status(404).json({ error: "Submission not found" });
+    return res.json({ submission: { ...submission, body: sanitizeArticleBody(submission.body) } });
+  } catch (err) {
+    req.log.error(err);
+    return res.status(500).json({ error: "Could not load that submission. Please try again.", code: "LOAD_FAILED" });
   }
 });
 
@@ -630,7 +654,7 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
       updatedAt: now,
     };
     // Publishing is idempotent on purpose. A submission can already be marked
-    // PUBLISHED while its public article or paper is missing or trashed -€- that
+    // PUBLISHED while its public article or paper is missing or trashed — that
     // is exactly the state an earlier silent failure leaves behind. Running the
     // publication step again on a submission that is already PUBLISHED is what
     // repairs it, so this must not be gated on the status changing.
@@ -714,7 +738,7 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
         }
         req.log.error(
           { submissionId: req.params.id, reason },
-          "Publish aborted -€- no public record was created, submission status rolled back",
+          "Publish aborted — no public record was created, submission status rolled back",
         );
         return res.status(502).json({
           error: "This work could not be published to the public journal, so its status was left unchanged.",
@@ -791,7 +815,7 @@ router.patch("/admin/submissions/:id", requireAdmin, async (req, res) => {
   }
 });
 
-// DELETE /api/admin/submissions/:id -€- admin soft-deletes a submission
+// DELETE /api/admin/submissions/:id — admin soft-deletes a submission
 router.delete("/admin/submissions/:id", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
   try {
     const [existing] = await db.select().from(submissionsTable)
@@ -1161,7 +1185,7 @@ router.get("/admin/database-timing", requireAdmin, requireAdminRole("ADMIN"), as
   }
 });
 
-// POST /api/admin/submissions/sync-public-archives -€- rebuild missing public
+// POST /api/admin/submissions/sync-public-archives — rebuild missing public
 // records for submissions already marked PUBLISHED. This is the repair path for
 // a work that shows as published on the desk but is absent from the journal.
 router.post("/admin/submissions/sync-public-archives", requireAdmin, requireAdminRole("ADMIN", "EDITOR"), async (req, res) => {
@@ -1181,7 +1205,7 @@ router.post("/admin/submissions/sync-public-archives", requireAdmin, requireAdmi
   }
 });
 
-// POST /api/admin/repair-schema -€- bring the live database in line with the
+// POST /api/admin/repair-schema — bring the live database in line with the
 // application schema. Every statement is `IF NOT EXISTS`; nothing is dropped.
 // A drifted database is the usual cause of publishing and editing 500s.
 router.post("/admin/repair-schema", requireAdmin, requireAdminRole("ADMIN"), async (req, res) => {

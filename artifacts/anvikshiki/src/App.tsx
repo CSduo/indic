@@ -16,7 +16,7 @@ import { NotificationInvite } from "@/components/sacred/NotificationInvite";
 import { PageTransition } from "@/components/providers/PageTransition";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 
-/* ------ Public pages -€- lazy loaded (code splitting) ------ */
+/* ------ Public pages — lazy loaded (code splitting) ------ */
 // The landing route is the exception: splitting it out meant the browser had to
 // fetch index.html, then the entry bundle, and only then discover it needed a
 // further chunk before it could render anything. Almost every visitor lands
@@ -56,7 +56,7 @@ const SavedPage             = lazy(() => import("@/app/saved/page"));
 const PrivacyPage           = lazy(() => import("@/app/privacy/page"));
 const TermsPage             = lazy(() => import("@/app/terms/page"));
 
-/* ------ Admin pages -€- lazy loaded ------ */
+/* ------ Admin pages — lazy loaded ------ */
 const AdminLoginPage        = lazy(() => import("@/app/admin/login/page"));
 const AdminDashboardPage    = lazy(() => import("@/app/admin/page"));
 const AdminArticlesPage     = lazy(() => import("@/app/admin/articles/page"));
@@ -96,7 +96,7 @@ const appBase = import.meta.env.BASE_URL.replace(/\/$/, "");
 const HOME_PREFETCH_STALE_TIME = 1000 * 60;
 
 try {
-  // These are public listings -€- no session cookie, so the CDN can serve them
+  // These are public listings — no session cookie, so the CDN can serve them
   // and the request is not held up behind anything auth-related.
   queryClient.prefetchQuery({
     queryKey: ["home-articles"],
@@ -121,7 +121,7 @@ try {
 // CRITICAL: these must be defined OUTSIDE the Router function as named
 // components. If they're inline arrow functions inside Route's `component`
 // prop, React sees a new reference on every render and unmounts/remounts the
-// entire page -€- causing the "hanging" between navigations.
+// entire page — causing the "hanging" between navigations.
 
 function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -332,8 +332,8 @@ function Router() {
 
 /**
  * Publishing, editing, and deleting all announce themselves with an
- * "anv:content-changed" event. Listening for it here -€- on the query client
- * rather than inside one page -€- means the cached listings are dropped no
+ * "anv:content-changed" event. Listening for it here — on the query client
+ * rather than inside one page — means the cached listings are dropped no
  * matter which screen the editor is on.
  *
  * Previously only the home page listened, and only while it was mounted. An

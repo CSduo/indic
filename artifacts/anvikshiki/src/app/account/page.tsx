@@ -87,11 +87,18 @@ export default function AccountPage() {
 
   // A failed request must never look like an empty desk — an author whose work
   // simply could not be loaded needs to see that, not "No submissions yet".
+  // The API returns the desk a page at a time; the desk shows all of it.
   const fetchList = async (query: string) => {
-    const response = await fetch(`${base()}/api/submissions${query}`, { credentials: "include" });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
-    return data.submissions || [];
+    const all: any[] = [];
+    for (;;) {
+      const separator = query ? "&" : "?";
+      const response = await fetch(`${base()}/api/submissions${query}${separator}offset=${all.length}`, { credentials: "include" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+      const page: any[] = data.submissions || [];
+      all.push(...page);
+      if (page.length === 0 || typeof data.total !== "number" || all.length >= data.total) return all;
+    }
   };
 
   const loadSubmissions = () => {

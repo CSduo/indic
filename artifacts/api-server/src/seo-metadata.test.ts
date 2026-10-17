@@ -23,6 +23,13 @@ vi.mock("./lib/publication-sync", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./lib/publication-sync")>()),
   ensureDefaultCategories: async () => undefined,
 }));
+// /about and /about/anvikshiki list published work; none is needed here.
+vi.mock("./lib/public-content", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./lib/public-content")>()),
+  listPublishedWorks: async () => ({ articles: [], papers: [] }),
+  listVisibleCategories: async () => [],
+  hasPublishedPapers: async () => false,
+}));
 
 const originalDatabaseUrl = process.env.DATABASE_URL;
 beforeAll(() => {

@@ -17,6 +17,7 @@ import path from "path";
 import { countUnresolvedArticleImages, sanitizeArticleBody, MAX_BODY_CHARS } from "../lib/content";
 import { hasExpectedFileSignature } from "../lib/file-validation";
 import { persistUploadedFile, UPLOADS_DIR } from "../lib/storage";
+import { parsePagination } from "../lib/request";
 
 import { sendSubmissionNotification } from "../lib/notifier";
 import { triggerPublicContentSeo } from "../lib/seo-service";
@@ -126,13 +127,26 @@ async function resolveSubmitterIdentity(auth: any, fallbackName?: string | null,
   return { userId, name: name || "Anonymous Scholar", email };
 }
 
+/**
+ * Submitting needs an account: the submit page says so and the client signs
+ * people in first, but the API used to accept anonymous submissions too. The
+ * check runs before the request body is read, so an anonymous upload is
+ * refused before any file is buffered.
+ */
+async function requireSignedIn(req: any, res: any, next: any) {
+  const auth = await getUserAuth(req).catch(() => null);
+  if (!auth) return res.status(401).json({ error: "Sign in to submit your work.", code: "AUTH_REQUIRED" });
+  req.userAuth = auth;
+  next();
+}
+
 // POST /api/submissions (JSON body)
-router.post("/submissions", async (req, res) => {
+router.post("/submissions", requireSignedIn, async (req: any, res) => {
   try {
     const parsed = submissionSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: firstIssueMessage(parsed.error), details: parsed.error.flatten() });
 
-    const auth = await getUserAuth(req);
+    const auth = req.userAuth;
     const data = parsed.data;
 
     if (!data.consent) return res.status(400).json({ error: "Consent is required" });
@@ -166,7 +180,7 @@ router.post("/submissions", async (req, res) => {
   }
 });
 
-// POST /api/uploads/cloudinary-signature -€- request upload signature for direct browser uploads
+// POST /api/uploads/cloudinary-signature — request upload signature for direct browser uploads
 router.post("/uploads/cloudinary-signature", async (req, res) => {
   try {
     const auth = await getUserAuth(req);
@@ -217,9 +231,10 @@ router.post("/uploads/cloudinary-signature", async (req, res) => {
   }
 });
 
-// POST /api/submissions/upload -€- handles metadata and Cloudinary URLs (JSON) or local file upload fallback (multipart)
+// POST /api/submissions/upload — handles metadata and Cloudinary URLs (JSON) or local file upload fallback (multipart)
 router.post(
   "/submissions/upload",
+  requireSignedIn,
   (req, res, next) => {
     const contentType = req.headers["content-type"] || "";
     if (contentType.includes("multipart/form-data")) {
@@ -335,8 +350,7 @@ router.post(
         data.notes ? `Notes: ${data.notes}` : null,
       ].filter(Boolean).join("\n");
 
-      const auth = await getUserAuth(req);
-      const identity = await resolveSubmitterIdentity(auth, submitterName, submitterEmail);
+      const identity = await resolveSubmitterIdentity(req.userAuth, submitterName, submitterEmail);
 
       const [submission] = await db.insert(submissionsTable).values({
         userId: identity.userId,
@@ -389,6 +403,9 @@ router.post(
 // separately below by forwarding the edit to the live article or paper.
 const USER_EDITABLE_STATUSES = ["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED"];
 const USER_DELETABLE_STATUSES = ["DRAFT", "RECEIVED", "UNDER_REVIEW", "REVISION_REQUESTED", "REJECTED", "PUBLISHED", "ACCEPTED", "ARCHIVED"];
+
+/** The most submissions one list response carries. */
+export const SUBMISSIONS_PAGE_SIZE = 100;
 
 const SUBMISSION_LIST_COLUMNS = {
   id: submissionsTable.id,
@@ -446,7 +463,7 @@ const PAPER_LIST_COLUMNS = {
   sourceSubmissionId: papersTable.sourceSubmissionId,
 };
 
-// POST /api/submissions/write -€- full essay written in browser
+// POST /api/submissions/write — full essay written in browser
 router.post("/submissions/write", async (req, res) => {
   try {
     const auth = await getUserAuth(req);
@@ -481,8 +498,10 @@ router.post("/submissions/write", async (req, res) => {
       });
     }
 
-    // Only signed-in users may save drafts -€- drafts must be resumable/owned.
-    if (isDraft && !auth) return res.status(401).json({ error: "Sign in to save a draft" });
+    // Drafts must be resumable and owned, and submitting needs an account.
+    if (!auth) {
+      return res.status(401).json({ error: isDraft ? "Sign in to save a draft" : "Sign in to submit your work.", code: "AUTH_REQUIRED" });
+    }
 
     // Full submissions still require the declaration + minimum content.
     if (!isDraft) {
@@ -523,7 +542,7 @@ router.post("/submissions/write", async (req, res) => {
   }
 });
 
-// GET /api/submissions (user's own -€- includes drafts and published essays/papers)
+// GET /api/submissions (user's own — includes drafts and published essays/papers)
 // ?deleted=true returns only soft-deleted submissions; otherwise excludes them
 router.get("/submissions", async (req, res) => {
   try {
@@ -669,7 +688,10 @@ router.get("/submissions", async (req, res) => {
 
     enriched.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
-    return res.json({ submissions: enriched });
+    // One page at a time (newest first): an author's whole desk in one
+    // response could outgrow the 4.5 MB serverless response limit.
+    const { limit, offset } = parsePagination(req.query.limit, req.query.offset, { defaultLimit: SUBMISSIONS_PAGE_SIZE, maxLimit: SUBMISSIONS_PAGE_SIZE });
+    return res.json({ submissions: enriched.slice(offset, offset + limit), total: enriched.length, limit, offset });
   } catch (err) {
     req.log?.error?.({ err }, "GET /submissions unexpected error");
     return res.status(500).json({ error: "Failed to load submissions" });
@@ -763,8 +785,8 @@ router.get("/submissions/:id", async (req, res) => {
 /**
  * Update a published article or paper that the account desk surfaced under a
  * synthetic `art-` / `paper-` id. Without this the id was passed straight to a
- * `submissions.id` lookup, which matched nothing and -€- once the column type
- * rejected the prefixed value -€- failed the whole request with a bare 500. This
+ * `submissions.id` lookup, which matched nothing and — once the column type
+ * rejected the prefixed value — failed the whole request with a bare 500. This
  * is why "Edit" on a published work never saved.
  */
 async function updateSyntheticPublication(req: any, res: any, viewer: Viewer, id: string) {
@@ -864,7 +886,7 @@ async function updateSyntheticPublication(req: any, res: any, viewer: Viewer, id
   });
 }
 
-// PUT /api/submissions/:id -€- owner updates a draft, or submits a saved draft for review
+// PUT /api/submissions/:id — owner updates a draft, or submits a saved draft for review
 router.put("/submissions/:id", async (req, res) => {
   try {
     const viewer = await resolveViewer(req);
@@ -995,7 +1017,7 @@ router.put("/submissions/:id", async (req, res) => {
   }
 });
 
-// DELETE /api/submissions/:id -€- move an active submission or article/paper to Trash
+// DELETE /api/submissions/:id — move an active submission or article/paper to Trash
 router.delete("/submissions/:id", async (req, res) => {
   try {
     const viewer = await resolveViewer(req);
@@ -1072,7 +1094,7 @@ router.delete("/submissions/:id", async (req, res) => {
   }
 });
 
-// POST /api/submissions/:id/restore -€- restore an item from Trash
+// POST /api/submissions/:id/restore — restore an item from Trash
 router.post("/submissions/:id/restore", async (req, res) => {
   try {
     const viewer = await resolveViewer(req);
@@ -1146,7 +1168,7 @@ router.post("/submissions/:id/restore", async (req, res) => {
   }
 });
 
-// DELETE /api/submissions/:id/permanent -€- permanently erase item from DB
+// DELETE /api/submissions/:id/permanent — permanently erase item from DB
 router.delete("/submissions/:id/permanent", async (req, res) => {
   try {
     const viewer = await resolveViewer(req);
@@ -1156,7 +1178,7 @@ router.delete("/submissions/:id/permanent", async (req, res) => {
     const id = req.params.id;
 
     // Permanent erasure is only ever allowed on an item the caller owns and
-    // has already moved to Trash -€- never on live published work.
+    // has already moved to Trash — never on live published work.
     if (id.startsWith("art-")) {
       const realId = id.replace("art-", "");
       const [art] = await db.select().from(articlesTable).where(eq(articlesTable.id, realId)).limit(1);

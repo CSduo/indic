@@ -302,7 +302,7 @@ const articleEditSchema = z.object({
   seoDescription: z.string().trim().max(500).optional().or(z.literal("")),
 });
 
-// PATCH /api/articles/:slug/edit -€- author can update their own article
+// PATCH /api/articles/:slug/edit — author can update their own article
 router.patch("/articles/:slug/edit", async (req, res) => {
   try {
     // Ownership is resolved before anything is read or written. This endpoint
@@ -312,7 +312,7 @@ router.patch("/articles/:slug/edit", async (req, res) => {
     if (!viewer) return res.status(401).json({ error: "You must be logged in to edit" });
 
     const { slug } = req.params;
-    // Drafts and archived pieces are editable too -€- restricting the lookup to
+    // Drafts and archived pieces are editable too — restricting the lookup to
     // PUBLISHED made "Edit" return "Article not found" for everything else.
     const [existing] = await db
       .select({
