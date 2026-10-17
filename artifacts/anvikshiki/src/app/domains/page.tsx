@@ -163,11 +163,14 @@ export default function DomainsPage() {
                           {d.paperCount > 0 ? ` · ${plural(d.paperCount, "paper")}` : ""}
                         </p>
                       </div>
-                      <WorkIndexList works={inDomain} domain={false} />
+                      <WorkIndexList works={inDomain} domain={false} headingLevel={4} />
                     </div>
                   );
                 })}
               </div>
+              <p className="mt-10 font-ui text-sm text-center">
+                <Link href="/archive" className="text-[var(--accent)] hover:underline">Every essay in the archive</Link>
+              </p>
             </section>
           )}
 

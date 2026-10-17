@@ -17,6 +17,8 @@ export interface WorkIndexOptions {
   description?: boolean;
   /** Show the work's topic terms. */
   topics?: boolean;
+  /** The level of each work's title: 4 under a year's or a domain's h3. Default 3. */
+  headingLevel?: 3 | 4;
 }
 
 /**
@@ -31,7 +33,9 @@ export function WorkIndexEntry({
   domain = true,
   description = true,
   topics = false,
+  headingLevel = 3,
 }: { work: ListedWork; domainNames?: Map<string, string> } & WorkIndexOptions) {
+  const Heading = headingLevel === 4 ? "h4" : "h3";
   const authorLink = author && work.authorName ? listedAuthorHref(work) : null;
   const domainName = work.categorySlug ? domainNames?.get(work.categorySlug) : undefined;
   const date = formatListedDate(work.publishedAt);
@@ -58,9 +62,9 @@ export function WorkIndexEntry({
 
   return (
     <article>
-      <h3 className="font-display text-xl leading-snug text-[var(--ink)] md:text-2xl">
+      <Heading className="font-display text-xl leading-snug text-[var(--ink)] md:text-2xl">
         <Link href={workHref(work)} className="transition-colors hover:text-[var(--accent)]">{work.title}</Link>
-      </h3>
+      </Heading>
       {meta.length > 0 && (
         <p className="mt-1.5 font-ui text-xs text-[var(--ink-faint)]">
           {meta.map((part, i) => (

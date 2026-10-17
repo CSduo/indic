@@ -88,22 +88,39 @@ export function listedFromApi(row: any, kind: "article" | "paper"): ListedWork {
   };
 }
 
+/** The most rows /api/articles and /api/papers return a request (parsePagination's maxLimit). */
+const LIST_PAGE_SIZE = 50;
+
+/**
+ * Every row of a paged list endpoint ("/api/articles", key "articles"), read
+ * a page at a time: one request returns at most LIST_PAGE_SIZE rows.
+ */
+export async function fetchAllRows(path: string, key: string, init?: RequestInit): Promise<any[]> {
+  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const rows: any[] = [];
+  for (;;) {
+    const response = await fetch(`${base}${path}${path.includes("?") ? "&" : "?"}limit=${LIST_PAGE_SIZE}&offset=${rows.length}`, init);
+    if (!response.ok) throw new Error(`Request failed (${response.status})`);
+    const page = await response.json();
+    const batch: any[] = Array.isArray(page?.[key]) ? page[key] : [];
+    rows.push(...batch);
+    if (batch.length < LIST_PAGE_SIZE || rows.length >= Number(page?.total ?? 0)) return rows;
+  }
+}
+
 /**
  * Every published article and paper from the list endpoints, newest first;
  * null when either request fails, so a caller can keep what it shows.
  */
 export async function fetchListedWorks(signal?: AbortSignal): Promise<ListedWork[] | null> {
-  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-  const get = (path: string) =>
-    fetch(`${base}${path}`, { signal }).then((response) => {
-      if (!response.ok) throw new Error(`Request failed (${response.status})`);
-      return response.json();
-    });
   try {
-    const [articles, papers] = await Promise.all([get("/api/articles?limit=100"), get("/api/papers?limit=100")]);
+    const [articles, papers] = await Promise.all([
+      fetchAllRows("/api/articles", "articles", { signal }),
+      fetchAllRows("/api/papers", "papers", { signal }),
+    ]);
     return newestFirst([
-      ...(articles?.articles || []).map((row: any) => listedFromApi(row, "article")),
-      ...(papers?.papers || []).map((row: any) => listedFromApi(row, "paper")),
+      ...articles.map((row) => listedFromApi(row, "article")),
+      ...papers.map((row) => listedFromApi(row, "paper")),
     ]);
   } catch {
     return null;

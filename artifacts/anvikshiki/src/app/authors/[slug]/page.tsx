@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/sacred/EmptyState";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
 import { readInitialData } from "@/lib/initialData";
+import { fetchAllRows } from "@/lib/listedWorks";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -132,13 +133,10 @@ export default function AuthorHubPage() {
         }
 
         // 2. Fetch publications associated with this scholar
-        const [artsRes, papersRes] = await Promise.all([
-          fetch(`${base()}/api/articles?limit=100`, { signal: controller.signal }).then(r => r.ok ? r.json() : { articles: [] }),
-          fetch(`${base()}/api/papers?limit=100`, { signal: controller.signal }).then(r => r.ok ? r.json() : { papers: [] }),
+        const [rawArticles, rawPapers] = await Promise.all([
+          fetchAllRows("/api/articles", "articles", { signal: controller.signal }).catch((): any[] => []),
+          fetchAllRows("/api/papers", "papers", { signal: controller.signal }).catch((): any[] => []),
         ]);
-
-        const rawArticles = artsRes.articles || [];
-        const rawPapers = papersRes.papers || [];
 
         const cleanSlug = slug.toLowerCase().replace(/^@/, "").replace(/\/+$/, "");
         const userHandle = (resolvedUser?.handle || "").toLowerCase().replace(/^@/, "");
@@ -568,6 +566,21 @@ export default function AuthorHubPage() {
             </div>
           )}
 
+          {/* The domains this author publishes in, and the archive, as on the server-rendered page. */}
+          {articles.length + papers.length > 0 && (
+            <p className="mt-8 font-ui text-sm text-center">
+              {[...new Set([...articles, ...papers].map((work) => work.categorySlug).filter(Boolean))].map((domain) => (
+                <span key={domain}>
+                  <Link href={`/domains/${encodeURIComponent(domain as string)}`} className="text-[var(--accent)] hover:underline">
+                    {domainNames.get(domain as string) || (domain as string).replace(/-/g, " ")}
+                  </Link>
+                  <span aria-hidden="true" className="text-[var(--ink-faint)]"> · </span>
+                </span>
+              ))}
+              <Link href="/archive" className="text-[var(--accent)] hover:underline">Every essay in the archive</Link>
+            </p>
+          )}
+
           {/* Contributor Acquisition Banner */}
           <div className="mt-12 rounded-2xl border border-[var(--border)] bg-[var(--surface-card)] p-8 text-center space-y-3 shadow-sm">
             <Sparkles size={24} className="mx-auto text-[var(--gold)]" />
@@ -575,7 +588,7 @@ export default function AuthorHubPage() {
               Publish Your Research on Ānvīkṣikī
             </h3>
             <p className="font-body text-sm text-[var(--ink-soft)] max-w-xl mx-auto leading-relaxed">
-              Join contributing scholars like {authorName}. Publish your research papers, essays, and translations with permanent canonical archiving, Google Scholar discovery, and global reach.
+              {isContributor ? `Join contributing scholars like ${authorName}. ` : ""}Publish your research papers, essays, and translations with permanent canonical archiving, Google Scholar discovery, and global reach.
             </p>
             <div className="pt-2">
               <Link href="/submit" className="btn-terracotta inline-flex items-center gap-2">
