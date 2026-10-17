@@ -75,7 +75,8 @@ function FooterNewsletter() {
 }
 
 export function SacredFooter() {
-  const year = new Date().getFullYear();
+  // The journal's copyright year, as the owner set it (not the current year).
+  const year = 2023;
   const papersPublished = usePapersPublished();
   const exploreLinks = [
     ["Browse", "/browse"],

@@ -268,6 +268,9 @@ export default function AuthorHubPage() {
   }, [slug, fromServer]);
 
   const authorName = author?.name || slug;
+  // "Verified Contributor" and "Contributing Scholar" belong to people who have
+  // published work here; a member who only reads has a profile, not those marks.
+  const isContributor = articles.length + papers.length > 0 || (author?.articleCount ?? 0) + (author?.paperCount ?? 0) > 0;
   // The author's own bio, or a neutral line; never invented expertise.
   const authorBio = author?.bio || `Author profile for ${authorName} on Ānvīkṣikī.`;
 
@@ -380,17 +383,21 @@ export default function AuthorHubPage() {
                     </div>
                   )}
                 </div>
-                <div className="absolute -bottom-1 -right-1 bg-[#C84A10] text-white p-1 rounded-full shadow" title="Verified Contributor">
-                  <CheckCircle2 size={16} />
-                </div>
+                {isContributor && (
+                  <div className="absolute -bottom-1 -right-1 bg-[#C84A10] text-white p-1 rounded-full shadow" title="Verified Contributor">
+                    <CheckCircle2 size={16} />
+                  </div>
+                )}
               </div>
 
               {/* Scholar Details */}
               <div className="flex-1 text-center md:text-left space-y-3">
                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
-                  <span className="font-ui text-[11px] font-bold uppercase tracking-[0.16em] px-2.5 py-0.5 rounded-full bg-[var(--terracotta-pale)] text-[var(--terracotta)] border border-[var(--border-gold)]/40">
-                    Contributing Scholar
-                  </span>
+                  {isContributor && (
+                    <span className="font-ui text-[11px] font-bold uppercase tracking-[0.16em] px-2.5 py-0.5 rounded-full bg-[var(--terracotta-pale)] text-[var(--terracotta)] border border-[var(--border-gold)]/40">
+                      Contributing Scholar
+                    </span>
+                  )}
                   {author.handle && (
                     <span className="font-mono text-xs text-[var(--ink-faint)]">
                       @{author.handle}
