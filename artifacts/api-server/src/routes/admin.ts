@@ -5,7 +5,7 @@ import {
   newsletterSubscribersTable, categoriesTable, usersTable, siteSettingsTable,
   notificationsTable
 } from "@workspace/db";
-import { eq, desc, sql, and, ne, isNull, isNotNull, getTableColumns } from "drizzle-orm";
+import { eq, desc, sql, and, or, ne, isNull, isNotNull, getTableColumns } from "drizzle-orm";
 import { parsePagination } from "../lib/request";
 import {
   hashPassword, comparePassword, createAdminToken,
@@ -85,8 +85,15 @@ const paperInputSchema = z.object({
 /** The most submissions one page of the editorial desk's list carries. */
 export const ADMIN_SUBMISSIONS_PAGE_SIZE = 50;
 
-/** Every submission column except the body, which only the detail view needs. */
-const { body: _submissionBody, ...ADMIN_SUBMISSION_LIST_COLUMNS } = getTableColumns(submissionsTable);
+/**
+ * Every submission column except the body, which only the detail view needs,
+ * plus whether the body holds images, for the list's "Images" mark.
+ */
+const { body: _submissionBody, ...SUBMISSION_COLUMNS_WITHOUT_BODY } = getTableColumns(submissionsTable);
+const ADMIN_SUBMISSION_LIST_COLUMNS = {
+  ...SUBMISSION_COLUMNS_WITHOUT_BODY,
+  hasInlineImages: sql<boolean>`coalesce(${submissionsTable.body} ilike '%<img%', false)`,
+};
 
 // Admin auth middleware
 async function requireAdmin(req: any, res: any, next: any) {
@@ -576,15 +583,18 @@ router.get("/admin/submissions", requireAdmin, async (req, res) => {
     // text in one response could outgrow the 4.5 MB serverless response limit.
     // GET /admin/submissions/:id returns one submission with its body.
     const { limit, offset } = parsePagination(req.query.limit, req.query.offset, { defaultLimit: ADMIN_SUBMISSIONS_PAGE_SIZE, maxLimit: ADMIN_SUBMISSIONS_PAGE_SIZE });
-    const [submissions, [{ count }]] = await Promise.all([
+    const [submissions, [{ count }], [{ pending }]] = await Promise.all([
       db.select(ADMIN_SUBMISSION_LIST_COLUMNS).from(submissionsTable)
         .where(and(...conditions))
         .orderBy(desc(submissionsTable.createdAt), desc(submissionsTable.id))
         .limit(limit)
         .offset(offset),
       db.select({ count: sql<number>`count(*)` }).from(submissionsTable).where(and(...conditions)),
+      // Awaiting a first decision, across the whole desk whatever the page or filter.
+      db.select({ pending: sql<number>`count(*)` }).from(submissionsTable)
+        .where(and(isNull(submissionsTable.deletedAt), eq(submissionsTable.status, "RECEIVED"))),
     ]);
-    return res.json({ submissions, total: Number(count), limit, offset });
+    return res.json({ submissions, total: Number(count), pending: Number(pending), limit, offset });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Could not load submissions. Please try again.", code: "LOAD_FAILED" });
@@ -592,10 +602,14 @@ router.get("/admin/submissions", requireAdmin, async (req, res) => {
 });
 
 // GET /api/admin/submissions/:id — one submission with its (sanitised) body.
+// As in the list, an author's live draft is private: only a trashed one shows.
 router.get("/admin/submissions/:id", requireAdmin, async (req, res) => {
   try {
     const [submission] = await db.select().from(submissionsTable)
-      .where(eq(submissionsTable.id, String(req.params.id)))
+      .where(and(
+        eq(submissionsTable.id, String(req.params.id)),
+        or(isNotNull(submissionsTable.deletedAt), ne(submissionsTable.status, "DRAFT")),
+      ))
       .limit(1);
     if (!submission) return res.status(404).json({ error: "Submission not found" });
     return res.json({ submission: { ...submission, body: sanitizeArticleBody(submission.body) } });

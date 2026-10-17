@@ -41,6 +41,7 @@ vi.mock("@workspace/db", () => {
     if (t === tables.adminsTable) return state.admin ? [{ ...state.admin }] : [];
     if (t === tables.submissionsTable) {
       if (columns && "count" in columns) return [{ count: state.submissions.length }];
+      if (columns && "pending" in columns) return [{ pending: state.submissions.filter((row) => row.status === "RECEIVED").length }];
       // Only the selected columns come back, as from a real select.
       return state.submissions.map((row) => (columns ? Object.fromEntries(Object.keys(columns).map((k) => [k, row[k]])) : { ...row }));
     }
@@ -56,7 +57,7 @@ vi.mock("@workspace/db", () => {
       offset(n: number) { page.offset = n; return q; },
       then(resolve: (rows: unknown[]) => void, reject: any) {
         try {
-          if (from === tables.submissionsTable && !(columns && "count" in columns)) state.pages.push({ ...page });
+          if (from === tables.submissionsTable && !(columns && ("count" in columns || "pending" in columns))) state.pages.push({ ...page });
           const rows = rowsFor(from, columns);
           resolve(page.limit === undefined ? rows : rows.slice(page.offset ?? 0, (page.offset ?? 0) + page.limit));
         } catch (e) { reject(e); }
@@ -221,7 +222,7 @@ describe("the editorial desk's submission list", () => {
 
     const res = await request(app).get("/api/admin/submissions?limit=2&offset=1").set("Cookie", cookie);
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ total: 3, limit: 2, offset: 1 });
+    expect(res.body).toMatchObject({ total: 3, pending: 3, limit: 2, offset: 1 });
     expect(res.body.submissions).toHaveLength(2);
     for (const item of res.body.submissions) expect(item).not.toHaveProperty("body");
     expect(state.pages.at(-1)).toEqual({ limit: 2, offset: 1 });
