@@ -33,6 +33,7 @@ import {
   type WorkSummary,
 } from "../lib/public-content";
 import { CONTACT_EMAIL, PAGE_META } from "../lib/page-meta";
+import { renderListedWorks, renderWorksByYear, workPath } from "../lib/listing-html";
 
 const router = Router();
 
@@ -119,45 +120,13 @@ export function sendUnavailable(req: Request, res: Response, err: unknown) {
   res.status(503).send(renderSsrDocument(metaTags, body));
 }
 
-function workPath(work: WorkSummary): string {
-  return `/${work.kind === "paper" ? "papers" : "articles"}/${encodeURIComponent(work.slug)}`;
-}
-
 function categoryNameMap(categories: Array<{ slug: string; name: string }>): Map<string, string> {
   return new Map(categories.map((c) => [c.slug, c.name]));
 }
 
-/** One work in a list: linked title, excerpt, date, author link and domain link. */
-export function renderWorkItem(work: WorkSummary, categoryNames: Map<string, string>): string {
-  const excerpt = work.excerpt ? work.excerpt.slice(0, 280) + (work.excerpt.length > 280 ? "…" : "") : "";
-  const iso = formatIsoDate(work.publishedAt);
-  const author = work.authorName
-    ? work.authorPath
-      ? `By <a href="${escapeHtml(work.authorPath)}">${escapeHtml(work.authorName)}</a>`
-      : `By ${escapeHtml(work.authorName)}`
-    : "";
-  const categoryName = work.categorySlug ? categoryNames.get(work.categorySlug) : undefined;
-  const domain = work.categorySlug && categoryName
-    ? `<a href="/domains/${escapeHtml(work.categorySlug)}">${escapeHtml(categoryName)}</a>`
-    : "";
-  const meta = [
-    author,
-    iso ? `<time datetime="${iso}">${escapeHtml(formatDate(work.publishedAt))}</time>` : "",
-    domain,
-  ].filter(Boolean).join(" · ");
-  return `<li class="ssr-work-item">
-      <article>
-        <h3><a href="${workPath(work)}">${escapeHtml(work.title)}</a></h3>
-        ${meta ? `<p class="ssr-byline">${meta}</p>` : ""}
-        ${excerpt ? `<p class="ssr-work-excerpt">${escapeHtml(excerpt)}</p>` : ""}
-      </article>
-    </li>`;
-}
-
+/** A list of works with author, date, domain and description (lib/listing-html.ts). */
 function renderWorkList(works: WorkSummary[], categoryNames: Map<string, string>): string {
-  return `<ul class="ssr-work-list">
-    ${works.map((w) => renderWorkItem(w, categoryNames)).join("\n    ")}
-  </ul>`;
+  return renderListedWorks(works, categoryNames);
 }
 
 function itemListNode(works: WorkSummary[], startPosition = 1) {
@@ -276,6 +245,9 @@ export function renderArchiveBody(
   categories: CategorySummary[],
 ): string {
   const names = categoryNameMap(categories);
+  const hubs = categories
+    .filter((c) => c.articleCount + c.paperCount > 0)
+    .sort((a, b) => b.articleCount + b.paperCount - (a.articleCount + a.paperCount));
   const pageLink = (n: number) => (n === 1 ? "/archive" : `/archive?page=${n}`);
   const pagination = totalPages > 1
     ? `<nav class="ssr-pagination" aria-label="Archive pages">
@@ -288,12 +260,11 @@ export function renderArchiveBody(
   <header class="ssr-domain-header">
     <h1 class="ssr-title">Archive${page > 1 ? ` — page ${page}` : ""}</h1>
     <p class="ssr-description">${escapeHtml(PAGE_META.archive.description)}</p>
-    <p>${pluralize(total, "published work")}. Browse by subject on the <a href="/domains">domains</a> page.</p>
+    <p>${pluralize(total, "published work")}, newest first${totalPages > 1 ? `, ${ARCHIVE_PAGE_SIZE} to a page` : ""}.</p>
+    ${hubs.length > 0 ? `<p class="ssr-related-links">By domain: ${hubs.map((c) => `<a href="/domains/${escapeHtml(encodeURIComponent(c.slug))}">${escapeHtml(c.name)}</a> (${c.articleCount + c.paperCount})`).join(" · ")} · <a href="/domains">All domains</a></p>` : ""}
   </header>
-  <section class="ssr-section">
-    ${pageWorks.length > 0 ? renderWorkList(pageWorks, names) : `<p>Nothing has been published yet.</p>`}
-    ${pagination}
-  </section>
+  ${pageWorks.length > 0 ? renderWorksByYear(pageWorks, names) : `<section class="ssr-section"><p>Nothing has been published yet.</p></section>`}
+  ${pagination ? `<section class="ssr-section">${pagination}</section>` : ""}
 </main>`;
 }
 
@@ -352,30 +323,43 @@ router.get("/archive", async (req, res) => {
 
 // ── /domains ──────────────────────────────────────────────────────────────────
 
-export function renderDomainsBody(categories: CategorySummary[]): string {
-  const withWork = categories
+/** Domains with published work, most works first. */
+function domainsWithWork(categories: CategorySummary[]): CategorySummary[] {
+  return categories
     .filter((c) => c.articleCount + c.paperCount > 0)
     .sort((a, b) => b.articleCount + b.paperCount - (a.articleCount + a.paperCount));
+}
+
+/**
+ * /domains: every domain with published work, what it covers and the works
+ * filed under it (each linked, with its description); then the domains with
+ * nothing published yet, by name.
+ */
+export function renderDomainsBody(categories: CategorySummary[], works: PublishedWorks = { articles: [], papers: [] }): string {
+  const withWork = domainsWithWork(categories);
   const empty = categories.filter((c) => c.articleCount + c.paperCount === 0);
+  const all = mergedNewestFirst(works);
+  const names = categoryNameMap(categories);
   return `<main class="ssr-content ssr-domains">
   <header class="ssr-domain-header">
     <h1 class="ssr-title">Domains</h1>
     <p class="ssr-description">${escapeHtml(PAGE_META.domains.description)}</p>
+    ${withWork.length > 0 ? `<p class="ssr-related-links">${withWork.map((c) => `<a href="#domain-${escapeHtml(c.slug)}">${escapeHtml(c.name)}</a>`).join(" · ")}</p>` : ""}
   </header>
-  <section class="ssr-section">
-    <h2>Domains with published work</h2>
-    ${withWork.length > 0 ? `<ul class="ssr-work-list">
-      ${withWork.map((c) => `<li class="ssr-work-item">
-        <h3><a href="/domains/${escapeHtml(c.slug)}">${escapeHtml(c.name)}</a></h3>
-        <p class="ssr-byline">${pluralize(c.articleCount, "essay")}${c.paperCount > 0 ? ` · ${pluralize(c.paperCount, "paper")}` : ""}</p>
-        ${c.description ? `<p class="ssr-work-excerpt">${escapeHtml(c.description)}</p>` : ""}
-      </li>`).join("\n      ")}
-    </ul>` : `<p>Nothing has been published yet.</p>`}
-  </section>
+  ${withWork.length > 0 ? withWork.map((c) => {
+    const inDomain = all.filter((w) => w.categorySlug === c.slug);
+    return `<section class="ssr-section ssr-domain-block" id="domain-${escapeHtml(c.slug)}" aria-labelledby="domain-${escapeHtml(c.slug)}-heading">
+    <h2 id="domain-${escapeHtml(c.slug)}-heading"><a href="/domains/${escapeHtml(encodeURIComponent(c.slug))}">${escapeHtml(c.name)}</a></h2>
+    <p class="ssr-byline">${pluralize(c.articleCount, "essay")}${c.paperCount > 0 ? ` · ${pluralize(c.paperCount, "paper")}` : ""}</p>
+    ${c.description ? `<p class="ssr-work-excerpt">${escapeHtml(c.description)}</p>` : ""}
+    ${inDomain.length > 0 ? renderListedWorks(inDomain, names, { domain: false }) : ""}
+  </section>`;
+  }).join("\n  ") : `<section class="ssr-section"><p>Nothing has been published yet.</p></section>`}
   ${empty.length > 0 ? `<section class="ssr-section">
     <h2>Domains with no published work yet</h2>
     <p>${empty.map((c) => escapeHtml(c.name)).join(", ")}. <a href="/submit">Submissions in these areas are welcome</a>.</p>
   </section>` : ""}
+  <p class="ssr-related-links"><a href="/archive">Every essay in the archive</a></p>
 </main>`;
 }
 
@@ -389,8 +373,20 @@ router.get("/domains", async (req, res) => {
   }
   const { works, categories } = data;
   const head: PageHead = { ...PAGE_META.domains, canonicalPath: "/domains", indexable: true };
-  head.jsonLd = [webPageNode("CollectionPage", head)];
-  sendPage(req, res, head, renderDomainsBody(categories), "domains", { domains: categories }, works.papers.length > 0);
+  // The domains listed on the page, in its order.
+  const hubs = domainsWithWork(categories);
+  head.jsonLd = [webPageNode("CollectionPage", head, {
+    "mainEntity": {
+      "@type": "ItemList",
+      "itemListElement": hubs.map((c, i) => ({
+        "@type": "ListItem",
+        "position": i + 1,
+        "url": `${CANONICAL_DOMAIN}/domains/${encodeURIComponent(c.slug)}`,
+        "name": c.name,
+      })),
+    },
+  })];
+  sendPage(req, res, head, renderDomainsBody(categories, works), "domains", { domains: categories, works: mergedNewestFirst(works) }, works.papers.length > 0);
 });
 
 // ── /papers ───────────────────────────────────────────────────────────────────

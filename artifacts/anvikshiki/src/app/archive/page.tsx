@@ -7,6 +7,8 @@ import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
 import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
 import { readInitialData } from "@/lib/initialData";
 import { PAGE_META } from "@/lib/pageMeta";
+import { WorkIndexList } from "@/components/manuscript/WorkIndex";
+import { groupByYear, newestFirst, type ListedWork } from "@/lib/listedWorks";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -19,6 +21,8 @@ type ServerArchive = {
     slug: string;
     title: string;
     excerpt: string | null;
+    /** The work's own meta description (the server's listing summary). */
+    description?: string;
     authorName: string | null;
     categorySlug: string | null;
     publishedAt: string | null;
@@ -40,7 +44,8 @@ function serverArchiveItems(): any[] {
     kind: work.kind,
     slug: work.slug,
     title: work.title,
-    summary: work.excerpt || undefined,
+    // The same summary the server-rendered archive shows.
+    summary: work.description || work.excerpt || undefined,
     imageUrl: work.heroImageUrl || undefined,
     categorySlug: work.categorySlug || "",
     categoryName: (work.categorySlug && names.get(work.categorySlug)) || (work.kind === "paper" ? "Research Paper" : "Essay"),
@@ -108,7 +113,7 @@ export default function ArchivePage() {
         kind: "article",
         slug: a.slug,
         title: a.title,
-        summary: a.excerpt,
+        summary: a.description || a.excerpt,
         imageUrl: a.heroImageUrl,
         categorySlug: a.categorySlug || "history",
         categoryName: a.category?.name || "Essay",
@@ -124,7 +129,7 @@ export default function ArchivePage() {
         kind: "paper",
         slug: p.slug,
         title: p.title,
-        summary: p.abstract,
+        summary: p.description || p.abstract,
         imageUrl: p.coverImageUrl,
         categorySlug: p.categorySlug || "philosophy",
         categoryName: p.category?.name || "Research Paper",
@@ -212,6 +217,23 @@ export default function ArchivePage() {
     setReadingTime("any");
     setCurrentPage(1);
   };
+
+  // Every work, by year: the archive's table of contents, whatever the filters.
+  const yearIndex = useMemo(
+    () => groupByYear(newestFirst(items.map((item): ListedWork => ({
+      kind: item.kind,
+      id: item.id,
+      slug: item.slug,
+      title: item.title,
+      categorySlug: item.categorySlug || null,
+      publishedAt: item.publishedAt || null,
+    })))),
+    [items],
+  );
+  const domainNames = useMemo(
+    () => new Map<string, string>(items.filter((item) => item.categorySlug && item.categoryName).map((item) => [item.categorySlug, item.categoryName])),
+    [items],
+  );
 
   const totalPages = Math.max(1, Math.ceil(filteredAndSorted.length / ITEMS_PER_PAGE));
   const paginatedItems = filteredAndSorted.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -569,6 +591,21 @@ export default function ArchivePage() {
                   <ChevronRight size={16} />
                 </button>
               </div>
+            )}
+
+            {/* Every published work by year, as the server-rendered archive lists it. */}
+            {yearIndex.length > 0 && (
+              <section aria-labelledby="archive-index-heading" className="mt-12 border-t border-[var(--border)] pt-8">
+                <h2 id="archive-index-heading" className="font-display text-2xl text-[var(--ink)] md:text-3xl">Index by year</h2>
+                <div className="mt-6 space-y-8">
+                  {yearIndex.map(({ year, works }) => (
+                    <div key={year ?? "undated"} className="grid gap-3 md:grid-cols-[96px_1fr]">
+                      <h3 className="font-ui text-sm font-bold uppercase tracking-[0.16em] text-[var(--ink-soft)]">{year ?? "Undated"}</h3>
+                      <WorkIndexList works={works} domainNames={domainNames} author={false} description={false} />
+                    </div>
+                  ))}
+                </div>
+              </section>
             )}
           </main>
         </div>

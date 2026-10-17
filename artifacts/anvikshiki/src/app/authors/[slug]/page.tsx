@@ -27,6 +27,9 @@ interface AuthorPublication {
   kind: "article" | "paper";
   slug: string;
   title: string;
+  /** The work's own meta description (from the server or the list API). */
+  description?: string;
+  topics?: string[];
   excerpt?: string;
   abstract?: string;
   authorName: string;
@@ -48,6 +51,20 @@ interface AuthorData {
   orcid?: string;
   articleCount?: number;
   paperCount?: number;
+  /** The page's meta description, as the server rendered it. */
+  description?: string;
+}
+
+/** What the server embeds for an author page: the profile plus the listed works. */
+interface ServerAuthor extends AuthorData {
+  works?: Array<AuthorPublication & { excerpt?: string | null; year?: number | null; doi?: string | null }>;
+  domains?: Array<{ slug: string; name: string }>;
+}
+
+function serverWorks(data: ServerAuthor | undefined, kind: "article" | "paper"): AuthorPublication[] {
+  return (data?.works || [])
+    .filter((work) => work.kind === kind)
+    .map((work) => ({ ...work, excerpt: work.excerpt || undefined, year: work.year ?? undefined, doi: work.doi ?? undefined }));
 }
 
 export default function AuthorHubPage() {
@@ -59,20 +76,15 @@ export default function AuthorHubPage() {
   const slug = rawSlug;
   const { user } = useAuthContext();
 
-  // Try reading pre-hydrated SSR data if available
-  const [author, setAuthor] = useState<AuthorData | null>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        // The server embeds the record it rendered; render it first.
-        const fromServer = readInitialData<any>("author");
-        if (fromServer) return fromServer;
-      } catch {}
-    }
-    return null;
-  });
+  // The server embeds the profile and the works it rendered; render them first.
+  const [fromServer] = useState<ServerAuthor | undefined>(() =>
+    typeof window === "undefined" ? undefined : readInitialData<ServerAuthor>("author"),
+  );
+  const [author, setAuthor] = useState<AuthorData | null>(() => fromServer || null);
+  const domainNames = useMemo(() => new Map((fromServer?.domains || []).map((d) => [d.slug, d.name])), [fromServer]);
 
-  const [articles, setArticles] = useState<AuthorPublication[]>([]);
-  const [papers, setPapers] = useState<AuthorPublication[]>([]);
+  const [articles, setArticles] = useState<AuthorPublication[]>(() => serverWorks(fromServer, "article"));
+  const [papers, setPapers] = useState<AuthorPublication[]>(() => serverWorks(fromServer, "paper"));
   const [loading, setLoading] = useState(!author);
   const [error, setError] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | "articles" | "papers">("all");
@@ -80,6 +92,9 @@ export default function AuthorHubPage() {
 
   useEffect(() => {
     if (!slug) return;
+    // The server-rendered page already holds this author's works, matched by
+    // the server's own rules; asking the API again could only disagree.
+    if (fromServer?.works) return;
     const controller = new AbortController();
 
     async function loadAuthorHub() {
@@ -135,6 +150,8 @@ export default function AuthorHubPage() {
           if (userId && item.authorId === userId) return true;
           if (userHandle && item.authorHandle && item.authorHandle.toLowerCase().replace(/^@/, "") === userHandle) return true;
           const cleanItemAuthor = String(item.authorName || "").toLowerCase().replace(/^(dr|prof|vidwan|acharya)\.?\s+/i, "").replace(/[^a-z0-9]/g, "-");
+          // A work without an author name belongs to no author page ("x".includes("") is true).
+          if (!cleanItemAuthor.replace(/-/g, "")) return false;
           if (cleanSlug && (cleanItemAuthor === cleanSlug || cleanItemAuthor.includes(cleanSlug) || cleanSlug.includes(cleanItemAuthor))) return true;
           if (userHandle && (cleanItemAuthor === userHandle || cleanItemAuthor.includes(userHandle) || userHandle.includes(cleanItemAuthor))) return true;
           if (userNameSlug && (cleanItemAuthor === userNameSlug || cleanItemAuthor.includes(userNameSlug) || userNameSlug.includes(cleanItemAuthor))) return true;
@@ -148,6 +165,8 @@ export default function AuthorHubPage() {
             kind: "article",
             slug: a.slug,
             title: a.title,
+            description: a.description,
+            topics: Array.isArray(a.topics) ? a.topics : [],
             excerpt: a.excerpt || a.subtitle,
             authorName: a.authorName,
             categorySlug: a.categorySlug,
@@ -179,6 +198,8 @@ export default function AuthorHubPage() {
             kind: "paper",
             slug: p.slug,
             title: p.title,
+            description: p.description,
+            topics: Array.isArray(p.topics) ? p.topics : [],
             abstract: p.abstract,
             authorName: p.authorName,
             categorySlug: p.categorySlug,
@@ -244,7 +265,7 @@ export default function AuthorHubPage() {
 
     loadAuthorHub();
     return () => controller.abort();
-  }, [slug]);
+  }, [slug, fromServer]);
 
   const authorName = author?.name || slug;
   // The author's own bio, or a neutral line; never invented expertise.
@@ -253,7 +274,7 @@ export default function AuthorHubPage() {
 
   useDocumentMetadata({
     title: authorName ? `${authorName} — Author Profile — Ānvīkṣikī` : undefined,
-    description: authorBio.slice(0, 200),
+    description: (author?.description || authorBio).slice(0, 200),
     canonicalPath: `/authors/${encodeURIComponent(author?.handle || slug)}`,
     image: author?.avatarUrl || null,
     type: "profile",
@@ -281,7 +302,7 @@ export default function AuthorHubPage() {
     );
     if (!searchFilter.trim()) return list;
     const q = searchFilter.toLowerCase();
-    return list.filter(w => w.title.toLowerCase().includes(q) || (w.excerpt || w.abstract || "").toLowerCase().includes(q));
+    return list.filter(w => w.title.toLowerCase().includes(q) || (w.description || w.excerpt || w.abstract || "").toLowerCase().includes(q));
   }, [articles, papers, searchFilter]);
 
   const filteredArticles = useMemo(() => {
@@ -498,7 +519,7 @@ export default function AuthorHubPage() {
                             </span>
                             {work.categorySlug && (
                               <span className="font-ui text-[10px] text-[var(--ink-faint)] uppercase tracking-wider">
-                                · {work.categorySlug}
+                                · {domainNames.get(work.categorySlug) || work.categorySlug.replace(/-/g, " ")}
                               </span>
                             )}
                           </div>
@@ -521,9 +542,15 @@ export default function AuthorHubPage() {
                           {work.title}
                         </h3>
 
-                        {(work.excerpt || work.abstract) && (
-                          <p className="font-body text-xs md:text-sm text-[var(--ink-soft)] line-clamp-2 leading-relaxed">
-                            {work.excerpt || work.abstract}
+                        {(work.description || work.excerpt || work.abstract) && (
+                          <p className="font-body text-xs md:text-sm text-[var(--ink-soft)] leading-relaxed">
+                            {work.description || work.excerpt || work.abstract}
+                          </p>
+                        )}
+                        {work.topics && work.topics.length > 0 && (
+                          <p className="font-ui text-[11px] leading-5 text-[var(--ink-faint)]">
+                            <span className="mr-1.5 font-bold uppercase tracking-[0.12em] text-[var(--ink-soft)]">Topics</span>
+                            {work.topics.join(" · ")}
                           </p>
                         )}
                       </div>

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import { ArrowRight, BookOpen, Compass, Feather, Sparkles } from "lucide-react";
 import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
@@ -7,12 +8,23 @@ import { ParchmentCard } from "@/components/manuscript/ParchmentCard";
 import { AmbientPetals, FloralBorder, FloralCorner } from "@/components/sacred/FloralDecor";
 import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
 import { PAGE_META } from "@/lib/pageMeta";
+import { readInitialData } from "@/lib/initialData";
+import { WorkIndexList } from "@/components/manuscript/WorkIndex";
+import type { ListedWork } from "@/lib/listedWorks";
 
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
 
 export default function AnvikshikiMeaningPage() {
   // Same title and description as the server-rendered page.
   useDocumentMetadata({ ...PAGE_META.aboutAnvikshiki, canonicalPath: "/about/anvikshiki", type: "article" });
+  // Further reading as the server chose it (api-server app.ts meaningPageReading).
+  const [server] = useState(() =>
+    typeof window === "undefined"
+      ? undefined
+      : readInitialData<{ furtherReading: ListedWork[]; domains: Array<{ slug: string; name: string }> }>("about-anvikshiki"),
+  );
+  const furtherReading = server?.furtherReading || [];
+  const domainNames = new Map((server?.domains || []).map((d) => [d.slug, d.name]));
 
   return (
     <div className="relative bg-[var(--bg)] overflow-hidden">
@@ -171,6 +183,17 @@ export default function AnvikshikiMeaningPage() {
                 </p>
               </div>
             </ParchmentCard>
+
+            {/* The journal's own work on these subjects, as the server-rendered page lists it. */}
+            {furtherReading.length > 0 && (
+              <ParchmentCard className="p-6 md:p-10" hover={false}>
+                <h2 id="further-reading-heading" className="font-display text-3xl text-[var(--ink)]">Further reading on Ānvīkṣikī</h2>
+                <p className="mt-2 mb-6 font-body text-base leading-7 text-[var(--ink-soft)]">
+                  The journal's own account of why it was started, and essays it has published in philosophy and Sanskrit studies.
+                </p>
+                <WorkIndexList works={furtherReading} domainNames={domainNames} />
+              </ParchmentCard>
+            )}
           </article>
 
           {/* Scholarly Sidebar & Fast Navigation */}

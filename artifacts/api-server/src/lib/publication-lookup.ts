@@ -104,6 +104,12 @@ export interface AuthorHubArticle {
   heroImageUrl: string | null;
   publishedAt: Date | string | null;
   authorId: string | null;
+  /** Read only to derive the description and topic terms the page lists. */
+  body?: string | null;
+  updatedAt?: Date | string | null;
+  tags?: string[] | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
 }
 
 export interface AuthorHubPaper {
@@ -120,6 +126,11 @@ export interface AuthorHubPaper {
   year: number | null;
   doi: string | null;
   authorId: string | null;
+  body?: string | null;
+  updatedAt?: Date | string | null;
+  tags?: string[] | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
 }
 
 /** Every published, non-deleted work with the account that submitted it. */
@@ -137,6 +148,11 @@ export async function listAuthorHubWorks(): Promise<{ articles: AuthorHubArticle
       heroImageUrl: articlesTable.heroImageUrl,
       publishedAt: articlesTable.publishedAt,
       authorId: submissionsTable.userId,
+      body: articlesTable.body,
+      updatedAt: articlesTable.updatedAt,
+      tags: articlesTable.tags,
+      seoTitle: articlesTable.seoTitle,
+      seoDescription: articlesTable.seoDescription,
     }).from(articlesTable)
       .leftJoin(submissionsTable, eq(articlesTable.sourceSubmissionId, submissionsTable.id))
       .where(and(eq(articlesTable.status, "PUBLISHED"), isNull(articlesTable.deletedAt))),
@@ -153,6 +169,11 @@ export async function listAuthorHubWorks(): Promise<{ articles: AuthorHubArticle
       year: papersTable.year,
       doi: papersTable.doi,
       authorId: submissionsTable.userId,
+      body: papersTable.body,
+      updatedAt: papersTable.updatedAt,
+      tags: papersTable.tags,
+      seoTitle: papersTable.seoTitle,
+      seoDescription: papersTable.seoDescription,
     }).from(papersTable)
       .leftJoin(submissionsTable, eq(papersTable.sourceSubmissionId, submissionsTable.id))
       .where(and(eq(papersTable.status, "PUBLISHED"), isNull(papersTable.deletedAt))),

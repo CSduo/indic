@@ -6,6 +6,7 @@
 import { db, articlesTable, papersTable, categoriesTable, submissionsTable, usersTable } from "@workspace/db";
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { makeAuthorResolver, singleAuthorPath, type AuthorUser } from "./author-identity";
+import { effectiveSeoDescription, effectiveTopics, type SeoWork, type WorkKind } from "./effective-seo";
 
 export interface WorkSummary {
   kind: "article" | "paper";
@@ -19,8 +20,17 @@ export interface WorkSummary {
   authorPath: string | null;
   categorySlug: string | null;
   publishedAt: string | null;
+  /** When the work last changed: its updatedAt, else its publication date. */
+  updatedAt: string | null;
   readingMinutes: number | null;
   heroImageUrl: string | null;
+  /**
+   * The work's own meta description (lib/effective-seo.ts), so every listing
+   * describes a work exactly as its page and search results do.
+   */
+  description: string;
+  /** The work's topic terms, the same ones its page shows. */
+  topics: string[];
 }
 
 export interface CategorySummary {
@@ -46,6 +56,52 @@ function isoOrNull(value: unknown): string | null {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(String(value));
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+/*
+  Deriving a description and topic terms from a long body takes tens of
+  milliseconds, and every listing page needs them for every work. They are
+  remembered per version of a work: the key holds its id, updatedAt (which
+  every edit sets) and the fields they are derived from, so an edit is a new
+  key and nothing stale is ever served. Bounded, oldest entry first out.
+*/
+const LISTING_SEO_CACHE_MAX = 2000;
+const listingSeoCache = new Map<string, { description: string; topics: string[] }>();
+
+function listingSeoKey(work: SeoWork & { id?: unknown; updatedAt?: unknown }, kind: WorkKind): string | null {
+  const updated = isoOrNull(work.updatedAt);
+  if (typeof work.id !== "string" || !updated) return null;
+  const text = (value: unknown) => (typeof value === "string" ? value : "");
+  return [
+    kind,
+    work.id,
+    updated,
+    text(work.slug),
+    text(work.title),
+    text(work.subtitle),
+    text(work.seoTitle),
+    text(work.seoDescription),
+    Array.isArray(work.tags) ? work.tags.join("\u0001") : "",
+    text(work.excerpt ?? work.abstract),
+    text(work.body).length,
+  ].join("\u0000");
+}
+
+/**
+ * The description and topic terms a listing shows for a work: the effective
+ * values its own page uses (stored, else editorial, else derived from its text).
+ */
+export function listingSeo(work: SeoWork & { id?: unknown; updatedAt?: unknown }, kind: WorkKind): { description: string; topics: string[] } {
+  const key = listingSeoKey(work, kind);
+  let value = key ? listingSeoCache.get(key) : undefined;
+  if (!value) {
+    value = { description: effectiveSeoDescription(work, kind), topics: effectiveTopics(work) };
+    if (key) {
+      listingSeoCache.set(key, value);
+      if (listingSeoCache.size > LISTING_SEO_CACHE_MAX) listingSeoCache.delete(listingSeoCache.keys().next().value as string);
+    }
+  }
+  return { description: value.description, topics: [...value.topics] };
 }
 
 /**
@@ -78,9 +134,15 @@ export async function listPublishedWorks(): Promise<PublishedWorks> {
       title: articlesTable.title,
       excerpt: articlesTable.excerpt,
       subtitle: articlesTable.subtitle,
+      // Only read to derive the description and topics; never sent on.
+      body: articlesTable.body,
+      tags: articlesTable.tags,
+      seoTitle: articlesTable.seoTitle,
+      seoDescription: articlesTable.seoDescription,
       authorName: articlesTable.authorName,
       categorySlug: articlesTable.categorySlug,
       publishedAt: articlesTable.publishedAt,
+      updatedAt: articlesTable.updatedAt,
       readingMinutes: articlesTable.readingMinutes,
       heroImageUrl: articlesTable.heroImageUrl,
       authorId: submissionsTable.userId,
@@ -94,9 +156,14 @@ export async function listPublishedWorks(): Promise<PublishedWorks> {
       slug: papersTable.slug,
       title: papersTable.title,
       abstract: papersTable.abstract,
+      body: papersTable.body,
+      tags: papersTable.tags,
+      seoTitle: papersTable.seoTitle,
+      seoDescription: papersTable.seoDescription,
       authorName: papersTable.authorName,
       categorySlug: papersTable.categorySlug,
       publishedAt: papersTable.publishedAt,
+      updatedAt: papersTable.updatedAt,
       readingMinutes: papersTable.readingMinutes,
       coverImageUrl: papersTable.coverImageUrl,
       authorId: submissionsTable.userId,
@@ -111,35 +178,56 @@ export async function listPublishedWorks(): Promise<PublishedWorks> {
   // Author links use the same canonical segment as the sitemap and the
   // /authors/:slug route.
   const resolve = makeAuthorResolver(users);
-
-  const articles: WorkSummary[] = articleRows.map((row) => ({
-    kind: "article",
-    id: row.id,
-    slug: row.slug,
-    title: row.title,
-    excerpt: plainText(row.excerpt) ?? plainText(row.subtitle),
-    authorName: row.authorName ?? null,
-    authorPath: singleAuthorPath({ kind: "article", authorName: row.authorName, authorId: row.authorId }, resolve),
-    categorySlug: row.categorySlug ?? null,
-    publishedAt: isoOrNull(row.publishedAt),
-    readingMinutes: row.readingMinutes ?? null,
-    heroImageUrl: row.heroImageUrl ?? null,
-  }));
-  const papers: WorkSummary[] = paperRows.map((row) => ({
-    kind: "paper",
-    id: row.id,
-    slug: row.slug,
-    title: row.title,
-    excerpt: plainText(row.abstract),
-    authorName: row.authorName ?? null,
-    authorPath: singleAuthorPath({ kind: "paper", authorName: row.authorName, authorId: row.authorId }, resolve),
-    categorySlug: row.categorySlug ?? null,
-    publishedAt: isoOrNull(row.publishedAt),
-    readingMinutes: row.readingMinutes ?? null,
-    heroImageUrl: row.coverImageUrl ?? null,
-  }));
-
+  const articles = articleRows.map((row) => toWorkSummary({ ...row, kind: "article" }, resolve));
+  const papers = paperRows.map((row) => toWorkSummary({ ...row, kind: "paper" }, resolve));
   return { articles: sortNewestFirst(articles), papers: sortNewestFirst(papers) };
+}
+
+/** The columns of a published article or paper a listing is built from. */
+export type ListingRow = SeoWork & {
+  kind: "article" | "paper";
+  id: string;
+  slug: string;
+  title: string;
+  authorName?: string | null;
+  categorySlug?: string | null;
+  publishedAt?: Date | string | null;
+  updatedAt?: Date | string | null;
+  readingMinutes?: number | null;
+  heroImageUrl?: string | null;
+  coverImageUrl?: string | null;
+  /** The account that submitted the work, when it came through a submission. */
+  authorId?: string | null;
+};
+
+/** One published work as every listing shows it. */
+export function toWorkSummary(row: ListingRow, resolve: ReturnType<typeof makeAuthorResolver>): WorkSummary {
+  const isPaper = row.kind === "paper";
+  return {
+    kind: row.kind,
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    excerpt: isPaper ? plainText(row.abstract) : plainText(row.excerpt) ?? plainText(row.subtitle),
+    authorName: row.authorName ?? null,
+    authorPath: singleAuthorPath({ kind: row.kind, authorName: row.authorName, authorId: row.authorId }, resolve),
+    categorySlug: row.categorySlug ?? null,
+    publishedAt: isoOrNull(row.publishedAt),
+    updatedAt: isoOrNull(row.updatedAt) ?? isoOrNull(row.publishedAt),
+    readingMinutes: row.readingMinutes ?? null,
+    heroImageUrl: (isPaper ? row.coverImageUrl : row.heroImageUrl) ?? null,
+    ...listingSeo(row, row.kind),
+  };
+}
+
+/** The category with this slug, visible or not; null when there is none. */
+export async function findCategory(slug: string): Promise<{ slug: string; name: string; description: string | null } | null> {
+  const [row] = await db
+    .select({ slug: categoriesTable.slug, name: categoriesTable.name, description: categoriesTable.description })
+    .from(categoriesTable)
+    .where(eq(categoriesTable.slug, slug))
+    .limit(1);
+  return row ? { slug: row.slug, name: row.name, description: row.description ?? null } : null;
 }
 
 /**

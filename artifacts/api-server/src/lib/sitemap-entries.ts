@@ -23,25 +23,30 @@ export const MIN_WORKS_FOR_INDEXED_HUB = 3;
  *
  * What goes in: only URLs that return 200, are self-canonical and are worth
  * indexing today. What stays out: legal boilerplate (/privacy, /terms), the
- * noindexed community area (/community), listing pages that are empty
- * (/papers with no papers, domain hubs with no published work) and author pages
- * for members who have not published anything.
+ * noindexed community area (/community), utility pages that will never rank
+ * on their own (/contact, /submit: still indexable and linked from every page,
+ * but listing them only inflated the "not indexed" count), listing pages that
+ * are empty (/papers with no papers, domain hubs with fewer than
+ * MIN_WORKS_FOR_INDEXED_HUB works) and author pages for members who have not
+ * published anything.
  *
  * lastmod must be true, because Google stops trusting lastmod for the whole site
  * once it sees false values. So it is never the request time:
  *   - a work: its updatedAt (or publishedAt)
- *   - a domain hub or author page: the newest lastmod among its works
- *   - a listing page (/, /browse, /archive): the newest work, or the static date
- *   - a static page: STATIC_PAGES_LASTMOD below
+ *   - a page that lists works (/, /about, /about/anvikshiki, /browse,
+ *     /archive, /domains, a domain hub, an author page): its newest work, or
+ *     STATIC_PAGES_LASTMOD when its own copy or layout changed more recently
  */
 
 export const SITE_URL = "https://anvikshikijournal.in";
 
 /**
- * When the copy of the static pages (/about, /about/anvikshiki, /contact, /submit) last
- * changed. Update this by hand in the same commit that edits that copy.
+ * When the copy of the static pages (/about, /about/anvikshiki) or the layout
+ * of the listing pages (what the archive, domains, domain hubs and author pages
+ * show for each work) last changed. Update this by hand in the same commit that
+ * makes such a change.
  */
-export const STATIC_PAGES_LASTMOD = "2026-10-05T00:00:00.000Z";
+export const STATIC_PAGES_LASTMOD = "2026-10-17T00:00:00.000Z";
 
 export interface SitemapEntry {
   loc: string;
@@ -101,15 +106,16 @@ export function buildSitemapEntries(source: SitemapSource): SitemapEntry[] {
   const latestWork = newest(...allWorks.map(workTime));
   const latestPaper = newest(...source.papers.map(workTime));
 
+  // Every one of these pages lists published work (/about its newest works,
+  // /about/anvikshiki further reading), so each changes when a work does.
+  const listingTime = iso(newest(staticTime, latestWork));
   const entries: SitemapEntry[] = [
-    { loc: `${SITE_URL}/`, lastmod: iso(newest(staticTime, latestWork)) },
-    { loc: `${SITE_URL}/about`, lastmod: iso(staticTime) },
-    { loc: `${SITE_URL}/about/anvikshiki`, lastmod: iso(staticTime) },
-    { loc: `${SITE_URL}/browse`, lastmod: iso(newest(staticTime, latestWork)) },
-    { loc: `${SITE_URL}/archive`, lastmod: iso(newest(staticTime, latestWork)) },
-    { loc: `${SITE_URL}/domains`, lastmod: iso(newest(staticTime, latestWork)) },
-    { loc: `${SITE_URL}/contact`, lastmod: iso(staticTime) },
-    { loc: `${SITE_URL}/submit`, lastmod: iso(staticTime) },
+    { loc: `${SITE_URL}/`, lastmod: listingTime },
+    { loc: `${SITE_URL}/about`, lastmod: listingTime },
+    { loc: `${SITE_URL}/about/anvikshiki`, lastmod: listingTime },
+    { loc: `${SITE_URL}/browse`, lastmod: listingTime },
+    { loc: `${SITE_URL}/archive`, lastmod: listingTime },
+    { loc: `${SITE_URL}/domains`, lastmod: listingTime },
   ];
 
   if (source.papers.length > 0) {
@@ -145,7 +151,7 @@ export function buildSitemapEntries(source: SitemapSource): SitemapEntry[] {
     if ((hubCounts.get(category.slug) ?? 0) < MIN_WORKS_FOR_INDEXED_HUB) continue;
     entries.push({
       loc: `${SITE_URL}/domains/${encodeURIComponent(category.slug)}`,
-      lastmod: iso(hubTimes.get(category.slug)),
+      lastmod: iso(newest(staticTime, hubTimes.get(category.slug))),
     });
   }
 
@@ -167,7 +173,7 @@ export function buildSitemapEntries(source: SitemapSource): SitemapEntry[] {
   for (const [segment, time] of authorTimes) {
     entries.push({
       loc: `${SITE_URL}/authors/${encodeURIComponent(segment)}`,
-      lastmod: iso(time),
+      lastmod: iso(newest(staticTime, time)),
     });
   }
 

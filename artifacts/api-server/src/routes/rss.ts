@@ -5,7 +5,7 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { CANONICAL_DOMAIN, SITE_NAME, escapeHtml } from "../lib/ssr-html";
 import { PAGE_META } from "../lib/page-meta";
 import { cleanTitle } from "../lib/seo-text";
-import { effectiveSeoDescription, effectiveTopics } from "../lib/effective-seo";
+import { effectiveSeoDescription, effectiveTopics, type SeoWork } from "../lib/effective-seo";
 import { WEBSUB_HUB } from "../lib/websub";
 
 const router = Router();
@@ -96,31 +96,7 @@ router.get(["/rss", "/rss.xml", "/feed"], async (req, res) => {
         .limit(FEED_LIMIT),
     ]);
 
-    const items: RssItem[] = [
-      ...articles.map((a): RssItem => ({
-        title: cleanTitle(a.title),
-        // The same description the page's meta tag carries.
-        description: effectiveSeoDescription(a, "article"),
-        link: `${CANONICAL_DOMAIN}/articles/${encodeURIComponent(a.slug)}`,
-        guid: `article-${a.id}`,
-        timestamp: timestampOf(a),
-        creators: [(a.authorName || "").trim() || SITE_NAME],
-        category: a.categorySlug || null,
-        topics: effectiveTopics(a),
-      })),
-      ...papers.map((p): RssItem => ({
-        title: cleanTitle(p.title),
-        description: effectiveSeoDescription(p, "paper"),
-        link: `${CANONICAL_DOMAIN}/papers/${encodeURIComponent(p.slug)}`,
-        guid: `paper-${p.id}`,
-        timestamp: timestampOf(p),
-        creators: (p.authorName || "").split(/,\s*/).map((name) => name.trim()).filter(Boolean),
-        category: p.categorySlug || null,
-        topics: effectiveTopics(p),
-      })),
-    ]
-      .sort((a, b) => b.timestamp - a.timestamp)
-      .slice(0, FEED_LIMIT);
+    const items = rssItems(articles, papers);
 
     res.setHeader("Content-Type", "application/rss+xml; charset=utf-8");
     res.setHeader("Cache-Control", RSS_CACHE_CONTROL);
@@ -131,5 +107,44 @@ router.get(["/rss", "/rss.xml", "/feed"], async (req, res) => {
     return res.status(503).json({ error: "The feed is temporarily unavailable." });
   }
 });
+
+type FeedRow = SeoWork & {
+  id: string;
+  slug: string;
+  title: string;
+  authorName?: string | null;
+  categorySlug?: string | null;
+  publishedAt?: Date | string | null;
+  createdAt?: Date | string | null;
+};
+
+/** Feed items for published articles and papers, newest first, at most FEED_LIMIT. */
+export function rssItems(articles: FeedRow[], papers: FeedRow[]): RssItem[] {
+  return [
+    ...articles.map((a): RssItem => ({
+      title: cleanTitle(a.title),
+      // The same description the page's meta tag carries.
+      description: effectiveSeoDescription(a, "article"),
+      link: `${CANONICAL_DOMAIN}/articles/${encodeURIComponent(a.slug)}`,
+      guid: `article-${a.id}`,
+      timestamp: timestampOf(a),
+      creators: [(a.authorName || "").trim() || SITE_NAME],
+      category: a.categorySlug || null,
+      topics: effectiveTopics(a),
+    })),
+    ...papers.map((p): RssItem => ({
+      title: cleanTitle(p.title),
+      description: effectiveSeoDescription(p, "paper"),
+      link: `${CANONICAL_DOMAIN}/papers/${encodeURIComponent(p.slug)}`,
+      guid: `paper-${p.id}`,
+      timestamp: timestampOf(p),
+      creators: (p.authorName || "").split(/,\s*/).map((name) => name.trim()).filter(Boolean),
+      category: p.categorySlug || null,
+      topics: effectiveTopics(p),
+    })),
+  ]
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, FEED_LIMIT);
+}
 
 export default router;

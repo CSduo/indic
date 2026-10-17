@@ -13,12 +13,12 @@ export const PAGE_META = {
   archive: {
     title: "Archive of Published Essays — Ānvīkṣikī",
     description:
-      "Every essay and paper published on Ānvīkṣikī, newest first, with its author, date and domain.",
+      "Every essay and paper published on Ānvīkṣikī, grouped by year, with its author, date, domain and a short summary of what it covers.",
   },
   domains: {
     title: "Domains — Ānvīkṣikī",
     description:
-      "The subject areas Ānvīkṣikī files its essays under, with the number of published works in each.",
+      "The subject areas Ānvīkṣikī files its essays under: what each one covers, how many works it holds and a summary of every essay in it.",
   },
   papers: {
     title: "Research Papers — Ānvīkṣikī",
@@ -27,15 +27,17 @@ export const PAGE_META = {
   contact: {
     title: "Contact — Ānvīkṣikī",
     description:
-      "How to reach the editor of Ānvīkṣikī about submissions, corrections to published essays and other questions.",
+      "How to reach the editor of Ānvīkṣikī by email about submissions, corrections to published essays and any other questions about the journal.",
   },
   privacy: {
     title: "Privacy Policy — Ānvīkṣikī",
-    description: "What information Ānvīkṣikī collects, how it is used and where it is stored.",
+    description:
+      "What information Ānvīkṣikī collects from readers, members and authors, how it is used, how it is protected and where it is stored.",
   },
   terms: {
     title: "Terms of Service — Ānvīkṣikī",
-    description: "The terms for using Ānvīkṣikī, holding an account and submitting work for publication.",
+    description:
+      "The terms for reading Ānvīkṣikī, holding an account and submitting work for publication, including who owns the work that is published.",
   },
   community: {
     title: "Community — Ānvīkṣikī",
@@ -54,7 +56,7 @@ export const PAGE_META = {
   aboutAnvikshiki: {
     title: "Meaning of Ānvīkṣikī: Etymology, Philosophy & Classical Heritage — Ānvīkṣikī",
     description:
-      "Explore the profound meaning of Ānvīkṣikī (आन्वीक्षिकी): the Sanskrit etymology, Kautilya's Arthaśāstra doctrine of the foundational science, and Nyāya rational inquiry.",
+      "What the Sanskrit word Ānvīkṣikī (आन्वीक्षिकी) means: its etymology, Kautilya's account of it in the Arthaśāstra and its place in Nyāya logic.",
   },
   browse: {
     title: "Browse Published Articles & Papers — Ānvīkṣikī",
@@ -64,3 +66,6 @@ export const PAGE_META = {
 } as const;
 
 export type PageMetaKey = keyof typeof PAGE_META;
+
+/** The editor's address, as published on /contact (api-server lib/page-meta.ts). */
+export const CONTACT_EMAIL = "xiyatosaanvi@gmail.com";

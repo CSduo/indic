@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/sacred/EmptyState";
 import { DOMAIN_META, getDomainMeta, normalizeDomainKey } from "@/lib/domainMeta";
 import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
 import { readInitialData } from "@/lib/initialData";
+import { formatListedDate } from "@/lib/listedWorks";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
@@ -19,7 +20,9 @@ type PublicWork = {
   kind: "article" | "paper";
   slug: string;
   title: string;
+  /** The work's own meta description, else its excerpt or abstract. */
   summary?: string;
+  topics?: string[];
   authorName?: string;
   publishedAt?: string;
 };
@@ -30,6 +33,8 @@ type ServerWork = {
   slug: string;
   title: string;
   excerpt: string | null;
+  description?: string;
+  topics?: string[];
   authorName: string | null;
   publishedAt: string | null;
 };
@@ -38,6 +43,10 @@ type ServerDomain = {
   category: { slug: string; name: string; description: string | null };
   articles: ServerWork[];
   papers: ServerWork[];
+  /** The hub's meta description, as the server rendered it. */
+  description?: string;
+  /** Every visible domain with its work counts, for the links to the others. */
+  domains?: Array<{ slug: string; name: string; articleCount: number; paperCount: number }>;
 };
 
 function fromServerWorks(data: ServerDomain): PublicWork[] {
@@ -47,7 +56,8 @@ function fromServerWorks(data: ServerDomain): PublicWork[] {
       kind: work.kind,
       slug: work.slug,
       title: work.title,
-      summary: work.excerpt || undefined,
+      summary: work.description || work.excerpt || undefined,
+      topics: work.topics || [],
       authorName: work.authorName || undefined,
       publishedAt: work.publishedAt || undefined,
     }))
@@ -92,7 +102,7 @@ export default function DomainPage() {
   const [notFound, setNotFound] = useState(false);
 
   // Same title and description as the server-rendered hub.
-  const metaDescription = (category?.description || (category ? `Work published on Ānvīkṣikī in ${category.name}.` : meta.description) || "").slice(0, 300);
+  const metaDescription = (serverDomain?.description || category?.description || (category ? `Work published on Ānvīkṣikī in ${category.name}.` : meta.description) || "").slice(0, 300);
   useDocumentMetadata({
     title: `${meta.label} — Domain Archive — Ānvīkṣikī`,
     description: metaDescription,
@@ -132,7 +142,8 @@ export default function DomainPage() {
           kind: "article",
           slug: article.slug,
           title: article.title,
-          summary: article.excerpt,
+          summary: article.description || article.excerpt,
+          topics: Array.isArray(article.topics) ? article.topics : [],
           authorName: article.authorName,
           publishedAt: article.publishedAt || article.createdAt,
         }));
@@ -141,7 +152,8 @@ export default function DomainPage() {
           kind: "paper",
           slug: paper.slug,
           title: paper.title,
-          summary: paper.abstract,
+          summary: paper.description || paper.abstract,
+          topics: Array.isArray(paper.topics) ? paper.topics : [],
           authorName: paper.authorName,
           publishedAt: paper.publishedAt || paper.createdAt,
         }));
@@ -248,16 +260,51 @@ export default function DomainPage() {
                     <span className="badge badge-received">{publication.kind === "paper" ? "Paper" : "Essay"}</span>
                   </div>
                   <h3 className="font-display text-2xl leading-tight text-[var(--ink)]">{publication.title}</h3>
-                  {publication.summary ? <p className="mt-3 line-clamp-3 font-body text-sm leading-6 text-[var(--ink-soft)]">{publication.summary}</p> : null}
-                  <div className="mt-auto flex items-center justify-between border-t border-[var(--border)] pt-4">
-                    <span className="font-ui text-xs text-[var(--ink-faint)]">{publication.authorName || "Editorial"}</span>
-                    <ArrowRight size={14} className="text-[var(--gold)]" />
+                  {publication.summary ? <p className="mt-3 font-body text-sm leading-6 text-[var(--ink-soft)]">{publication.summary}</p> : null}
+                  {publication.topics && publication.topics.length > 0 ? (
+                    <p className="mt-3 font-ui text-[11px] leading-5 text-[var(--ink-faint)]">
+                      <span className="mr-1.5 font-bold uppercase tracking-[0.12em] text-[var(--ink-soft)]">Topics</span>
+                      {publication.topics.join(" · ")}
+                    </p>
+                  ) : null}
+                  <div className="mt-auto flex items-center justify-between gap-3 border-t border-[var(--border)] pt-4">
+                    <span className="font-ui text-xs text-[var(--ink-faint)]">
+                      {publication.authorName || "Editorial"}
+                      {publication.publishedAt ? <> · <time dateTime={publication.publishedAt}>{formatListedDate(publication.publishedAt)}</time></> : null}
+                    </span>
+                    <ArrowRight size={14} className="shrink-0 text-[var(--accent)]" />
                   </div>
                 </ParchmentCard>
               </Link>
             ))}
           </div>
         )}
+
+        {/* The other domains with published work and the archive, as on the server-rendered hub. */}
+        {(() => {
+          const others = (serverDomain?.domains || []).filter((d) => d.slug !== slug && d.articleCount + d.paperCount > 0);
+          return (
+            <nav aria-label="More to read" className="mt-12 border-t border-[var(--border)] pt-6 font-ui text-sm text-[var(--ink-soft)]">
+              {others.length > 0 && (
+                <p className="mb-3">
+                  <span className="mr-2 font-bold uppercase tracking-[0.12em] text-xs">Other domains</span>
+                  {others.map((d, i) => (
+                    <span key={d.slug}>
+                      {i > 0 && <span aria-hidden="true"> · </span>}
+                      <Link href={`/domains/${encodeURIComponent(d.slug)}`} className="text-[var(--ink)] hover:text-[var(--accent)]">{d.name}</Link>
+                      {` (${d.articleCount + d.paperCount})`}
+                    </span>
+                  ))}
+                </p>
+              )}
+              <p>
+                <Link href="/domains" className="text-[var(--ink)] hover:text-[var(--accent)]">All domains</Link>
+                <span aria-hidden="true"> · </span>
+                <Link href="/archive" className="text-[var(--ink)] hover:text-[var(--accent)]">The full archive</Link>
+              </p>
+            </nav>
+          );
+        })()}
       </section>
     </div>
   );
