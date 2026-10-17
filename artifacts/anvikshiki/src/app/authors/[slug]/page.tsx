@@ -373,14 +373,14 @@ export default function AuthorHubPage() {
                   {author.avatarUrl ? (
                     <img src={author.avatarUrl} alt={authorName} className="h-full w-full object-cover rounded-full" />
                   ) : (
-                    <div className="h-full w-full rounded-full bg-gradient-to-br from-[#FAF5EE] to-[#EFE7D8] dark:from-[#1F1D1A] dark:to-[#141311] flex items-center justify-center">
+                    <div className="h-full w-full rounded-full bg-gradient-to-br from-[#F6F6F6] to-[#E8E8E8] dark:from-[#1D1D1D] dark:to-[#131313] flex items-center justify-center">
                       <span className="font-display text-3xl md:text-4xl font-bold text-[var(--terracotta)]">
                         {authorName.charAt(0).toUpperCase()}
                       </span>
                     </div>
                   )}
                 </div>
-                <div className="absolute -bottom-1 -right-1 bg-[#10B981] text-white p-1 rounded-full shadow" title="Verified Contributor">
+                <div className="absolute -bottom-1 -right-1 bg-[#C84A10] text-white p-1 rounded-full shadow" title="Verified Contributor">
                   <CheckCircle2 size={16} />
                 </div>
               </div>
@@ -514,7 +514,7 @@ export default function AuthorHubPage() {
                       <div className="flex flex-col space-y-2">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
-                            <span className={`font-ui text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full ${work.kind === "paper" ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300" : "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"}`}>
+                            <span className={`font-ui text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full ${work.kind === "paper" ? "bg-[var(--ink)] text-[var(--bg)]" : "bg-[var(--surface-soft)] text-[var(--ink)] border border-[var(--border)]"}`}>
                               {work.kind === "paper" ? "Research Paper" : "Essay"}
                             </span>
                             {work.categorySlug && (

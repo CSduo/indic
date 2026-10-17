@@ -104,17 +104,17 @@ export default function AdminPapersPage() {
                       <div className="flex flex-wrap gap-2 min-w-[170px]">
                         {view === "trash" ? <>
                           <button type="button" onClick={() => restore(p.id)} className="btn-sacred text-[10px] py-1 px-2 btn-ghost" title="Restore paper"><ArchiveRestore size={11} /> Restore</button>
-                          <button type="button" onClick={() => permanentlyDelete(p.id)} className="btn-sacred text-[10px] py-1 px-2" style={{ background: "rgba(139,26,74,0.1)", border: "1px solid rgba(139,26,74,0.25)", color: "var(--rose-bright)" }} title="Permanently delete paper"><Trash2 size={11} /> Delete Forever</button>
+                          <button type="button" onClick={() => permanentlyDelete(p.id)} className="btn-sacred text-[10px] py-1 px-2" style={{ background: "rgba(53,53,53,0.1)", border: "1px solid rgba(53,53,53,0.25)", color: "var(--rose-bright)" }} title="Permanently delete paper"><Trash2 size={11} /> Delete Forever</button>
                         </> : <>
                           {p.slug && <Link href={`/papers/${p.slug}`} className="btn-sacred text-[10px] py-1 px-2 btn-ghost" title="View"><Eye size={11} /></Link>}
                           <button type="button" onClick={() => toggle(p.id, p.status)}
                             className="btn-sacred text-[10px] py-1 px-2"
-                            style={{ background: p.status === "PUBLISHED" ? "rgba(139,26,74,0.15)" : "rgba(26,74,56,0.2)", border: "1px solid var(--border)", color: p.status === "PUBLISHED" ? "var(--lotus)" : "#4ade80" }}>
+                            style={{ background: p.status === "PUBLISHED" ? "rgba(53,53,53,0.15)" : "rgba(62,62,62,0.2)", border: "1px solid var(--border)", color: p.status === "PUBLISHED" ? "var(--lotus)" : "#c84a10" }}>
                             {p.status === "PUBLISHED" ? "Unpublish" : "Publish"}
                           </button>
                           <button type="button" onClick={() => del(p.id)}
                             className="btn-sacred text-[10px] py-1 px-2"
-                            style={{ background: "rgba(139,26,74,0.1)", border: "1px solid rgba(139,26,74,0.25)", color: "var(--rose-bright)" }} title="Move to Trash">
+                            style={{ background: "rgba(53,53,53,0.1)", border: "1px solid rgba(53,53,53,0.25)", color: "var(--rose-bright)" }} title="Move to Trash">
                             <Trash2 size={11} /> Trash
                           </button>
                         </>}

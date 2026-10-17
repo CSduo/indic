@@ -37,7 +37,7 @@ export default function AdminLoginPage() {
   return (
     <div style={{ background: "var(--bg-deep)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 40%, rgba(74,40,120,0.15) 0%, transparent 60%)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 40%, rgba(53,53,53,0.15) 0%, transparent 60%)" }} />
       </div>
       <div className="relative z-10 w-full max-w-sm px-4">
         <div className="flex flex-col items-center mb-8">

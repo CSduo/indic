@@ -202,7 +202,7 @@ function ComposePanel({ onClose }: { onClose: () => void }) {
                     {person.handle ? (
                       <p className="font-mono text-xs font-semibold text-[var(--gold)]">@{person.handle}</p>
                     ) : (
-                      <p className="font-ui text-[10px] text-red-500 font-semibold">No @handle claimed</p>
+                      <p className="font-ui text-[10px] text-[var(--accent)] font-semibold">No @handle claimed</p>
                     )}
                   </div>
                   {disabled ? (

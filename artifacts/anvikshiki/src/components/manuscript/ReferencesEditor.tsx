@@ -99,7 +99,7 @@ export function ReferencesEditor({
                 <button
                   type="button"
                   onClick={() => remove(index)}
-                  className="inline-flex items-center gap-1 font-ui text-[11px] text-[var(--ink-faint)] hover:text-red-400 transition-colors"
+                  className="inline-flex items-center gap-1 font-ui text-[11px] text-[var(--ink-faint)] hover:text-[var(--accent)] transition-colors"
                   aria-label={`Remove reference ${index + 1}`}
                 >
                   <Trash2 size={13} /> Remove

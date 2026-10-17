@@ -52,7 +52,7 @@ export default function NotFound() {
   return (
     <div style={{ background: "var(--bg)", minHeight: "80vh", display: "flex", alignItems: "center" }}>
       <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 40%, rgba(139,26,74,0.05) 0%, transparent 60%)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 40%, rgba(53,53,53,0.05) 0%, transparent 60%)" }} />
       </div>
       <div className="container-anv relative z-10 flex flex-col items-center text-center py-20">
         <div className="font-display text-[12rem] leading-none mb-4 font-bold" style={{ color: "var(--ink)", opacity: 0.05, userSelect: "none" }}>404</div>

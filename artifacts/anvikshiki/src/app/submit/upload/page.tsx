@@ -1019,7 +1019,7 @@ export default function SubmitUploadPage() {
 
             {editorBody ? (
               <div className="space-y-6">
-                <div className="flex flex-col gap-3 border-b border-[rgba(201,152,58,0.15)] pb-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex flex-col gap-3 border-b border-[rgba(156,156,156,0.15)] pb-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <h3 className="font-display text-xl text-[var(--ink)]">Review & Edit Content</h3>
                     <p className="font-ui text-[10px] text-[var(--muted)] mt-1">Review the extracted document. You can edit paragraphs, align text, and add/remove images.</p>
@@ -1045,7 +1045,7 @@ export default function SubmitUploadPage() {
                 </div>
 
                 <div className="card-sacred" style={{ padding: 0, overflow: "hidden" }}>
-                  <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: "1px solid rgba(201,152,58,0.15)" }}>
+                  <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: "1px solid rgba(156,156,156,0.15)" }}>
                     <span className="section-label" style={{ marginBottom: 0 }}>Manuscript Body *</span>
                     <span className="font-ui text-[10px]" style={{ color: "var(--ink-faint)" }}>
                       Rich Text Editor
@@ -1053,7 +1053,7 @@ export default function SubmitUploadPage() {
                   </div>
 
                   {/* Sticky Top Toolbar */}
-                  <div className="flex flex-wrap items-center gap-1.5 p-2.5 bg-[var(--surface-elevated)] border-b border-[rgba(201,152,58,0.15)] sticky top-0 z-10 select-none shadow-sm overflow-x-auto">
+                  <div className="flex flex-wrap items-center gap-1.5 p-2.5 bg-[var(--surface-elevated)] border-b border-[rgba(156,156,156,0.15)] sticky top-0 z-10 select-none shadow-sm overflow-x-auto">
                     {/* Undo / Redo */}
                     <button
                       type="button"
@@ -1074,11 +1074,11 @@ export default function SubmitUploadPage() {
                       <Redo2 size={14} />
                     </button>
 
-                    <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+                    <div className="h-4 w-px bg-[rgba(156,156,156,0.2)] mx-1" />
 
                     {/* Font Family Selector */}
                     <select
-                      className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
+                      className="font-ui text-xs bg-[var(--surface)] border border-[rgba(156,156,156,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
                       onChange={e => execCmd("fontName", e.target.value)}
                       onMouseDown={e => e.stopPropagation()}
                       defaultValue="Garamond"
@@ -1090,7 +1090,7 @@ export default function SubmitUploadPage() {
 
                     {/* Block Style */}
                     <select
-                      className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
+                      className="font-ui text-xs bg-[var(--surface)] border border-[rgba(156,156,156,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
                       value={currentBlockType}
                       onChange={e => {
                         const val = e.target.value;
@@ -1109,7 +1109,7 @@ export default function SubmitUploadPage() {
                       <option value="blockquote">Quote</option>
                     </select>
 
-                    <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+                    <div className="h-4 w-px bg-[rgba(156,156,156,0.2)] mx-1" />
 
                     {/* Inline Formatting */}
                     <button
@@ -1119,7 +1119,7 @@ export default function SubmitUploadPage() {
                       className="p-1.5 px-2.5 rounded font-bold text-xs border-none cursor-pointer transition-all"
                       style={{
                         color: isBold ? "var(--gold)" : "var(--ink-soft)",
-                        background: isBold ? "rgba(201, 152, 58, 0.15)" : "transparent"
+                        background: isBold ? "rgba(156, 156, 156, 0.15)" : "transparent"
                       }}
                       title="Bold (Ctrl+B)"
                     >
@@ -1132,7 +1132,7 @@ export default function SubmitUploadPage() {
                       className="p-1.5 px-2.5 rounded italic font-serif text-xs border-none cursor-pointer transition-all"
                       style={{
                         color: isItalic ? "var(--gold)" : "var(--ink-soft)",
-                        background: isItalic ? "rgba(201, 152, 58, 0.15)" : "transparent"
+                        background: isItalic ? "rgba(156, 156, 156, 0.15)" : "transparent"
                       }}
                       title="Italic (Ctrl+I)"
                     >
@@ -1145,7 +1145,7 @@ export default function SubmitUploadPage() {
                       className="p-1.5 px-2.5 rounded underline text-xs border-none cursor-pointer transition-all"
                       style={{
                         color: isUnderline ? "var(--gold)" : "var(--ink-soft)",
-                        background: isUnderline ? "rgba(201, 152, 58, 0.15)" : "transparent"
+                        background: isUnderline ? "rgba(156, 156, 156, 0.15)" : "transparent"
                       }}
                       title="Underline (Ctrl+U)"
                     >
@@ -1161,7 +1161,7 @@ export default function SubmitUploadPage() {
                       <Eraser size={14} />
                     </button>
 
-                    <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+                    <div className="h-4 w-px bg-[rgba(156,156,156,0.2)] mx-1" />
 
                     {/* Lists */}
                     <button
@@ -1189,7 +1189,7 @@ export default function SubmitUploadPage() {
                       className="p-1.5 px-2 rounded text-xs border-none cursor-pointer transition-all"
                       style={{
                         color: isQuoteActive ? "var(--gold)" : "var(--ink-soft)",
-                        background: isQuoteActive ? "rgba(201, 152, 58, 0.15)" : "transparent"
+                        background: isQuoteActive ? "rgba(156, 156, 156, 0.15)" : "transparent"
                       }}
                       title="Quote Block"
                     >
@@ -1205,7 +1205,7 @@ export default function SubmitUploadPage() {
                       <Minus size={14} />
                     </button>
 
-                    <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+                    <div className="h-4 w-px bg-[rgba(156,156,156,0.2)] mx-1" />
 
                     <input
                       type="file"
@@ -1226,7 +1226,7 @@ export default function SubmitUploadPage() {
                       <span>{insertingInlineImage ? "Uploading..." : "Add Image"}</span>
                     </button>
 
-                    <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+                    <div className="h-4 w-px bg-[rgba(156,156,156,0.2)] mx-1" />
 
                     {/* Inline VN Recorder input and button */}
                     <input
@@ -1251,9 +1251,9 @@ export default function SubmitUploadPage() {
 
                   {/* Inline VN Recorder Strip */}
                   {showInlineVNRecorder && (
-                    <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[var(--surface-elevated)] border-b border-[rgba(201,152,58,0.15)]">
+                    <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[var(--surface-elevated)] border-b border-[rgba(156,156,156,0.15)]">
                       <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${inlineRecording ? 'bg-rose-500 animate-pulse' : 'bg-[var(--gold)]'}`} />
+                        <div className={`w-2 h-2 rounded-full ${inlineRecording ? 'bg-[var(--accent)] animate-pulse' : 'bg-[var(--gold)]'}`} />
                         <span className="font-ui text-xs text-[var(--ink-soft)]">
                           {inlineRecording 
                             ? `Recording: ${Math.floor(inlineRecordTime / 60)}:${(inlineRecordTime % 60).toString().padStart(2, '0')} / 5:00` 
@@ -1268,7 +1268,7 @@ export default function SubmitUploadPage() {
                             <button
                               type="button"
                               onClick={startInlineRecording}
-                              className="px-2.5 py-1 rounded bg-[rgba(201,152,58,0.15)] hover:bg-[rgba(201,152,58,0.25)] text-xs text-[var(--gold-bright)] font-ui font-semibold cursor-pointer border-none"
+                              className="px-2.5 py-1 rounded bg-[rgba(156,156,156,0.15)] hover:bg-[rgba(156,156,156,0.25)] text-xs text-[var(--gold-bright)] font-ui font-semibold cursor-pointer border-none"
                             >
                               Record
                             </button>
@@ -1285,7 +1285,7 @@ export default function SubmitUploadPage() {
                           <button
                             type="button"
                             onClick={stopInlineRecording}
-                            className="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-700 text-xs text-white font-ui font-semibold animate-pulse cursor-pointer border-none"
+                            className="px-2.5 py-1 rounded bg-[var(--accent)] hover:bg-[var(--accent-hover)] hover:text-[var(--on-accent-hover)] text-xs text-white font-ui font-semibold animate-pulse cursor-pointer border-none"
                           >
                             Stop & Insert
                           </button>
@@ -1478,7 +1478,7 @@ export default function SubmitUploadPage() {
             <OrnamentDivider className="my-7" />
 
             {/* Declaration */}
-            <label className="mb-6 flex cursor-pointer items-start gap-3.5 p-3.5 rounded-xl border border-[var(--border-gold)] bg-[var(--surface-3)] hover:bg-[rgba(201,152,58,0.08)] transition-all select-none">
+            <label className="mb-6 flex cursor-pointer items-start gap-3.5 p-3.5 rounded-xl border border-[var(--border-gold)] bg-[var(--surface-3)] hover:bg-[rgba(156,156,156,0.08)] transition-all select-none">
               <input
                 type="checkbox"
                 checked={declared}

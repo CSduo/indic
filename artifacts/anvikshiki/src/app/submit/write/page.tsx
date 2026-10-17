@@ -431,7 +431,7 @@ export default function SubmitWritePage() {
       editorRef.current.focus();
       const existing = editorRef.current.innerHTML.trim();
       if (existing && existing !== "<br>") {
-        editorRef.current.innerHTML = existing + "<hr style=\"border-color:rgba(201,152,58,0.2);margin:2rem 0\">" + htmlContent;
+        editorRef.current.innerHTML = existing + "<hr style=\"border-color:rgba(156,156,156,0.2);margin:2rem 0\">" + htmlContent;
       } else {
         editorRef.current.innerHTML = htmlContent;
       }
@@ -1294,9 +1294,9 @@ export default function SubmitWritePage() {
           <div className={focusMode ? "hidden" : "space-y-4"}>
 
             {/* Auto-save indicator */}
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(139,90,20,0.15)" }}>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(95,95,95,0.15)" }}>
               {saveStatus === "saved"
-                ? <><Save size={13} style={{ color: "#4ade80", flexShrink: 0 }} /><span className="font-ui text-[10px]" style={{ color: "#4ade80" }}>Saved in this browser</span></>
+                ? <><Save size={13} style={{ color: "#c84a10", flexShrink: 0 }} /><span className="font-ui text-[10px]" style={{ color: "#c84a10" }}>Saved in this browser</span></>
                 : saveStatus === "saving"
                 ? <><Save size={13} style={{ color: "var(--gold)", flexShrink: 0, opacity: 0.6 }} /><span className="font-ui text-[10px]" style={{ color: "var(--ink-faint)" }}>Saving…</span></>
                 : <><Save size={13} style={{ color: "var(--gold)", flexShrink: 0, opacity: 0.4 }} /><span className="font-ui text-[10px]" style={{ color: "var(--ink-faint)" }}>Browser save ready</span></>
@@ -1419,7 +1419,7 @@ export default function SubmitWritePage() {
                     <button
                       type="button"
                       onClick={deleteRecording}
-                      className="p-1.5 rounded-full hover:bg-rose-500/10 transition-colors"
+                      className="p-1.5 rounded-full hover:bg-[var(--accent-wash)] transition-colors"
                       style={{ color: "var(--lotus)" }}
                       title="Delete recording"
                     >
@@ -1434,8 +1434,8 @@ export default function SubmitWritePage() {
               ) : (
                 <div className="space-y-4">
                   {recording ? (
-                    <div className="flex flex-col items-center justify-center p-4 rounded-lg border border-dashed" style={{ borderColor: "var(--lotus)", background: "rgba(139,26,74,0.02)" }}>
-                      <div className="w-3 h-3 rounded-full bg-rose-600 animate-pulse mb-2" />
+                    <div className="flex flex-col items-center justify-center p-4 rounded-lg border border-dashed" style={{ borderColor: "var(--lotus)", background: "rgba(53,53,53,0.02)" }}>
+                      <div className="w-3 h-3 rounded-full bg-[var(--accent)] animate-pulse mb-2" />
                       <div className="font-ui text-xs font-semibold mb-3" style={{ color: "var(--ink)" }}>
                         Recording: {Math.floor(recordTime / 60)}:{(recordTime % 60).toString().padStart(2, "0")} / 5:00
                       </div>
@@ -1454,14 +1454,14 @@ export default function SubmitWritePage() {
                         type="button"
                         onClick={startRecording}
                         className="flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-all hover:bg-white/5"
-                        style={{ borderColor: "rgba(201,152,58,0.3)", color: "var(--gold-bright)" }}
+                        style={{ borderColor: "rgba(156,156,156,0.3)", color: "var(--gold-bright)" }}
                       >
                         <Mic size={14} />
                         <span className="font-ui text-xs font-semibold">Record Mic</span>
                       </button>
                       <label
                         className="flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border cursor-pointer transition-all hover:bg-white/5"
-                        style={{ borderColor: "rgba(201,152,58,0.3)", color: "var(--ink-soft)" }}
+                        style={{ borderColor: "rgba(156,156,156,0.3)", color: "var(--ink-soft)" }}
                       >
                         <input
                           type="file"
@@ -1518,7 +1518,7 @@ export default function SubmitWritePage() {
 
             {/* Body */}
             <div className="card-sacred" style={{ padding: 0, overflow: "hidden" }}>
-              <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3" style={{ borderBottom: "1px solid rgba(139,90,20,0.15)" }}>
+              <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3" style={{ borderBottom: "1px solid rgba(95,95,95,0.15)" }}>
                 <span className="section-label" style={{ marginBottom: 0 }}>Essay Body *</span>
                 <div className="flex items-center gap-3">
                   <span className="font-ui text-[10px]" style={{ color: "var(--ink-faint)" }}>
@@ -1537,15 +1537,15 @@ export default function SubmitWritePage() {
                 </div>
               </div>
               {errors.body && (
-                <div className="px-5 py-2" style={{ background: "rgba(139,26,74,0.08)", borderBottom: "1px solid rgba(139,26,74,0.15)" }}>
+                <div className="px-5 py-2" style={{ background: "rgba(53,53,53,0.08)", borderBottom: "1px solid rgba(53,53,53,0.15)" }}>
                   <p className="font-ui text-xs" style={{ color: "var(--lotus)" }}>{errors.body}</p>
                 </div>
               )}
 
-              <div className="border-b border-[rgba(201,152,58,0.15)] bg-[var(--surface-3)] px-4 py-3.5 sm:px-5">
+              <div className="border-b border-[rgba(156,156,156,0.15)] bg-[var(--surface-3)] px-4 py-3.5 sm:px-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                   {/* Option 1: File Upload (.docx, .pdf, .txt) */}
-                  <div className="flex flex-col justify-between h-full bg-[var(--surface)] p-3 rounded-lg border border-[rgba(201,152,58,0.2)]">
+                  <div className="flex flex-col justify-between h-full bg-[var(--surface)] p-3 rounded-lg border border-[rgba(156,156,156,0.2)]">
                     <div>
                       <p className="font-ui text-xs font-bold uppercase tracking-[0.1em] text-[var(--ink)] flex items-center gap-1.5">
                         <FileText size={14} className="text-[var(--gold)]" />
@@ -1576,7 +1576,7 @@ export default function SubmitWritePage() {
                   </div>
 
                   {/* Option 2: Link / URL Import (Google Docs, web articles, blogs, journals) */}
-                  <div className="flex flex-col justify-between h-full bg-[var(--surface)] p-3 rounded-lg border border-[rgba(201,152,58,0.2)]">
+                  <div className="flex flex-col justify-between h-full bg-[var(--surface)] p-3 rounded-lg border border-[rgba(156,156,156,0.2)]">
                     <div>
                       <p className="font-ui text-xs font-bold uppercase tracking-[0.1em] text-[var(--ink)] flex items-center gap-1.5">
                         <Link2 size={14} className="text-[var(--gold)]" />
@@ -1622,7 +1622,7 @@ export default function SubmitWritePage() {
                   </p>
                 ) : null}
                 {googleDocImportError ? (
-                  <div className="mt-3 flex items-start gap-2 rounded-lg border border-[var(--border-rose)] bg-[rgba(139,26,74,0.08)] p-3" role="alert">
+                  <div className="mt-3 flex items-start gap-2 rounded-lg border border-[var(--border-rose)] bg-[rgba(53,53,53,0.08)] p-3" role="alert">
                     <AlertCircle size={16} className="mt-0.5 shrink-0" style={{ color: "var(--lotus)" }} />
                     <p className="font-ui text-xs leading-5" style={{ color: "var(--lotus)" }}>{googleDocImportError}</p>
                   </div>
@@ -1630,7 +1630,7 @@ export default function SubmitWritePage() {
               </div>
 
               {/* Sticky Top Toolbar */}
-              <div className="flex flex-wrap items-center gap-2 p-2.5 bg-[var(--surface-elevated)] border-b border-[rgba(201,152,58,0.15)] sticky top-0 z-10 select-none shadow-sm overflow-x-auto">
+              <div className="flex flex-wrap items-center gap-2 p-2.5 bg-[var(--surface-elevated)] border-b border-[rgba(156,156,156,0.15)] sticky top-0 z-10 select-none shadow-sm overflow-x-auto">
                 {/* History: Undo / Redo */}
                 <button
                   type="button"
@@ -1651,11 +1651,11 @@ export default function SubmitWritePage() {
                   <Redo2 size={13} />
                 </button>
 
-                <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+                <div className="h-4 w-px bg-[rgba(156,156,156,0.2)] mx-1" />
 
                 {/* Font Selector */}
                 <select
-                  className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
+                  className="font-ui text-xs bg-[var(--surface)] border border-[rgba(156,156,156,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
                   onChange={e => execCmd("fontName", e.target.value)}
                   onMouseDown={e => e.stopPropagation()}
                   defaultValue="Garamond"
@@ -1670,7 +1670,7 @@ export default function SubmitWritePage() {
 
                 {/* Block Format */}
                 <select
-                  className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
+                  className="font-ui text-xs bg-[var(--surface)] border border-[rgba(156,156,156,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
                   onChange={e => execCmd("formatBlock", e.target.value)}
                   onMouseDown={e => e.stopPropagation()}
                   value={currentBlockType}
@@ -1682,7 +1682,7 @@ export default function SubmitWritePage() {
                   <option value="h4">Fourth Heading (H4)</option>
                 </select>
 
-                <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+                <div className="h-4 w-px bg-[rgba(156,156,156,0.2)] mx-1" />
 
                 {/* Basic styles */}
                 <button
@@ -1830,9 +1830,9 @@ export default function SubmitWritePage() {
               />
 
               {showInlineVNRecorder && (
-                <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[var(--surface-elevated)] border-b border-[rgba(201,152,58,0.15)]">
+                <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[var(--surface-elevated)] border-b border-[rgba(156,156,156,0.15)]">
                   <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${inlineRecording ? "bg-rose-500 animate-pulse" : "bg-[var(--gold)]"}`} />
+                    <div className={`w-2 h-2 rounded-full ${inlineRecording ? "bg-[var(--accent)] animate-pulse" : "bg-[var(--gold)]"}`} />
                     <span className="font-ui text-xs text-[var(--ink-soft)]">
                       {inlineRecording
                         ? `Recording: ${Math.floor(inlineRecordTime / 60)}:${(inlineRecordTime % 60).toString().padStart(2, "0")} / 5:00`
@@ -1844,7 +1844,7 @@ export default function SubmitWritePage() {
                   <div className="flex items-center gap-2">
                     {!inlineRecording && !uploadingInlineAudio && (
                       <>
-                        <button type="button" onClick={startInlineRecording} className="px-2.5 py-1 rounded bg-[rgba(201,152,58,0.15)] hover:bg-[rgba(201,152,58,0.25)] text-xs text-[var(--gold-bright)] font-ui font-semibold cursor-pointer border-none">
+                        <button type="button" onClick={startInlineRecording} className="px-2.5 py-1 rounded bg-[rgba(156,156,156,0.15)] hover:bg-[rgba(156,156,156,0.25)] text-xs text-[var(--gold-bright)] font-ui font-semibold cursor-pointer border-none">
                           Record
                         </button>
                         <button type="button" onClick={() => inlineAudioInputRef.current?.click()} className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-xs text-[var(--ink-soft)] font-ui font-semibold cursor-pointer border-none">
@@ -1853,7 +1853,7 @@ export default function SubmitWritePage() {
                       </>
                     )}
                     {inlineRecording && (
-                      <button type="button" onClick={stopInlineRecording} className="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-700 text-xs text-white font-ui font-semibold animate-pulse cursor-pointer border-none">
+                      <button type="button" onClick={stopInlineRecording} className="px-2.5 py-1 rounded bg-[var(--accent)] hover:bg-[var(--accent-hover)] hover:text-[var(--on-accent-hover)] text-xs text-white font-ui font-semibold animate-pulse cursor-pointer border-none">
                         Stop & Insert
                       </button>
                     )}
@@ -1921,7 +1921,7 @@ export default function SubmitWritePage() {
             {/* Declaration + Submit */}
             <div className="card-sacred p-5">
 
-              <label className="mb-5 flex cursor-pointer items-start gap-3.5 p-3.5 rounded-xl border border-[var(--border-gold)] bg-[var(--surface-3)] hover:bg-[rgba(201,152,58,0.08)] transition-all select-none">
+              <label className="mb-5 flex cursor-pointer items-start gap-3.5 p-3.5 rounded-xl border border-[var(--border-gold)] bg-[var(--surface-3)] hover:bg-[rgba(156,156,156,0.08)] transition-all select-none">
                 <input
                   type="checkbox"
                   checked={declared}
@@ -1943,7 +1943,7 @@ export default function SubmitWritePage() {
               </label>
 
               {error && (
-                <div className="flex items-start gap-2 p-3 rounded-lg mb-4" style={{ background: "rgba(139,26,74,0.12)", border: "1px solid var(--border-rose)" }} role="alert">
+                <div className="flex items-start gap-2 p-3 rounded-lg mb-4" style={{ background: "rgba(53,53,53,0.12)", border: "1px solid var(--border-rose)" }} role="alert">
                   <AlertCircle size={14} style={{ color: "var(--lotus)", flexShrink: 0, marginTop: 1 }} />
                   <p className="font-ui text-xs" style={{ color: "var(--lotus)" }}>{error}</p>
                 </div>
@@ -1956,7 +1956,7 @@ export default function SubmitWritePage() {
                   disabled={savingDraft || !user}
                   title={!user ? "Sign in to save drafts to your account" : undefined}
                   className="w-full sm:w-auto btn-sacred flex items-center justify-center gap-2"
-                  style={{ borderRadius: 6, padding: "1rem 1.25rem", fontSize: "0.75rem", letterSpacing: "0.14em", border: "1px solid rgba(201,152,58,0.4)", background: "transparent", color: "var(--gold-bright)" }}
+                  style={{ borderRadius: 6, padding: "1rem 1.25rem", fontSize: "0.75rem", letterSpacing: "0.14em", border: "1px solid rgba(156,156,156,0.4)", background: "transparent", color: "var(--gold-bright)" }}
                 >
                   <FileText size={14} /> {savingDraft ? "SAVING…" : "SAVE AS DRAFT"}
                 </button>

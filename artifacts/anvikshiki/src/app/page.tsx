@@ -56,10 +56,10 @@ function SectionMandala({ size = 52, color = "currentColor" }: { size?: number; 
 
 /* ── Stats ── */
 const STATS = [
-  { num: "847+", label: "Essays Published",    color: "#7C3AED", bg: "rgba(124,58,237,0.09)",  glyph: "📜" },
-  { num: "234+", label: "Research Papers",     color: "#D97706", bg: "rgba(217,119,6,0.09)",   glyph: "🔬" },
-  { num: "163+", label: "Thinkers & Authors",  color: "#E11D48", bg: "rgba(225,29,72,0.09)",   glyph: "✒️" },
-  { num: "12",   label: "Domains of Inquiry",  color: "#059669", bg: "rgba(5,150,105,0.09)",   glyph: "🌐" },
+  { num: "847+", label: "Essays Published",    color: "#C84A10", bg: "rgba(85,85,85,0.09)",  glyph: "📜" },
+  { num: "234+", label: "Research Papers",     color: "#C84A10", bg: "rgba(132,132,132,0.09)",   glyph: "🔬" },
+  { num: "163+", label: "Thinkers & Authors",  color: "#C84A10", bg: "rgba(74,74,74,0.09)",   glyph: "✒️" },
+  { num: "12",   label: "Domains of Inquiry",  color: "#C84A10", bg: "rgba(116,116,116,0.09)",   glyph: "🌐" },
 ];
 
 /* ── Sanskrit wisdom aphorisms ── */
@@ -75,10 +75,10 @@ const WISDOMS = [
 
 /* ── Four pillars of Anvikshiki ── */
 const PILLARS = [
-  { Icon: Feather, label: "Rigour",  sub: "Every essay held to the highest standard of evidence and argument.",      color: "#7C3AED", bg: "rgba(124,58,237,0.07)" },
-  { Icon: Globe,   label: "Beauty",  sub: "Scholarship that reads like literature — clear, elegant, and alive.",      color: "#D97706", bg: "rgba(217,119,6,0.07)"  },
-  { Icon: Layers,  label: "Depth",   sub: "Long-form work that goes where quick reads cannot reach.",                 color: "#E11D48", bg: "rgba(225,29,72,0.07)"  },
-  { Icon: Compass, label: "Breadth", sub: "Fourteen domains, one purpose: a more examined world.",                    color: "#059669", bg: "rgba(5,150,105,0.07)"  },
+  { Icon: Feather, label: "Rigour",  sub: "Every essay held to the highest standard of evidence and argument.",      color: "#C84A10", bg: "rgba(85,85,85,0.07)" },
+  { Icon: Globe,   label: "Beauty",  sub: "Scholarship that reads like literature — clear, elegant, and alive.",      color: "#C84A10", bg: "rgba(132,132,132,0.07)"  },
+  { Icon: Layers,  label: "Depth",   sub: "Long-form work that goes where quick reads cannot reach.",                 color: "#C84A10", bg: "rgba(74,74,74,0.07)"  },
+  { Icon: Compass, label: "Breadth", sub: "Fourteen domains, one purpose: a more examined world.",                    color: "#C84A10", bg: "rgba(116,116,116,0.07)"  },
 ];
 
 const ACTION_ROWS = [
@@ -372,7 +372,7 @@ export default function HomePage() {
         minutes: a.readingMinutes || null,
         domain: a.categorySlug || "philosophy",
         href: `/articles/${a.slug}`,
-        color: "#7C3AED",
+        color: "#C84A10",
       }))
     : null;
 

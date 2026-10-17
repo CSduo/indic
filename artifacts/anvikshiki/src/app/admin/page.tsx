@@ -44,7 +44,7 @@ export default function AdminDashboardPage() {
     { label: "Articles",  value: stats.articles,    color: "var(--gold)",    icon: <FileText size={20} /> },
     { label: "Papers",    value: stats.papers,      color: "var(--moon)",    icon: <ScrollText size={20} /> },
     { label: "Pending",   value: stats.pending,     color: "var(--lotus)",   icon: <Inbox size={20} /> },
-    { label: "Subscribers", value: stats.subscribers, color: "#4ade80",      icon: <Mail size={20} /> },
+    { label: "Subscribers", value: stats.subscribers, color: "#c84a10",      icon: <Mail size={20} /> },
   ];
 
   return (
@@ -62,7 +62,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {error && (
-          <div className="mb-6 p-4 rounded-lg" style={{ background: "rgba(225,29,72,0.1)", border: "1px solid rgba(225,29,72,0.3)", color: "var(--rose-bright)" }}>
+          <div className="mb-6 p-4 rounded-lg" style={{ background: "rgba(74,74,74,0.1)", border: "1px solid rgba(74,74,74,0.3)", color: "var(--rose-bright)" }}>
             {error}
           </div>
         )}

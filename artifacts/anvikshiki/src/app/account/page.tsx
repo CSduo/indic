@@ -556,7 +556,7 @@ export default function AccountPage() {
 
           <main className="space-y-6 min-w-0">
             {!user.handle && (
-              <div className="rounded-xl border-2 border-[var(--border-gold)] bg-[var(--surface-gold,#fbf7ee)] dark:bg-[var(--surface)] p-4 sm:p-5 shadow-md">
+              <div className="rounded-xl border-2 border-[var(--border-gold)] bg-[var(--surface-gold,#f7f7f7)] dark:bg-[var(--surface)] p-4 sm:p-5 shadow-md">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">

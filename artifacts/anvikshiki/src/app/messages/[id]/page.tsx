@@ -377,9 +377,9 @@ function MessageBubble({
             transition: isSwiping ? "none" : "transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1)",
             ...(message.kind === "AUDIO"
               ? {
-                  background: "#1e2022",
-                  color: "#f3f4f6",
-                  border: "1px solid #363a40",
+                  background: "#202020",
+                  color: "#f4f4f4",
+                  border: "1px solid #3a3a3a",
                   borderRadius: "14px",
                   boxShadow: "0 4px 14px rgba(0,0,0,0.25)",
                 }
@@ -442,8 +442,8 @@ function MessageBubble({
                 <div
                   className="flex items-center gap-1.5 rounded-full px-3 py-1.5 border shadow-2xl backdrop-blur-xl"
                   style={{
-                    backgroundColor: "rgba(20, 22, 26, 0.96)",
-                    borderColor: "rgba(201, 152, 58, 0.4)",
+                    backgroundColor: "rgba(22, 22, 22, 0.96)",
+                    borderColor: "rgba(156, 156, 156, 0.4)",
                     boxShadow: "0 18px 40px -4px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08)",
                   }}
                 >
@@ -452,7 +452,7 @@ function MessageBubble({
                       <button
                         key={emoji}
                         type="button"
-                        className="group/btn relative flex h-10 w-10 items-center justify-center rounded-full hover:scale-135 active:scale-90 hover:-translate-y-1.5 transition-all duration-150 ease-out p-1 hover:bg-[rgba(201,152,58,0.22)] shrink-0"
+                        className="group/btn relative flex h-10 w-10 items-center justify-center rounded-full hover:scale-135 active:scale-90 hover:-translate-y-1.5 transition-all duration-150 ease-out p-1 hover:bg-[rgba(156,156,156,0.22)] shrink-0"
                         onClick={() => {
                           onReact(message, emoji);
                           closeMenu();
@@ -460,7 +460,7 @@ function MessageBubble({
                         aria-label={`React ${emoji}`}
                         title={`React with ${emoji}`}
                       >
-                        <AestheticEmoji glyph={emoji} size={28} className="drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)] transition-transform group-hover/btn:drop-shadow-[0_4px_12px_rgba(245,158,11,0.5)]" />
+                        <AestheticEmoji glyph={emoji} size={28} className="drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)] transition-transform group-hover/btn:drop-shadow-[0_4px_12px_rgba(166,166,166,0.5)]" />
                       </button>
                     ))}
                   </div>
@@ -469,7 +469,7 @@ function MessageBubble({
 
                   <button
                     type="button"
-                    className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(201,152,58,0.35)] bg-white/5 text-[#f59e0b] hover:bg-[#f59e0b]/25 hover:border-[#f59e0b] hover:scale-115 active:scale-90 transition-all shrink-0 shadow-sm"
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(156,156,156,0.35)] bg-white/5 text-[#c84a10] hover:bg-[#c84a10]/25 hover:border-[#c84a10] hover:scale-115 active:scale-90 transition-all shrink-0 shadow-sm"
                     onClick={() => setShowEmojiPicker((prev) => !prev)}
                     aria-label="All Reactions"
                     title="Aesthetic reactions"
@@ -488,14 +488,14 @@ function MessageBubble({
                       mine ? "self-end" : "self-start"
                     }`}
                     style={{
-                      backgroundColor: "var(--surface-elevated, #1c1d21)",
-                      borderColor: "rgba(201, 152, 58, 0.35)",
+                      backgroundColor: "var(--surface-elevated, #1d1d1d)",
+                      borderColor: "rgba(156, 156, 156, 0.35)",
                       color: "var(--ink)",
                     }}
                   >
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left font-ui text-xs font-semibold text-[var(--ink)] hover:bg-[rgba(201,152,58,0.14)] hover:text-[var(--gold)] transition-colors"
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left font-ui text-xs font-semibold text-[var(--ink)] hover:bg-[rgba(156,156,156,0.14)] hover:text-[var(--gold)] transition-colors"
                       onClick={() => {
                         onReply(message);
                         closeMenu();
@@ -523,13 +523,13 @@ function MessageBubble({
                     {mine && !message.pending ? (
                       <button
                         type="button"
-                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left font-ui text-xs font-semibold text-rose-400 hover:bg-rose-500/15 transition-colors"
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left font-ui text-xs font-semibold text-[var(--accent)] hover:bg-[var(--accent-wash)] transition-colors"
                         onClick={() => {
                           closeMenu();
                           onUnsend(message);
                         }}
                       >
-                        <Trash2 size={14} className="text-rose-400 shrink-0" />
+                        <Trash2 size={14} className="text-[var(--accent)] shrink-0" />
                         <span>Unsend</span>
                       </button>
                     ) : null}
@@ -662,7 +662,7 @@ function MessageBubble({
             <button
               type="button"
               onClick={() => toggleMenu(true)}
-              className="rounded-full border border-dashed border-[var(--hairline)] hover:border-[#f59e0b] px-2 py-0.5 text-xs text-[var(--ink-muted)] hover:text-[#f59e0b] hover:scale-110 active:scale-95 transition-all"
+              className="rounded-full border border-dashed border-[var(--hairline)] hover:border-[#c84a10] px-2 py-0.5 text-xs text-[var(--ink-muted)] hover:text-[#c84a10] hover:scale-110 active:scale-95 transition-all"
               title="Add aesthetic reaction"
             >
               +
@@ -675,7 +675,7 @@ function MessageBubble({
       <div className="relative self-center flex items-center gap-1 opacity-40 transition-opacity focus-within:opacity-100 md:opacity-0 md:group-hover:opacity-100">
         <button
           type="button"
-          className="editor-tool hover:text-[#f59e0b] transition-colors"
+          className="editor-tool hover:text-[#c84a10] transition-colors"
           onClick={() => toggleMenu(true)}
           aria-label="React with emoji"
           title="React with aesthetic emoji"
@@ -1216,7 +1216,7 @@ export default function ConversationPage() {
               type="button"
               onClick={handleEnablePush}
               disabled={enablingPush}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[rgba(201,152,58,0.15)] text-[var(--gold)] border border-[var(--border-gold)] hover:bg-[rgba(201,152,58,0.25)] hover:scale-105 active:scale-95 transition-all shadow-sm shrink-0"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[rgba(156,156,156,0.15)] text-[var(--gold)] border border-[var(--border-gold)] hover:bg-[rgba(156,156,156,0.25)] hover:scale-105 active:scale-95 transition-all shadow-sm shrink-0"
               title="Enable closed-browser push notifications for direct messages"
               aria-label="Turn on notifications"
             >
@@ -1273,7 +1273,7 @@ export default function ConversationPage() {
               {otherMember?.handle ? (
                 <p className="font-mono text-xs font-semibold text-[var(--gold)] mt-0.5">@{otherMember.handle}</p>
               ) : null}
-              <span className="mt-2.5 inline-flex items-center gap-1 font-ui text-[11px] font-semibold text-[var(--gold)] border border-[var(--border-gold)] px-3 py-1 rounded-full bg-[var(--surface-2)] hover:bg-[rgba(201,152,58,0.12)] transition-colors shadow-sm">
+              <span className="mt-2.5 inline-flex items-center gap-1 font-ui text-[11px] font-semibold text-[var(--gold)] border border-[var(--border-gold)] px-3 py-1 rounded-full bg-[var(--surface-2)] hover:bg-[rgba(156,156,156,0.12)] transition-colors shadow-sm">
                 {isSelf ? "Your Personal Profile →" : "View Scholar Profile →"}
               </span>
             </Link>

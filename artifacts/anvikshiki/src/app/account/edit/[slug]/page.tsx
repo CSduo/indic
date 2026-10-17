@@ -489,14 +489,14 @@ export default function EditArticlePage() {
 
           {/* Error Banner if any */}
           {errorText && (
-            <div className="p-3 rounded bg-rose-950/20 border border-rose-900/50">
-              <p className="font-ui text-xs text-rose-400">{errorText}</p>
+            <div className="p-3 rounded bg-[var(--surface-soft)] border border-[var(--accent)]">
+              <p className="font-ui text-xs text-[var(--ink)]">{errorText}</p>
             </div>
           )}
 
           {/* Premium Rich Text Editor Body */}
           <div className="card-sacred" style={{ padding: 0, overflow: "hidden" }}>
-            <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: "1px solid rgba(139,90,20,0.15)" }}>
+            <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: "1px solid rgba(95,95,95,0.15)" }}>
               <span className="section-label" style={{ marginBottom: 0 }}>Article Body *</span>
               <span className="font-ui text-[10px]" style={{ color: "var(--ink-faint)" }}>
                 {wordCount > 0 ? `${wordCount.toLocaleString()} words · ${charCount.toLocaleString()} chars` : "Start writing below"}
@@ -504,10 +504,10 @@ export default function EditArticlePage() {
             </div>
 
             {/* Sticky Top Toolbar */}
-            <div className="flex items-center gap-2 p-2.5 bg-[var(--surface-elevated)] border-b border-[rgba(201,152,58,0.15)] sticky top-0 z-10 select-none shadow-sm overflow-x-auto max-w-full whitespace-nowrap flex-nowrap sm:flex-wrap">
+            <div className="flex items-center gap-2 p-2.5 bg-[var(--surface-elevated)] border-b border-[rgba(156,156,156,0.15)] sticky top-0 z-10 select-none shadow-sm overflow-x-auto max-w-full whitespace-nowrap flex-nowrap sm:flex-wrap">
               {/* Font Selector */}
               <select
-                className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
+                className="font-ui text-xs bg-[var(--surface)] border border-[rgba(156,156,156,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
                 onChange={e => execCmd("fontName", e.target.value)}
                 onMouseDown={e => e.stopPropagation()}
                 defaultValue="Garamond"
@@ -522,7 +522,7 @@ export default function EditArticlePage() {
 
               {/* Block Format */}
               <select
-                className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
+                className="font-ui text-xs bg-[var(--surface)] border border-[rgba(156,156,156,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
                 onChange={e => execCmd("formatBlock", e.target.value)}
                 onMouseDown={e => e.stopPropagation()}
                 defaultValue="p"
@@ -535,7 +535,7 @@ export default function EditArticlePage() {
                 <option value="blockquote">Quote block</option>
               </select>
 
-              <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+              <div className="h-4 w-px bg-[rgba(156,156,156,0.2)] mx-1" />
 
               {/* Basic styles */}
               <button
@@ -569,11 +569,11 @@ export default function EditArticlePage() {
                 U
               </button>
 
-              <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+              <div className="h-4 w-px bg-[rgba(156,156,156,0.2)] mx-1" />
 
               {/* Colors */}
               <select
-                className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
+                className="font-ui text-xs bg-[var(--surface)] border border-[rgba(156,156,156,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
                 onChange={e => execCmd("foreColor", e.target.value)}
                 onMouseDown={e => e.stopPropagation()}
                 defaultValue=""
@@ -585,7 +585,7 @@ export default function EditArticlePage() {
 
               {/* Highlights */}
               <select
-                className="font-ui text-xs bg-[var(--surface)] border border-[rgba(201,152,58,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
+                className="font-ui text-xs bg-[var(--surface)] border border-[rgba(156,156,156,0.25)] rounded px-2 py-1 text-[var(--ink-soft)] outline-none cursor-pointer animate-none"
                 onChange={e => execCmd("hiliteColor", e.target.value)}
                 onMouseDown={e => e.stopPropagation()}
                 defaultValue=""
@@ -595,7 +595,7 @@ export default function EditArticlePage() {
                 <option value="transparent">None</option>
               </select>
 
-              <div className="h-4 w-px bg-[rgba(201,152,58,0.2)] mx-1" />
+              <div className="h-4 w-px bg-[rgba(156,156,156,0.2)] mx-1" />
 
               {/* Image upload inline */}
               <input
@@ -643,9 +643,9 @@ export default function EditArticlePage() {
 
             {/* Inline VN Recorder Strip */}
             {showInlineVNRecorder && (
-              <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[var(--surface-elevated)] border-b border-[rgba(201,152,58,0.15)]">
+              <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[var(--surface-elevated)] border-b border-[rgba(156,156,156,0.15)]">
                 <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${inlineRecording ? 'bg-rose-500 animate-pulse' : 'bg-[var(--gold)]'}`} />
+                  <div className={`w-2 h-2 rounded-full ${inlineRecording ? 'bg-[var(--accent)] animate-pulse' : 'bg-[var(--gold)]'}`} />
                   <span className="font-ui text-xs text-[var(--ink-soft)]">
                     {inlineRecording 
                       ? `Recording: ${Math.floor(inlineRecordTime / 60)}:${(inlineRecordTime % 60).toString().padStart(2, '0')} / 5:00` 
@@ -660,7 +660,7 @@ export default function EditArticlePage() {
                       <button
                         type="button"
                         onClick={startInlineRecording}
-                        className="px-2.5 py-1 rounded bg-[rgba(201,152,58,0.15)] hover:bg-[rgba(201,152,58,0.25)] text-xs text-[var(--gold-bright)] font-ui font-semibold cursor-pointer border-none"
+                        className="px-2.5 py-1 rounded bg-[rgba(156,156,156,0.15)] hover:bg-[rgba(156,156,156,0.25)] text-xs text-[var(--gold-bright)] font-ui font-semibold cursor-pointer border-none"
                       >
                         Record
                       </button>
@@ -677,7 +677,7 @@ export default function EditArticlePage() {
                     <button
                       type="button"
                       onClick={stopInlineRecording}
-                      className="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-700 text-xs text-white font-ui font-semibold animate-pulse cursor-pointer border-none"
+                      className="px-2.5 py-1 rounded bg-[var(--accent)] hover:bg-[var(--accent-hover)] hover:text-[var(--on-accent-hover)] text-xs text-white font-ui font-semibold animate-pulse cursor-pointer border-none"
                     >
                       Stop & Insert
                     </button>

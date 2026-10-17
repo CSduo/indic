@@ -451,7 +451,7 @@ export default function ArticlePage() {
             {[100, 90, 95, 70, 100, 85, 88, 60, 100, 92].map((w, i) => (
               <div key={i} style={{ height: 16, background: "var(--ink-wash)", borderRadius: 4, width: `${w}%`, animation: `anv-shimmer 1.8s linear infinite ${i * 0.07}s` }} />
             ))}
-            <div style={{ height: 80, background: "linear-gradient(135deg,rgba(139,96,32,0.06),rgba(139,96,32,0.03))", borderRadius: 10, borderLeft: "4px solid var(--border-gold)", margin: "1.5rem 0", animation: "anv-shimmer 1.8s linear infinite 0.5s" }} />
+            <div style={{ height: 80, background: "linear-gradient(135deg,rgba(101,101,101,0.06),rgba(101,101,101,0.03))", borderRadius: 10, borderLeft: "4px solid var(--border-gold)", margin: "1.5rem 0", animation: "anv-shimmer 1.8s linear infinite 0.5s" }} />
             {[100, 88, 94, 72, 100].map((w, i) => (
               <div key={`b${i}`} style={{ height: 16, background: "var(--ink-wash)", borderRadius: 4, width: `${w}%`, animation: `anv-shimmer 1.8s linear infinite ${i * 0.07 + 0.6}s` }} />
             ))}
@@ -578,7 +578,7 @@ export default function ArticlePage() {
           
           {/* Custom Voice Note player in the middle */}
           {article.audioUrl && (
-            <div className="card-sacred p-5 mb-8 space-y-3" style={{ background: "linear-gradient(135deg, rgba(201,152,58,0.03) 0%, rgba(201,152,58,0.08) 100%)" }}>
+            <div className="card-sacred p-5 mb-8 space-y-3" style={{ background: "linear-gradient(135deg, rgba(156,156,156,0.03) 0%, rgba(156,156,156,0.08) 100%)" }}>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -836,7 +836,7 @@ export default function ArticlePage() {
                                   <button
                                     type="button"
                                     onClick={() => handleCommentDelete(comment.id)}
-                                    className="font-ui text-[10px] text-[var(--muted)] hover:text-red-400 transition-colors"
+                                    className="font-ui text-[10px] text-[var(--muted)] hover:text-[var(--accent)] transition-colors"
                                   >
                                     Delete
                                   </button>
@@ -942,7 +942,7 @@ export default function ArticlePage() {
                                       <button
                                         type="button"
                                         onClick={() => handleCommentDelete(reply.id, comment.id)}
-                                        className="font-ui text-[9px] text-[var(--muted)] hover:text-red-400 transition-colors"
+                                        className="font-ui text-[9px] text-[var(--muted)] hover:text-[var(--accent)] transition-colors"
                                       >
                                         Delete
                                       </button>

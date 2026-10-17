@@ -309,7 +309,7 @@ export default function SettingsPage() {
               disabled={deleting || deleteConfirm !== user.email}
               onClick={deleteAccount}
               className="btn-sacred w-full justify-center text-sm"
-              style={{ background: "rgba(139,26,74,0.15)", border: "1px solid var(--border-rose)", color: "var(--lotus)", opacity: deleteConfirm !== user.email ? 0.4 : 1 }}
+              style={{ background: "rgba(53,53,53,0.15)", border: "1px solid var(--border-rose)", color: "var(--lotus)", opacity: deleteConfirm !== user.email ? 0.4 : 1 }}
             >
               <Trash2 size={14} /> {deleting ? "Working…" : "Delete My Account"}
             </button>

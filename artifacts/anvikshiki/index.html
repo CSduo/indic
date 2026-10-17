@@ -124,21 +124,21 @@
         letter-spacing: 0.32em; padding-left: 0.32em; text-transform: uppercase;
       }
       .anv-boot-sub {
-        margin: 0; color: #53565A; font: 500 0.62rem/1 Inter, system-ui, sans-serif;
+        margin: 0; color: #565656; font: 500 0.62rem/1 Inter, system-ui, sans-serif;
         letter-spacing: 0.3em; padding-left: 0.3em; text-transform: uppercase;
       }
-      html[data-theme="dark"] .anv-boot-sub { color: #B1B3B3; }
+      html[data-theme="dark"] .anv-boot-sub { color: #B3B3B3; }
       .anv-boot-track {
         position: relative; width: 140px; height: 1px; margin-top: 0.6rem; overflow: hidden;
-        background: rgba(83, 86, 90, 0.18);
+        background: rgba(86, 86, 86, 0.18);
       }
       .anv-boot-track::after {
         content: ""; position: absolute; inset: 0; width: 40%;
-        background: #53565A;
+        background: #565656;
         animation: anv-boot-sweep 1.15s cubic-bezier(0.65, 0, 0.35, 1) infinite;
       }
-      html[data-theme="dark"] .anv-boot-track { background: rgba(177, 179, 179, 0.2); }
-      html[data-theme="dark"] .anv-boot-track::after { background: #B1B3B3; }
+      html[data-theme="dark"] .anv-boot-track { background: rgba(179, 179, 179, 0.2); }
+      html[data-theme="dark"] .anv-boot-track::after { background: #B3B3B3; }
       @keyframes anv-boot-sweep { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
       @media (prefers-reduced-motion: reduce) {
         .anv-boot-track::after { animation: none; width: 100%; opacity: 0.5; }

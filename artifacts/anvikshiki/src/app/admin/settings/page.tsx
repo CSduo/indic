@@ -130,7 +130,7 @@ export default function AdminSettingsPage() {
           <div className="flex items-center gap-2 mb-4">
             <div className="section-label">Site Content</div>
           </div>
-          <div className="card-sacred p-3 mb-4 flex items-start gap-2" style={{ background: "rgba(201,152,58,0.06)" }}>
+          <div className="card-sacred p-3 mb-4 flex items-start gap-2" style={{ background: "rgba(156,156,156,0.06)" }}>
             <Info size={14} style={{ color: "var(--gold)", flexShrink: 0, marginTop: 1 }} />
             <p className="font-body text-xs" style={{ color: "var(--ink-faint)" }}>
               Edit visible text across the site. Changes are stored in the database and take effect immediately. Leave empty to use the default built-in text.
@@ -138,7 +138,7 @@ export default function AdminSettingsPage() {
           </div>
 
           {error && (
-            <div className="mb-6 p-4 rounded-lg" style={{ background: "rgba(225,29,72,0.1)", border: "1px solid rgba(225,29,72,0.3)", color: "var(--rose-bright)" }}>
+            <div className="mb-6 p-4 rounded-lg" style={{ background: "rgba(74,74,74,0.1)", border: "1px solid rgba(74,74,74,0.3)", color: "var(--rose-bright)" }}>
               {error}
             </div>
           )}
