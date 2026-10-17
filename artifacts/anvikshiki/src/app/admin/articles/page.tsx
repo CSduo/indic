@@ -103,7 +103,7 @@ export default function AdminArticlesPage() {
                           <button type="button" onClick={() => permanentlyDelete(a.id)} className="btn-sacred text-[10px] py-1 px-2" style={{ background: "rgba(53,53,53,0.1)", border: "1px solid rgba(53,53,53,0.25)", color: "var(--rose-bright)" }} title="Permanently delete article"><Trash2 size={11} /> Delete Forever</button>
                         </> : <>
                           {a.slug && <Link href={`/articles/${a.slug}`} className="btn-sacred text-[10px] py-1 px-2 btn-ghost" title="View"><Eye size={11} /></Link>}
-                          <button type="button" onClick={() => toggle(a.id, a.status)} className="btn-sacred text-[10px] py-1 px-2" style={{ background: a.status === "PUBLISHED" ? "rgba(53,53,53,0.15)" : "rgba(62,62,62,0.2)", border: "1px solid var(--border)", color: a.status === "PUBLISHED" ? "var(--lotus)" : "#c84a10" }}>
+                          <button type="button" onClick={() => toggle(a.id, a.status)} className={`btn-sacred text-[10px] py-1 px-2 ${a.status === "PUBLISHED" ? "text-[var(--lotus)]" : "text-[var(--accent)]"}`} style={{ background: a.status === "PUBLISHED" ? "rgba(53,53,53,0.15)" : "rgba(62,62,62,0.2)", border: "1px solid var(--border)" }}>
                             {a.status === "PUBLISHED" ? "Unpublish" : "Publish"}
                           </button>
                           <button type="button" onClick={() => del(a.id)} className="btn-sacred text-[10px] py-1 px-2" style={{ background: "rgba(53,53,53,0.1)", border: "1px solid rgba(53,53,53,0.25)", color: "var(--rose-bright)" }} title="Move to Trash">

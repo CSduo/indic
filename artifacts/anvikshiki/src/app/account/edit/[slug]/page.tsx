@@ -610,8 +610,7 @@ export default function EditArticlePage() {
                 onMouseDown={e => { e.preventDefault(); inlineImgInputRef.current?.click(); }}
                 onTouchStart={e => { e.preventDefault(); inlineImgInputRef.current?.click(); }}
                 disabled={insertingImage}
-                className="flex items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent"
-                style={{ color: "var(--gold-soft)" }}
+                className="flex items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent text-[var(--gold-soft)]"
                 title="Insert Inline Image"
               >
                 <ImageIcon size={13} />
@@ -623,8 +622,7 @@ export default function EditArticlePage() {
                 type="button"
                 onMouseDown={e => { e.preventDefault(); setShowInlineVNRecorder(prev => !prev); }}
                 onTouchStart={e => { e.preventDefault(); setShowInlineVNRecorder(prev => !prev); }}
-                className="flex items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent animate-none"
-                style={{ color: "var(--gold-soft)" }}
+                className="flex items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent animate-none text-[var(--gold-soft)]"
                 title="Add Voice Note"
               >
                 <Mic size={13} />

@@ -108,8 +108,8 @@ export default function AdminPapersPage() {
                         </> : <>
                           {p.slug && <Link href={`/papers/${p.slug}`} className="btn-sacred text-[10px] py-1 px-2 btn-ghost" title="View"><Eye size={11} /></Link>}
                           <button type="button" onClick={() => toggle(p.id, p.status)}
-                            className="btn-sacred text-[10px] py-1 px-2"
-                            style={{ background: p.status === "PUBLISHED" ? "rgba(53,53,53,0.15)" : "rgba(62,62,62,0.2)", border: "1px solid var(--border)", color: p.status === "PUBLISHED" ? "var(--lotus)" : "#c84a10" }}>
+                            className={`btn-sacred text-[10px] py-1 px-2 ${p.status === "PUBLISHED" ? "text-[var(--lotus)]" : "text-[var(--accent)]"}`}
+                            style={{ background: p.status === "PUBLISHED" ? "rgba(53,53,53,0.15)" : "rgba(62,62,62,0.2)", border: "1px solid var(--border)" }}>
                             {p.status === "PUBLISHED" ? "Unpublish" : "Publish"}
                           </button>
                           <button type="button" onClick={() => del(p.id)}

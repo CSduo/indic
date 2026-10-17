@@ -36,6 +36,10 @@ const FILES = [
 const HEX = /(?<![\w&/-])#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b(?![\w-])/g;
 const RGB = /rgba?\(\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*(?:[,/]\s*([\d.]+%?))?\s*\)/g;
 const OTHER_FUNCTIONS = /\b(?:oklch|oklab|lab|lch|hwb)\(|\bhsla?\(\s*\d/g;
+/** A Tailwind opacity modifier on the orange ("bg-[var(--gold)]/10"): a paler orange. */
+const TRANSLUCENT_ACCENT = /[\w:-]*-\[(?:#c84a10|var\(--(?:gold|terracotta|accent)[\w-]*\))\]\/\d+/gi;
+/** rgb() around a variable hides its fallback colour from the checks above. */
+const RGB_OF_VARIABLE = /rgba?\(\s*var\(/g;
 const TAILWIND_HUES = /\b(?:text|bg|border|ring|ring-offset|from|via|to|fill|stroke|decoration|outline|shadow|accent|caret|divide|placeholder)-(?:red|rose|pink|fuchsia|purple|violet|indigo|blue|sky|cyan|teal|emerald|green|lime|yellow|amber|orange|stone)-\d{2,3}\b/g;
 
 function isNeutral([r, g, b]: number[]): boolean {
@@ -62,6 +66,8 @@ export function offPaletteColours(text: string): string[] {
     if (!isNeutral(rgb) && !(isAccent(rgb) && opaque)) found.push(match[0]);
   }
   for (const match of text.matchAll(OTHER_FUNCTIONS)) found.push(match[0]);
+  for (const match of text.matchAll(TRANSLUCENT_ACCENT)) found.push(match[0]);
+  for (const match of text.matchAll(RGB_OF_VARIABLE)) found.push(match[0]);
   for (const match of text.matchAll(TAILWIND_HUES)) found.push(match[0]);
   return found;
 }
@@ -74,6 +80,8 @@ describe("the three-colour palette", () => {
     expect(offPaletteColours("rgba(201,152,58,0.3) rgba(200,74,16,0.2)")).toEqual(["rgba(201,152,58,0.3)", "rgba(200,74,16,0.2)"]);
     expect(offPaletteColours('className="text-amber-800 bg-yellow-50 ring-offset-red-600"')).toEqual(["text-amber-800", "bg-yellow-50", "ring-offset-red-600"]);
     expect(offPaletteColours("color: oklch(57.7% .245 27.325)")).toEqual(["oklch("]);
+    expect(offPaletteColours('className="hover:bg-[var(--gold)]/10 bg-[#c84a10]/20 border-[var(--border)]/40"')).toEqual(["hover:bg-[var(--gold)]/10", "bg-[#c84a10]/20"]);
+    expect(offPaletteColours("background: rgba(var(--terracotta-rgb, 180,80,60),0.08)")).toEqual(["rgba(var("]);
   });
 
   it("uses no other colour anywhere in the site's styles, components or shell", () => {

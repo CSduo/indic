@@ -469,7 +469,7 @@ function MessageBubble({
 
                   <button
                     type="button"
-                    className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(156,156,156,0.35)] bg-white/5 text-[#c84a10] hover:bg-[#c84a10]/25 hover:border-[#c84a10] hover:scale-115 active:scale-90 transition-all shrink-0 shadow-sm"
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(156,156,156,0.35)] bg-white/5 text-[#c84a10] hover:bg-[var(--accent-wash)] hover:border-[#c84a10] hover:scale-115 active:scale-90 transition-all shrink-0 shadow-sm"
                     onClick={() => setShowEmojiPicker((prev) => !prev)}
                     aria-label="All Reactions"
                     title="Aesthetic reactions"
@@ -1347,7 +1347,7 @@ export default function ConversationPage() {
           {details?.isRequest ? (
             <div className="rounded-xl border border-[var(--border-gold)] bg-[var(--surface-card)] p-4 sm:p-5 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-11 h-11 rounded-full border border-[var(--border-gold)] bg-[var(--gold)]/10 text-[var(--gold)] flex items-center justify-center font-display font-bold text-base shrink-0 overflow-hidden">
+                <div className="w-11 h-11 rounded-full border border-[var(--border-gold)] bg-[var(--accent-wash)] text-[var(--gold)] flex items-center justify-center font-display font-bold text-base shrink-0 overflow-hidden">
                   {details.avatarUrl ? (
                     <img src={details.avatarUrl} alt={details.title} className="w-full h-full object-cover" />
                   ) : (

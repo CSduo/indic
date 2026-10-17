@@ -380,7 +380,7 @@ export function VoiceRecorder({
                 <span className="font-mono text-[12px] font-semibold tabular-nums text-[var(--ink)]">
                   {clock(preparedNote.duration)}
                 </span>
-                <span className="rounded bg-[#c84a10]/20 px-1.5 py-0.2 font-ui text-[10px] font-bold text-[#c84a10]">
+                <span className="rounded bg-[var(--accent-wash)] px-1.5 py-0.2 font-ui text-[10px] font-bold text-[var(--accent)]">
                   {preparedNote.duration >= MAX_SECONDS ? "10:00 (Max Limit)" : "Ready to send"}
                 </span>
               </div>
@@ -411,7 +411,7 @@ export function VoiceRecorder({
 
         {preparedNote.transcript && (
           <div className="flex items-center gap-1.5 px-1 pt-1.5 border-t border-[var(--hairline)]">
-            <span className="font-ui text-[10px] uppercase font-bold text-[#c84a10] tracking-wider shrink-0">Captured:</span>
+            <span className="font-ui text-[10px] uppercase font-bold text-[var(--accent)] tracking-wider shrink-0">Captured:</span>
             <p className="font-body text-[12px] italic text-[var(--ink-body)] truncate" title={preparedNote.transcript}>
               "{preparedNote.transcript}"
             </p>
@@ -489,7 +489,7 @@ export function VoiceRecorder({
 
       {liveTranscript && (
         <div className="flex items-center gap-1.5 px-1 pt-1.5 border-t border-[var(--hairline)]">
-          <span className="font-ui text-[10px] uppercase font-bold text-[#c84a10] tracking-wider shrink-0">Live:</span>
+          <span className="font-ui text-[10px] uppercase font-bold text-[var(--accent)] tracking-wider shrink-0">Live:</span>
           <p className="font-body text-[12px] italic text-[var(--ink-body)] truncate" title={liveTranscript}>
             "{liveTranscript}"
           </p>

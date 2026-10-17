@@ -98,7 +98,7 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
                     <td>
-                      <span className="font-ui text-[10px] px-2 py-0.5 rounded-full" style={{ background: u.role === "ADMIN" ? "rgba(104,104,104,0.1)" : "rgba(156,156,156,0.1)", color: u.role === "ADMIN" ? "#c84a10" : "var(--gold)", border: u.role === "ADMIN" ? "1px solid rgba(104,104,104,0.2)" : "1px solid rgba(156,156,156,0.2)" }}>
+                      <span className="font-ui text-[10px] px-2 py-0.5 rounded-full text-[var(--accent)]" style={{ background: u.role === "ADMIN" ? "rgba(104,104,104,0.1)" : "rgba(156,156,156,0.1)", border: u.role === "ADMIN" ? "1px solid rgba(104,104,104,0.2)" : "1px solid rgba(156,156,156,0.2)" }}>
                         {u.role || "USER"}
                       </span>
                     </td>

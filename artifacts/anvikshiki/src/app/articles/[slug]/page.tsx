@@ -561,7 +561,7 @@ export default function ArticlePage() {
           {user && (user.role === "ADMIN" || user.name === article.authorName) ? (
             <Link
               href={`/account/edit/${article.slug}`}
-              className="btn-ink px-3 py-1.5 text-xs text-[var(--gold)] border border-[var(--gold)]/30 hover:bg-[var(--gold)]/10 inline-flex items-center gap-1.5"
+              className="btn-ink px-3 py-1.5 text-xs text-[var(--gold)] border border-[var(--border-gold)] hover:bg-[var(--accent-wash)] inline-flex items-center gap-1.5"
               title="Edit this article, title, images, and content"
             >
               <Edit3 size={14} /> Edit Article

@@ -366,8 +366,8 @@ export function VoiceNotePlayer({
           className="mt-3 rounded-lg border border-[#3a3a3a] bg-[#161616] p-3 text-xs text-[#f4f4f4] shadow-xl animate-in fade-in slide-in-from-top-1 duration-150"
         >
           <div className="mb-2 flex items-center justify-between border-b border-[#313131] pb-1.5 font-ui text-[10px] uppercase tracking-wider text-[#a2a2a2]">
-            <span className="flex items-center gap-1 font-semibold text-[#c84a10]">
-              <Volume2 size={12} />
+            <span className="flex items-center gap-1 font-semibold text-[#f4f4f4]">
+              <Volume2 size={12} className="text-[#c84a10]" />
               <span>Voice Note Transcript</span>
             </span>
 
@@ -377,9 +377,9 @@ export function VoiceNotePlayer({
                   type="button"
                   onClick={triggerTranscribe}
                   disabled={transcribing}
-                  className="inline-flex items-center gap-1 text-[#c84a10] hover:underline font-semibold"
+                  className="inline-flex items-center gap-1 text-[#f4f4f4] hover:underline decoration-[#c84a10] font-semibold"
                 >
-                  {transcribing ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                  {transcribing ? <Loader2 size={10} className="animate-spin text-[#c84a10]" /> : <Sparkles size={10} className="text-[#c84a10]" />}
                   <span>{transcribing ? "Translating…" : "Translate"}</span>
                 </button>
               )}
@@ -387,7 +387,7 @@ export function VoiceNotePlayer({
               <button
                 type="button"
                 onClick={copyTranscript}
-                className="inline-flex items-center gap-1 text-[#a2a2a2] hover:text-[#c84a10] font-medium transition-colors"
+                className="inline-flex items-center gap-1 text-[#a2a2a2] hover:text-[#f4f4f4] font-medium transition-colors"
                 title="Copy transcript text"
               >
                 {copied ? <Check size={11} className="text-[var(--accent)]" /> : <Copy size={11} />}
@@ -425,8 +425,8 @@ export function VoiceNotePlayer({
               "हिन्दी" tab, or an empty pair of quotation marks, would both read
               as a translation that had been produced. */}
           {transcribing ? (
-            <div className="flex items-center gap-1.5 py-2 text-[#c84a10] font-body text-[12px]">
-              <Loader2 size={13} className="animate-spin" />
+            <div className="flex items-center gap-1.5 py-2 text-[#f4f4f4] font-body text-[12px]">
+              <Loader2 size={13} className="animate-spin text-[#c84a10]" />
               <span>Fetching {selectedLang === "hi" ? "Hindi" : selectedLang === "sa" ? "Sanskrit" : "English"} translation…</span>
             </div>
           ) : displayTranscript ? (

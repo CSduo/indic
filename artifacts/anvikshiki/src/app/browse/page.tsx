@@ -93,7 +93,7 @@ export default function BrowsePage() {
         </ParchmentCard>
 
         <ParchmentCard className="mb-7 grid overflow-hidden md:grid-cols-[220px_1fr]">
-          <div className="grid min-h-52 place-items-center bg-[var(--gold)]/10 p-6 text-[var(--gold)] border-b md:border-b-0 md:border-r border-[var(--border-gold)]">
+          <div className="grid min-h-52 place-items-center bg-[var(--accent-wash)] p-6 text-[var(--gold)] border-b md:border-b-0 md:border-r border-[var(--border-gold)]">
             <AnimalGlyph domain="philosophy" size={116} />
           </div>
           <div className="grid gap-6 p-6 md:grid-cols-[1fr_.95fr] md:items-center">

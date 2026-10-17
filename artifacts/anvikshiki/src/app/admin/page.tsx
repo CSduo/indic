@@ -125,7 +125,7 @@ export default function AdminDashboardPage() {
         <div className="card-sacred p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="section-label">Recent Submissions</div>
-            <Link href="/admin/submissions" className="font-ui text-xs" style={{ color: "var(--gold)" }}>View all →</Link>
+            <Link href="/admin/submissions" className="font-ui text-xs text-[var(--gold)]">View all →</Link>
           </div>
           {recent.length === 0 ? (
             <div className="text-center py-8">

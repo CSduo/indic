@@ -313,7 +313,7 @@ export default function AccountPage() {
               {isPublished && submission.slug ? (
                 <Link
                   href={readUrl}
-                  className="btn-ink px-2 py-1 text-[10px] text-[var(--gold)] hover:bg-[var(--gold)]/10"
+                  className="btn-ink px-2 py-1 text-[10px] text-[var(--gold)] hover:bg-[var(--accent-wash)]"
                   title="Read published work on live journal"
                 >
                   <BookOpen size={12} /> Read
@@ -323,7 +323,7 @@ export default function AccountPage() {
               {canEdit ? (
                 <Link
                   href={editUrl}
-                  className="btn-ink px-2 py-1 text-[10px] text-[var(--gold)] hover:bg-[var(--gold)]/10"
+                  className="btn-ink px-2 py-1 text-[10px] text-[var(--gold)] hover:bg-[var(--accent-wash)]"
                   title={isDraft ? "Resume writing" : "Edit article, images, title, and body text"}
                 >
                   <Edit3 size={12} /> {isDraft ? "Resume" : "Edit"}
@@ -335,7 +335,7 @@ export default function AccountPage() {
                   type="button"
                   onClick={() => deleteSubmission(submission.id)}
                   disabled={deletingId === submission.id}
-                  className="btn-ink px-2 py-1 text-[10px] text-[var(--terracotta)] hover:bg-[var(--terracotta)]/10"
+                  className="btn-ink px-2 py-1 text-[10px] text-[var(--terracotta)] hover:bg-[var(--accent-wash)]"
                   title={isPublished ? "Hide from public site and move to Trash" : "Delete this submission"}
                 >
                   <Trash2 size={12} /> {deletingId === submission.id ? (isPublished ? "Hiding…" : "Deleting…") : (isPublished ? "Hide / Trash" : "Delete")}
@@ -504,7 +504,7 @@ export default function AccountPage() {
                   {user.handle ? (
                     <p className="font-ui text-sm font-semibold text-[var(--gold)] mt-0.5">@{user.handle}</p>
                   ) : (
-                    <button type="button" onClick={() => setEditing(true)} className="mt-1 inline-flex items-center gap-1 rounded-full border border-dashed border-[var(--gold)] px-2.5 py-0.5 font-ui text-[11px] font-medium text-[var(--gold)] hover:bg-[var(--gold)]/10 transition-colors">
+                    <button type="button" onClick={() => setEditing(true)} className="mt-1 inline-flex items-center gap-1 rounded-full border border-dashed border-[var(--gold)] px-2.5 py-0.5 font-ui text-[11px] font-medium text-[var(--gold)] hover:bg-[var(--accent-wash)] transition-colors">
                       + Set your @handle
                     </button>
                   )}
@@ -656,7 +656,7 @@ export default function AccountPage() {
               </div>
 
               {loadError ? (
-                <div className="rounded-[8px] border border-[var(--terracotta)]/40 bg-[var(--terracotta)]/5 p-5 text-center">
+                <div className="rounded-[8px] border border-[var(--terracotta)] bg-[var(--accent-wash)] p-5 text-center">
                   <p className="font-ui text-sm font-bold text-[var(--terracotta)]">Your works could not be loaded</p>
                   <p className="mt-2 font-body text-sm text-[var(--ink-soft)]">{loadError}</p>
                   <button type="button" onClick={loadSubmissions} className="btn-ink mt-4 justify-center">Try again</button>

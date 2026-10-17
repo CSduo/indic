@@ -1296,7 +1296,7 @@ export default function SubmitWritePage() {
             {/* Auto-save indicator */}
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(95,95,95,0.15)" }}>
               {saveStatus === "saved"
-                ? <><Save size={13} style={{ color: "#c84a10", flexShrink: 0 }} /><span className="font-ui text-[10px]" style={{ color: "#c84a10" }}>Saved in this browser</span></>
+                ? <><Save size={13} style={{ color: "#c84a10", flexShrink: 0 }} /><span className="font-ui text-[10px] text-[var(--accent)]">Saved in this browser</span></>
                 : saveStatus === "saving"
                 ? <><Save size={13} style={{ color: "var(--gold)", flexShrink: 0, opacity: 0.6 }} /><span className="font-ui text-[10px]" style={{ color: "var(--ink-faint)" }}>Saving…</span></>
                 : <><Save size={13} style={{ color: "var(--gold)", flexShrink: 0, opacity: 0.4 }} /><span className="font-ui text-[10px]" style={{ color: "var(--ink-faint)" }}>Browser save ready</span></>
@@ -1415,7 +1415,7 @@ export default function SubmitWritePage() {
               {audioPreview ? (
                 <div className="p-4 rounded-lg space-y-3" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-gold)" }}>
                   <div className="flex items-center justify-between">
-                    <span className="font-ui text-xs font-semibold" style={{ color: "var(--gold-soft)" }}>Voice Note Recorded</span>
+                    <span className="font-ui text-xs font-semibold text-[var(--gold-soft)]">Voice Note Recorded</span>
                     <button
                       type="button"
                       onClick={deleteRecording}
@@ -1428,7 +1428,7 @@ export default function SubmitWritePage() {
                   </div>
                   <audio src={audioPreview} controls className="w-full" style={{ filter: "sepia(0.3) invert(0.9)" }} />
                   {uploadingAudio && (
-                    <p className="font-ui text-[10px] text-center" style={{ color: "var(--gold-bright)" }}>Uploading audio file…</p>
+                    <p className="font-ui text-[10px] text-center text-[var(--gold-bright)]">Uploading audio file…</p>
                   )}
                 </div>
               ) : (
@@ -1453,11 +1453,11 @@ export default function SubmitWritePage() {
                       <button
                         type="button"
                         onClick={startRecording}
-                        className="flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-all hover:bg-white/5"
-                        style={{ borderColor: "rgba(156,156,156,0.3)", color: "var(--gold-bright)" }}
+                        className="flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-all hover:bg-white/5 text-[var(--gold-bright)]"
+                        style={{ borderColor: "rgba(156,156,156,0.3)" }}
                       >
                         <Mic size={14} />
-                        <span className="font-ui text-xs font-semibold">Record Mic</span>
+                        <span className="font-ui text-xs font-semibold text-[var(--gold-bright)]">Record Mic</span>
                       </button>
                       <label
                         className="flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border cursor-pointer transition-all hover:bg-white/5"
@@ -1798,8 +1798,7 @@ export default function SubmitWritePage() {
                   onMouseDown={e => { e.preventDefault(); inlineImgInputRef.current?.click(); }}
                   onTouchStart={e => { e.preventDefault(); inlineImgInputRef.current?.click(); }}
                   disabled={insertingImage}
-                  className="flex items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent"
-                  style={{ color: "var(--gold-soft)" }}
+                  className="flex items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent text-[var(--gold-soft)]"
                   title="Insert Inline Image"
                 >
                   <ImageIcon size={13} />
@@ -1812,8 +1811,7 @@ export default function SubmitWritePage() {
                   onMouseDown={e => { e.preventDefault(); setShowInlineVNRecorder(prev => !prev); }}
                   onTouchStart={e => { e.preventDefault(); setShowInlineVNRecorder(prev => !prev); }}
                   disabled={uploadingInlineAudio}
-                  className="flex items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent animate-none"
-                  style={{ color: "var(--gold-soft)" }}
+                  className="flex items-center gap-1 p-1 px-2 rounded hover:bg-white/5 font-ui text-xs cursor-pointer border-none bg-transparent animate-none text-[var(--gold-soft)]"
                   title="Add Voice Note"
                 >
                   <Mic size={13} />
@@ -1955,8 +1953,8 @@ export default function SubmitWritePage() {
                   onClick={saveDraftToServer}
                   disabled={savingDraft || !user}
                   title={!user ? "Sign in to save drafts to your account" : undefined}
-                  className="w-full sm:w-auto btn-sacred flex items-center justify-center gap-2"
-                  style={{ borderRadius: 6, padding: "1rem 1.25rem", fontSize: "0.75rem", letterSpacing: "0.14em", border: "1px solid rgba(156,156,156,0.4)", background: "transparent", color: "var(--gold-bright)" }}
+                  className="w-full sm:w-auto btn-sacred flex items-center justify-center gap-2 text-xs text-[var(--gold-bright)]"
+                  style={{ borderRadius: 6, padding: "1rem 1.25rem", fontSize: "0.75rem", letterSpacing: "0.14em", border: "1px solid rgba(156,156,156,0.4)", background: "transparent" }}
                 >
                   <FileText size={14} /> {savingDraft ? "SAVING…" : "SAVE AS DRAFT"}
                 </button>

@@ -167,30 +167,30 @@ export function SacredHeader() {
         {/* ── ROW 2: Secondary Sub-Header Navigation Bar (Hidden on Mobile) ── */}
         <div className="container-anv">
           <nav className="sacred-sub-header border-t border-[var(--border-gold)]/40 py-2 hidden md:flex items-center justify-center gap-6 md:gap-10 overflow-x-auto no-scrollbar font-ui text-xs md:text-sm font-extrabold uppercase tracking-[0.16em]">
-            <Link href="/" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
+            <Link href="/" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/" ? "text-[var(--ink)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
               Home
             </Link>
-            <Link href="/browse" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/browse" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
+            <Link href="/browse" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/browse" ? "text-[var(--ink)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
               Browse
             </Link>
-            <Link href="/archive" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/archive" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
+            <Link href="/archive" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/archive" ? "text-[var(--ink)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
               Archive
             </Link>
-            <Link href="/domains" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/domains" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
+            <Link href="/domains" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/domains" ? "text-[var(--ink)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
               Domains
             </Link>
             {papersPublished && (
-              <Link href="/papers" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/papers" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
+              <Link href="/papers" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/papers" ? "text-[var(--ink)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
                 Papers
               </Link>
             )}
-            <Link href="/about" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/about" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
+            <Link href="/about" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/about" ? "text-[var(--ink)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
               About
             </Link>
-            <Link href="/submit" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/submit" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
+            <Link href="/submit" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/submit" ? "text-[var(--ink)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
               Submit Work
             </Link>
-            <Link href="/contact" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/contact" ? "text-[var(--gold)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
+            <Link href="/contact" className={`hover:text-[var(--gold)] transition-colors whitespace-nowrap ${loc === "/contact" ? "text-[var(--ink)] font-black border-b-2 border-[var(--gold)] pb-0.5" : "text-[var(--ink)]"}`}>
               Contact
             </Link>
           </nav>

@@ -41,7 +41,7 @@ function SettingRow({ setting, saved, onSave }: {
     <div className="card-sacred p-5">
       <div className="flex items-start justify-between gap-3 mb-2">
         <div>
-          <div className="font-ui text-xs font-semibold" style={{ color: "var(--gold-bright)" }}>{setting.label}</div>
+          <div className="font-ui text-xs font-semibold text-[var(--gold-bright)]">{setting.label}</div>
           <div className="font-body text-xs mt-0.5" style={{ color: "var(--ink-faint)" }}>{setting.description}</div>
         </div>
         {!editing && (

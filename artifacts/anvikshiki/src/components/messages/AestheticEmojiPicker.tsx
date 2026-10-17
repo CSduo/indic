@@ -65,7 +65,7 @@ export function AestheticEmojiPicker({
       {/* Header with Search */}
       <div className="border-b border-[#323232] p-2.5 pb-2">
         <div className="flex items-center justify-between gap-2 mb-2">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-[#c84a10]">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-[#f4f4f4]">
             <Sparkles size={14} className="text-[#c84a10]" />
             <span className="tracking-wide">Aesthetic Reactions</span>
           </div>
