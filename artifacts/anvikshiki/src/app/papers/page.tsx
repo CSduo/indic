@@ -80,8 +80,8 @@ export default function PapersPage() {
   return (
     <div className="relative bg-[var(--bg)] overflow-hidden">
       <AmbientPetals />
-      <FloralCorner position="tl" size={80} className="absolute top-0 left-0 text-[var(--gold)] opacity-40" />
-      <FloralCorner position="tr" size={80} className="absolute top-0 right-0 text-[var(--gold)] opacity-40" />
+      <FloralCorner position="tl" size={80} className="absolute top-0 left-0 text-[var(--flower-gold)] opacity-40" />
+      <FloralCorner position="tr" size={80} className="absolute top-0 right-0 text-[var(--flower-gold)] opacity-40" />
       <section className="container-anv relative z-10 py-6 md:py-10">
         <nav className="mb-4 flex items-center gap-2 font-ui text-xs font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]" aria-label="Breadcrumb">
           <Link href="/" className="hover:text-[var(--terracotta)]">Home</Link>

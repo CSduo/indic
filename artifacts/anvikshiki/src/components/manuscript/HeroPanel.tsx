@@ -61,14 +61,14 @@ export function HeroPanel({
             aria-hidden="true"
           />
           {/* Floral corner overlays on image */}
-          <FloralCorner position="tl" size={60} className="absolute top-2 left-2 text-[var(--gold)] opacity-60" />
-          <FloralCorner position="br" size={60} className="absolute bottom-2 right-2 text-[var(--gold)] opacity-50" />
+          <FloralCorner position="tl" size={60} className="absolute top-2 left-2 text-[var(--flower-gold)] opacity-60" />
+          <FloralCorner position="br" size={60} className="absolute bottom-2 right-2 text-[var(--flower-gold)] opacity-50" />
         </div>
       ) : null}
 
       <div className={cn("relative z-10 flex flex-col justify-center p-6 md:p-10 lg:p-12", overlay && "max-w-2xl min-h-[420px]")}>
         {/* Decorative corner on text side */}
-        <FloralCorner position="tr" size={52} className="absolute top-2 right-2 text-[var(--gold)] opacity-30" />
+        <FloralCorner position="tr" size={52} className="absolute top-2 right-2 text-[var(--flower-gold)] opacity-30" />
 
         {glyph ? (
           <div className="mb-5 animate-marginalia text-[var(--domain-ink)]">

@@ -4250,6 +4250,17 @@ input[type="search"]::-webkit-search-decoration {
   opacity: 0.6;
 }
 
+/* palette-exception:start. At the owner's request the flower decorations
+   (falling flowers, lotus ring, floral corners and borders) keep their
+   original gold: the old --gold of each theme. */
+:root {
+  --flower-gold: #B45309;
+}
+[data-theme="dark"] {
+  --flower-gold: #F59E0B;
+}
+/* palette-exception:end */
+
 /* ------ Wisdom Strip ------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
 /* palette-exception:start. At the owner's request the aphorism strip keeps its
    original indigo and gold, the one place outside the three-colour palette.

@@ -97,7 +97,7 @@ export function LotusWatermark({
       aria-hidden="true"
       style={style}
     >
-      <LotusBlossom size={size} opacity={0.045} className="text-[var(--gold)]" />
+      <LotusBlossom size={size} opacity={0.045} className="text-[var(--flower-gold)]" />
     </div>
   );
 }
@@ -124,7 +124,7 @@ export function FloralCorner({
       viewBox="0 0 72 72"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={`pointer-events-none text-[var(--gold)] ${className}`}
+      className={`pointer-events-none text-[var(--flower-gold)] ${className}`}
       aria-hidden="true"
       style={{
         transform: `scaleX(${flipX ? -1 : 1}) scaleY(${flipY ? -1 : 1})`,
@@ -202,7 +202,7 @@ export function FloralBorder({
 }) {
   return (
     <div
-      className={`flex items-center justify-center gap-0 text-[var(--gold)] ${className}`}
+      className={`flex items-center justify-center gap-0 text-[var(--flower-gold)] ${className}`}
       aria-hidden="true"
       style={style}
     >
@@ -220,7 +220,7 @@ export function FloralBorder({
               key={i}
               size={isMid ? 22 : isNearMid ? 16 : 12}
               opacity={isMid ? 0.55 : isNearMid ? 0.38 : 0.24}
-              className="text-[var(--gold)]"
+              className="text-[var(--flower-gold)]"
             />
           );
         })}
@@ -233,19 +233,21 @@ export function FloralBorder({
 }
 
 /* ─── Ambient falling flowers — use on any page ─────────────────────── */
+/* palette-exception:start. At the owner's request the falling flowers keep
+   their original colours; palette.test.ts skips what lies between these markers. */
 const FLOWER_COLORS_AMBIENT = [
-  "#C84A10",  /* rose red */
-  "#C84A10",  /* marigold orange */
-  "#C84A10",  /* lotus pink */
-  "#C84A10",  /* violet */
-  "#C84A10",  /* saffron yellow */
-  "#C84A10",  /* sage green */
-  "#C84A10",  /* cornflower */
-  "#C84A10",  /* petal pink */
-  "#C84A10",  /* deep marigold */
-  "#999999",  /* lavender */
-  "#C84A10",  /* jasmine gold */
-  "#C84A10",  /* mint */
+  "#E8426A",  /* rose red */
+  "#F97316",  /* marigold orange */
+  "#EC4899",  /* lotus pink */
+  "#A855F7",  /* violet */
+  "#FBBF24",  /* saffron yellow */
+  "#34D399",  /* sage green */
+  "#60A5FA",  /* cornflower */
+  "#F472B6",  /* petal pink */
+  "#FB923C",  /* deep marigold */
+  "#C084FC",  /* lavender */
+  "#FCD34D",  /* jasmine gold */
+  "#6EE7B7",  /* mint */
 ];
 
 const PETAL_CONFIGS = Array.from({ length: 26 }, (_, i) => ({
@@ -271,7 +273,7 @@ function AmbientFlower({ color, shape }: { color: string; shape: number }) {
           const cy = 12 + 7 * Math.sin(rad);
           return <ellipse key={a} cx={cx} cy={cy} rx="5.5" ry="3.5" fill={color} transform={`rotate(${a} ${cx} ${cy})`} opacity=".9" />;
         })}
-        <circle cx="12" cy="12" r="4" fill="rgba(251,251,251,0.9)" />
+        <circle cx="12" cy="12" r="4" fill="rgba(255,255,200,0.9)" />
         <circle cx="12" cy="12" r="1.8" fill={color} opacity=".5" />
       </>
     );
@@ -288,7 +290,7 @@ function AmbientFlower({ color, shape }: { color: string; shape: number }) {
           <path key={a} d="M12,12 C11,9 10.5,6.5 12,5 C13.5,6.5 13,9 12,12Z"
             fill={color} transform={`rotate(${a} 12 12)`} opacity=".5" />
         ))}
-        <circle cx="12" cy="12" r="3" fill="rgba(240,240,240,0.95)" />
+        <circle cx="12" cy="12" r="3" fill="rgba(255,240,200,0.95)" />
         <circle cx="12" cy="12" r="1.2" fill={color} opacity=".6" />
       </>
     );
@@ -303,7 +305,7 @@ function AmbientFlower({ color, shape }: { color: string; shape: number }) {
           const cy = 12 + 6.5 * Math.sin(rad);
           return <ellipse key={a} cx={cx} cy={cy} rx="4.5" ry="3" fill={color} transform={`rotate(${a} ${cx} ${cy})`} opacity=".88" />;
         })}
-        <circle cx="12" cy="12" r="4" fill="rgba(227,227,227,0.95)" />
+        <circle cx="12" cy="12" r="4" fill="rgba(255,230,120,0.95)" />
         <circle cx="12" cy="12" r="1.8" fill={color} opacity=".55" />
       </>
     );
@@ -314,10 +316,11 @@ function AmbientFlower({ color, shape }: { color: string; shape: number }) {
       <path d="M12,3 C8,4.5 5,8 5,12 C5,16.5 8.2,19.5 12,20 C15.8,19.5 19,16.5 19,12 C19,8 16,4.5 12,3Z" fill={color} opacity=".3" />
       <path d="M12,6 C9,7 7,9.5 7,12 C7,15.5 9.3,17.5 12,18 C14.7,17.5 17,15.5 17,12 C17,9.5 15,7 12,6Z" fill={color} opacity=".65" />
       <path d="M12,9.5 C10.5,10 9.5,11 9.5,12 C9.5,13.8 10.6,15 12,15 C13.4,15 14.5,13.8 14.5,12 C14.5,11 13.5,10 12,9.5Z" fill={color} opacity=".9" />
-      <circle cx="12" cy="12" r="2" fill="rgba(246,246,246,0.95)" />
+      <circle cx="12" cy="12" r="2" fill="rgba(255,245,230,0.95)" />
     </>
   );
 }
+/* palette-exception:end */
 
 export const AmbientPetals = memo(function AmbientPetals({ className = "" }: { className?: string }) {
   return (
@@ -368,7 +371,7 @@ export function LotusRing({
       viewBox="0 0 120 120"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={`text-[var(--gold)] ${spin ? "animate-spin-slow" : ""} ${className}`}
+      className={`text-[var(--flower-gold)] ${spin ? "animate-spin-slow" : ""} ${className}`}
       aria-hidden="true"
       style={style}
     >
