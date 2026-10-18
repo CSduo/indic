@@ -395,8 +395,8 @@ export default function ArchivePage() {
   return (
     <div className="relative bg-[var(--bg)] min-h-screen text-[var(--ink)] py-8 font-body">
       <AmbientPetals />
-      <FloralCorner position="tl" size={80} className="absolute top-0 left-0 text-[var(--gold)] opacity-30" />
-      <FloralCorner position="tr" size={80} className="absolute top-0 right-0 text-[var(--gold)] opacity-30" />
+      <FloralCorner position="tl" size={80} className="absolute top-0 left-0 text-[var(--flower-gold)] opacity-30" />
+      <FloralCorner position="tr" size={80} className="absolute top-0 right-0 text-[var(--flower-gold)] opacity-30" />
 
       <div className="container-anv relative z-10">
         {/* Breadcrumb */}

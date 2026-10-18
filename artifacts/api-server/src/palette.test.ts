@@ -45,7 +45,8 @@ const TAILWIND_HUES = /\b(?:text|bg|border|ring|ring-offset|from|via|to|fill|str
 /**
  * Regions the owner chose to keep in their original colours, between
  * `palette-exception:start` and `palette-exception:end` comments. Only the
- * home page's aphorism strip is allowed (tested below).
+ * home page's aphorism strip and the flower decorations are allowed (tested
+ * below).
  */
 const EXCEPTION = /\/\*\s*palette-exception:start[\s\S]*?palette-exception:end\s*\*\//g;
 
@@ -99,13 +100,31 @@ describe("the three-colour palette", () => {
     expect(problems).toEqual([]);
   });
 
-  it("makes one exception: the home page's aphorism strip keeps its original colours", () => {
+  it("makes two exceptions: the aphorism strip and the flower decorations keep their original colours", () => {
     const regions = FILES.flatMap((file) =>
       [...fs.readFileSync(file, "utf8").matchAll(EXCEPTION)].map((m) => ({ file: path.relative(REPO, file), text: m[0] })));
-    expect(regions.map((r) => r.file)).toEqual(["artifacts/anvikshiki/src/index.css"]);
-    const selectors = [...regions[0].text.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{/g)].map((m) => m[1].trim()).filter((s) => !s.startsWith("@"));
-    expect(selectors.length).toBeGreaterThan(0);
-    for (const selector of selectors) expect(selector).toMatch(/^\.home-wisdom-[\w-]+(?:,\s*\.home-wisdom-[\w-]+)*$/);
+    expect([...new Set(regions.map((r) => r.file))].sort()).toEqual([
+      "artifacts/anvikshiki/src/components/sacred/FloralDecor.tsx",
+      "artifacts/anvikshiki/src/index.css",
+    ]);
+    for (const region of regions) {
+      const code = region.text.replace(/\/\*[\s\S]*?\*\//g, "");
+      if (region.file.endsWith(".tsx")) {
+        // Only the falling flowers' colours and the flower shapes that use them.
+        expect(code).toContain("FLOWER_COLORS_AMBIENT");
+        expect(code).not.toMatch(/export /);
+        continue;
+      }
+      // The aphorism strip's rules, or the flower gold token in each theme.
+      for (const [, selector, body] of code.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        const name = selector.trim().replace(/^@media[^{]*\{?\s*/, "");
+        if (/^:root$|^\[data-theme="dark"\]$/.test(name)) {
+          expect(body.trim()).toMatch(/^--flower-gold:\s*#[0-9A-Fa-f]{6};$/);
+        } else {
+          expect(name).toMatch(/^\.home-wisdom-[\w-]+(?:,\s*\.home-wisdom-[\w-]+)*$/);
+        }
+      }
+    }
   });
 
   it("points every accent token at the one orange, in both themes", () => {

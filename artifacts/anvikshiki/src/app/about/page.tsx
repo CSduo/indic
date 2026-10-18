@@ -73,8 +73,8 @@ export default function AboutPage() {
   return (
     <div className="relative bg-[var(--bg)] overflow-hidden">
       <AmbientPetals />
-      <FloralCorner position="tl" size={90} className="absolute top-0 left-0 text-[var(--gold)] opacity-45" />
-      <FloralCorner position="tr" size={90} className="absolute top-0 right-0 text-[var(--gold)] opacity-45" />
+      <FloralCorner position="tl" size={90} className="absolute top-0 left-0 text-[var(--flower-gold)] opacity-45" />
+      <FloralCorner position="tr" size={90} className="absolute top-0 right-0 text-[var(--flower-gold)] opacity-45" />
       <section className="container-anv relative z-10 py-6 md:py-10">
         <HeroPanel
           image={asset("/images/provided/about-temple-guardian-cat-hero.jpg")}
