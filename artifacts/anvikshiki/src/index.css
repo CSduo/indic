@@ -4251,19 +4251,22 @@ input[type="search"]::-webkit-search-decoration {
 }
 
 /* ------ Wisdom Strip ------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
+/* palette-exception:start. At the owner's request the aphorism strip keeps its
+   original indigo and gold, the one place outside the three-colour palette.
+   palette.test.ts skips what lies between these markers. */
 .home-wisdom-strip {
   position: relative;
   background: linear-gradient(135deg,
-    #181818 0%,
-    #202020 30%,
-    #2d2d2d 60%,
-    #1d1d1d 100%
+    #1a1535 0%,
+    #231b45 30%,
+    #1e2d4a 60%,
+    #0f2029 100%
   );
   overflow: hidden;
   padding: 3rem 0 2rem;
   text-align: center;
-  border-top: 1px solid rgba(85,85,85,0.3);
-  border-bottom: 1px solid rgba(123,123,123,0.3);
+  border-top: 1px solid rgba(124,58,237,0.3);
+  border-bottom: 1px solid rgba(59,130,246,0.3);
 }
 .home-wisdom-yantra {
   position: absolute;
@@ -4291,7 +4294,7 @@ input[type="search"]::-webkit-search-decoration {
   font-weight: 700;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(189,189,189,0.7);
+  color: rgba(196,181,253,0.7);
   margin-bottom: 1rem;
 }
 .home-wisdom-deva {
@@ -4299,15 +4302,15 @@ input[type="search"]::-webkit-search-decoration {
   font-size: clamp(1.6rem, 4vw, 2.8rem);
   font-weight: 400;
   line-height: 1.2;
-  color: #E4E4E4;
+  color: #FDE68A;
   margin-bottom: 0.4rem;
-  text-shadow: 0 0 40px rgba(228,228,228,0.35);
+  text-shadow: 0 0 40px rgba(253,230,138,0.35);
 }
 .home-wisdom-roman {
   font-family: var(--font-display);
   font-size: 1.05rem;
   font-style: italic;
-  color: rgba(189,189,189,0.85);
+  color: rgba(196,181,253,0.85);
   margin-bottom: 0.5rem;
   letter-spacing: 0.04em;
 }
@@ -4321,10 +4324,11 @@ input[type="search"]::-webkit-search-decoration {
 .home-wisdom-source {
   font-family: var(--font-ui);
   font-size: 0.7rem;
-  color: rgba(189,189,189,0.55);
+  color: rgba(196,181,253,0.55);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
+/* palette-exception:end */
 .home-wisdom-dots {
   display: flex;
   align-items: center;

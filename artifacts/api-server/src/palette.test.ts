@@ -42,6 +42,13 @@ const TRANSLUCENT_ACCENT = /[\w:-]*-\[(?:#c84a10|var\(--(?:gold|terracotta|accen
 const RGB_OF_VARIABLE = /rgba?\(\s*var\(/g;
 const TAILWIND_HUES = /\b(?:text|bg|border|ring|ring-offset|from|via|to|fill|stroke|decoration|outline|shadow|accent|caret|divide|placeholder)-(?:red|rose|pink|fuchsia|purple|violet|indigo|blue|sky|cyan|teal|emerald|green|lime|yellow|amber|orange|stone)-\d{2,3}\b/g;
 
+/**
+ * Regions the owner chose to keep in their original colours, between
+ * `palette-exception:start` and `palette-exception:end` comments. Only the
+ * home page's aphorism strip is allowed (tested below).
+ */
+const EXCEPTION = /\/\*\s*palette-exception:start[\s\S]*?palette-exception:end\s*\*\//g;
+
 function isNeutral([r, g, b]: number[]): boolean {
   return r === g && g === b;
 }
@@ -86,10 +93,19 @@ describe("the three-colour palette", () => {
 
   it("uses no other colour anywhere in the site's styles, components or shell", () => {
     const problems = FILES.flatMap((file) => {
-      const colours = offPaletteColours(fs.readFileSync(file, "utf8"));
+      const colours = offPaletteColours(fs.readFileSync(file, "utf8").replace(EXCEPTION, ""));
       return colours.length ? [`${path.relative(REPO, file)}: ${[...new Set(colours)].join(", ")}`] : [];
     });
     expect(problems).toEqual([]);
+  });
+
+  it("makes one exception: the home page's aphorism strip keeps its original colours", () => {
+    const regions = FILES.flatMap((file) =>
+      [...fs.readFileSync(file, "utf8").matchAll(EXCEPTION)].map((m) => ({ file: path.relative(REPO, file), text: m[0] })));
+    expect(regions.map((r) => r.file)).toEqual(["artifacts/anvikshiki/src/index.css"]);
+    const selectors = [...regions[0].text.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{/g)].map((m) => m[1].trim()).filter((s) => !s.startsWith("@"));
+    expect(selectors.length).toBeGreaterThan(0);
+    for (const selector of selectors) expect(selector).toMatch(/^\.home-wisdom-[\w-]+(?:,\s*\.home-wisdom-[\w-]+)*$/);
   });
 
   it("points every accent token at the one orange, in both themes", () => {
