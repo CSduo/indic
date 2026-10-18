@@ -85,7 +85,7 @@ export default function AdminUsersPage() {
                   <tr key={u.id}>
                     <td>
                       <div className="flex items-center gap-2">
-                        <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(201,152,58,0.12)", border: "1px solid rgba(201,152,58,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(156,156,156,0.12)", border: "1px solid rgba(156,156,156,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                           <User size={13} style={{ color: "var(--gold)" }} />
                         </div>
                         <span style={{ color: "var(--ink-soft)" }}>{u.name || <span style={{ color: "var(--muted)", fontStyle: "italic" }}>No name</span>}</span>
@@ -98,7 +98,7 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
                     <td>
-                      <span className="font-ui text-[10px] px-2 py-0.5 rounded-full" style={{ background: u.role === "ADMIN" ? "rgba(239,68,68,0.1)" : "rgba(201,152,58,0.1)", color: u.role === "ADMIN" ? "#ef4444" : "var(--gold)", border: u.role === "ADMIN" ? "1px solid rgba(239,68,68,0.2)" : "1px solid rgba(201,152,58,0.2)" }}>
+                      <span className="font-ui text-[10px] px-2 py-0.5 rounded-full text-[var(--accent)]" style={{ background: u.role === "ADMIN" ? "rgba(104,104,104,0.1)" : "rgba(156,156,156,0.1)", border: u.role === "ADMIN" ? "1px solid rgba(104,104,104,0.2)" : "1px solid rgba(156,156,156,0.2)" }}>
                         {u.role || "USER"}
                       </span>
                     </td>
@@ -110,15 +110,15 @@ export default function AdminUsersPage() {
                         type="button"
                         onClick={() => toggleRole(u.id, u.role || "USER")}
                         className="btn-sacred btn-ghost text-[10px] py-1 px-2.5 inline-flex items-center gap-1"
-                        style={{ borderColor: "rgba(201,152,58,0.15)" }}
+                        style={{ borderColor: "rgba(156,156,156,0.15)" }}
                       >
                         {u.role === "ADMIN" ? (
                           <>
-                            <ShieldAlert size={12} className="text-red-400" /> Make Member
+                            <ShieldAlert size={12} className="text-[var(--accent)]" /> Make Member
                           </>
                         ) : (
                           <>
-                            <ShieldCheck size={12} className="text-emerald-400" /> Make Admin
+                            <ShieldCheck size={12} className="text-[var(--ink)]" /> Make Admin
                           </>
                         )}
                       </button>

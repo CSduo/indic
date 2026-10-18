@@ -263,7 +263,7 @@ export function VoiceNotePlayer({
   const remainingSeconds = Math.max(0, (duration || 0) - currentTime);
 
   return (
-    <div className="w-full min-w-[260px] max-w-[340px] select-none text-[#f3f4f6]">
+    <div className="w-full min-w-[260px] max-w-[340px] select-none text-[#f4f4f4]">
       <audio ref={audioRef} src={src} preload="metadata" playsInline />
 
       {/* Main Voice Note Player Card — Unified Dark Gray */}
@@ -272,7 +272,7 @@ export function VoiceNotePlayer({
         <button
           type="button"
           onClick={togglePlay}
-          className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#d97706] text-white hover:bg-[#b45309] transition-all active:scale-95 shadow-md"
+          className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#c84a10] text-white hover:bg-[#c84a10] transition-all active:scale-95 shadow-md"
           aria-label={isPlaying ? "Pause voice note" : "Play voice note"}
         >
           {isPlaying ? (
@@ -283,7 +283,7 @@ export function VoiceNotePlayer({
 
           {isPlaying && (
             <span
-              className="absolute inset-0 -z-10 animate-ping rounded-full opacity-35 bg-[#f59e0b]"
+              className="absolute inset-0 -z-10 animate-ping rounded-full opacity-35 bg-[#c84a10]"
             />
           )}
         </button>
@@ -308,7 +308,7 @@ export function VoiceNotePlayer({
                     height: `${height}%`,
                     minHeight: "4px",
                     background: isPlayed
-                      ? "#f59e0b"
+                      ? "#c84a10"
                       : "rgba(255, 255, 255, 0.28)",
                     transform: isPlaying && isPlayed ? "scaleY(1.12)" : "scaleY(1)",
                   }}
@@ -318,8 +318,8 @@ export function VoiceNotePlayer({
           </div>
 
           {/* Time & Controls Row */}
-          <div className="flex items-center justify-between font-mono text-[11px] text-[#e5e7eb]">
-            <span className="tabular-nums tracking-wide text-[#9ca3af]">
+          <div className="flex items-center justify-between font-mono text-[11px] text-[#e7e7e7]">
+            <span className="tabular-nums tracking-wide text-[#a2a2a2]">
               {formatTime(currentTime)} / -{formatTime(remainingSeconds)}
             </span>
 
@@ -328,7 +328,7 @@ export function VoiceNotePlayer({
               <button
                 type="button"
                 onClick={cycleSpeed}
-                className="rounded border border-[#444b54] bg-[#2a2e33] hover:bg-[#383e45] px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wider uppercase text-[#f3f4f6] transition-colors"
+                className="rounded border border-[#4a4a4a] bg-[#2e2e2e] hover:bg-[#3d3d3d] px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wider uppercase text-[#f4f4f4] transition-colors"
                 title="Change playback speed"
               >
                 {currentSpeed}x
@@ -347,8 +347,8 @@ export function VoiceNotePlayer({
                 }}
                 className={`flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
                   showTranscript
-                    ? "border-[#d97706] bg-[#d97706] text-white font-bold"
-                    : "border-[#444b54] bg-[#2a2e33] hover:bg-[#383e45] text-[#f3f4f6]"
+                    ? "border-[#c84a10] bg-[#c84a10] text-white font-bold"
+                    : "border-[#4a4a4a] bg-[#2e2e2e] hover:bg-[#3d3d3d] text-[#f4f4f4]"
                 }`}
                 title="View Transcript & Translation"
               >
@@ -363,11 +363,11 @@ export function VoiceNotePlayer({
       {/* Expandable Transcript & Translation Box */}
       {showTranscript && (
         <div
-          className="mt-3 rounded-lg border border-[#363a40] bg-[#141618] p-3 text-xs text-[#f3f4f6] shadow-xl animate-in fade-in slide-in-from-top-1 duration-150"
+          className="mt-3 rounded-lg border border-[#3a3a3a] bg-[#161616] p-3 text-xs text-[#f4f4f4] shadow-xl animate-in fade-in slide-in-from-top-1 duration-150"
         >
-          <div className="mb-2 flex items-center justify-between border-b border-[#2d3137] pb-1.5 font-ui text-[10px] uppercase tracking-wider text-[#9ca3af]">
-            <span className="flex items-center gap-1 font-semibold text-[#f59e0b]">
-              <Volume2 size={12} />
+          <div className="mb-2 flex items-center justify-between border-b border-[#313131] pb-1.5 font-ui text-[10px] uppercase tracking-wider text-[#a2a2a2]">
+            <span className="flex items-center gap-1 font-semibold text-[#f4f4f4]">
+              <Volume2 size={12} className="text-[#c84a10]" />
               <span>Voice Note Transcript</span>
             </span>
 
@@ -377,9 +377,9 @@ export function VoiceNotePlayer({
                   type="button"
                   onClick={triggerTranscribe}
                   disabled={transcribing}
-                  className="inline-flex items-center gap-1 text-[#f59e0b] hover:underline font-semibold"
+                  className="inline-flex items-center gap-1 text-[#f4f4f4] hover:underline decoration-[#c84a10] font-semibold"
                 >
-                  {transcribing ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                  {transcribing ? <Loader2 size={10} className="animate-spin text-[#c84a10]" /> : <Sparkles size={10} className="text-[#c84a10]" />}
                   <span>{transcribing ? "Translating…" : "Translate"}</span>
                 </button>
               )}
@@ -387,18 +387,18 @@ export function VoiceNotePlayer({
               <button
                 type="button"
                 onClick={copyTranscript}
-                className="inline-flex items-center gap-1 text-[#9ca3af] hover:text-[#f59e0b] font-medium transition-colors"
+                className="inline-flex items-center gap-1 text-[#a2a2a2] hover:text-[#f4f4f4] font-medium transition-colors"
                 title="Copy transcript text"
               >
-                {copied ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
+                {copied ? <Check size={11} className="text-[var(--accent)]" /> : <Copy size={11} />}
                 <span>{copied ? "Copied" : "Copy"}</span>
               </button>
             </div>
           </div>
 
           {/* Translation Language Tabs */}
-          <div className="mb-2 flex items-center gap-1 border-b border-[#2d3137] pb-1">
-            <span className="font-ui text-[9px] font-bold uppercase tracking-wider text-[#9ca3af] mr-1">Translate:</span>
+          <div className="mb-2 flex items-center gap-1 border-b border-[#313131] pb-1">
+            <span className="font-ui text-[9px] font-bold uppercase tracking-wider text-[#a2a2a2] mr-1">Translate:</span>
             {(["orig", "en", "hi", "sa"] as const).map((lang) => (
               <button
                 key={lang}
@@ -412,8 +412,8 @@ export function VoiceNotePlayer({
                 }}
                 className={`rounded px-1.5 py-0.5 font-ui text-[10px] font-semibold transition-colors ${
                   selectedLang === lang
-                    ? "bg-[#d97706] text-white"
-                    : "text-[#9ca3af] hover:bg-[#25282c]"
+                    ? "bg-[#c84a10] text-white"
+                    : "text-[#a2a2a2] hover:bg-[#282828]"
                 }`}
               >
                 {lang === "orig" ? "Original" : lang === "en" ? "English" : lang === "hi" ? "हिन्दी" : "संस्कृतम्"}
@@ -425,16 +425,16 @@ export function VoiceNotePlayer({
               "हिन्दी" tab, or an empty pair of quotation marks, would both read
               as a translation that had been produced. */}
           {transcribing ? (
-            <div className="flex items-center gap-1.5 py-2 text-[#f59e0b] font-body text-[12px]">
-              <Loader2 size={13} className="animate-spin" />
+            <div className="flex items-center gap-1.5 py-2 text-[#f4f4f4] font-body text-[12px]">
+              <Loader2 size={13} className="animate-spin text-[#c84a10]" />
               <span>Fetching {selectedLang === "hi" ? "Hindi" : selectedLang === "sa" ? "Sanskrit" : "English"} translation…</span>
             </div>
           ) : displayTranscript ? (
-            <p className="font-body text-[13px] leading-relaxed italic text-[#e5e7eb] opacity-95">
+            <p className="font-body text-[13px] leading-relaxed italic text-[#e7e7e7] opacity-95">
               "{displayTranscript}"
             </p>
           ) : (
-            <p className="font-body text-[13px] leading-relaxed text-[#9ca3af]">
+            <p className="font-body text-[13px] leading-relaxed text-[#a2a2a2]">
               No translation available for this recording.
             </p>
           )}

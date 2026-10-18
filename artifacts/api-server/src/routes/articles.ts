@@ -11,6 +11,8 @@ import { firstIssueMessage, referencesInputSchema } from "../lib/references";
 import { parsePagination, toLikePattern, PUBLIC_CONTENT_CACHE_CONTROL } from "../lib/request";
 import { triggerPublicContentSeo } from "../lib/seo-service";
 import { workSeo } from "../lib/effective-seo";
+import { listingSeo } from "../lib/public-content";
+import { loadContinueReading } from "../lib/continue-reading";
 
 const router = Router();
 
@@ -55,6 +57,10 @@ router.get("/articles", async (req, res) => {
       readingMinutes: articlesTable.readingMinutes,
       publishedAt: articlesTable.publishedAt,
       updatedAt: articlesTable.updatedAt,
+      // For the listing description and topics (lib/public-content.ts listingSeo).
+      tags: articlesTable.tags,
+      seoTitle: articlesTable.seoTitle,
+      seoDescription: articlesTable.seoDescription,
       authorId: submissionsTable.userId,
       authorHandle: usersTable.handle,
       category: categoriesTable,
@@ -123,6 +129,8 @@ router.get("/articles", async (req, res) => {
         publishedAt: r.publishedAt,
         updatedAt: r.updatedAt,
         category: r.category,
+        // The description and topic terms the work's page and the server-rendered listings show.
+        ...listingSeo(r, "article"),
       };
       if (includeBody && r.body) {
         art.body = sanitizeArticleBody(recoverLegacyInlineImages(r.slug, r.body));
@@ -248,6 +256,9 @@ router.get("/articles/:slug", async (req, res) => {
         .limit(1);
     }
 
+    const seo = workSeo(row.article, "article");
+    const reading = await loadContinueReading({ kind: "article", id: row.article.id, categorySlug: row.article.categorySlug, topics: seo.topics }, req.log);
+
     return res.json({
       article: {
         ...row.article,
@@ -258,11 +269,13 @@ router.get("/articles/:slug", async (req, res) => {
         authorHandle: authorUser?.handle || null,
         authorAvatarUrl: authorUser?.avatarUrl || null,
         authorBio: authorUser?.bio || null,
+        // Only the sanitised body is public; the stored value never leaves the server.
         body: sanitizeArticleBody(recoverLegacyInlineImages(row.article.slug, row.article.body)),
-        rawBody: row.article.body,
         category: row.category,
         // The title, description, topic terms and references the page shows (lib/effective-seo.ts).
-        seo: workSeo(row.article, "article"),
+        seo,
+        // Related works and the indexed domain hub the page links to (lib/continue-reading.ts).
+        continueReading: reading?.continueReading ?? null,
       },
     });
   } catch (err) {
@@ -289,7 +302,7 @@ const articleEditSchema = z.object({
   seoDescription: z.string().trim().max(500).optional().or(z.literal("")),
 });
 
-// PATCH /api/articles/:slug/edit -€- author can update their own article
+// PATCH /api/articles/:slug/edit — author can update their own article
 router.patch("/articles/:slug/edit", async (req, res) => {
   try {
     // Ownership is resolved before anything is read or written. This endpoint
@@ -299,7 +312,7 @@ router.patch("/articles/:slug/edit", async (req, res) => {
     if (!viewer) return res.status(401).json({ error: "You must be logged in to edit" });
 
     const { slug } = req.params;
-    // Drafts and archived pieces are editable too -€- restricting the lookup to
+    // Drafts and archived pieces are editable too — restricting the lookup to
     // PUBLISHED made "Edit" return "Article not found" for everything else.
     const [existing] = await db
       .select({

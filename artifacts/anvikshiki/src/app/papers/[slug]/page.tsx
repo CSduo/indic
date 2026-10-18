@@ -17,6 +17,7 @@ import { cleanTitle, deriveDescription, demoteBodyHeadings } from "@/lib/seoText
 import { CitationModal } from "@/components/CitationModal";
 import { readInitialData } from "@/lib/initialData";
 import { ReferencesSection, TopicsRow } from "@/components/manuscript/ReferencesSection";
+import { ContinueReading } from "@/components/manuscript/ContinueReading";
 import { workSources } from "@/lib/references";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -196,6 +197,7 @@ export default function PaperDetailPage() {
           {paper.pdfUrl ? <DocumentViewer url={paper.pdfUrl} title={paper.title} /> : null}
           <TopicsRow topics={sources.topics} label="Keywords" />
           <ReferencesSection references={sources.references} note={sources.sourcesNote} />
+          <ContinueReading data={paper.continueReading} />
           {paper.citationText ? (
             <ParchmentCard className="mt-8 p-5">
               <p className="type-section-label mb-3">Citation</p>

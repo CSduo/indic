@@ -25,12 +25,12 @@ export default function CategoryPage() {
   return (
     <div className="min-h-[100dvh] pb-24" style={{ background: "var(--bg)" }}>
       <div className="container-anv pt-8 pb-12">
-        <span className="font-ui text-xs font-semibold tracking-[0.2em] uppercase" style={{ color: "var(--gold)" }}>Domain</span>
+        <span className="font-ui text-xs font-semibold tracking-[0.2em] uppercase text-[var(--gold)]">Domain</span>
         <h1 className="font-display text-4xl md:text-6xl mt-2" style={{ color: "var(--ink)" }}>{category.name}</h1>
         {category.description && <p className="font-body mt-3 max-w-lg" style={{ color: "var(--muted)" }}>{category.description}</p>}
         {articles.length > 0 && (
           <div className="mt-10">
-            <h2 className="font-ui text-xs font-semibold tracking-[0.15em] uppercase mb-4" style={{ color: "var(--gold)" }}>Essays ({articles.length})</h2>
+            <h2 className="font-ui text-xs font-semibold tracking-[0.15em] uppercase mb-4 text-[var(--gold)]">Essays ({articles.length})</h2>
             <div className="grid gap-4 md:grid-cols-2">
               {articles.map((a: any) => (
                 <Link key={a.id} href={`/articles/${a.slug}`} className="card-anv p-5 hover:translate-y-[-2px] transition-all block">
@@ -44,7 +44,7 @@ export default function CategoryPage() {
         )}
         {papers.length > 0 && (
           <div className="mt-10">
-            <h2 className="font-ui text-xs font-semibold tracking-[0.15em] uppercase mb-4" style={{ color: "var(--gold)" }}>Papers ({papers.length})</h2>
+            <h2 className="font-ui text-xs font-semibold tracking-[0.15em] uppercase mb-4 text-[var(--gold)]">Papers ({papers.length})</h2>
             <div className="grid gap-4 md:grid-cols-2">
               {papers.map((p: any) => (
                 <Link key={p.id} href={`/papers/${p.slug}`} className="card-anv p-5 hover:translate-y-[-2px] transition-all block">

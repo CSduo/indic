@@ -94,9 +94,9 @@ export function CitationModal({ isOpen, onClose, publication }: CitationModalPro
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl bg-[var(--parchment)] border-[var(--ssr-border,#d7c9b8)] text-[var(--ink)] shadow-2xl p-6">
+      <DialogContent className="max-w-2xl bg-[var(--parchment)] border-[var(--ssr-border,#cbcbcb)] text-[var(--ink)] shadow-2xl p-6">
         <DialogHeader className="space-y-1 text-left">
-          <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[var(--gold,#b38235)]">
+          <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[var(--gold,#c84a10)]">
             <Quote size={14} /> Scholarly Citation &amp; Attribution
           </div>
           <DialogTitle className="font-heading text-xl text-[var(--ink)]">
@@ -108,7 +108,7 @@ export function CitationModal({ isOpen, onClose, publication }: CitationModalPro
         </DialogHeader>
 
         {/* Style selection tabs */}
-        <div className="flex flex-wrap gap-1.5 pt-3 pb-1 border-b border-[var(--ssr-border,#e5dacd)]">
+        <div className="flex flex-wrap gap-1.5 pt-3 pb-1 border-b border-[var(--ssr-border,#dbdbdb)]">
           {(["APA", "MLA", "Chicago", "Harvard", "BibTeX"] as CitationStyle[]).map((style) => (
             <button
               key={style}
@@ -119,8 +119,8 @@ export function CitationModal({ isOpen, onClose, publication }: CitationModalPro
               }}
               className={`px-3 py-1.5 text-xs rounded font-medium transition-colors ${
                 selectedStyle === style
-                  ? "bg-[var(--ink,#221f1d)] text-[var(--parchment,#fdfbf7)] font-semibold"
-                  : "bg-[var(--parchment-deep,#f2ece1)] text-[var(--ink,#221f1d)] hover:bg-[var(--ssr-border,#e5dacd)]"
+                  ? "bg-[var(--ink,#1f1f1f)] text-[var(--parchment,#fbfbfb)] font-semibold"
+                  : "bg-[var(--parchment-deep,#ececec)] text-[var(--ink,#1f1f1f)] hover:bg-[var(--ssr-border,#dbdbdb)]"
               }`}
             >
               {style}
@@ -129,7 +129,7 @@ export function CitationModal({ isOpen, onClose, publication }: CitationModalPro
         </div>
 
         {/* Citation text display */}
-        <div className="relative mt-3 p-4 rounded bg-[var(--parchment-light,#fff)] border border-[var(--ssr-border,#e5dacd)] font-mono text-xs leading-relaxed text-[var(--ink)] overflow-x-auto select-all">
+        <div className="relative mt-3 p-4 rounded bg-[var(--parchment-light,#fff)] border border-[var(--ssr-border,#dbdbdb)] font-mono text-xs leading-relaxed text-[var(--ink)] overflow-x-auto select-all">
           <pre className="whitespace-pre-wrap font-sans text-sm">{citations[selectedStyle]}</pre>
         </div>
 
@@ -141,7 +141,7 @@ export function CitationModal({ isOpen, onClose, publication }: CitationModalPro
           <button
             type="button"
             onClick={handleCopy}
-            className="flex items-center gap-2 px-4 py-2 text-xs rounded font-semibold bg-[var(--gold,#b38235)] text-white hover:bg-[var(--gold-dark,#996924)] transition-colors shadow-sm"
+            className="flex items-center gap-2 px-4 py-2 text-xs rounded font-semibold bg-[var(--gold,#c84a10)] text-white hover:bg-[var(--gold-dark,#C84A10)] transition-colors shadow-sm"
           >
             {copied ? <Check size={14} /> : <Copy size={14} />}
             {copied ? "Copied!" : `Copy ${selectedStyle}`}
@@ -149,7 +149,7 @@ export function CitationModal({ isOpen, onClose, publication }: CitationModalPro
         </div>
 
         {/* Social Distribution Kit */}
-        <div className="mt-4 pt-4 border-t border-[var(--ssr-border,#e5dacd)]">
+        <div className="mt-4 pt-4 border-t border-[var(--ssr-border,#dbdbdb)]">
           <p className="text-xs font-semibold text-[var(--ink-soft,#666)] mb-2 uppercase tracking-wide">
             Share &amp; Distribute
           </p>
@@ -157,7 +157,7 @@ export function CitationModal({ isOpen, onClose, publication }: CitationModalPro
             <button
               type="button"
               onClick={handleShareNative}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-[var(--ssr-border,#d7c9b8)] bg-[var(--parchment-deep,#f2ece1)] hover:bg-[var(--ssr-border,#e5dacd)] transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-[var(--ssr-border,#cbcbcb)] bg-[var(--parchment-deep,#ececec)] hover:bg-[var(--ssr-border,#dbdbdb)] transition-colors"
             >
               <Share2 size={13} /> Share Link
             </button>
@@ -165,7 +165,7 @@ export function CitationModal({ isOpen, onClose, publication }: CitationModalPro
               href={shareUrls.x}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-[var(--ssr-border,#d7c9b8)] bg-[var(--parchment-deep,#f2ece1)] hover:bg-[var(--ssr-border,#e5dacd)] transition-colors text-[var(--ink)] no-underline"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-[var(--ssr-border,#cbcbcb)] bg-[var(--parchment-deep,#ececec)] hover:bg-[var(--ssr-border,#dbdbdb)] transition-colors text-[var(--ink)] no-underline"
             >
               <ExternalLink size={12} /> X (Twitter)
             </a>
@@ -173,7 +173,7 @@ export function CitationModal({ isOpen, onClose, publication }: CitationModalPro
               href={shareUrls.linkedin}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-[var(--ssr-border,#d7c9b8)] bg-[var(--parchment-deep,#f2ece1)] hover:bg-[var(--ssr-border,#e5dacd)] transition-colors text-[var(--ink)] no-underline"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-[var(--ssr-border,#cbcbcb)] bg-[var(--parchment-deep,#ececec)] hover:bg-[var(--ssr-border,#dbdbdb)] transition-colors text-[var(--ink)] no-underline"
             >
               <ExternalLink size={12} /> LinkedIn
             </a>
@@ -181,7 +181,7 @@ export function CitationModal({ isOpen, onClose, publication }: CitationModalPro
               href={shareUrls.whatsapp}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-[var(--ssr-border,#d7c9b8)] bg-[var(--parchment-deep,#f2ece1)] hover:bg-[var(--ssr-border,#e5dacd)] transition-colors text-[var(--ink)] no-underline"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-[var(--ssr-border,#cbcbcb)] bg-[var(--parchment-deep,#ececec)] hover:bg-[var(--ssr-border,#dbdbdb)] transition-colors text-[var(--ink)] no-underline"
             >
               <ExternalLink size={12} /> WhatsApp
             </a>

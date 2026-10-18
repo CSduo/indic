@@ -354,7 +354,7 @@ export function VoiceRecorder({
           <button
             type="button"
             onClick={discardPrepared}
-            className="composer-tool shrink-0 rounded-[2px] border hover:bg-rose-500/10 transition-colors"
+            className="composer-tool shrink-0 rounded-[2px] border hover:bg-[var(--accent-wash)] transition-colors"
             style={{ borderColor: "var(--hairline)", color: "var(--state-error)" }}
             aria-label="Discard recording"
             disabled={busy || isSendingPrepared}
@@ -368,7 +368,7 @@ export function VoiceRecorder({
             <button
               type="button"
               onClick={togglePreview}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-[#d97706] text-white hover:bg-[#b45309] transition-all active:scale-95 shadow-sm shrink-0"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-[#c84a10] text-white hover:bg-[#c84a10] transition-all active:scale-95 shadow-sm shrink-0"
               aria-label={isPreviewPlaying ? "Pause preview" : "Play preview"}
               title="Preview recording"
             >
@@ -380,7 +380,7 @@ export function VoiceRecorder({
                 <span className="font-mono text-[12px] font-semibold tabular-nums text-[var(--ink)]">
                   {clock(preparedNote.duration)}
                 </span>
-                <span className="rounded bg-[#f59e0b]/20 px-1.5 py-0.2 font-ui text-[10px] font-bold text-[#f59e0b]">
+                <span className="rounded bg-[var(--accent-wash)] px-1.5 py-0.2 font-ui text-[10px] font-bold text-[var(--accent)]">
                   {preparedNote.duration >= MAX_SECONDS ? "10:00 (Max Limit)" : "Ready to send"}
                 </span>
               </div>
@@ -411,7 +411,7 @@ export function VoiceRecorder({
 
         {preparedNote.transcript && (
           <div className="flex items-center gap-1.5 px-1 pt-1.5 border-t border-[var(--hairline)]">
-            <span className="font-ui text-[10px] uppercase font-bold text-[#d97706] tracking-wider shrink-0">Captured:</span>
+            <span className="font-ui text-[10px] uppercase font-bold text-[var(--accent)] tracking-wider shrink-0">Captured:</span>
             <p className="font-body text-[12px] italic text-[var(--ink-body)] truncate" title={preparedNote.transcript}>
               "{preparedNote.transcript}"
             </p>
@@ -446,7 +446,7 @@ export function VoiceRecorder({
             aria-hidden="true"
             className="h-2 w-2 shrink-0 rounded-full"
             style={{
-              background: paused ? "var(--ink-faint)" : "#ef4444",
+              background: paused ? "var(--ink-faint)" : "#c84a10",
               animation: paused || starting ? undefined : "pulse 1.2s ease-in-out infinite",
             }}
           />
@@ -459,7 +459,7 @@ export function VoiceRecorder({
               className="block h-full transition-[width] duration-75 rounded-full"
               style={{
                 width: paused ? "0%" : `${Math.max(level * 100, 6)}%`,
-                background: "#f59e0b",
+                background: "#c84a10",
               }}
             />
           </span>
@@ -489,7 +489,7 @@ export function VoiceRecorder({
 
       {liveTranscript && (
         <div className="flex items-center gap-1.5 px-1 pt-1.5 border-t border-[var(--hairline)]">
-          <span className="font-ui text-[10px] uppercase font-bold text-[#d97706] tracking-wider shrink-0">Live:</span>
+          <span className="font-ui text-[10px] uppercase font-bold text-[var(--accent)] tracking-wider shrink-0">Live:</span>
           <p className="font-body text-[12px] italic text-[var(--ink-body)] truncate" title={liveTranscript}>
             "{liveTranscript}"
           </p>

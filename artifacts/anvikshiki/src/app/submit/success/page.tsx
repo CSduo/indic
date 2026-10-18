@@ -49,7 +49,7 @@ export default function SubmitSuccessPage() {
         {/* Email Admin Automation / Expedite Action Card */}
         <div className="mx-auto mt-8 max-w-xl rounded-2xl border border-[var(--border-gold)] bg-[var(--surface-2)] p-6 text-left shadow-lg">
           <div className="flex items-center gap-3 mb-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[rgba(201,152,58,0.15)] text-[var(--gold-bright)]">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[rgba(156,156,156,0.15)] text-[var(--gold-bright)]">
               <Mail size={22} />
             </div>
             <div>
@@ -74,7 +74,7 @@ export default function SubmitSuccessPage() {
               onClick={copyEmail}
               className="w-full sm:w-auto px-4 py-3 rounded-lg border border-[var(--border)] bg-[var(--surface-3)] text-xs font-ui font-semibold text-[var(--ink-soft)] hover:text-white flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              {copied ? <CheckCircle2 size={14} className="text-emerald-400" /> : <Copy size={13} />}
+              {copied ? <CheckCircle2 size={14} className="text-[var(--accent)]" /> : <Copy size={13} />}
               {copied ? "Copied Email!" : "Copy Admin Email"}
             </button>
           </div>

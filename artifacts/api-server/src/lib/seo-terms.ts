@@ -14,9 +14,10 @@
  *     terms. A lexicon entry is used only when one of its spellings literally
  *     occurs in the text, and the term is always shown the way the text spells
  *     it. Title and headings weigh more than the body. When the text names
- *     fewer than six specific topics, broad subject words it uses
- *     ("philosophy", "history") fill the list. Deterministic: the same text
- *     always gives the same terms.
+ *     fewer than six topics often enough to stand out, names it mentions only
+ *     once or twice fill the list, then broad subject words it uses
+ *     ("philosophy", "history"). Deterministic: the same text always gives the
+ *     same terms.
  *
  * Which terms a page uses (the editor's tags, the editorial layer, or these
  * derived terms) is decided in lib/effective-seo.ts. The client never derives
@@ -254,6 +255,8 @@ interface Candidate {
   lexicon: boolean;
   acronym: boolean;
   multi: boolean;
+  /** Some occurrence starts mid-sentence, so its first capital is a name's and not a sentence's. */
+  anchored: boolean;
 }
 
 function addSurface(candidates: Map<string, Candidate>, phraseTokens: Token[], extra: Partial<Candidate> = {}) {
@@ -263,11 +266,12 @@ function addSurface(candidates: Map<string, Candidate>, phraseTokens: Token[], e
   const surface = phraseTokens.map(t => t.surface).join(" ");
   let candidate = candidates.get(key);
   if (!candidate) {
-    candidate = { key, phrase, surfaces: new Map(), lexicon: false, acronym: false, multi: phrase.length > 1, ...extra };
+    candidate = { key, phrase, surfaces: new Map(), lexicon: false, acronym: false, multi: phrase.length > 1, anchored: false, ...extra };
     candidates.set(key, candidate);
   }
   if (extra.lexicon) candidate.lexicon = true;
   if (extra.acronym) candidate.acronym = true;
+  if (extra.anchored) candidate.anchored = true;
   candidate.surfaces.set(surface, (candidate.surfaces.get(surface) || 0) + 1);
 }
 
@@ -364,6 +368,21 @@ function isGenericWord(norm: string): boolean {
   return STOPWORDS.has(norm) || GENERIC.has(norm) || INSTITUTIONAL.has(norm) || SITE_WORDS.has(norm) || /^\d+$/.test(norm);
 }
 
+/**
+ * What the capitalised first word of a sentence is, when more capitalised
+ * words follow it: "name" when the text capitalises it mid-sentence too
+ * ("Dara" in "Dara Shikoh"), "word" when the text writes it in lower case
+ * mid-sentence, or it is a sentence adverb or a gerund ("Historically",
+ * "Answering"), and "unknown" otherwise ("Consider").
+ */
+function openerKind(token: Token, caps: Map<string, { upper: number; lower: number }>): "name" | "word" | "unknown" {
+  const c = caps.get(token.norm);
+  if (c && c.upper > 0 && c.upper / (c.upper + c.lower) >= 0.75) return "name";
+  if (c && c.lower > 0) return "word";
+  if (/^\p{L}{5,}ly$/u.test(token.surface) || /^\p{L}{4,}ing$/u.test(token.surface)) return "word";
+  return "unknown";
+}
+
 /** True when `inner` occurs as a run of words inside `outer`. */
 function containsPhrase(outer: string[], inner: string[]): boolean {
   outer: for (let i = 0; i + inner.length <= outer.length; i++) {
@@ -394,14 +413,17 @@ export function deriveSeoTerms(source: SeoTermSource, max = SEO_TERMS_MAX): stri
   // 1. Proper-noun phrases, single proper nouns and acronyms from sentence-case text.
   for (const z of zones) {
     if (!z.prose) continue;
-    const tokens = z.tokens;
-    for (const t of tokens) {
+    for (const t of z.tokens) {
       if (t.initial) continue;
       const entry = caps.get(t.norm) || { upper: 0, lower: 0 };
       if (isCapitalised(t.surface)) entry.upper++;
       else entry.lower++;
       caps.set(t.norm, entry);
     }
+  }
+  for (const z of zones) {
+    if (!z.prose) continue;
+    const tokens = z.tokens;
     let i = 0;
     while (i < tokens.length) {
       if (!isCapitalised(tokens[i].surface)) { i++; continue; }
@@ -420,9 +442,13 @@ export function deriveSeoTerms(source: SeoTermSource, max = SEO_TERMS_MAX): stri
       let end = run.length;
       while (start < end && !(NAME_PREFIXES.has(run[start].lower) && end - start > 1) && (isTrimmable(run[start].lower) || CONNECTORS.has(run[start].lower))) start++;
       while (end > start && (isTrimmable(run[end - 1].lower) || CONNECTORS.has(run[end - 1].lower))) end--;
-      const core = run.slice(start, end);
+      let core = run.slice(start, end);
+      // A sentence opens with a capital, so the first word of a run there may
+      // not belong to the name after it ("Historically Akbar", "Reading Ambedkar").
+      const opener = core.length >= 2 && core[0].initial ? openerKind(core[0], caps) : "name";
+      if (opener === "word") core = core.slice(1);
       if (core.length >= 2 && core.length <= 5) {
-        addSurface(candidates, core);
+        addSurface(candidates, core, { anchored: opener !== "unknown" });
       } else if (core.length === 1) {
         const t = core[0];
         const letters = t.norm.replace(/[^a-z]/g, "");
@@ -451,8 +477,10 @@ export function deriveSeoTerms(source: SeoTermSource, max = SEO_TERMS_MAX): stri
     }
   }
 
-  // 3. Score: occurrences weighted by zone, counted case-insensitively.
-  type Scored = { candidate: Candidate; score: number; total: number; display: string };
+  // 3. Score: occurrences weighted by zone, counted case-insensitively. A
+  // term the text uses too seldom to stand out is kept aside as `rare`: it is
+  // only used to fill a short list (step 6).
+  type Scored = { candidate: Candidate; score: number; total: number; display: string; rare: boolean; firstAt: number };
   const scored: Scored[] = [];
   for (const candidate of candidates.values()) {
     if (candidate.phrase.every(isGenericWord)) continue;
@@ -462,21 +490,24 @@ export function deriveSeoTerms(source: SeoTermSource, max = SEO_TERMS_MAX): stri
     let score = 0;
     let total = 0;
     let prominent = false;
-    for (const z of zones) {
+    let firstAt = Number.MAX_SAFE_INTEGER;
+    zones.forEach((z, zi) => {
       const n = countIn(z, candidate.phrase);
-      if (!n) continue;
+      if (!n) return;
       score += n * z.weight;
       total += n;
       if (z.weight >= 3) prominent = true;
-    }
+      firstAt = Math.min(firstAt, zi);
+    });
 
+    let rare = false;
     if (!candidate.multi && !candidate.lexicon && !candidate.acronym) {
       // A proper noun is capitalised mid-sentence nearly every time it appears.
       const c = caps.get(candidate.key);
       if (!c || c.upper === 0 || c.upper / (c.upper + c.lower) < 0.75) continue;
-      if (total < 3 && !prominent) continue;
+      if (total < 3 && !prominent) rare = true;
     }
-    if (total < 2 && !prominent) continue;
+    if (total < 2 && !prominent) rare = true;
 
     if (candidate.multi) score *= 1.5;
     if (candidate.lexicon) score *= 1.4;
@@ -484,7 +515,7 @@ export function deriveSeoTerms(source: SeoTermSource, max = SEO_TERMS_MAX): stri
 
     const display = [...candidate.surfaces.entries()]
       .sort((a, b) => b[1] - a[1] || (isCapitalised(b[0]) ? 1 : 0) - (isCapitalised(a[0]) ? 1 : 0) || a[0].localeCompare(b[0]))[0][0];
-    scored.push({ candidate, score, total, display });
+    scored.push({ candidate, score, total, display, rare, firstAt });
   }
 
   // 4. Merge plural/singular spellings into the stronger one.
@@ -501,7 +532,7 @@ export function deriveSeoTerms(source: SeoTermSource, max = SEO_TERMS_MAX): stri
   }
 
   const ranked = scored
-    .filter(s => s.score > 0)
+    .filter(s => s.score > 0 && !s.rare)
     .sort((a, b) => b.score - a.score || b.total - a.total || a.candidate.key.localeCompare(b.candidate.key));
 
   // 5. Pick greedily. A term that contains, or is contained in, a stronger pick
@@ -521,14 +552,37 @@ export function deriveSeoTerms(source: SeoTermSource, max = SEO_TERMS_MAX): stri
     }
   }
 
+  // 6. A short list is filled first with names the text mentions only once or
+  // twice: a new essay often names many people and places a single time each
+  // ("Sher Shah Suri", "Chandragupta Maurya"). Names of several words and
+  // lexicon entries come first, then single proper nouns; within each, the
+  // weightier and then the earlier. A run of capitals seen only at the start
+  // of a sentence is not used, as its first word may not be part of a name
+  // ("Consider Shivaji").
+  const floor = Math.min(SEO_TERMS_MIN, max);
+  if (picked.length < floor) {
+    const rare = scored
+      .filter(s => s.rare && s.score > 0 && (!s.candidate.multi || s.candidate.lexicon || s.candidate.anchored))
+      .sort((a, b) =>
+        Number(b.candidate.multi || b.candidate.lexicon) - Number(a.candidate.multi || a.candidate.lexicon) ||
+        b.score - a.score ||
+        a.firstAt - b.firstAt ||
+        a.candidate.key.localeCompare(b.candidate.key));
+    for (const s of rare) {
+      if (picked.length >= floor) break;
+      const words = s.candidate.phrase;
+      if (picked.some(p => containsPhrase(p.candidate.phrase, words) || containsPhrase(words, p.candidate.phrase))) continue;
+      picked.push(s);
+    }
+  }
+
   const terms = picked.map(s => {
     const display = s.display.replace(/\s+/g, " ").trim();
     return /^\p{Ll}/u.test(display) ? display.charAt(0).toUpperCase() + display.slice(1) : display;
   });
 
-  // 6. A short list is filled with broad subject words the text uses, most
-  // frequent first ("Philosophy", "History"), never one a pick already holds.
-  const floor = Math.min(SEO_TERMS_MIN, max);
+  // 7. A list still short is filled with broad subject words the text uses,
+  // most frequent first ("Philosophy", "History"), never one a pick already holds.
   if (terms.length < floor) {
     const held = new Set(picked.flatMap(s => s.candidate.phrase));
     const subjects = SUBJECTS

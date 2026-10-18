@@ -202,7 +202,7 @@ function ComposePanel({ onClose }: { onClose: () => void }) {
                     {person.handle ? (
                       <p className="font-mono text-xs font-semibold text-[var(--gold)]">@{person.handle}</p>
                     ) : (
-                      <p className="font-ui text-[10px] text-red-500 font-semibold">No @handle claimed</p>
+                      <p className="font-ui text-[10px] text-[var(--accent)] font-semibold">No @handle claimed</p>
                     )}
                   </div>
                   {disabled ? (
@@ -271,7 +271,7 @@ export default function MessagesInboxPage() {
     try {
       if (accept) {
         await messagesApi.acceptRequest(id);
-        toast.success("Request accepted -€- you can reply now.");
+        toast.success("Request accepted — you can reply now.");
         await load();
         navigate(`/messages/${id}`);
       } else {
@@ -384,7 +384,7 @@ export default function MessagesInboxPage() {
                   <div className="min-w-0 flex-1">
                     <p className="font-body text-sm font-semibold text-[var(--ink)]">{rq.title}</p>
                     <p className="mt-1 font-body text-[13px] leading-6 text-[var(--ink-body)]">{rq.preview}</p>
-                    <p className="mono-label mt-1">Wants to message you Â· {relativeTime(rq.lastMessageAt)}</p>
+                    <p className="mono-label mt-1">Wants to message you · {relativeTime(rq.lastMessageAt)}</p>
                     <div className="mt-3 flex items-center gap-2">
                       <button
                         type="button"

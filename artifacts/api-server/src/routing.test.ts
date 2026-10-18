@@ -32,6 +32,10 @@ vi.mock("./lib/public-content", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./lib/public-content")>()),
   loadAuthorUsers: async () => state.users,
   hasPublishedPapers: async () => state.papers.length > 0,
+  // The related works under a work and the domain names on author pages.
+  listPublishedWorks: async () => ({ articles: [], papers: [] }),
+  listVisibleCategories: async () => [],
+  findCategory: async () => null,
 }));
 vi.mock("./lib/publication-lookup", async (importOriginal) => {
   const original = await importOriginal<typeof import("./lib/publication-lookup")>();
@@ -74,6 +78,8 @@ function hubArticle(overrides: Partial<AuthorHubArticle> = {}): AuthorHubArticle
     heroImageUrl: null,
     publishedAt: "2026-08-01T00:00:00.000Z",
     authorId: "u1",
+    // At hand, so the page needs no database read for the listing descriptions.
+    body: null,
     ...overrides,
   };
 }

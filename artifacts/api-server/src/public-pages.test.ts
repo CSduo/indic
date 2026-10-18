@@ -58,8 +58,11 @@ function article(n: number, overrides: Partial<WorkSummary> = {}): WorkSummary {
     authorPath: "/authors/xiyatosaanvi",
     categorySlug: "history",
     publishedAt: new Date(Date.UTC(2026, 7 - Math.floor(n / 28), Number(day))).toISOString(),
+    updatedAt: null,
     readingMinutes: 8,
     heroImageUrl: null,
+    description: `What essay ${n} argues, in a sentence or two that a search result can show.`,
+    topics: [`Topic ${n}`],
     ...overrides,
   };
 }

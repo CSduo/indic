@@ -240,7 +240,7 @@ export default function PublicProfilePage() {
                   </a>
                 )}
                 {profile.orcid && (
-                  <a href={`https://orcid.org/${profile.orcid}`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 font-ui text-xs text-[#A6CE39] hover:underline">
+                  <a href={`https://orcid.org/${profile.orcid}`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 font-ui text-xs text-[var(--accent)] hover:underline">
                     <User size={12} /> ORCID
                   </a>
                 )}

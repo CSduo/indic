@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/sacred/EmptyState";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
 import { readInitialData } from "@/lib/initialData";
+import { fetchAllRows } from "@/lib/listedWorks";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -27,6 +28,9 @@ interface AuthorPublication {
   kind: "article" | "paper";
   slug: string;
   title: string;
+  /** The work's own meta description (from the server or the list API). */
+  description?: string;
+  topics?: string[];
   excerpt?: string;
   abstract?: string;
   authorName: string;
@@ -48,6 +52,20 @@ interface AuthorData {
   orcid?: string;
   articleCount?: number;
   paperCount?: number;
+  /** The page's meta description, as the server rendered it. */
+  description?: string;
+}
+
+/** What the server embeds for an author page: the profile plus the listed works. */
+interface ServerAuthor extends AuthorData {
+  works?: Array<AuthorPublication & { excerpt?: string | null; year?: number | null; doi?: string | null }>;
+  domains?: Array<{ slug: string; name: string }>;
+}
+
+function serverWorks(data: ServerAuthor | undefined, kind: "article" | "paper"): AuthorPublication[] {
+  return (data?.works || [])
+    .filter((work) => work.kind === kind)
+    .map((work) => ({ ...work, excerpt: work.excerpt || undefined, year: work.year ?? undefined, doi: work.doi ?? undefined }));
 }
 
 export default function AuthorHubPage() {
@@ -59,20 +77,15 @@ export default function AuthorHubPage() {
   const slug = rawSlug;
   const { user } = useAuthContext();
 
-  // Try reading pre-hydrated SSR data if available
-  const [author, setAuthor] = useState<AuthorData | null>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        // The server embeds the record it rendered; render it first.
-        const fromServer = readInitialData<any>("author");
-        if (fromServer) return fromServer;
-      } catch {}
-    }
-    return null;
-  });
+  // The server embeds the profile and the works it rendered; render them first.
+  const [fromServer] = useState<ServerAuthor | undefined>(() =>
+    typeof window === "undefined" ? undefined : readInitialData<ServerAuthor>("author"),
+  );
+  const [author, setAuthor] = useState<AuthorData | null>(() => fromServer || null);
+  const domainNames = useMemo(() => new Map((fromServer?.domains || []).map((d) => [d.slug, d.name])), [fromServer]);
 
-  const [articles, setArticles] = useState<AuthorPublication[]>([]);
-  const [papers, setPapers] = useState<AuthorPublication[]>([]);
+  const [articles, setArticles] = useState<AuthorPublication[]>(() => serverWorks(fromServer, "article"));
+  const [papers, setPapers] = useState<AuthorPublication[]>(() => serverWorks(fromServer, "paper"));
   const [loading, setLoading] = useState(!author);
   const [error, setError] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | "articles" | "papers">("all");
@@ -80,6 +93,9 @@ export default function AuthorHubPage() {
 
   useEffect(() => {
     if (!slug) return;
+    // The server-rendered page already holds this author's works, matched by
+    // the server's own rules; asking the API again could only disagree.
+    if (fromServer?.works) return;
     const controller = new AbortController();
 
     async function loadAuthorHub() {
@@ -117,13 +133,10 @@ export default function AuthorHubPage() {
         }
 
         // 2. Fetch publications associated with this scholar
-        const [artsRes, papersRes] = await Promise.all([
-          fetch(`${base()}/api/articles?limit=100`, { signal: controller.signal }).then(r => r.ok ? r.json() : { articles: [] }),
-          fetch(`${base()}/api/papers?limit=100`, { signal: controller.signal }).then(r => r.ok ? r.json() : { papers: [] }),
+        const [rawArticles, rawPapers] = await Promise.all([
+          fetchAllRows("/api/articles", "articles", { signal: controller.signal }).catch((): any[] => []),
+          fetchAllRows("/api/papers", "papers", { signal: controller.signal }).catch((): any[] => []),
         ]);
-
-        const rawArticles = artsRes.articles || [];
-        const rawPapers = papersRes.papers || [];
 
         const cleanSlug = slug.toLowerCase().replace(/^@/, "").replace(/\/+$/, "");
         const userHandle = (resolvedUser?.handle || "").toLowerCase().replace(/^@/, "");
@@ -135,6 +148,8 @@ export default function AuthorHubPage() {
           if (userId && item.authorId === userId) return true;
           if (userHandle && item.authorHandle && item.authorHandle.toLowerCase().replace(/^@/, "") === userHandle) return true;
           const cleanItemAuthor = String(item.authorName || "").toLowerCase().replace(/^(dr|prof|vidwan|acharya)\.?\s+/i, "").replace(/[^a-z0-9]/g, "-");
+          // A work without an author name belongs to no author page ("x".includes("") is true).
+          if (!cleanItemAuthor.replace(/-/g, "")) return false;
           if (cleanSlug && (cleanItemAuthor === cleanSlug || cleanItemAuthor.includes(cleanSlug) || cleanSlug.includes(cleanItemAuthor))) return true;
           if (userHandle && (cleanItemAuthor === userHandle || cleanItemAuthor.includes(userHandle) || userHandle.includes(cleanItemAuthor))) return true;
           if (userNameSlug && (cleanItemAuthor === userNameSlug || cleanItemAuthor.includes(userNameSlug) || userNameSlug.includes(cleanItemAuthor))) return true;
@@ -148,6 +163,8 @@ export default function AuthorHubPage() {
             kind: "article",
             slug: a.slug,
             title: a.title,
+            description: a.description,
+            topics: Array.isArray(a.topics) ? a.topics : [],
             excerpt: a.excerpt || a.subtitle,
             authorName: a.authorName,
             categorySlug: a.categorySlug,
@@ -179,6 +196,8 @@ export default function AuthorHubPage() {
             kind: "paper",
             slug: p.slug,
             title: p.title,
+            description: p.description,
+            topics: Array.isArray(p.topics) ? p.topics : [],
             abstract: p.abstract,
             authorName: p.authorName,
             categorySlug: p.categorySlug,
@@ -244,16 +263,19 @@ export default function AuthorHubPage() {
 
     loadAuthorHub();
     return () => controller.abort();
-  }, [slug]);
+  }, [slug, fromServer]);
 
   const authorName = author?.name || slug;
+  // "Verified Contributor" and "Contributing Scholar" belong to people who have
+  // published work here; a member who only reads has a profile, not those marks.
+  const isContributor = articles.length + papers.length > 0 || (author?.articleCount ?? 0) + (author?.paperCount ?? 0) > 0;
   // The author's own bio, or a neutral line; never invented expertise.
   const authorBio = author?.bio || `Author profile for ${authorName} on Ānvīkṣikī.`;
 
 
   useDocumentMetadata({
     title: authorName ? `${authorName} — Author Profile — Ānvīkṣikī` : undefined,
-    description: authorBio.slice(0, 200),
+    description: (author?.description || authorBio).slice(0, 200),
     canonicalPath: `/authors/${encodeURIComponent(author?.handle || slug)}`,
     image: author?.avatarUrl || null,
     type: "profile",
@@ -281,7 +303,7 @@ export default function AuthorHubPage() {
     );
     if (!searchFilter.trim()) return list;
     const q = searchFilter.toLowerCase();
-    return list.filter(w => w.title.toLowerCase().includes(q) || (w.excerpt || w.abstract || "").toLowerCase().includes(q));
+    return list.filter(w => w.title.toLowerCase().includes(q) || (w.description || w.excerpt || w.abstract || "").toLowerCase().includes(q));
   }, [articles, papers, searchFilter]);
 
   const filteredArticles = useMemo(() => {
@@ -352,24 +374,28 @@ export default function AuthorHubPage() {
                   {author.avatarUrl ? (
                     <img src={author.avatarUrl} alt={authorName} className="h-full w-full object-cover rounded-full" />
                   ) : (
-                    <div className="h-full w-full rounded-full bg-gradient-to-br from-[#FAF5EE] to-[#EFE7D8] dark:from-[#1F1D1A] dark:to-[#141311] flex items-center justify-center">
+                    <div className="h-full w-full rounded-full bg-gradient-to-br from-[#F6F6F6] to-[#E8E8E8] dark:from-[#1D1D1D] dark:to-[#131313] flex items-center justify-center">
                       <span className="font-display text-3xl md:text-4xl font-bold text-[var(--terracotta)]">
                         {authorName.charAt(0).toUpperCase()}
                       </span>
                     </div>
                   )}
                 </div>
-                <div className="absolute -bottom-1 -right-1 bg-[#10B981] text-white p-1 rounded-full shadow" title="Verified Contributor">
-                  <CheckCircle2 size={16} />
-                </div>
+                {isContributor && (
+                  <div className="absolute -bottom-1 -right-1 bg-[#C84A10] text-white p-1 rounded-full shadow" title="Verified Contributor">
+                    <CheckCircle2 size={16} />
+                  </div>
+                )}
               </div>
 
               {/* Scholar Details */}
               <div className="flex-1 text-center md:text-left space-y-3">
                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
-                  <span className="font-ui text-[11px] font-bold uppercase tracking-[0.16em] px-2.5 py-0.5 rounded-full bg-[var(--terracotta-pale)] text-[var(--terracotta)] border border-[var(--border-gold)]/40">
-                    Contributing Scholar
-                  </span>
+                  {isContributor && (
+                    <span className="font-ui text-[11px] font-bold uppercase tracking-[0.16em] px-2.5 py-0.5 rounded-full bg-[var(--terracotta-pale)] text-[var(--terracotta)] border border-[var(--border-gold)]/40">
+                      Contributing Scholar
+                    </span>
+                  )}
                   {author.handle && (
                     <span className="font-mono text-xs text-[var(--ink-faint)]">
                       @{author.handle}
@@ -493,12 +519,12 @@ export default function AuthorHubPage() {
                       <div className="flex flex-col space-y-2">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
-                            <span className={`font-ui text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full ${work.kind === "paper" ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300" : "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"}`}>
+                            <span className={`font-ui text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full ${work.kind === "paper" ? "bg-[var(--ink)] text-[var(--bg)]" : "bg-[var(--surface-soft)] text-[var(--ink)] border border-[var(--border)]"}`}>
                               {work.kind === "paper" ? "Research Paper" : "Essay"}
                             </span>
                             {work.categorySlug && (
                               <span className="font-ui text-[10px] text-[var(--ink-faint)] uppercase tracking-wider">
-                                · {work.categorySlug}
+                                · {domainNames.get(work.categorySlug) || work.categorySlug.replace(/-/g, " ")}
                               </span>
                             )}
                           </div>
@@ -521,9 +547,15 @@ export default function AuthorHubPage() {
                           {work.title}
                         </h3>
 
-                        {(work.excerpt || work.abstract) && (
-                          <p className="font-body text-xs md:text-sm text-[var(--ink-soft)] line-clamp-2 leading-relaxed">
-                            {work.excerpt || work.abstract}
+                        {(work.description || work.excerpt || work.abstract) && (
+                          <p className="font-body text-xs md:text-sm text-[var(--ink-soft)] leading-relaxed">
+                            {work.description || work.excerpt || work.abstract}
+                          </p>
+                        )}
+                        {work.topics && work.topics.length > 0 && (
+                          <p className="font-ui text-[11px] leading-5 text-[var(--ink-faint)]">
+                            <span className="mr-1.5 font-bold uppercase tracking-[0.12em] text-[var(--ink-soft)]">Topics</span>
+                            {work.topics.join(" · ")}
                           </p>
                         )}
                       </div>
@@ -534,6 +566,21 @@ export default function AuthorHubPage() {
             </div>
           )}
 
+          {/* The domains this author publishes in, and the archive, as on the server-rendered page. */}
+          {articles.length + papers.length > 0 && (
+            <p className="mt-8 font-ui text-sm text-center">
+              {[...new Set([...articles, ...papers].map((work) => work.categorySlug).filter(Boolean))].map((domain) => (
+                <span key={domain}>
+                  <Link href={`/domains/${encodeURIComponent(domain as string)}`} className="text-[var(--accent)] hover:underline">
+                    {domainNames.get(domain as string) || (domain as string).replace(/-/g, " ")}
+                  </Link>
+                  <span aria-hidden="true" className="text-[var(--ink-faint)]"> · </span>
+                </span>
+              ))}
+              <Link href="/archive" className="text-[var(--accent)] hover:underline">Every essay in the archive</Link>
+            </p>
+          )}
+
           {/* Contributor Acquisition Banner */}
           <div className="mt-12 rounded-2xl border border-[var(--border)] bg-[var(--surface-card)] p-8 text-center space-y-3 shadow-sm">
             <Sparkles size={24} className="mx-auto text-[var(--gold)]" />
@@ -541,7 +588,7 @@ export default function AuthorHubPage() {
               Publish Your Research on Ānvīkṣikī
             </h3>
             <p className="font-body text-sm text-[var(--ink-soft)] max-w-xl mx-auto leading-relaxed">
-              Join contributing scholars like {authorName}. Publish your research papers, essays, and translations with permanent canonical archiving, Google Scholar discovery, and global reach.
+              {isContributor ? `Join contributing scholars like ${authorName}. ` : ""}Publish your research papers, essays, and translations with permanent canonical archiving, Google Scholar discovery, and global reach.
             </p>
             <div className="pt-2">
               <Link href="/submit" className="btn-terracotta inline-flex items-center gap-2">

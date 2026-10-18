@@ -1,10 +1,54 @@
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
+/** One embedded image that could not be stored. */
+export interface InlineImageFailure {
+  /** Its position among the document's embedded images, from 1. */
+  index: number;
+  /** "PNG", "JPEG", ... */
+  format: string;
+  reason: string;
+}
+
+/**
+ * Some embedded images could not be uploaded. The message names each one and
+ * why, so the author can replace or remove it; `html` holds the document with
+ * every image that did upload already pointing at its stored copy.
+ */
+export class InlineImageUploadError extends Error {
+  readonly failures: InlineImageFailure[];
+  readonly total: number;
+  readonly html: string;
+
+  constructor(failures: InlineImageFailure[], total: number, html: string) {
+    const list = failures.map((f) => `image ${f.index} (${f.format}): ${f.reason}`).join("; ");
+    super(
+      `${failures.length} of ${total} image${total === 1 ? "" : "s"} in your document could not be uploaded: ${list}. ` +
+        "Replace or remove them, then try again.",
+    );
+    this.name = "InlineImageUploadError";
+    this.failures = failures;
+    this.total = total;
+    this.html = html;
+  }
+}
+
+/** Why an upload failed, in the server's words when it gave any. */
+async function failureReason(res: Response): Promise<string> {
+  const data = await res.json().catch(() => null);
+  if (data && typeof data.error === "string" && data.error.trim()) return data.error.trim().replace(/\.$/, "");
+  if (res.status === 413) return "the image is too large";
+  if (res.status === 401) return "you are signed out; sign in and try again";
+  return `upload failed (${res.status})`;
+}
+
 /**
  * Scans an HTML string for embedded base64 images, uploads each image individually
  * to the media storage API, and replaces the data URI with the permanent CDN URL.
  *
  * This prevents massive (>4.5MB) payloads when submitting extracted documents to Vercel.
+ * An image that appears several times is uploaded once. When any image cannot
+ * be uploaded, every image is still attempted and an InlineImageUploadError
+ * then names each failure: an image is never left behind silently as a data URI.
  */
 export async function uploadInlineBase64Images(
   html: string,
@@ -14,21 +58,28 @@ export async function uploadInlineBase64Images(
 
   // Match all data:image base64 sources
   const dataUriRegex = /src=["'](data:(image\/[a-zA-Z0-9+.-]+);base64,([^"']+))["']/gi;
-  const matches = [...html.matchAll(dataUriRegex)];
-  if (matches.length === 0) return html;
+  const images = new Map<string, { mimeType: string; base64Data: string }>();
+  for (const match of html.matchAll(dataUriRegex)) {
+    if (!images.has(match[1])) images.set(match[1], { mimeType: match[2], base64Data: match[3] });
+  }
+  if (images.size === 0) return html;
 
   let processedHtml = html;
-  const total = matches.length;
+  const total = images.size;
+  const failures: InlineImageFailure[] = [];
   let current = 0;
 
-  for (const match of matches) {
-    const fullDataUri = match[1];
-    const mimeType = match[2];
-    const base64Data = match[3];
-
+  for (const [fullDataUri, { mimeType, base64Data }] of images) {
+    current++;
+    const format = (mimeType.split("/")[1] || "image").replace(/^svg\+xml$/, "svg").toUpperCase();
     try {
       // Decode base64 to binary byte array
-      const byteCharacters = atob(base64Data);
+      let byteCharacters: string;
+      try {
+        byteCharacters = atob(base64Data);
+      } catch {
+        throw new Error("the image data is damaged");
+      }
       const byteNumbers = new Uint8Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) {
         byteNumbers[i] = byteCharacters.charCodeAt(i);
@@ -49,22 +100,21 @@ export async function uploadInlineBase64Images(
         method: "POST",
         credentials: "include",
         body: fd,
+      }).catch(() => {
+        throw new Error("the network connection failed");
       });
 
-      if (res.ok) {
-        const data = await res.json().catch(() => ({}));
-        if (data.url && typeof data.url === "string") {
-          processedHtml = processedHtml.split(fullDataUri).join(data.url);
-        }
-      }
+      if (!res.ok) throw new Error(await failureReason(res));
+      const data = await res.json().catch(() => ({}));
+      if (!data.url || typeof data.url !== "string") throw new Error("the server did not return a stored copy");
+      processedHtml = processedHtml.split(fullDataUri).join(data.url);
     } catch (err) {
-      console.warn("Failed to upload inline base64 image:", err);
+      failures.push({ index: current, format, reason: err instanceof Error && err.message ? err.message : "upload failed" });
     }
-
-    current++;
     onProgress?.(current, total);
   }
 
+  if (failures.length > 0) throw new InlineImageUploadError(failures, total, processedHtml);
   return processedHtml;
 }
 

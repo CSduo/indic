@@ -1,10 +1,13 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { useLocation, Link } from "wouter";
 import { Check, X, Trash2, Globe, ArchiveRestore, Download, ChevronDown, Clock, Edit3, ExternalLink, Eye, FileText, Image as ImageIcon, Link2, Maximize2 } from "lucide-react";
 import { toast } from "sonner";
 import { AdminSidebar } from "@/components/sacred/AdminSidebar";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
+
+/** One page of the desk's list (the API's ADMIN_SUBMISSIONS_PAGE_SIZE). */
+const PAGE_SIZE = 50;
 
 const STATUS_MAP: Record<string, string> = {
   approve: "ACCEPTED", reject: "REJECTED", publish: "PUBLISHED", unpublish: "ACCEPTED",
@@ -37,7 +40,7 @@ function statusBadge(status: string) {
 
 /**
  * Parse a cover reference out of the submission notes. Accepts absolute URLs,
- * site-relative paths, and inline base64 data URIs -€- the last is what the
+ * site-relative paths, and inline base64 data URIs — the last is what the
  * upload pipeline produces when no blob or CDN provider is configured, and
  * omitting it made those covers look absent to the desk.
  */
@@ -125,6 +128,14 @@ export default function AdminSubmissionsPage() {
     typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "trash" ? "trash" : "all",
   );
   const [selected, setSelected] = useState<any | null>(null);
+  const [total, setTotal] = useState(0);
+  const [pending, setPending] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  // Fetching the opened submission's text, or failing to.
+  const [detail, setDetail] = useState<{ id: string; state: "loading" | "error" } | null>(null);
+  const [detailAttempt, setDetailAttempt] = useState(0);
+  // Each load of the list gets a number; a response for an older one is dropped.
+  const listGeneration = useRef(0);
   const [editorNotes, setEditorNotes] = useState("");
   const [confirm, setConfirm] = useState<{ msg: string; action: () => void } | null>(null);
 
@@ -136,14 +147,92 @@ export default function AdminSubmissionsPage() {
 
   const [, navigate] = useLocation();
 
-  const load = (trashed = filter === "trash") => {
-    setLoading(true);
-    fetch(`${base()}/api/admin/submissions?limit=100${trashed ? "&trashed=true" : ""}`, { credentials: "include" })
-      .then(r => { if (r.status === 401) { navigate("/admin/login"); return null; } if (!r.ok) throw new Error("Failed"); return r.json(); })
-      .then(d => d && setSubmissions(d.submissions || []))
-      .catch(() => toast.error("Failed to load submissions"))
-      .finally(() => setLoading(false));
+  // The desk loads a page of submissions at a time (without their full text),
+  // filtered by the server so counts and paging follow the filter; "Load more"
+  // appends the next page, and opening one fetches its body.
+  const viewQuery = (view: string) =>
+    view === "trash" ? "&trashed=true" : view === "all" ? "" : `&status=${encodeURIComponent(view.toUpperCase())}`;
+  const fetchPage = (offset: number, view: string) =>
+    fetch(`${base()}/api/admin/submissions?limit=${PAGE_SIZE}&offset=${offset}${viewQuery(view)}`, { credentials: "include" })
+      .then(r => { if (r.status === 401) { navigate("/admin/login"); return null; } if (!r.ok) throw new Error("Failed"); return r.json(); });
+
+  /** The first `count` rows of a view, a page at a time; null after a redirect to log in. */
+  const fetchRows = async (view: string, count: number) => {
+    const rows: any[] = [];
+    let listTotal = 0;
+    let listPending = 0;
+    for (;;) {
+      const d = await fetchPage(rows.length, view);
+      if (!d) return null;
+      const page: any[] = d.submissions || [];
+      const fresh = page.filter(s => !rows.some(r => r.id === s.id));
+      rows.push(...fresh);
+      listTotal = Number(d.total) || 0;
+      listPending = Number(d.pending) || 0;
+      if (page.length < PAGE_SIZE || fresh.length === 0 || rows.length >= Math.min(count, listTotal)) break;
+    }
+    return { rows, total: listTotal, pending: listPending };
   };
+
+  /**
+   * (Re)load a view. After an action the desk reloads as many rows as were
+   * on screen, `quiet`ly, so pages added with "Load more" stay.
+   */
+  const load = (view = filter, count = PAGE_SIZE, quiet = false) => {
+    const generation = ++listGeneration.current;
+    if (!quiet) setLoading(true);
+    fetchRows(view, count)
+      .then(d => {
+        if (!d || generation !== listGeneration.current) return;
+        setSubmissions(d.rows);
+        setTotal(d.total);
+        setPending(d.pending);
+      })
+      .catch(() => { if (generation === listGeneration.current) toast.error("Failed to load submissions"); })
+      .finally(() => { if (generation === listGeneration.current) setLoading(false); });
+  };
+  const refresh = () => load(filter, Math.max(PAGE_SIZE, submissions.length), true);
+
+  const loadMore = () => {
+    const generation = listGeneration.current;
+    setLoadingMore(true);
+    fetchPage(submissions.length, filter)
+      .then(d => {
+        if (!d || generation !== listGeneration.current) return;
+        setSubmissions(prev => [...prev, ...(d.submissions || []).filter((s: any) => !prev.some(p => p.id === s.id))]);
+        setTotal(Number(d.total) || 0);
+        setPending(Number(d.pending) || 0);
+      })
+      .catch(() => { if (generation === listGeneration.current) toast.error("Failed to load more submissions"); })
+      .finally(() => setLoadingMore(false));
+  };
+
+  // The list carries no body; fetch the opened submission's full text, and
+  // say so while it loads or when it could not be loaded.
+  const selectedId: string | undefined = selected?.id;
+  const selectedHasBody = Boolean(selected && "body" in selected);
+  useEffect(() => {
+    if (!selectedId || selectedHasBody) {
+      setDetail(null);
+      return;
+    }
+    let cancelled = false;
+    setDetail({ id: selectedId, state: "loading" });
+    fetch(`${base()}/api/admin/submissions/${encodeURIComponent(selectedId)}`, { credentials: "include" })
+      .then(r => {
+        if (r.status === 401) { navigate("/admin/login"); return null; }
+        if (!r.ok) throw new Error("Failed");
+        return r.json();
+      })
+      .then(d => {
+        if (cancelled || !d) return;
+        if (!d.submission) throw new Error("Failed");
+        setSelected((prev: any) => (prev?.id === selectedId ? { ...d.submission, ...prev, body: d.submission.body ?? "" } : prev));
+        setDetail(null);
+      })
+      .catch(() => { if (!cancelled) setDetail({ id: selectedId, state: "error" }); });
+    return () => { cancelled = true; };
+  }, [selectedId, selectedHasBody, detailAttempt]);
 
   const runPublicSync = async () => {
     setSyncing(true);
@@ -155,7 +244,7 @@ export default function AdminSubmissionsPage() {
       const data = await r.json();
       if (r.ok) {
           toast.success(data.message || "Linked public publications reconciled successfully.");
-        load();
+        refresh();
       } else {
           toast.error(data.error || "Publication reconciliation failed");
       }
@@ -167,7 +256,7 @@ export default function AdminSubmissionsPage() {
   };
 
   useEffect(() => {
-    load(filter === "trash");
+    load(filter);
   }, [filter]);
 
   useEffect(() => {
@@ -192,7 +281,7 @@ export default function AdminSubmissionsPage() {
         toast.success(`Submission ${act.replace(/_/g, " ")}ed successfully`);
         setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status, editorNotes } : s));
         setSelected((prev: any) => prev?.id === id ? { ...prev, status, editorNotes } : prev);
-        load();
+        refresh();
         // Publishing changes what the public site should show. Without this the
         // home page kept serving its cached listing and the newly published
         // work did not appear until that cache expired.
@@ -221,7 +310,7 @@ export default function AdminSubmissionsPage() {
       setActionLoading("delete");
       try {
         const r = await fetch(`${base()}/api/admin/submissions/${id}`, { method: "DELETE", credentials: "include" });
-        if (r.ok) { toast.success("Submission moved to Trash"); load(); setConfirm(null); setSelected(null); }
+        if (r.ok) { toast.success("Submission moved to Trash"); refresh(); setConfirm(null); setSelected(null); }
         else {
           const errData = await r.json().catch(() => ({}));
           toast.error(errData.error || "Delete failed");
@@ -242,7 +331,7 @@ export default function AdminSubmissionsPage() {
       if (!r.ok) throw new Error(data.error || "Failed to restore submission");
       toast.success("Submission restored");
       setSelected(null);
-      load();
+      refresh();
     } catch (err: any) {
       toast.error(err.message || "Failed to restore submission");
     } finally {
@@ -259,7 +348,7 @@ export default function AdminSubmissionsPage() {
       toast.success("Submission permanently deleted");
       setConfirm(null);
       setSelected(null);
-      load();
+      refresh();
     } catch (err: any) {
       toast.error(err.message || "Failed to permanently delete submission");
     } finally {
@@ -287,7 +376,7 @@ export default function AdminSubmissionsPage() {
               onClick={() => setLightboxImg(null)}
               className="absolute -top-11 right-0 min-h-11 min-w-11 text-white/80 hover:text-white p-2 text-sm font-ui"
             >
-              -œ- Close Lightbox
+              ✕ Close Lightbox
             </button>
             <img src={lightboxImg} alt="Enlarged preview" className="max-w-full max-h-[85vh] object-contain rounded-lg border border-white/20 shadow-2xl" />
           </div>
@@ -299,20 +388,24 @@ export default function AdminSubmissionsPage() {
         <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="font-display text-2xl" style={{ color: "var(--gold-bright)" }}>Submissions</h1>
-            <p className="font-ui text-xs mt-1" style={{ color: "var(--muted)" }}>{submissions.length} total Â· {submissions.filter(s => !s.status || s.status === "RECEIVED").length} pending review</p>
+            <p className="font-ui text-xs mt-1" style={{ color: "var(--muted)" }}>
+              {filter === "trash"
+                ? `${total} in trash`
+                : `${total} ${filter === "all" ? "total" : filter.replace(/_/g, " ")} · ${pending} pending review`}
+            </p>
           </div>
           <div className="flex w-full flex-wrap items-stretch gap-2 sm:w-auto sm:items-center">
             <button
               type="button"
               disabled={syncing}
               onClick={runPublicSync}
-              className="admin-submission-filter min-h-11 px-3 rounded-lg bg-[rgba(201,152,58,0.15)] hover:bg-[rgba(201,152,58,0.25)] border border-[var(--border-gold)] text-xs text-[var(--gold-bright)] font-ui font-semibold inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
+              className="admin-submission-filter min-h-11 px-3 rounded-lg bg-[rgba(156,156,156,0.15)] hover:bg-[rgba(156,156,156,0.25)] border border-[var(--border-gold)] text-xs text-[var(--gold-bright)] font-ui font-semibold inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
             >
-              {syncing ? <span className="animate-spin text-xs">-†»</span> : <Globe size={12} />}
+              {syncing ? <span className="animate-spin text-xs">↻</span> : <Globe size={12} />}
               {syncing ? "Reconciling..." : "Reconcile Publications"}
             </button>
             {FILTER_OPTS.map(f => (
-              <button key={f} type="button" onClick={() => setFilter(f)} className="admin-submission-filter min-h-11 px-3 rounded-lg text-xs transition-all capitalize" style={{ background: filter === f ? "rgba(201,152,58,0.15)" : "transparent", border: `1px solid ${filter === f ? "var(--border-gold)" : "var(--border)"}`, color: filter === f ? "var(--gold-bright)" : "var(--muted)", fontFamily: "var(--font-ui)", fontWeight: 500, cursor: "pointer" }}>
+              <button key={f} type="button" onClick={() => setFilter(f)} className="admin-submission-filter min-h-11 px-3 rounded-lg text-xs transition-all capitalize" style={{ background: filter === f ? "rgba(156,156,156,0.15)" : "transparent", border: `1px solid ${filter === f ? "var(--border-gold)" : "var(--border)"}`, color: filter === f ? "var(--gold-bright)" : "var(--muted)", fontFamily: "var(--font-ui)", fontWeight: 500, cursor: "pointer" }}>
                 {f.replace(/_/g, " ")}
               </button>
             ))}
@@ -335,7 +428,8 @@ export default function AdminSubmissionsPage() {
                 const assets = extractAllAssets(s);
                 const hasDoc = assets.some(a => a.type === "pdf" || a.label.includes("Manuscript") || a.label.includes("Document"));
                 const hasLink = assets.some(a => a.type === "link");
-                const hasImg = assets.some(a => a.type === "image");
+                // The list has no body to find inline images in; the server says whether there are any.
+                const hasImg = assets.some(a => a.type === "image") || Boolean(s.hasInlineImages);
                 return (
                   <button
                     key={s.id}
@@ -353,37 +447,48 @@ export default function AdminSubmissionsPage() {
                       }
                     }}
                     className="w-full text-left px-4 py-3 transition-colors"
-                    style={{ borderBottom: "1px solid var(--border)", background: selected?.id === s.id ? "rgba(201,152,58,0.07)" : "transparent" }}
+                    style={{ borderBottom: "1px solid var(--border)", background: selected?.id === s.id ? "rgba(156,156,156,0.07)" : "transparent" }}
                   >
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <div className="font-ui text-sm font-medium leading-tight line-clamp-1" style={{ color: "var(--ink-soft)" }}>{s.title}</div>
                       <span className={`badge badge-${s.deletedAt ? "draft" : statusBadge(s.status)} shrink-0 text-[0.6rem]`}>{s.deletedAt ? "trash" : s.status || "received"}</span>
                     </div>
-                    <div className="font-ui text-xs" style={{ color: "var(--muted)" }}>{s.submitterName} Â· {s.type}</div>
+                    <div className="font-ui text-xs" style={{ color: "var(--muted)" }}>{s.submitterName} · {s.type}</div>
                     
                     {/* Visual Asset Badges before selecting */}
                     <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
                       {hasDoc && (
-                        <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-[var(--surface-3)] text-[var(--gold)] border border-[rgba(201,152,58,0.3)]">
+                        <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-[var(--surface-3)] text-[var(--gold)] border border-[rgba(156,156,156,0.3)]">
                           <FileText size={10} /> Document
                         </span>
                       )}
                       {hasLink && (
-                        <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-[var(--surface-3)] text-sky-400 border border-sky-900/40">
+                        <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-[var(--surface-3)] text-[var(--ink-soft)] border border-[var(--border)]">
                           <Link2 size={10} /> Link
                         </span>
                       )}
                       {hasImg && (
-                        <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-[var(--surface-3)] text-emerald-400 border border-emerald-900/40">
+                        <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-[var(--surface-3)] text-[var(--accent)] border border-[var(--border)]">
                           <ImageIcon size={10} /> Images
                         </span>
                       )}
                     </div>
 
-                    <div className="font-ui text-[10px] mt-1" style={{ color: "var(--ink-faint)" }}>{s.createdAt ? new Date(s.createdAt).toLocaleDateString("en-IN") : "-€-"}</div>
+                    <div className="font-ui text-[10px] mt-1" style={{ color: "var(--ink-faint)" }}>{s.createdAt ? new Date(s.createdAt).toLocaleDateString("en-IN") : "—"}</div>
                   </button>
                 );
               })}
+              {!loading && submissions.length < total && (
+                <button
+                  type="button"
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="admin-submission-filter mt-3 min-h-11 w-full rounded-lg border border-[var(--border)] font-ui text-xs disabled:opacity-50"
+                  style={{ color: "var(--ink)", cursor: "pointer" }}
+                >
+                  {loadingMore ? "Loading…" : `Load more (${total - submissions.length} more)`}
+                </button>
+              )}
             </div>
           </div>
 
@@ -413,7 +518,7 @@ export default function AdminSubmissionsPage() {
                         {selected.domain && <span className="badge badge-draft text-[0.6rem]">{selected.domain}</span>}
                       </div>
                     </div>
-                    <button type="button" onClick={() => setSelected(null)} className="admin-submission-close grid min-h-11 min-w-11 shrink-0 place-items-center font-ui text-sm" style={{ color: "var(--muted)" }} aria-label="Close submission details">-œ-</button>
+                    <button type="button" onClick={() => setSelected(null)} className="admin-submission-close grid min-h-11 min-w-11 shrink-0 place-items-center font-ui text-sm" style={{ color: "var(--muted)" }} aria-label="Close submission details">✕</button>
                   </div>
 
                   {/* Embedded PDF / Document Viewer Frame */}
@@ -425,10 +530,10 @@ export default function AdminSubmissionsPage() {
                         </span>
                         <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                           <a href={activePreviewUrl} target="_blank" rel="noopener noreferrer" className="admin-submission-action min-h-11 px-3 text-xs text-[var(--ink-soft)] hover:text-white flex items-center justify-center gap-1 font-ui">
-                            <ExternalLink size={12} /> Open Full Frame -†—
+                            <ExternalLink size={12} /> Open Full Frame ↗
                           </a>
                           <button type="button" onClick={() => { setActivePreviewUrl(null); setActivePreviewType(null); }} className="admin-submission-action min-h-11 px-3 text-xs text-[var(--muted)] hover:text-white font-ui">
-                            -œ- Close Viewer
+                            ✕ Close Viewer
                           </button>
                         </div>
                       </div>
@@ -456,11 +561,11 @@ export default function AdminSubmissionsPage() {
                     {[
                       ["Author", selected.submitterName],
                       ["Email", selected.submitterEmail],
-                      ["Institution", selected.institution || "-€-"],
-                      ["Submitted", selected.createdAt ? new Date(selected.createdAt).toLocaleString("en-IN") : "-€-"]
+                      ["Institution", selected.institution || "—"],
+                      ["Submitted", selected.createdAt ? new Date(selected.createdAt).toLocaleString("en-IN") : "—"]
                     ].map(([k, v]) => (
                       <div key={k}>
-                        <div className="font-ui text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: "var(--gold)" }}>{k}</div>
+                        <div className="font-ui text-[10px] font-semibold uppercase tracking-wide mb-0.5 text-[var(--gold)]">{k}</div>
                         <div className="font-body text-sm break-all" style={{ color: "var(--ink-soft)" }}>{v}</div>
                       </div>
                     ))}
@@ -477,7 +582,7 @@ export default function AdminSubmissionsPage() {
                           <div key={assetItem.id} className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2 mb-1">
-                                {assetItem.type === "pdf" ? <FileText size={14} className="text-[var(--gold)] shrink-0" /> : assetItem.type === "image" ? <ImageIcon size={14} className="text-emerald-400 shrink-0" /> : <ExternalLink size={14} className="text-sky-400 shrink-0" />}
+                                {assetItem.type === "pdf" ? <FileText size={14} className="text-[var(--gold)] shrink-0" /> : assetItem.type === "image" ? <ImageIcon size={14} className="text-[var(--ink-soft)] shrink-0" /> : <ExternalLink size={14} className="text-[var(--ink-soft)] shrink-0" />}
                                 <span className="font-ui text-xs font-semibold text-[var(--ink)]">{assetItem.label}</span>
                                 <span className="badge badge-draft text-[9px] uppercase">{assetItem.type}</span>
                               </div>
@@ -488,7 +593,7 @@ export default function AdminSubmissionsPage() {
                                 <button
                                   type="button"
                                   onClick={() => { setActivePreviewUrl(assetItem.url); setActivePreviewType("pdf"); }}
-                                  className="admin-submission-action min-h-11 w-full px-3 rounded bg-[rgba(201,152,58,0.15)] hover:bg-[rgba(201,152,58,0.25)] text-xs text-[var(--gold-bright)] font-ui font-semibold inline-flex items-center justify-center gap-1 sm:w-auto"
+                                  className="admin-submission-action min-h-11 w-full px-3 rounded bg-[rgba(156,156,156,0.15)] hover:bg-[rgba(156,156,156,0.25)] text-xs text-[var(--gold-bright)] font-ui font-semibold inline-flex items-center justify-center gap-1 sm:w-auto"
                                 >
                                   <Eye size={12} /> Preview PDF
                                 </button>
@@ -497,7 +602,7 @@ export default function AdminSubmissionsPage() {
                                 <button
                                   type="button"
                                   onClick={() => setLightboxImg(assetItem.url)}
-                                  className="admin-submission-action min-h-11 w-full px-3 rounded bg-emerald-950/40 hover:bg-emerald-900/50 text-xs text-emerald-300 font-ui font-semibold inline-flex items-center justify-center gap-1 border border-emerald-800/40 sm:w-auto"
+                                  className="admin-submission-action min-h-11 w-full px-3 rounded bg-[var(--surface-soft)] hover:bg-[var(--surface-3)] text-xs text-[var(--ink)] font-ui font-semibold inline-flex items-center justify-center gap-1 border border-[var(--border)] sm:w-auto"
                                 >
                                   <Eye size={12} /> View Image
                                 </button>
@@ -508,7 +613,7 @@ export default function AdminSubmissionsPage() {
                                 rel="noopener noreferrer"
                                 className="admin-submission-action min-h-11 w-full px-3 rounded bg-white/5 hover:bg-white/10 text-xs text-[var(--ink-soft)] font-ui font-medium inline-flex items-center justify-center gap-1 sm:w-auto"
                               >
-                                <ExternalLink size={12} /> Open -†—
+                                <ExternalLink size={12} /> Open ↗
                               </a>
                               <a
                                 href={assetItem.url}
@@ -556,6 +661,21 @@ export default function AdminSubmissionsPage() {
                   )}
 
                   {/* Full body / essay content */}
+                  {detail && detail.id === selected.id && (
+                    <div className="mb-4" role={detail.state === "error" ? "alert" : "status"}>
+                      <div className="form-label mb-1">Full Essay / Article Content</div>
+                      {detail.state === "loading" ? (
+                        <p className="font-ui text-sm" style={{ color: "var(--muted)" }}>Loading the text…</p>
+                      ) : (
+                        <p className="font-ui text-sm" style={{ color: "var(--ink)" }}>
+                          The text of this submission could not be loaded.{" "}
+                          <button type="button" onClick={() => setDetailAttempt(n => n + 1)} className="underline decoration-[var(--accent)] underline-offset-2" style={{ cursor: "pointer" }}>
+                            Try again
+                          </button>
+                        </p>
+                      )}
+                    </div>
+                  )}
                   {selected.body && (
                     <div className="mb-4">
                       <div className="form-label mb-1 flex items-center justify-between">
@@ -631,7 +751,7 @@ export default function AdminSubmissionsPage() {
                           {domainLabel}
                         </p>
                         {!imgUrl && (
-                          <div className="p-2.5 rounded bg-amber-950/20 border border-amber-900/40 text-amber-400 font-ui text-[11px] leading-relaxed">
+                          <div className="p-2.5 rounded bg-[var(--surface-soft)] border border-[var(--accent)] text-[var(--ink)] font-ui text-[11px] leading-relaxed">
                             This submission has no cover image, so the journal's default cover will be used. You can still publish it.
                           </div>
                         )}
@@ -645,24 +765,24 @@ export default function AdminSubmissionsPage() {
                       <button type="button" disabled={!!actionLoading} onClick={() => restore(selected.id)} className="btn-sacred btn-ghost text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50">
                         {actionLoading === "restore" ? <span className="animate-spin text-xs">Restoring</span> : <ArchiveRestore size={12} />} Restore
                       </button>
-                      <button type="button" disabled={!!actionLoading} onClick={() => setConfirm({ msg: "Permanently delete this submission? This cannot be undone.", action: () => permanentlyDelete(selected.id) })} className="btn-sacred text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50" style={{ background: "rgba(139,26,74,0.12)", border: "1px solid rgba(139,26,74,0.3)", color: "var(--rose-bright)" }}>
+                      <button type="button" disabled={!!actionLoading} onClick={() => setConfirm({ msg: "Permanently delete this submission? This cannot be undone.", action: () => permanentlyDelete(selected.id) })} className="btn-sacred text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50" style={{ background: "rgba(53,53,53,0.12)", border: "1px solid rgba(53,53,53,0.3)", color: "var(--rose-bright)" }}>
                         {actionLoading === "permanent-delete" ? <span className="animate-spin text-xs">Deleting</span> : <Trash2 size={12} />} Delete Forever
                       </button>
                     </>}
                     {!selected.deletedAt && (!selected.status || selected.status === "RECEIVED" || selected.status === "UNDER_REVIEW") && (<>
-                      <button type="button" disabled={!!actionLoading} onClick={() => patchAction(selected.id, "approve")} className="btn-sacred text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50" style={{ background: "rgba(26,74,56,0.3)", border: "1px solid rgba(74,222,128,0.3)", color: "#4ade80" }}>
-                        {actionLoading === "approve" ? <span className="animate-spin text-xs">-†»</span> : <Check size={12} />} Approve
+                      <button type="button" disabled={!!actionLoading} onClick={() => patchAction(selected.id, "approve")} className="btn-sacred text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50 text-[var(--accent)]" style={{ background: "rgba(62,62,62,0.3)", border: "1px solid rgba(184,184,184,0.3)" }}>
+                        {actionLoading === "approve" ? <span className="animate-spin text-xs">↻</span> : <Check size={12} />} Approve
                       </button>
                       {(!selected.status || selected.status === "RECEIVED") && (
                         <button type="button" disabled={!!actionLoading} onClick={() => patchAction(selected.id, "under_review")} className="btn-sacred btn-ghost text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50">
-                          {actionLoading === "under_review" ? <span className="animate-spin text-xs">-†»</span> : <Clock size={12} />} Under Review
+                          {actionLoading === "under_review" ? <span className="animate-spin text-xs">↻</span> : <Clock size={12} />} Under Review
                         </button>
                       )}
                       <button type="button" disabled={!!actionLoading} onClick={() => patchAction(selected.id, "revision_requested")} className="btn-sacred btn-ghost text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50">
-                        {actionLoading === "revision_requested" ? <span className="animate-spin text-xs">-†»</span> : <Edit3 size={12} />} Request Revision
+                        {actionLoading === "revision_requested" ? <span className="animate-spin text-xs">↻</span> : <Edit3 size={12} />} Request Revision
                       </button>
-                      <button type="button" disabled={!!actionLoading} onClick={() => setConfirm({ msg: 'Reject this submission? The author will be notified.', action: () => patchAction(selected.id, 'reject') })} className="btn-sacred text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50" style={{ background: "rgba(139,26,74,0.2)", border: "1px solid var(--border-rose)", color: "var(--lotus)" }}>
-                        {actionLoading === "reject" ? <span className="animate-spin text-xs">-†»</span> : <X size={12} />} Reject
+                      <button type="button" disabled={!!actionLoading} onClick={() => setConfirm({ msg: 'Reject this submission? The author will be notified.', action: () => patchAction(selected.id, 'reject') })} className="btn-sacred text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50" style={{ background: "rgba(53,53,53,0.2)", border: "1px solid var(--border-rose)", color: "var(--lotus)" }}>
+                        {actionLoading === "reject" ? <span className="animate-spin text-xs">↻</span> : <X size={12} />} Reject
                       </button>
                     </>)}
                     {!selected.deletedAt && selected.status === "ACCEPTED" && (() => {
@@ -670,16 +790,16 @@ export default function AdminSubmissionsPage() {
                       // A missing cover is a warning, not a blocker. Essays
                       // written in the browser never carry one, so disabling the
                       // button here left approved work permanently unpublishable
-                      // -€- the publication step falls back to a default cover.
+                      // — the publication step falls back to a default cover.
                       return (
                         <button
                           type="button"
                           disabled={!!actionLoading}
                           onClick={() => patchAction(selected.id, "publish", selected.domain ? { categorySlug: selected.domain } : {})}
                           className="btn-sacred btn-gold text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
-                          title={imgUrl ? undefined : "No cover image found -€- the journal's default cover will be used"}
+                          title={imgUrl ? undefined : "No cover image found — the journal's default cover will be used"}
                         >
-                          {actionLoading === "publish" ? <span className="animate-spin text-xs">-†»</span> : <Globe size={12} />} Publish as Article
+                          {actionLoading === "publish" ? <span className="animate-spin text-xs">↻</span> : <Globe size={12} />} Publish as Article
                         </button>
                       );
                     })()}
@@ -693,18 +813,18 @@ export default function AdminSubmissionsPage() {
                           disabled={!!actionLoading}
                           onClick={() => patchAction(selected.id, "publish", selected.domain ? { categorySlug: selected.domain } : {})}
                           className="btn-sacred btn-gold text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50"
-                          title="Rebuild this work's public article -€- use this if it shows as published but is not on the site"
+                          title="Rebuild this work's public article — use this if it shows as published but is not on the site"
                         >
-                          {actionLoading === "publish" ? <span className="animate-spin text-xs">-†»</span> : <Globe size={12} />} Republish to Site
+                          {actionLoading === "publish" ? <span className="animate-spin text-xs">↻</span> : <Globe size={12} />} Republish to Site
                         </button>
                         <button type="button" disabled={!!actionLoading} onClick={() => patchAction(selected.id, "unpublish")} className="btn-sacred btn-ghost text-xs py-1.5 px-3 inline-flex items-center gap-1.5 disabled:opacity-50">
-                          {actionLoading === "unpublish" ? <span className="animate-spin text-xs">-†»</span> : <ArchiveRestore size={12} />} Unpublish
+                          {actionLoading === "unpublish" ? <span className="animate-spin text-xs">↻</span> : <ArchiveRestore size={12} />} Unpublish
                         </button>
                       </>
                     )}
                     {!selected.deletedAt && (
-                      <button type="button" disabled={!!actionLoading} onClick={() => del(selected.id)} className="btn-sacred text-xs py-1.5 px-3 ml-auto inline-flex items-center gap-1.5 disabled:opacity-50" style={{ background: "rgba(139,26,74,0.12)", border: "1px solid rgba(139,26,74,0.3)", color: "var(--rose-bright)" }}>
-                        {actionLoading === "delete" ? <span className="animate-spin text-xs">-†»</span> : <Trash2 size={12} />} Delete
+                      <button type="button" disabled={!!actionLoading} onClick={() => del(selected.id)} className="btn-sacred text-xs py-1.5 px-3 ml-auto inline-flex items-center gap-1.5 disabled:opacity-50" style={{ background: "rgba(53,53,53,0.12)", border: "1px solid rgba(53,53,53,0.3)", color: "var(--rose-bright)" }}>
+                        {actionLoading === "delete" ? <span className="animate-spin text-xs">↻</span> : <Trash2 size={12} />} Delete
                       </button>
                     )}
                   </div>

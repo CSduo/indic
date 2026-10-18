@@ -93,13 +93,13 @@ export function ReferencesEditor({
           {rows.map((row, index) => (
             <li key={index} className="rounded-lg border border-[var(--border-gold)] p-3.5" style={{ background: "var(--surface-3)" }}>
               <div className="flex items-center justify-between mb-2.5">
-                <span className="font-ui text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--gold)" }}>
+                <span className="font-ui text-[11px] font-bold uppercase tracking-wider text-[var(--gold)]">
                   Reference {index + 1}
                 </span>
                 <button
                   type="button"
                   onClick={() => remove(index)}
-                  className="inline-flex items-center gap-1 font-ui text-[11px] text-[var(--ink-faint)] hover:text-red-400 transition-colors"
+                  className="inline-flex items-center gap-1 font-ui text-[11px] text-[var(--ink-faint)] hover:text-[var(--accent)] transition-colors"
                   aria-label={`Remove reference ${index + 1}`}
                 >
                   <Trash2 size={13} /> Remove

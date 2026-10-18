@@ -375,25 +375,29 @@ export function sanitizeTemplateHead(html: string): string {
 }
 
 export const SSR_CSS_STYLES = `<style id="anvikshiki-ssr-styles">
+  /* The site's three colours (white, black and the terracotta #C84A10) and
+     neutral greys between them, matching the app's light and dark tokens
+     (anvikshiki/src/index.css), so the page reads the same before and after
+     the app takes over. */
   :root {
-    --ssr-bg: #faf7f2;
-    --ssr-ink: #1a1612;
-    --ssr-ink-soft: #4a433a;
-    --ssr-ink-faint: #8c8273;
-    --ssr-gold: #c9944a;
-    --ssr-border: #e8e0d2;
-    --ssr-surface: #fbf8f2;
-    --ssr-surface-alt: #f4eee3;
+    --ssr-bg: #FFFFFF;
+    --ssr-ink: #000000;
+    --ssr-ink-soft: #3A3A3A;
+    --ssr-ink-faint: #737373;
+    --ssr-accent: #C84A10;
+    --ssr-border: #E5E5E5;
+    --ssr-surface: #FAFAFA;
+    --ssr-surface-alt: #F5F5F5;
   }
-  html.dark {
-    --ssr-bg: #0e0d0b;
-    --ssr-ink: #f5f0e8;
-    --ssr-ink-soft: #ded8ce;
-    --ssr-ink-faint: #a69e90;
-    --ssr-gold: #e8b066;
-    --ssr-border: #2b2721;
-    --ssr-surface: #171512;
-    --ssr-surface-alt: #1a1815;
+  html[data-theme="dark"], html.dark {
+    --ssr-bg: #000000;
+    --ssr-ink: #FFFFFF;
+    --ssr-ink-soft: #D4D4D4;
+    --ssr-ink-faint: #A3A3A3;
+    --ssr-accent: #C84A10;
+    --ssr-border: #262626;
+    --ssr-surface: #0F0F0F;
+    --ssr-surface-alt: #141414;
   }
   body {
     margin: 0;
@@ -446,13 +450,15 @@ export const SSR_CSS_STYLES = `<style id="anvikshiki-ssr-styles">
     letter-spacing: 0.1em;
     padding: 0.25rem 0.75rem;
     border-radius: 9999px;
-    background: #eedfc8;
-    color: #8c5324;
+    border: 1px solid var(--ssr-accent);
+    background: transparent;
+    color: var(--ssr-accent);
     text-decoration: none;
   }
-  html.dark .ssr-badge {
-    background: #2a2218;
-    color: #e8b066;
+  /* About 4.4:1 on black: small accent text is white on the dark ground. */
+  html[data-theme="dark"] .ssr-badge, html.dark .ssr-badge,
+  html[data-theme="dark"] .ssr-section-label, html.dark .ssr-section-label {
+    color: var(--ssr-ink);
   }
   .ssr-title {
     font-family: 'Cormorant Garamond', Georgia, serif;
@@ -511,7 +517,7 @@ export const SSR_CSS_STYLES = `<style id="anvikshiki-ssr-styles">
   }
   .ssr-abstract-box {
     background: var(--ssr-surface-alt);
-    border-left: 4px solid var(--ssr-gold);
+    border-left: 4px solid var(--ssr-accent);
     padding: 1.25rem 1.5rem;
     border-radius: 4px;
     margin: 2rem 0;
@@ -522,7 +528,7 @@ export const SSR_CSS_STYLES = `<style id="anvikshiki-ssr-styles">
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.15em;
-    color: var(--ssr-gold);
+    color: var(--ssr-accent);
     margin: 0 0 0.5rem 0;
   }
   .ssr-abstract-text {
@@ -551,7 +557,7 @@ export const SSR_CSS_STYLES = `<style id="anvikshiki-ssr-styles">
     line-height: 1.25;
   }
   .ssr-body blockquote {
-    border-left: 3px solid var(--ssr-gold);
+    border-left: 3px solid var(--ssr-accent);
     padding-left: 1.25rem;
     margin: 1.75rem 0;
     font-style: italic;
@@ -591,13 +597,13 @@ export const SSR_CSS_STYLES = `<style id="anvikshiki-ssr-styles">
     letter-spacing: 0.15em;
     color: var(--ssr-ink-soft);
   }
-  .ssr-tag-list a:hover { border-color: var(--ssr-gold); color: var(--ssr-ink); }
+  .ssr-tag-list a:hover { border-color: var(--ssr-accent); color: var(--ssr-ink); }
   .ssr-references {
     margin: 2.5rem 0;
     padding: 1.5rem 1.5rem 1.25rem;
     background: var(--ssr-surface);
     border: 1px solid var(--ssr-border);
-    border-top: 3px solid var(--ssr-gold);
+    border-top: 3px solid var(--ssr-accent);
     border-radius: 8px;
     text-align: left;
   }
@@ -634,7 +640,7 @@ export const SSR_CSS_STYLES = `<style id="anvikshiki-ssr-styles">
     font-size: 0.75rem;
     font-weight: 700;
     color: var(--ssr-ink-soft);
-    border: 1px solid var(--ssr-gold);
+    border: 1px solid var(--ssr-accent);
   }
   .ssr-reference:first-child::before { top: 0.25rem; }
   .ssr-ref-text {
@@ -649,7 +655,7 @@ export const SSR_CSS_STYLES = `<style id="anvikshiki-ssr-styles">
   .ssr-ref-link, .ssr-ref-doi {
     color: var(--ssr-ink);
     text-decoration: underline;
-    text-decoration-color: var(--ssr-gold);
+    text-decoration-color: var(--ssr-accent);
     text-decoration-thickness: 1px;
     text-underline-offset: 3px;
   }
@@ -665,7 +671,7 @@ export const SSR_CSS_STYLES = `<style id="anvikshiki-ssr-styles">
   .ssr-sources-note {
     margin: 0 0 1.1rem 0;
     padding: 0.1rem 0 0.1rem 0.9rem;
-    border-left: 2px solid var(--ssr-gold);
+    border-left: 2px solid var(--ssr-accent);
     font-size: 0.92rem;
     line-height: 1.65;
     font-style: italic;
@@ -679,7 +685,7 @@ export const SSR_CSS_STYLES = `<style id="anvikshiki-ssr-styles">
   .ssr-author-bio-card {
     background: var(--ssr-surface);
     border: 1px solid var(--ssr-border);
-    border-left: 4px solid var(--ssr-gold);
+    border-left: 4px solid var(--ssr-accent);
     padding: 1.5rem;
     border-radius: 6px;
     margin: 2.5rem 0;
@@ -722,8 +728,8 @@ export const SSR_CSS_STYLES = `<style id="anvikshiki-ssr-styles">
   }
   .ssr-contributor-cta a {
     display: inline-block;
-    background: #8c5324;
-    color: #ffffff;
+    background: var(--ssr-accent);
+    color: #FFFFFF;
     padding: 0.5rem 1rem;
     border-radius: 4px;
     font-size: 0.8rem;
@@ -748,7 +754,7 @@ export const SSR_CSS_STYLES = `<style id="anvikshiki-ssr-styles">
     height: 96px;
     border-radius: 50%;
     overflow: hidden;
-    border: 2px solid var(--ssr-gold);
+    border: 2px solid var(--ssr-accent);
     box-shadow: 0 0 0 4px var(--ssr-bg);
     flex-shrink: 0;
   }
@@ -760,8 +766,8 @@ export const SSR_CSS_STYLES = `<style id="anvikshiki-ssr-styles">
   .ssr-author-avatar-placeholder {
     width: 100%;
     height: 100%;
-    background: #eedfc8;
-    color: #8c5324;
+    background: var(--ssr-surface-alt);
+    color: var(--ssr-accent);
     font-weight: 700;
     font-size: 2rem;
     display: grid;
@@ -822,7 +828,7 @@ export const SSR_CSS_STYLES = `<style id="anvikshiki-ssr-styles">
     text-decoration: none;
   }
   .ssr-work-item a:hover {
-    color: var(--ssr-gold);
+    color: var(--ssr-accent);
     text-decoration: underline;
   }
   .ssr-work-excerpt {
@@ -876,12 +882,23 @@ export const SSR_CSS_STYLES = `<style id="anvikshiki-ssr-styles">
     padding: 0;
   }
   .ssr-site-header a, .ssr-site-footer a { color: var(--ssr-ink); text-decoration: none; }
-  .ssr-site-header a:hover, .ssr-site-footer a:hover { color: var(--ssr-gold); text-decoration: underline; }
+  .ssr-site-header a:hover, .ssr-site-footer a:hover { color: var(--ssr-accent); text-decoration: underline; }
   .ssr-work-list { list-style: none; padding: 0; margin: 0; }
   .ssr-work-item { padding: 1rem 0; border-bottom: 1px solid var(--ssr-border); }
   .ssr-work-item h3 { margin: 0 0 0.35rem 0; font-size: 1.15rem; }
   .ssr-work-item h3 a { color: var(--ssr-ink); }
   .ssr-pagination { display: flex; gap: 1rem; justify-content: space-between; margin-top: 2rem; }
+  .ssr-contributor-cta a:hover { background: var(--ssr-ink); color: var(--ssr-bg); }
+  .ssr-work-topics { margin: 0.4rem 0 0; font-size: 0.8rem; color: var(--ssr-ink-faint); }
+  .ssr-work-topics .ssr-topics-label { margin-right: 0.4rem; }
+  .ssr-related-links { margin: 1.25rem 0 0; font-size: 0.9rem; }
+  .ssr-related-links a, .ssr-domain-summary a, .ssr-other-domains a { color: var(--ssr-ink); text-decoration: underline; text-decoration-color: var(--ssr-accent); text-underline-offset: 0.18em; }
+  .ssr-related-links a:hover, .ssr-domain-summary a:hover, .ssr-other-domains a:hover { color: var(--ssr-accent); }
+  .ssr-year h2, .ssr-domain-block h2 { margin: 2rem 0 0.5rem; }
+  .ssr-domain-block h2 a { color: var(--ssr-ink); text-decoration: none; }
+  .ssr-domain-block h2 a:hover { color: var(--ssr-accent); text-decoration: underline; }
+  .ssr-domain-summary, .ssr-other-domains ul { padding-left: 1.1rem; }
+  .ssr-related { margin: 2.5rem 0; padding-top: 1.5rem; border-top: 1px solid var(--ssr-border); }
 </style>`;
 
 /** The owner's own Search Console meta token, when one is configured. */

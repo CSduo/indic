@@ -294,7 +294,7 @@ export default function LoginPage() {
                         handleStatus === "available"
                           ? "border-[var(--sage)] ring-1 ring-[var(--sage)]/20"
                           : handleStatus === "taken" || handleStatus === "invalid"
-                          ? "border-[var(--terracotta)] ring-1 ring-[var(--terracotta)]/20"
+                          ? "border-[var(--terracotta)] ring-1 ring-[var(--terracotta)]"
                           : ""
                       }`}
                       placeholder="username"
@@ -499,7 +499,7 @@ export default function LoginPage() {
 
           <div className="space-y-4 pt-8 border-t border-[var(--border)]">
             <div className="flex items-start gap-3">
-              <div className="h-8 w-8 rounded-full bg-[var(--gold)]/10 flex items-center justify-center text-[var(--gold)] shrink-0 mt-0.5">
+              <div className="h-8 w-8 rounded-full bg-[var(--accent-wash)] flex items-center justify-center text-[var(--gold)] shrink-0 mt-0.5">
                 <User size={16} />
               </div>
               <div>
@@ -511,7 +511,7 @@ export default function LoginPage() {
             </div>
 
             <div className="flex items-start gap-3">
-              <div className="h-8 w-8 rounded-full bg-[var(--gold)]/10 flex items-center justify-center text-[var(--gold)] shrink-0 mt-0.5">
+              <div className="h-8 w-8 rounded-full bg-[var(--accent-wash)] flex items-center justify-center text-[var(--gold)] shrink-0 mt-0.5">
                 <Lock size={16} />
               </div>
               <div>
@@ -523,7 +523,7 @@ export default function LoginPage() {
             </div>
 
             <div className="flex items-start gap-3">
-              <div className="h-8 w-8 rounded-full bg-[var(--gold)]/10 flex items-center justify-center text-[var(--gold)] shrink-0 mt-0.5">
+              <div className="h-8 w-8 rounded-full bg-[var(--accent-wash)] flex items-center justify-center text-[var(--gold)] shrink-0 mt-0.5">
                 <AnimalGlyph domain="philosophy" size={16} />
               </div>
               <div>

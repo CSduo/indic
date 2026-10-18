@@ -7,8 +7,8 @@ import { AnimalGlyph } from "@/components/manuscript/AnimalGlyph";
 import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
 import { readInitialData } from "@/lib/initialData";
 import { PAGE_META } from "@/lib/pageMeta";
-
-const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
+import { WorkIndexList } from "@/components/manuscript/WorkIndex";
+import { fetchAllRows, groupByYear, newestFirst, type ListedWork } from "@/lib/listedWorks";
 
 /** The archive page as the server rendered it (__INITIAL_DATA__). */
 type ServerArchive = {
@@ -19,14 +19,28 @@ type ServerArchive = {
     slug: string;
     title: string;
     excerpt: string | null;
+    /** The work's own meta description (the server's listing summary). */
+    description?: string;
     authorName: string | null;
+    /** The canonical author page, when there is one. */
+    authorPath?: string | null;
     categorySlug: string | null;
     publishedAt: string | null;
     readingMinutes: number | null;
     heroImageUrl: string | null;
   }>;
-  domains: Array<{ slug: string; name: string }>;
+  total?: number;
+  domains: ArchiveDomain[];
 };
+
+/** A visible domain with its published work, as /api/categories and the server send it. */
+type ArchiveDomain = { slug: string; name: string; articleCount?: number; paperCount?: number };
+
+/** The domains the server rendered with the archive, or null on client navigation. */
+function serverArchiveDomains(): ArchiveDomain[] | null {
+  const archive = readInitialData<ServerArchive>("archive");
+  return archive && Array.isArray(archive.domains) ? archive.domains : null;
+}
 
 /** The works the server rendered for this URL, in the list item shape below. */
 function serverArchiveItems(): any[] {
@@ -40,24 +54,18 @@ function serverArchiveItems(): any[] {
     kind: work.kind,
     slug: work.slug,
     title: work.title,
-    summary: work.excerpt || undefined,
+    // The same summary the server-rendered archive shows.
+    summary: work.description || work.excerpt || undefined,
     imageUrl: work.heroImageUrl || undefined,
     categorySlug: work.categorySlug || "",
     categoryName: (work.categorySlug && names.get(work.categorySlug)) || (work.kind === "paper" ? "Research Paper" : "Essay"),
     authorName: work.authorName || "Editorial",
+    listedAuthorName: work.authorName || null,
+    authorPath: work.authorPath || null,
     publishedAt: work.publishedAt || undefined,
     readingMinutes: work.readingMinutes || undefined,
   }));
 }
-
-/** A listing request that fails (rather than resolving to nothing) on an error response. */
-const fetchListing = (url: string) =>
-  fetch(url, { credentials: "include" })
-    .then((response) => {
-      if (!response.ok) throw new Error(`Request failed (${response.status})`);
-      return response.json();
-    })
-    .catch(() => null);
 
 export default function ArchivePage() {
   // Same title and description as the server-rendered archive.
@@ -68,6 +76,14 @@ export default function ArchivePage() {
   const [serverItems] = useState<any[]>(() => (typeof window === "undefined" ? [] : serverArchiveItems()));
   const [items, setItems] = useState<any[]>(serverItems);
   const [loading, setLoading] = useState(serverItems.length === 0);
+  // How many works are published: the server's count until the full list arrives.
+  const [total, setTotal] = useState<number>(() => {
+    if (typeof window === "undefined") return 0;
+    const archive = readInitialData<ServerArchive>("archive");
+    return typeof archive?.total === "number" ? archive.total : serverItems.length;
+  });
+  // Visible domains with their counts: from the server, else /api/categories.
+  const [domains, setDomains] = useState<ArchiveDomain[] | null>(() => (typeof window === "undefined" ? null : serverArchiveDomains()));
   
   const [query, setQuery] = useState("");
   const [selectedDomain, setSelectedDomain] = useState("all");
@@ -92,11 +108,20 @@ export default function ArchivePage() {
     if (params.has("time")) setReadingTime(params.get("time") || "any");
   }, []);
 
+  useEffect(() => {
+    if (domains) return;
+    fetch(`${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/categories`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => { if (Array.isArray(data?.categories)) setDomains(data.categories); })
+      .catch(() => {});
+  }, []);
+
   // Fetch Data
   useEffect(() => {
+    // Every page of each list, so the archive lists every work as the server does.
     Promise.all([
-      fetchListing(`${base()}/api/articles?limit=100`),
-      fetchListing(`${base()}/api/papers?limit=100`),
+      fetchAllRows("/api/articles", "articles", { credentials: "include" }).then((articles) => ({ articles })).catch(() => null),
+      fetchAllRows("/api/papers", "papers", { credentials: "include" }).then((papers) => ({ papers })).catch(() => null),
     ]).then(([articles, papers]) => {
       if ((!articles || !papers) && serverItems.length > 0) {
         // A request failed or was blocked: keep the server's list on screen.
@@ -108,11 +133,13 @@ export default function ArchivePage() {
         kind: "article",
         slug: a.slug,
         title: a.title,
-        summary: a.excerpt,
+        summary: a.description || a.excerpt,
         imageUrl: a.heroImageUrl,
         categorySlug: a.categorySlug || "history",
         categoryName: a.category?.name || "Essay",
         authorName: a.authorName || "Editorial",
+        listedAuthorName: a.authorName || null,
+        authorHandle: a.authorHandle || null,
         publishedAt: a.publishedAt || a.createdAt,
         readingMinutes: a.readingMinutes,
         wordCount: a.wordCount,
@@ -124,11 +151,13 @@ export default function ArchivePage() {
         kind: "paper",
         slug: p.slug,
         title: p.title,
-        summary: p.abstract,
+        summary: p.description || p.abstract,
         imageUrl: p.coverImageUrl,
         categorySlug: p.categorySlug || "philosophy",
         categoryName: p.category?.name || "Research Paper",
         authorName: p.authorName || "Editorial",
+        listedAuthorName: p.authorName || null,
+        authorHandle: p.authorHandle || null,
         publishedAt: p.publishedAt || p.createdAt,
         readingMinutes: p.readingMinutes,
         wordCount: p.wordCount,
@@ -136,6 +165,7 @@ export default function ArchivePage() {
       }));
 
       setItems([...allArticles, ...allPapers]);
+      setTotal(allArticles.length + allPapers.length);
       setLoading(false);
     });
   }, []);
@@ -212,6 +242,32 @@ export default function ArchivePage() {
     setReadingTime("any");
     setCurrentPage(1);
   };
+
+  // Every work, by year: the archive's table of contents, whatever the filters.
+  const yearIndex = useMemo(
+    () => groupByYear(newestFirst(items.map((item): ListedWork => ({
+      kind: item.kind,
+      id: item.id,
+      slug: item.slug,
+      title: item.title,
+      description: item.summary || null,
+      authorName: item.listedAuthorName ?? null,
+      authorPath: item.authorPath || null,
+      authorHandle: item.authorHandle || null,
+      categorySlug: item.categorySlug || null,
+      publishedAt: item.publishedAt || null,
+    })))),
+    [items],
+  );
+  // Only visible domains are linked, as on the server-rendered archive.
+  const domainNames = useMemo(() => new Map<string, string>((domains || []).map((d) => [d.slug, d.name])), [domains]);
+  const domainsWithWork = useMemo(
+    () => (domains || [])
+      .map((d) => ({ ...d, count: (d.articleCount || 0) + (d.paperCount || 0) }))
+      .filter((d) => d.count > 0)
+      .sort((a, b) => b.count - a.count),
+    [domains],
+  );
 
   const totalPages = Math.max(1, Math.ceil(filteredAndSorted.length / ITEMS_PER_PAGE));
   const paginatedItems = filteredAndSorted.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -359,6 +415,25 @@ export default function ArchivePage() {
             <p className="mt-2 text-sm md:text-base text-[var(--ink-soft)] max-w-2xl">
               Explore the complete repository of published essays, research papers, and civilizational scholarship.
             </p>
+            {/* The count and the domain links the server-rendered archive opens with. */}
+            {total > 0 && (
+              <p className="mt-3 font-ui text-sm text-[var(--ink-soft)]">
+                {total} published {total === 1 ? "work" : "works"}, newest first.
+              </p>
+            )}
+            {domainsWithWork.length > 0 && (
+              <p className="mt-1 font-ui text-sm text-[var(--ink-soft)]">
+                By domain:{" "}
+                {domainsWithWork.map((d) => (
+                  <span key={d.slug}>
+                    <Link href={`/domains/${encodeURIComponent(d.slug)}`} className="text-[var(--accent)] hover:underline">{d.name}</Link>
+                    {` (${d.count})`}
+                    <span aria-hidden="true"> · </span>
+                  </span>
+                ))}
+                <Link href="/domains" className="text-[var(--accent)] hover:underline">All domains</Link>
+              </p>
+            )}
           </div>
           <button 
             onClick={() => setMobileFiltersOpen(true)}
@@ -569,6 +644,21 @@ export default function ArchivePage() {
                   <ChevronRight size={16} />
                 </button>
               </div>
+            )}
+
+            {/* Every published work by year, as the server-rendered archive lists it. */}
+            {yearIndex.length > 0 && (
+              <section aria-labelledby="archive-index-heading" className="mt-12 border-t border-[var(--border)] pt-8">
+                <h2 id="archive-index-heading" className="font-display text-2xl text-[var(--ink)] md:text-3xl">Index by year</h2>
+                <div className="mt-6 space-y-8">
+                  {yearIndex.map(({ year, works }) => (
+                    <div key={year ?? "undated"} className="grid gap-3 md:grid-cols-[96px_1fr]">
+                      <h3 className="font-ui text-sm font-bold uppercase tracking-[0.16em] text-[var(--ink-soft)]">{year ?? "Undated"}</h3>
+                      <WorkIndexList works={works} domainNames={domainNames} headingLevel={4} />
+                    </div>
+                  ))}
+                </div>
+              </section>
             )}
           </main>
         </div>

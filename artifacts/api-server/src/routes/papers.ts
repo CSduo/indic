@@ -8,6 +8,8 @@ import { countUnresolvedArticleImages, sanitizeArticleBody, MAX_BODY_CHARS } fro
 import { parsePagination, toLikePattern, PUBLIC_CONTENT_CACHE_CONTROL } from "../lib/request";
 import { triggerPublicContentSeo } from "../lib/seo-service";
 import { workSeo } from "../lib/effective-seo";
+import { listingSeo } from "../lib/public-content";
+import { loadContinueReading } from "../lib/continue-reading";
 import { z } from "zod";
 import { firstIssueMessage, referencesInputSchema } from "../lib/references";
 
@@ -54,6 +56,10 @@ router.get("/papers", async (req, res) => {
         publishedAt: papersTable.publishedAt,
         updatedAt: papersTable.updatedAt,
         pdfUrl: papersTable.pdfUrl,
+        // For the listing description and topics (lib/public-content.ts listingSeo).
+        tags: papersTable.tags,
+        seoTitle: papersTable.seoTitle,
+        seoDescription: papersTable.seoDescription,
         authorId: submissionsTable.userId,
         authorHandle: usersTable.handle,
         category: categoriesTable,
@@ -112,6 +118,8 @@ router.get("/papers", async (req, res) => {
         updatedAt: r.updatedAt,
         pdfUrl: r.pdfUrl,
         category: r.category,
+        // The description and topic terms the work's page and the server-rendered listings show.
+        ...listingSeo(r, "paper"),
         ...(includeBody && r.body ? { body: sanitizeArticleBody(r.body) } : {}),
       };
     });
@@ -206,6 +214,9 @@ router.get("/papers/:slug", async (req, res) => {
         .limit(1);
     }
 
+    const seo = workSeo(row.paper, "paper");
+    const reading = await loadContinueReading({ kind: "paper", id: row.paper.id, categorySlug: row.paper.categorySlug, topics: seo.topics }, req.log);
+
     return res.json({
       paper: {
         ...row.paper,
@@ -216,7 +227,9 @@ router.get("/papers/:slug", async (req, res) => {
         body: sanitizeArticleBody(row.paper.body),
         category: row.category,
         // The title, description, topic terms and references the page shows (lib/effective-seo.ts).
-        seo: workSeo(row.paper, "paper"),
+        seo,
+        // Related works and the indexed domain hub the page links to (lib/continue-reading.ts).
+        continueReading: reading?.continueReading ?? null,
       },
     });
   } catch (err) {
@@ -243,7 +256,7 @@ const paperEditSchema = z.object({
   seoDescription: z.string().trim().max(500).optional().or(z.literal("")),
 });
 
-// PATCH /api/papers/:slug/edit -€- author can update their own paper
+// PATCH /api/papers/:slug/edit — author can update their own paper
 router.patch("/papers/:slug/edit", async (req, res) => {
   try {
     const viewer = await resolveViewer(req);

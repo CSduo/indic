@@ -22,6 +22,7 @@ const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//
 import { FileText, BookOpen } from "lucide-react";
 import { CitationModal } from "@/components/CitationModal";
 import { readInitialData } from "@/lib/initialData";
+import { ContinueReading } from "@/components/manuscript/ContinueReading";
 import { ReferencesSection, TopicsRow } from "@/components/manuscript/ReferencesSection";
 import { workSources } from "@/lib/references";
 
@@ -109,7 +110,6 @@ export default function ArticlePage() {
   const [duration, setDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const articleContentRef = useRef<HTMLElement>(null);
-  const [relatedArticles, setRelatedArticles] = useState<any[]>([]);
   const [citationModalOpen, setCitationModalOpen] = useState(false);
 
   const togglePlay = () => {
@@ -213,17 +213,6 @@ export default function ArticlePage() {
             .catch(commentError => {
               if (!(commentError instanceof DOMException && commentError.name === "AbortError")) setComments([]);
             });
-        }
-        // Load related articles
-        const category = art.categorySlug || art.categoryId;
-        if (category) {
-          fetch(`${base()}/api/articles?limit=4&categorySlug=${category}`, { signal: controller.signal })
-            .then(r => r.json())
-            .then(d => {
-              const rel = (d.articles || []).filter((a: any) => a.id !== art.id).slice(0, 3);
-              setRelatedArticles(rel);
-            })
-            .catch(() => {});
         }
       })
       .catch(fetchError => {
@@ -462,7 +451,7 @@ export default function ArticlePage() {
             {[100, 90, 95, 70, 100, 85, 88, 60, 100, 92].map((w, i) => (
               <div key={i} style={{ height: 16, background: "var(--ink-wash)", borderRadius: 4, width: `${w}%`, animation: `anv-shimmer 1.8s linear infinite ${i * 0.07}s` }} />
             ))}
-            <div style={{ height: 80, background: "linear-gradient(135deg,rgba(139,96,32,0.06),rgba(139,96,32,0.03))", borderRadius: 10, borderLeft: "4px solid var(--border-gold)", margin: "1.5rem 0", animation: "anv-shimmer 1.8s linear infinite 0.5s" }} />
+            <div style={{ height: 80, background: "linear-gradient(135deg,rgba(101,101,101,0.06),rgba(101,101,101,0.03))", borderRadius: 10, borderLeft: "4px solid var(--border-gold)", margin: "1.5rem 0", animation: "anv-shimmer 1.8s linear infinite 0.5s" }} />
             {[100, 88, 94, 72, 100].map((w, i) => (
               <div key={`b${i}`} style={{ height: 16, background: "var(--ink-wash)", borderRadius: 4, width: `${w}%`, animation: `anv-shimmer 1.8s linear infinite ${i * 0.07 + 0.6}s` }} />
             ))}
@@ -572,7 +561,7 @@ export default function ArticlePage() {
           {user && (user.role === "ADMIN" || user.name === article.authorName) ? (
             <Link
               href={`/account/edit/${article.slug}`}
-              className="btn-ink px-3 py-1.5 text-xs text-[var(--gold)] border border-[var(--gold)]/30 hover:bg-[var(--gold)]/10 inline-flex items-center gap-1.5"
+              className="btn-ink px-3 py-1.5 text-xs text-[var(--gold)] border border-[var(--border-gold)] hover:bg-[var(--accent-wash)] inline-flex items-center gap-1.5"
               title="Edit this article, title, images, and content"
             >
               <Edit3 size={14} /> Edit Article
@@ -589,7 +578,7 @@ export default function ArticlePage() {
           
           {/* Custom Voice Note player in the middle */}
           {article.audioUrl && (
-            <div className="card-sacred p-5 mb-8 space-y-3" style={{ background: "linear-gradient(135deg, rgba(201,152,58,0.03) 0%, rgba(201,152,58,0.08) 100%)" }}>
+            <div className="card-sacred p-5 mb-8 space-y-3" style={{ background: "linear-gradient(135deg, rgba(156,156,156,0.03) 0%, rgba(156,156,156,0.08) 100%)" }}>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -847,7 +836,7 @@ export default function ArticlePage() {
                                   <button
                                     type="button"
                                     onClick={() => handleCommentDelete(comment.id)}
-                                    className="font-ui text-[10px] text-[var(--muted)] hover:text-red-400 transition-colors"
+                                    className="font-ui text-[10px] text-[var(--muted)] hover:text-[var(--accent)] transition-colors"
                                   >
                                     Delete
                                   </button>
@@ -953,7 +942,7 @@ export default function ArticlePage() {
                                       <button
                                         type="button"
                                         onClick={() => handleCommentDelete(reply.id, comment.id)}
-                                        className="font-ui text-[9px] text-[var(--muted)] hover:text-red-400 transition-colors"
+                                        className="font-ui text-[9px] text-[var(--muted)] hover:text-[var(--accent)] transition-colors"
                                       >
                                         Delete
                                       </button>
@@ -985,27 +974,10 @@ export default function ArticlePage() {
               </ParchmentCard>
             </div>
 
-            {/* Related Articles */}
-            {relatedArticles.length > 0 && (
-              <div className="mt-16 border-t border-[var(--border)] pt-12">
-                <h3 className="font-display text-2xl text-[var(--ink)] mb-6 text-center">Related Essays</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {relatedArticles.map((rel: any) => (
-                    <ParchmentCard key={rel.id} className="p-5 flex flex-col h-full hover:-translate-y-1 transition-transform">
-                      <Link href={`/articles/${rel.slug || rel.id}`} className="block">
-                        {rel.coverImage || rel.heroImageUrl ? (
-                          <div className="h-32 mb-4 rounded overflow-hidden">
-                            <img src={rel.coverImage || rel.heroImageUrl} alt={rel.title} className="w-full h-full object-cover" loading="lazy" />
-                          </div>
-                        ) : null}
-                        <h4 className="font-display text-lg leading-snug mb-2 text-[var(--ink)]">{rel.title}</h4>
-                        {rel.authorName && <p className="font-ui text-[10px] uppercase text-[var(--ink-faint)]">By {rel.authorName}</p>}
-                      </Link>
-                    </ParchmentCard>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Related essays (shared domain or topics, chosen by the server), the
+                domain hub once it is indexed, and the archive: the same links the
+                server-rendered page ends with. */}
+            <ContinueReading data={article.continueReading} />
             </article>
           </div>
         </div>

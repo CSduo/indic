@@ -8,6 +8,8 @@ import { DOMAIN_ORDER, DOMAIN_META, getDomainMeta, type DomainKey } from "@/lib/
 import { useDocumentMetadata } from "@/hooks/useDocumentMetadata";
 import { readInitialData } from "@/lib/initialData";
 import { PAGE_META } from "@/lib/pageMeta";
+import { WorkIndexList } from "@/components/manuscript/WorkIndex";
+import { fetchListedWorks, type ListedWork } from "@/lib/listedWorks";
 
 const base = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -30,9 +32,21 @@ export default function DomainsPage() {
 
   // The hubs and their work counts: first from the server-rendered page, then
   // refreshed from the API. A failed or blocked request keeps what is shown.
-  const [domains, setDomains] = useState<DomainSummary[] | undefined>(() =>
-    typeof window === "undefined" ? undefined : readInitialData<{ domains: DomainSummary[] }>("domains")?.domains,
+  const [serverData] = useState(() =>
+    typeof window === "undefined" ? undefined : readInitialData<{ domains: DomainSummary[]; works?: ListedWork[] }>("domains"),
   );
+  const [domains, setDomains] = useState<DomainSummary[] | undefined>(serverData?.domains);
+  // Every published work, to list under its domain as the server-rendered page does.
+  const [works, setWorks] = useState<ListedWork[] | undefined>(serverData?.works);
+
+  useEffect(() => {
+    if (serverData?.works) return;
+    const controller = new AbortController();
+    fetchListedWorks(controller.signal).then((list) => {
+      if (list) setWorks(list);
+    });
+    return () => controller.abort();
+  }, [serverData]);
 
   useEffect(() => {
     let cancelled = false;
@@ -128,6 +142,37 @@ export default function DomainsPage() {
               <p className="font-body text-base text-[var(--ink-soft)]">Nothing has been published yet.</p>
             )}
           </section>
+
+          {/* Each domain's works with their descriptions, as on the server-rendered page. */}
+          {works && withWork.some((d) => works.some((w) => w.categorySlug === d.slug)) && (
+            <section className="container-anv py-10" aria-labelledby="domains-works-heading">
+              <OrnamentDivider className="mb-10" />
+              <h2 id="domains-works-heading" className="type-section-label mb-8">Essays by domain</h2>
+              <div className="space-y-12">
+                {withWork.map((d) => {
+                  const inDomain = works.filter((w) => w.categorySlug === d.slug);
+                  if (inDomain.length === 0) return null;
+                  return (
+                    <div key={d.slug} id={`domain-${d.slug}`} className="grid gap-5 border-t border-[var(--border)] pt-8 md:grid-cols-[minmax(0,240px)_1fr] md:gap-10">
+                      <div>
+                        <h3 className="font-display text-3xl leading-tight text-[var(--ink)]">
+                          <Link href={`/domains/${encodeURIComponent(d.slug)}`} className="hover:text-[var(--accent)]">{d.name}</Link>
+                        </h3>
+                        <p className="mt-2 font-ui text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink-soft)]">
+                          {plural(d.articleCount, "essay")}
+                          {d.paperCount > 0 ? ` · ${plural(d.paperCount, "paper")}` : ""}
+                        </p>
+                      </div>
+                      <WorkIndexList works={inDomain} domain={false} headingLevel={4} />
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-10 font-ui text-sm text-center">
+                <Link href="/archive" className="text-[var(--accent)] hover:underline">Every essay in the archive</Link>
+              </p>
+            </section>
+          )}
 
           {withoutWork.length > 0 && (
             <section className="container-anv py-6">

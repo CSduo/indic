@@ -76,7 +76,7 @@ export function NotificationSettings({ compact = false }: { compact?: boolean })
             Tied to your account — signing out stops them, signing back in resumes them. Delivers to Windows/Mac Action Center and mobile device trays.
           </p>
           {blocked ? (
-            <p className="mt-2 font-ui text-[11px] text-[var(--state-error,#9B1C1C)]">
+            <p className="mt-2 font-ui text-[11px] text-[var(--state-error,#C84A10)]">
               Your browser is currently blocking notifications for this site. Allow them from the padlock
               menu beside the address bar, then switch this on.
             </p>

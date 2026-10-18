@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { categoriesTable, articlesTable, papersTable } from "@workspace/db";
 import { eq, and, asc, inArray, isNull, sql } from "drizzle-orm";
 import { categorySlugCandidates, normalizeCategorySlug } from "../lib/publication-sync";
+import { listingSeo } from "../lib/public-content";
 
 const router = Router();
 
@@ -71,7 +72,17 @@ router.get("/categories/:slug", async (req, res) => {
     const papers = await db.select().from(papersTable)
       .where(and(inArray(paperCategory, candidates), eq(papersTable.status, "PUBLISHED"), isNull(papersTable.deletedAt)));
 
-    return res.json({ category, articles, papers });
+    // Listing fields only: each work's description and topic terms (the same
+    // ones its page shows) in place of its full text, which no listing uses.
+    const listed = <T extends { body?: unknown }>(row: T, kind: "article" | "paper") => {
+      const { body: _body, ...rest } = row;
+      return { ...rest, ...listingSeo(row, kind) };
+    };
+    return res.json({
+      category,
+      articles: articles.map((row) => listed(row, "article")),
+      papers: papers.map((row) => listed(row, "paper")),
+    });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Could not load that domain. Please try again.", code: "LOAD_FAILED" });

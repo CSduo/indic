@@ -105,7 +105,7 @@ export function RecentMessages() {
           <MessageCircle size={22} className="mx-auto mb-2 text-[var(--muted)]" />
           <p className="font-body text-sm text-[var(--ink-body)]">
             No conversations yet. Find someone in{" "}
-            <Link href="/community/members" className="underline" style={{ color: "var(--accent)" }}>the Assembly</Link>{" "}
+            <Link href="/community/members" className="underline text-[var(--accent)]">the Assembly</Link>{" "}
             and say hello.
           </p>
         </div>

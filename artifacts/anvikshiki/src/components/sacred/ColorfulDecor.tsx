@@ -7,32 +7,32 @@ import { memo } from "react";
 
 /* ─── Spectrum palette (8 hues, used across all components) ─────────── */
 export const SPECTRUM = [
-  "#E11D48", // crimson
-  "#F97316", // saffron
-  "#EAB308", // amber
-  "#22C55E", // jade
-  "#06B6D4", // teal
-  "#3B82F6", // indigo
-  "#7C3AED", // violet
-  "#EC4899", // rose
+  "#C84A10", // crimson
+  "#C84A10", // saffron
+  "#C84A10", // amber
+  "#C84A10", // jade
+  "#C84A10", // teal
+  "#C84A10", // indigo
+  "#C84A10", // violet
+  "#C84A10", // rose
 ] as const;
 
 /* ─── Vivid domain color map ─────────────────────────────────────────── */
 export const DOMAIN_VIVID: Record<string, { from: string; to: string; text: string; bg: string; accent: string }> = {
-  philosophy:              { from: "#4C1D95", to: "#7C3AED", text: "#C4B5FD", bg: "rgba(124,58,237,0.08)",   accent: "#7C3AED" },
-  history:                 { from: "#78350F", to: "#D97706", text: "#FDE68A", bg: "rgba(217,119,6,0.08)",    accent: "#D97706" },
-  psychology:              { from: "#881337", to: "#E11D48", text: "#FDA4AF", bg: "rgba(225,29,72,0.08)",    accent: "#E11D48" },
-  sociology:               { from: "#064E3B", to: "#059669", text: "#6EE7B7", bg: "rgba(5,150,105,0.08)",    accent: "#059669" },
-  science:                 { from: "#0C4A6E", to: "#0EA5E9", text: "#BAE6FD", bg: "rgba(14,165,233,0.08)",   accent: "#0EA5E9" },
-  geopolitics:             { from: "#3A3D40", to: "#53565A", text: "#C8C9C7", bg: "rgba(83,86,90,0.08)",    accent: "#53565A" },
-  "sanskrit-studies":      { from: "#713F12", to: "#CA8A04", text: "#FDE68A", bg: "rgba(202,138,4,0.08)",   accent: "#CA8A04" },
-  "political-theory":      { from: "#500724", to: "#9D174D", text: "#F9A8D4", bg: "rgba(157,23,77,0.08)",   accent: "#9D174D" },
-  translations:            { from: "#1E1B4B", to: "#4338CA", text: "#A5B4FC", bg: "rgba(67,56,202,0.08)",   accent: "#4338CA" },
-  aesthetics:              { from: "#2D1B69", to: "#7C3AED", text: "#DDD6FE", bg: "rgba(124,58,237,0.08)",  accent: "#7C3AED" },
-  "civilizational-thought":{ from: "#052E16", to: "#16A34A", text: "#86EFAC", bg: "rgba(22,163,74,0.08)",   accent: "#16A34A" },
-  multimedia:              { from: "#0A1628", to: "#1D4ED8", text: "#BFDBFE", bg: "rgba(29,78,216,0.08)",   accent: "#1D4ED8" },
-  archive:                 { from: "#27272A", to: "#71717A", text: "#D4D4D8", bg: "rgba(113,113,122,0.08)", accent: "#71717A" },
-  papers:                  { from: "#3F2D00", to: "#B45309", text: "#FDE68A", bg: "rgba(180,83,9,0.08)",    accent: "#B45309" },
+  philosophy:              { from: "#C84A10", to: "#C84A10", text: "#BDBDBD", bg: "rgba(85,85,85,0.08)",   accent: "#C84A10" },
+  history:                 { from: "#C84A10", to: "#C84A10", text: "#E4E4E4", bg: "rgba(132,132,132,0.08)",    accent: "#C84A10" },
+  psychology:              { from: "#C84A10", to: "#C84A10", text: "#B8B8B8", bg: "rgba(74,74,74,0.08)",    accent: "#C84A10" },
+  sociology:               { from: "#3D3D3D", to: "#C84A10", text: "#C84A10", bg: "rgba(116,116,116,0.08)",    accent: "#C84A10" },
+  science:                 { from: "#C84A10", to: "#C84A10", text: "#DEDEDE", bg: "rgba(138,138,138,0.08)",   accent: "#C84A10" },
+  geopolitics:             { from: "#3D3D3D", to: "#565656", text: "#C9C9C9", bg: "rgba(86,86,86,0.08)",    accent: "#565656" },
+  "sanskrit-studies":      { from: "#C84A10", to: "#C84A10", text: "#E4E4E4", bg: "rgba(142,142,142,0.08)",   accent: "#C84A10" },
+  "political-theory":      { from: "#191919", to: "#C84A10", text: "#BCBCBC", bg: "rgba(55,55,55,0.08)",   accent: "#C84A10" },
+  translations:            { from: "#1F1F1F", to: "#C84A10", text: "#B6B6B6", bg: "rgba(69,69,69,0.08)",   accent: "#C84A10" },
+  aesthetics:              { from: "#C84A10", to: "#C84A10", text: "#DADADA", bg: "rgba(85,85,85,0.08)",  accent: "#C84A10" },
+  "civilizational-thought":{ from: "#242424", to: "#C84A10", text: "#D4D4D4", bg: "rgba(127,127,127,0.08)",   accent: "#C84A10" },
+  multimedia:              { from: "#151515", to: "#C84A10", text: "#D8D8D8", bg: "rgba(78,78,78,0.08)",   accent: "#C84A10" },
+  archive:                 { from: "#272727", to: "#727272", text: "#D4D4D4", bg: "rgba(114,114,114,0.08)", accent: "#727272" },
+  papers:                  { from: "#2E2E2E", to: "#C84A10", text: "#E4E4E4", bg: "rgba(98,98,98,0.08)",    accent: "#C84A10" },
 };
 
 /* ─── Peacock Feather ─────────────────────────────────────────────────── */
@@ -58,13 +58,13 @@ export function PeacockFeather({
       style={style}
     >
       {/* Shaft */}
-      <path d="M25,148 C25,130 23,105 25,85 C27,65 23,45 25,20 C25,12 24,6 25,1" stroke="#D97706" strokeWidth="1.8" strokeLinecap="round" fill="none" />
+      <path d="M25,148 C25,130 23,105 25,85 C27,65 23,45 25,20 C25,12 24,6 25,1" stroke="#C84A10" strokeWidth="1.8" strokeLinecap="round" fill="none" />
 
       {/* Left barbs */}
       {[22, 38, 54, 70, 84].map((y, i) => (
         <path key={`bl${i}`}
           d={`M25,${y} C${25 - (8 + i * 3)},${y - 2} ${25 - (12 + i * 4)},${y + 3} ${25 - (16 + i * 5)},${y + 1}`}
-          stroke={["#06B6D4","#3B82F6","#7C3AED","#06B6D4","#8B5CF6"][i]}
+          stroke={["#C84A10","#C84A10","#C84A10","#C84A10","#C84A10"][i]}
           strokeWidth={0.85 + i * 0.08}
           strokeLinecap="round"
           opacity="0.70"
@@ -75,7 +75,7 @@ export function PeacockFeather({
       {[22, 38, 54, 70, 84].map((y, i) => (
         <path key={`br${i}`}
           d={`M25,${y} C${25 + (8 + i * 3)},${y - 2} ${25 + (12 + i * 4)},${y + 3} ${25 + (16 + i * 5)},${y + 1}`}
-          stroke={["#3B82F6","#7C3AED","#06B6D4","#A78BFA","#06B6D4"][i]}
+          stroke={["#C84A10","#C84A10","#C84A10","#999999","#C84A10"][i]}
           strokeWidth={0.85 + i * 0.08}
           strokeLinecap="round"
           opacity="0.70"
@@ -83,19 +83,19 @@ export function PeacockFeather({
       ))}
 
       {/* Eye – outer teal glow */}
-      <ellipse cx="25" cy="13" rx="13" ry="15" fill="#06B6D4" opacity="0.12" />
-      <ellipse cx="25" cy="13" rx="13" ry="15" stroke="#06B6D4" strokeWidth="0.9" opacity="0.45" />
+      <ellipse cx="25" cy="13" rx="13" ry="15" fill="#C84A10" opacity="0.12" />
+      <ellipse cx="25" cy="13" rx="13" ry="15" stroke="#C84A10" strokeWidth="0.9" opacity="0.45" />
       {/* Eye – blue ring */}
-      <ellipse cx="25" cy="13" rx="8.5" ry="10.5" fill="#3B82F6" opacity="0.18" />
-      <ellipse cx="25" cy="13" rx="8.5" ry="10.5" stroke="#3B82F6" strokeWidth="0.7" opacity="0.55" />
+      <ellipse cx="25" cy="13" rx="8.5" ry="10.5" fill="#C84A10" opacity="0.18" />
+      <ellipse cx="25" cy="13" rx="8.5" ry="10.5" stroke="#C84A10" strokeWidth="0.7" opacity="0.55" />
       {/* Eye – violet iris */}
-      <ellipse cx="25" cy="13" rx="5" ry="6.5" fill="#7C3AED" opacity="0.60" />
+      <ellipse cx="25" cy="13" rx="5" ry="6.5" fill="#C84A10" opacity="0.60" />
       {/* Eye – dark pupil */}
-      <ellipse cx="25" cy="13" rx="2.5" ry="3.2" fill="#1E1B4B" />
+      <ellipse cx="25" cy="13" rx="2.5" ry="3.2" fill="#1F1F1F" />
       {/* Eye – glint */}
       <ellipse cx="23.5" cy="11.5" rx="0.9" ry="1.1" fill="rgba(255,255,255,0.7)" />
       {/* Gold tip */}
-      <circle cx="25" cy="1.5" r="1.8" fill="#F59E0B" opacity="0.85" />
+      <circle cx="25" cy="1.5" r="1.8" fill="#C84A10" opacity="0.85" />
     </svg>
   );
 }
@@ -131,9 +131,9 @@ export const ColorMandala = memo(function ColorMandala({
       })}
 
       {/* Rings */}
-      <circle cx={c} cy={c} r={outerR} stroke="#D97706" strokeWidth="1.4" opacity="0.40" />
-      <circle cx={c} cy={c} r={midR}   stroke="#D97706" strokeWidth="0.8" opacity="0.28" />
-      <circle cx={c} cy={c} r={innerR} stroke="#D97706" strokeWidth="0.5" opacity="0.22" />
+      <circle cx={c} cy={c} r={outerR} stroke="#C84A10" strokeWidth="1.4" opacity="0.40" />
+      <circle cx={c} cy={c} r={midR}   stroke="#C84A10" strokeWidth="0.8" opacity="0.28" />
+      <circle cx={c} cy={c} r={innerR} stroke="#C84A10" strokeWidth="0.5" opacity="0.22" />
 
       {/* Spokes */}
       {SPECTRUM.map((color, i) => {
@@ -169,9 +169,9 @@ export const ColorMandala = memo(function ColorMandala({
       })}
 
       {/* Centre gold */}
-      <circle cx={c} cy={c} r="12" fill="#D97706" opacity="0.50" />
-      <circle cx={c} cy={c} r="6"  fill="#F59E0B" opacity="0.90" />
-      <circle cx={c} cy={c} r="2"  fill="#FFFBEB" opacity="0.95" />
+      <circle cx={c} cy={c} r="12" fill="#C84A10" opacity="0.50" />
+      <circle cx={c} cy={c} r="6"  fill="#C84A10" opacity="0.90" />
+      <circle cx={c} cy={c} r="2"  fill="#FBFBFB" opacity="0.95" />
     </svg>
   );
 });
@@ -197,8 +197,8 @@ export const YantraPattern = memo(function YantraPattern({
       .join(" ");
   };
 
-  const WARM = ["#E11D48","#F97316","#D97706","#EAB308"];
-  const COOL = ["#3B82F6","#06B6D4","#7C3AED","#0EA5E9","#4338CA"];
+  const WARM = ["#C84A10","#C84A10","#C84A10","#C84A10"];
+  const COOL = ["#C84A10","#C84A10","#C84A10","#C84A10","#C84A10"];
 
   return (
     <svg width={size} height={size} viewBox="0 0 240 240" fill="none"
@@ -206,18 +206,18 @@ export const YantraPattern = memo(function YantraPattern({
       aria-hidden="true" style={style}>
 
       {/* Outer square frames */}
-      <rect x="8"  y="8"  width="224" height="224" stroke="#D97706" strokeWidth="0.9" opacity="0.25" />
-      <rect x="14" y="14" width="212" height="212" stroke="#D97706" strokeWidth="0.5" opacity="0.18" />
+      <rect x="8"  y="8"  width="224" height="224" stroke="#C84A10" strokeWidth="0.9" opacity="0.25" />
+      <rect x="14" y="14" width="212" height="212" stroke="#C84A10" strokeWidth="0.5" opacity="0.18" />
 
       {/* T-gates on the square (simplified) */}
       {[0, 90, 180, 270].map(rot => (
         <g key={rot} transform={`rotate(${rot} 120 120)`}>
-          <rect x="108" y="8" width="24" height="10" stroke="#D97706" strokeWidth="0.5" opacity="0.22" fill="none" />
+          <rect x="108" y="8" width="24" height="10" stroke="#C84A10" strokeWidth="0.5" opacity="0.22" fill="none" />
         </g>
       ))}
 
       {/* Outer 16-petal lotus circle */}
-      <circle cx={c} cy={c} r="104" stroke="#D97706" strokeWidth="0.5" opacity="0.18" />
+      <circle cx={c} cy={c} r="104" stroke="#C84A10" strokeWidth="0.5" opacity="0.18" />
       {Array.from({ length: 16 }, (_, i) => {
         const a = (i * 22.5 * Math.PI) / 180;
         const px = c + 104 * Math.cos(a), py = c + 104 * Math.sin(a);
@@ -254,15 +254,15 @@ export const YantraPattern = memo(function YantraPattern({
       })}
 
       {/* Bindu */}
-      <circle cx={c} cy={c} r="6" fill="#D97706" opacity="0.80" />
-      <circle cx={c} cy={c} r="2.8" fill="#FDE68A" />
+      <circle cx={c} cy={c} r="6" fill="#C84A10" opacity="0.80" />
+      <circle cx={c} cy={c} r="2.8" fill="#E4E4E4" />
     </svg>
   );
 });
 
 /* ─── Rainbow Divider — spectrum horizontal separator ────────────────── */
 export function RainbowDivider({ className = "" }: { className?: string }) {
-  const spectrumGrad = "linear-gradient(90deg,#E11D48,#F97316,#EAB308,#22C55E,#06B6D4,#3B82F6,#7C3AED,#EC4899)";
+  const spectrumGrad = "linear-gradient(90deg,#C84A10,#C84A10,#C84A10,#C84A10,#C84A10,#C84A10,#C84A10,#C84A10)";
 
   return (
     <div className={`flex flex-col items-center gap-1 ${className}`} aria-hidden="true">
@@ -272,7 +272,7 @@ export function RainbowDivider({ className = "" }: { className?: string }) {
       {/* Center row */}
       <div className="flex items-center justify-center gap-1 px-4">
         {/* Left fade line */}
-        <div style={{ flex: 1, height: "1px", background: "linear-gradient(90deg,transparent,rgba(139,96,32,0.4))" }} />
+        <div style={{ flex: 1, height: "1px", background: "linear-gradient(90deg,transparent,rgba(101,101,101,0.4))" }} />
 
         {/* 7 colored gems */}
         {SPECTRUM.slice(0, 7).map((color, i) => (
@@ -284,9 +284,9 @@ export function RainbowDivider({ className = "" }: { className?: string }) {
         {/* Centre lotus */}
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
           {[0,60,120,180,240,300].map(a => (
-            <path key={a} d="M12,12 C10,8 9.5,5 12,2 C14.5,5 14,8 12,12Z" fill="#D97706" opacity="0.75" transform={`rotate(${a} 12 12)`} />
+            <path key={a} d="M12,12 C10,8 9.5,5 12,2 C14.5,5 14,8 12,12Z" fill="#C84A10" opacity="0.75" transform={`rotate(${a} 12 12)`} />
           ))}
-          <circle cx="12" cy="12" r="3" fill="#F59E0B" opacity="0.9" />
+          <circle cx="12" cy="12" r="3" fill="#C84A10" opacity="0.9" />
         </svg>
 
         {/* 7 colored gems (mirrored) */}
@@ -297,7 +297,7 @@ export function RainbowDivider({ className = "" }: { className?: string }) {
         ))}
 
         {/* Right fade line */}
-        <div style={{ flex: 1, height: "1px", background: "linear-gradient(90deg,rgba(139,96,32,0.4),transparent)" }} />
+        <div style={{ flex: 1, height: "1px", background: "linear-gradient(90deg,rgba(101,101,101,0.4),transparent)" }} />
       </div>
 
       {/* Bottom line */}
@@ -317,10 +317,10 @@ export function PrismaticBurst({
   style?: React.CSSProperties;
 }) {
   const burstColors = [
-    "#E11D48","#F43F5E","#F97316","#FB923C","#EAB308","#FCD34D",
-    "#22C55E","#4ADE80","#06B6D4","#22D3EE","#3B82F6","#60A5FA",
-    "#7C3AED","#A78BFA","#EC4899","#F472B6","#E11D48","#F43F5E",
-    "#F97316","#FB923C","#22C55E","#06B6D4","#3B82F6","#7C3AED",
+    "#C84A10","#C84A10","#C84A10","#C84A10","#C84A10","#C84A10",
+    "#C84A10","#C84A10","#C84A10","#C84A10","#C84A10","#C84A10",
+    "#C84A10","#999999","#C84A10","#C84A10","#C84A10","#C84A10",
+    "#C84A10","#C84A10","#C84A10","#C84A10","#C84A10","#C84A10",
   ];
   const c = 100, r1 = 24, r2 = 94;
 
@@ -337,10 +337,10 @@ export function PrismaticBurst({
             stroke={color} strokeWidth="2.2" opacity="0.38" strokeLinecap="round" />
         );
       })}
-      <circle cx={c} cy={c} r={r1} stroke="#D97706" strokeWidth="0.9" opacity="0.45" />
-      <circle cx={c} cy={c} r="12" fill="#D97706" opacity="0.55" />
-      <circle cx={c} cy={c} r="6"  fill="#F59E0B" opacity="0.90" />
-      <circle cx={c} cy={c} r="2.5" fill="#FFFBEB" />
+      <circle cx={c} cy={c} r={r1} stroke="#C84A10" strokeWidth="0.9" opacity="0.45" />
+      <circle cx={c} cy={c} r="12" fill="#C84A10" opacity="0.55" />
+      <circle cx={c} cy={c} r="6"  fill="#C84A10" opacity="0.90" />
+      <circle cx={c} cy={c} r="2.5" fill="#FBFBFB" />
     </svg>
   );
 }

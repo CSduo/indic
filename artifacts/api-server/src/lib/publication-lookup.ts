@@ -5,6 +5,7 @@
  */
 import { db, articlesTable, papersTable, submissionsTable, usersTable } from "@workspace/db";
 import { and, eq, isNull, like, or } from "drizzle-orm";
+import { bodyHashSql } from "./public-content";
 
 export type PublicationKind = "article" | "paper";
 
@@ -104,6 +105,14 @@ export interface AuthorHubArticle {
   heroImageUrl: string | null;
   publishedAt: Date | string | null;
   authorId: string | null;
+  /** Identifies the body's version for the description and topic terms the page lists (listingSeoFor). */
+  bodyHash?: string | null;
+  /** Only when already at hand; listingSeoFor reads it when it is needed. */
+  body?: string | null;
+  updatedAt?: Date | string | null;
+  tags?: string[] | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
 }
 
 export interface AuthorHubPaper {
@@ -120,6 +129,12 @@ export interface AuthorHubPaper {
   year: number | null;
   doi: string | null;
   authorId: string | null;
+  bodyHash?: string | null;
+  body?: string | null;
+  updatedAt?: Date | string | null;
+  tags?: string[] | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
 }
 
 /** Every published, non-deleted work with the account that submitted it. */
@@ -137,6 +152,11 @@ export async function listAuthorHubWorks(): Promise<{ articles: AuthorHubArticle
       heroImageUrl: articlesTable.heroImageUrl,
       publishedAt: articlesTable.publishedAt,
       authorId: submissionsTable.userId,
+      bodyHash: bodyHashSql(articlesTable.body),
+      updatedAt: articlesTable.updatedAt,
+      tags: articlesTable.tags,
+      seoTitle: articlesTable.seoTitle,
+      seoDescription: articlesTable.seoDescription,
     }).from(articlesTable)
       .leftJoin(submissionsTable, eq(articlesTable.sourceSubmissionId, submissionsTable.id))
       .where(and(eq(articlesTable.status, "PUBLISHED"), isNull(articlesTable.deletedAt))),
@@ -153,6 +173,11 @@ export async function listAuthorHubWorks(): Promise<{ articles: AuthorHubArticle
       year: papersTable.year,
       doi: papersTable.doi,
       authorId: submissionsTable.userId,
+      bodyHash: bodyHashSql(papersTable.body),
+      updatedAt: papersTable.updatedAt,
+      tags: papersTable.tags,
+      seoTitle: papersTable.seoTitle,
+      seoDescription: papersTable.seoDescription,
     }).from(papersTable)
       .leftJoin(submissionsTable, eq(papersTable.sourceSubmissionId, submissionsTable.id))
       .where(and(eq(papersTable.status, "PUBLISHED"), isNull(papersTable.deletedAt))),

@@ -27,7 +27,7 @@ export function AdminSidebar({ active }: { active: string }) {
       {/* Logo */}
       <Link href="/" className="admin-topnav-logo">
         <div className="leading-none">
-          <div className="font-display text-xs tracking-[0.14em]" style={{ color: "var(--gold-bright)" }}>ĀNVĪKṢIKĪ</div>
+          <div className="font-display text-xs tracking-[0.14em] text-[var(--gold-bright)]">ĀNVĪKṢIKĪ</div>
           <div className="font-ui text-[8px] tracking-[0.18em] uppercase" style={{ color: "var(--muted)" }}>Admin</div>
         </div>
       </Link>
