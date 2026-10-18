@@ -47,10 +47,11 @@ export const SITE_URL = "https://anvikshikijournal.in";
 /**
  * When the copy of the static pages (/about, /about/anvikshiki) or the layout
  * of the listing pages (what the archive, domains, domain hubs and author pages
- * show for each work) last changed. Update this by hand in the same commit that
- * makes such a change.
+ * show for each work) last changed on the live site. Update this by hand when
+ * such a change is deployed. The daily IndexNow pass submits pages whose
+ * lastmod moved in the last 26 hours, so it picks them up the next night.
  */
-export const STATIC_PAGES_LASTMOD = "2026-10-17T00:00:00.000Z";
+export const STATIC_PAGES_LASTMOD = "2026-10-18T13:01:49.000Z";
 
 export interface SitemapEntry {
   loc: string;
